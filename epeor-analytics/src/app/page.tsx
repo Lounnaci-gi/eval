@@ -48,9 +48,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetch("http://localhost:8000/stats")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("Erreur réseau");
+        return res.json();
+      })
       .then((data) => {
         setStats(data);
+      })
+      .catch((err) => {
+        console.error("Erreur de chargement des stats:", err);
+        setStats({ error: "Impossible de contacter le serveur backend (Port 8000)" });
       });
   }, []);
 

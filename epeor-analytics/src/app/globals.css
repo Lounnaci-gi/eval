@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-obat-blue: #0D83DE;
+  --color-obat-cyan: #00D1FF;
+  --color-obat-dark: #101828;
+  --color-obat-gray: #475467;
+  --color-obat-light: #F9FAFB;
+}
+
+:root {
+  --foreground-rgb: 16, 24, 40;
+  --background-rgb: 249, 250, 251;
+
+  --primary: #0D83DE;
+  --secondary: #00D1FF;
+  --accent: #12B76A;
+  --card-bg: #FFFFFF;
+  --card-border: #E4E7EC;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background-color: rgb(var(--background-rgb));
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.obat-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 1.5rem; /* rounded-3xl */
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1), 0 1px 2px rgba(16, 24, 40, 0.06);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.obat-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(16, 24, 40, 0.1), 0 4px 6px -2px rgba(16, 24, 40, 0.05);
+  border-color: #D0D5DD;
+}
+
+.text-obat-blue {
+  color: var(--primary);
+}
+
+.bg-obat-blue {
+  background-color: var(--primary);
+}

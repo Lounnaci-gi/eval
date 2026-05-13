@@ -1337,7 +1337,15 @@ function CreanceDetailView({ onBack }: any) {
               { label: "Créance", value: fmt(data.total_creance), color: "bg-rose-50 text-rose-600", dot: "bg-rose-500" },
               { label: "Taux Recov.", value: `${((data.total_recouvre / data.total_ca) * 100).toFixed(2)}%`, color: "bg-amber-50 text-amber-600", dot: "bg-amber-500" },
             ].map((kpi, i) => (
-              <div key={i} className="bg-white border border-[#E4E7EC] rounded-[2.5rem] p-5 shadow-sm hover:shadow-md transition-all">
+              <div 
+                key={i} 
+                onClick={() => {
+                  if (kpi.label === "Créance") {
+                    document.getElementById('raw-type-table')?.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                className={`bg-white border border-[#E4E7EC] rounded-[2.5rem] p-5 shadow-sm hover:shadow-md transition-all ${kpi.label === "Créance" ? "cursor-pointer ring-offset-2 hover:ring-2 hover:ring-rose-500" : ""}`}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <div className={`w-2 h-2 rounded-full ${kpi.dot}`}></div>
                   <p className="text-[10px] font-black text-[#667085] uppercase tracking-widest">{kpi.label}</p>
@@ -1433,8 +1441,40 @@ function CreanceDetailView({ onBack }: any) {
               </table>
             </div>
           </div>
+          {/* Tableau par Type de Facture (Codes Raw) */}
+          <div id="raw-type-table" className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden scroll-mt-10">
+            <div className="p-8 border-b border-[#F2F4F7]">
+              <h4 className="text-xl font-black tracking-tight text-[#101828]">Répartition par Code de Facture (Raw TYPE)</h4>
+              <p className="text-sm text-[#667085] mt-1">Breakdown détaillé par code brut (E, C, 7, etc.) tel que défini dans le système</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black">
+                    <th className="px-8 py-5">Code Type</th>
+                    <th className="px-6 py-5 text-right">Nb Factures</th>
+                    <th className="px-6 py-5 text-right text-rose-600">Montant Créance (DA)</th>
+                    <th className="px-8 py-5 text-right">Part (%)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F2F4F7]">
+                  {data.by_raw_type?.map((t: any, i: number) => (
+                    <tr key={i} className="hover:bg-[#F9FAFB] transition-colors group">
+                      <td className="px-8 py-4 font-black text-sm text-[#101828]">Type {t.type}</td>
+                      <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467]">{t.count.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(t.creance)}</td>
+                      <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">
+                        {((t.creance / data.total_creance) * 100).toFixed(2)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </>
       )}
+
     </div>
   );
 }

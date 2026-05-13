@@ -447,8 +447,12 @@ def get_creance(start_date: str = None, end_date: str = None):
         total_recouvre      = 0.0
         commune_ca          = {}   # codcom -> {ca_eau, ca_prestation, creance, recouvre}
         type_ca             = {}   # typabon -> {label, ca_eau, ca_prestation, creance, recouvre}
+        raw_type_ca         = {}   # type -> {creance, count}
 
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
+
+        # target_date for "Créance arrêtée" is end_date (or very far in future if not provided)
+        target_date = end_date if end_date else '99991231'
 
         records = itertools.chain(
             ((r, False) for r in table_factures) if table_factures else [],
@@ -459,14 +463,13 @@ def get_creance(start_date: str = None, end_date: str = None):
             datsaisie = str(r.get('DATSAISIE') or '').strip()
             datreg  = str(r.get('DATREG') or '').strip()
             
-            # Check if record belongs to the CA/Créance period (based on DATSAISIE)
+            # 1. Activity filters (for CA and Recouvrement within the selected period)
             is_in_saisie = True
             if start_date and datsaisie < start_date:
                 is_in_saisie = False
             if end_date and datsaisie > end_date:
                 is_in_saisie = False
 
-            # Check if record belongs to the Recouvrement period (based on DATREG)
             is_in_reg = True
             if datreg in EMPTY_DATE_VALUES:
                 is_in_reg = False
@@ -476,8 +479,17 @@ def get_creance(start_date: str = None, end_date: str = None):
                 if end_date and datreg > end_date:
                     is_in_reg = False
 
-            # Skip if it doesn't belong to either period
-            if not is_in_saisie and not is_in_reg:
+            # 2. "Créance arrêtée" condition (matching calculate_all_creances.py logic)
+            # Logic: DATSAISIE <= target_date AND (DATREG vide OR DATREG > target_date)
+            # IMPORTANT: User insisted on using only the FACTURES.DBF method for this.
+            is_creance_arretee = False
+            if not is_avoir: # Only invoices contribute to this total as per requested method
+                if datsaisie and datsaisie <= target_date:
+                    if datreg in EMPTY_DATE_VALUES or datreg > target_date:
+                        is_creance_arretee = True
+
+            # Skip if doesn't match any criteria
+            if not is_in_saisie and not is_in_reg and not is_creance_arretee:
                 continue
 
             tp = str(r.get('TYPE') or '').strip()
@@ -489,76 +501,54 @@ def get_creance(start_date: str = None, end_date: str = None):
             prefix  = numab[:2]
             codcom  = quart_to_commune.get(prefix, '??')
 
-            is_creance = datreg in EMPTY_DATE_VALUES
-            
-            # Category determination based on accounting rules
+            # Category determination
             cat_key = "Autre"
             cat_label = "Autres"
-            
-            if tp == 'C':
-                cat_key = "411080"
-                cat_label = "Citernage"
-            elif tp == '6':
-                cat_key = "411090"
-                cat_label = "Manque à Gagner"
+            if tp == 'C': cat_key = "411080"; cat_label = "Citernage"
+            elif tp == '6': cat_key = "411090"; cat_label = "Manque à Gagner"
             elif tp == 'E':
-                if typabon == '15':
-                    cat_key = "411050"
-                    cat_label = "Vente en Gros"
-                elif typabon.startswith('1'):
-                    cat_key = "411010"
-                    cat_label = "Ménages"
-                elif typabon.startswith('2'):
-                    cat_key = "411020"
-                    cat_label = "Administrations"
-                elif typabon.startswith('3'):
-                    cat_key = "411030"
-                    cat_label = "Services"
-                elif typabon.startswith('4'):
-                    cat_key = "411040"
-                    cat_label = "Industrie & Tourisme"
+                if typabon == '15': cat_key = "411050"; cat_label = "Vente en Gros"
+                elif typabon.startswith('1'): cat_key = "411010"; cat_label = "Ménages"
+                elif typabon.startswith('2'): cat_key = "411020"; cat_label = "Administrations"
+                elif typabon.startswith('3'): cat_key = "411030"; cat_label = "Services"
+                elif typabon.startswith('4'): cat_key = "411040"; cat_label = "Industrie & Tourisme"
             
-            # Global totals for CA and Creance only if in saisie period
-            ca_eau = 0.0
-            ca_prestation = 0.0
-            if is_in_saisie:
-                if tp in ['E', 'C', '6']:
-                    ca_eau = monttc
-                    total_ca_eau += monttc
-                elif tp == 'A':
-                    ca_prestation = monttc
-                    total_ca_prestation += monttc
-                
-                if is_creance:
-                    total_creance += monttc
-
-            # Global totals for Recouvrement only if in reg period and not an avoir
-            recouvre_montant = 0.0
-            if is_in_reg and not is_avoir:
-                recouvre_montant = monttc + timbre
-                total_recouvre += recouvre_montant
-
-            # Per commune aggregation
+            # Aggregation logic
             if codcom not in commune_ca:
                 commune_ca[codcom] = {"ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0}
-            if is_in_saisie:
-                commune_ca[codcom]["ca_eau"] += ca_eau
-                commune_ca[codcom]["ca_prestation"] += ca_prestation
-                if is_creance:
-                    commune_ca[codcom]["creance"] += monttc
-            if is_in_reg and not is_avoir:
-                commune_ca[codcom]["recouvre"] += recouvre_montant
-
-            # Per category aggregation
             if cat_key not in type_ca:
                 type_ca[cat_key] = {"label": cat_label, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0}
+
+            # CA logic (within range)
             if is_in_saisie:
-                type_ca[cat_key]["ca_eau"] += ca_eau
-                type_ca[cat_key]["ca_prestation"] += ca_prestation
-                if is_creance:
-                    type_ca[cat_key]["creance"] += monttc
+                if tp in ['E', 'C', '6']:
+                    total_ca_eau += monttc
+                    commune_ca[codcom]["ca_eau"] += monttc
+                    type_ca[cat_key]["ca_eau"] += monttc
+                elif tp == 'A':
+                    total_ca_prestation += monttc
+                    commune_ca[codcom]["ca_prestation"] += monttc
+                    type_ca[cat_key]["ca_prestation"] += monttc
+
+            # Recouvrement logic (within range)
             if is_in_reg and not is_avoir:
-                type_ca[cat_key]["recouvre"] += recouvre_montant
+                m_rec = monttc + timbre
+                total_recouvre += m_rec
+                commune_ca[codcom]["recouvre"] += m_rec
+                type_ca[cat_key]["recouvre"] += m_rec
+
+            # Créance arrêtée logic
+            if is_creance_arretee:
+                total_creance += monttc
+                commune_ca[codcom]["creance"] += monttc
+                type_ca[cat_key]["creance"] += monttc
+                
+                if tp not in raw_type_ca:
+                    raw_type_ca[tp] = {"creance": 0.0, "count": 0}
+                raw_type_ca[tp]["creance"] += monttc
+                raw_type_ca[tp]["count"] += 1
+
+
 
         # Format communes
         communes_list = []
@@ -603,6 +593,16 @@ def get_creance(start_date: str = None, end_date: str = None):
         #     total_ca_eau = official["ca_eau"]
         #     total_ca = total_ca_eau + total_ca_prestation
 
+        # Format raw types
+        raw_types_list = []
+        for tp_code, d in raw_type_ca.items():
+            raw_types_list.append({
+                "type": tp_code,
+                "creance": round(d["creance"], 2),
+                "count": d["count"]
+            })
+        raw_types_list.sort(key=lambda x: x["creance"], reverse=True)
+
         return {
             "total_ca_eau": round(total_ca_eau, 2),
             "total_ca_prestation": round(total_ca_prestation, 2),
@@ -611,8 +611,10 @@ def get_creance(start_date: str = None, end_date: str = None):
             "total_recouvre": round(total_recouvre, 2),
             "by_commune": communes_list,
             "by_type": types_list,
+            "by_raw_type": raw_types_list,
             "is_official": official is not None
         }
+
     except Exception as e:
         return {"error": str(e)}
 

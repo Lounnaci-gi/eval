@@ -618,6 +618,130 @@ def get_creance(start_date: str = None, end_date: str = None):
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/creance_detaillee")
+def get_creance_detaillee(date_arrete: str):
+    """
+    Calculates detailed debt (créance arrêtée) at a specific date.
+    Follows the categorization logic from the provided SQL query.
+    """
+    try:
+        table_factures = load_dbf("FACTURES.DBF", load_all=False)
+        table_classe = load_dbf("CLASSE.DBF", load_all=True)
+        
+        # Build classe mapping: (CLASSE, S_CLASSE) -> DESIGN
+        classe_map = {}
+        if table_classe:
+            for r in table_classe:
+                c = str(r.get('CLASSE', '')).strip()
+                sc = str(r.get('S_CLASSE', '')).strip()
+                classe_map[(c, sc)] = str(r.get('DESIGN', '')).strip()
+
+        # results: (section, ordre, type_code, categorie) -> {count, numabs, sum}
+        stats = {}
+        EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
+
+        if table_factures is None:
+            return {"error": "FACTURES.DBF not found"}
+
+        for r in table_factures:
+            datsaisie = str(r.get('DATSAISIE') or '').strip()
+            datreg = str(r.get('DATREG') or '').strip()
+            
+            # Filter: DATSAISIE <= date_arrete AND (DATREG empty OR DATREG > date_arrete)
+            if not datsaisie or datsaisie > date_arrete:
+                continue
+            
+            is_paid_before = False
+            if datreg not in EMPTY_DATE_VALUES and datreg <= date_arrete:
+                is_paid_before = True
+            
+            if is_paid_before:
+                continue
+            
+            tp = str(r.get('TYPE') or '').strip()
+            typabon = str(r.get('TYPABON') or '').strip()
+            periode = str(r.get('PERIODE') or '').strip()
+            numab = str(r.get('NUMAB') or '').strip()
+            monttc = float(r.get('MONTTC') or 0)
+
+            section = None
+            ordre = 0
+            type_code = tp
+            categorie = ""
+
+            # Categorization logic
+            if tp == 'E':
+                section = 'EAU'
+                type_code = 'E'
+                if typabon == '15':
+                    ordre = 5
+                    categorie = '05:VENTE EN GROS'
+                elif '10' <= typabon <= '19':
+                    ordre = 1
+                    categorie = '01:MENAGES'
+                elif '20' <= typabon <= '29':
+                    ordre = 2
+                    categorie = '02:ADMINISTRATIONS'
+                elif '30' <= typabon <= '39':
+                    ordre = 3
+                    categorie = '03:COMMERCE'
+                elif '40' <= typabon <= '49':
+                    ordre = 4
+                    categorie = '04:INDUSTRIE & TOURISME'
+                else:
+                    # Default for unknown TYPABON in Section EAU
+                    ordre = 6
+                    categorie = f'06:AUTRE EAU ({typabon})'
+            elif tp == 'C' and periode == '0002':
+                section = 'EAU'
+                ordre = 7
+                type_code = 'C'
+                categorie = '07:E/CITERNE'
+            elif tp == '6':
+                section = 'EAU'
+                ordre = 9
+                type_code = '6'
+                categorie = '09:E/MANQUE A GAGNER'
+            elif tp != '':
+                # Section PRESTATIONS
+                # SQL: NOT (F.TYPE = 'C' AND F.PERIODE = '0002') already handled by elif above
+                section = 'PRESTATIONS'
+                ordre = 100
+                cl_design = classe_map.get((tp, '****'), tp)
+                cs_design = classe_map.get((tp, periode), periode)
+                categorie = f"{cl_design} / {cs_design}"
+
+            if section:
+                key = (section, ordre, type_code, categorie)
+                if key not in stats:
+                    stats[key] = {"nbr_factures": 0, "numabs": set(), "creance": 0.0}
+                
+                stats[key]["nbr_factures"] += 1
+                stats[key]["numabs"].add(numab)
+                stats[key]["creance"] += monttc
+
+        # Format results
+        final_list = []
+        for (section, ordre, type_code, categorie), data in stats.items():
+            final_list.append({
+                "SECTION": section,
+                "ORDRE": ordre,
+                "TYPE_CODE": type_code,
+                "CATEGORIE": categorie,
+                "NBR_FACTURES": data["nbr_factures"],
+                "NBR_ABONNES": len(data["numabs"]),
+                "CREANCE": round(data["creance"], 2)
+            })
+
+        # Sort by SECTION desc, ORDRE, CATEGORIE
+        # Custom sort: PRESTATIONS first (P > E), then by ORDRE and CATEGORIE
+        final_list.sort(key=lambda x: (0 if x["SECTION"] == 'PRESTATIONS' else 1, x["ORDRE"], x["CATEGORIE"]))
+        
+        return final_list
+
+    except Exception as e:
+        return {"error": str(e)}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

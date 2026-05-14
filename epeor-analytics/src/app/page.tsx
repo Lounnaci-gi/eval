@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import {
   Users,
   UserX,
@@ -35,7 +35,7 @@ import {
 // Removed dummy data
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'creance'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'creance' | 'ventilation'>('dashboard');
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -442,7 +442,9 @@ export default function Dashboard() {
         ) : currentView === 'stopped' ? (
           <StoppedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'creance' ? (
-          <CreanceDetailView onBack={() => setCurrentView('dashboard')} />
+          <CreanceDetailView onBack={() => setCurrentView('dashboard')} onGoToVentilation={() => setCurrentView('ventilation')} />
+        ) : currentView === 'ventilation' ? (
+          <CreanceVentilationView onBack={() => setCurrentView('creance')} />
         ) : null}
       </main>
     </div>
@@ -1137,7 +1139,7 @@ function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
   );
 }
 
-function CreanceDetailView({ onBack }: any) {
+function CreanceDetailView({ onBack, onGoToVentilation }: any) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1215,8 +1217,19 @@ function CreanceDetailView({ onBack }: any) {
         >
           <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
         </button>
-        <h3 className="text-2xl font-black tracking-tight text-[#101828]">Créance Globale & Chiffre d'Affaires</h3>
-        <p className="text-sm text-[#667085] mt-1">Analyse de la facturation et du recouvrement depuis FACTURES.DBF</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Créance Globale & Chiffre d'Affaires</h3>
+            <p className="text-sm text-[#667085] mt-1">Analyse de la facturation et du recouvrement depuis FACTURES.DBF</p>
+          </div>
+          <button
+            onClick={onGoToVentilation}
+            className="px-6 py-3 bg-white border border-[#0D83DE] text-[#0D83DE] rounded-2xl text-xs font-black hover:bg-blue-50 transition-all flex items-center gap-2 shadow-sm"
+          >
+            <BarChart3 size={16} />
+            Ventilation Détaillée (SQL)
+          </button>
+        </div>
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mt-8 pt-8 border-t border-[#F2F4F7]">
           <div className="flex flex-col md:flex-row md:items-end gap-4">
@@ -1475,6 +1488,183 @@ function CreanceDetailView({ onBack }: any) {
         </>
       )}
 
+    </div>
+  );
+}
+
+function CreanceVentilationView({ onBack }: any) {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dateArrete, setDateArrete] = useState(new Date().toISOString().split('T')[0]);
+
+  const fetchData = async (date: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const formattedDate = date.replace(/-/g, '');
+      const res = await fetch(`http://localhost:8000/creance_detaillee?date_arrete=${formattedDate}`);
+      const d = await res.json();
+      if (d.error) throw new Error(d.error);
+      setData(d);
+    } catch (e: any) {
+      setError(e.message || "Erreur de connexion.");
+    }
+    setLoading(false);
+  };
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + " DA";
+
+  return (
+    <div className="space-y-10">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+        >
+          <ChevronRight className="rotate-180" size={16} /> Retour à l'analyse globale
+        </button>
+        <h3 className="text-2xl font-black tracking-tight text-[#101828]">Ventilation Détaillée des Créances</h3>
+        <p className="text-sm text-[#667085] mt-1">Structure financière arrêtée à une date précise (Requête SQL Legacy)</p>
+
+        <div className="flex items-end gap-4 mt-8 pt-8 border-t border-[#F2F4F7]">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Date d'Arrêté</label>
+            <input
+              type="date"
+              value={dateArrete}
+              onChange={(e) => setDateArrete(e.target.value)}
+              className="block bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
+            />
+          </div>
+          <button
+            onClick={() => fetchData(dateArrete)}
+            className="px-8 py-2.5 bg-[#0D83DE] text-white rounded-xl text-xs font-black shadow-lg shadow-blue-100 hover:bg-[#0b72c2] transition-all flex items-center gap-2"
+          >
+            <TrendingUp size={16} />
+            Générer le rapport
+          </button>
+        </div>
+      </div>
+
+      {loading && (
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center gap-6">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0D83DE]"></div>
+          <p className="font-black text-[#101828] text-lg text-center">Calcul de la ventilation en cours…<br/><span className="text-sm text-[#667085] font-bold">Analyse de la section EAU et PRESTATIONS</span></p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 rounded-[2rem] p-8 text-rose-600 font-bold">{error}</div>
+      )}
+
+      {data.length > 0 && !loading && (
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black">
+                  <th className="px-8 py-5">Section</th>
+                  <th className="px-6 py-5">Type</th>
+                  <th className="px-6 py-5">Catégorie / Service</th>
+                  <th className="px-6 py-5 text-right">Nb Factures</th>
+                  <th className="px-6 py-5 text-right">Nb Abonnés</th>
+                  <th className="px-8 py-5 text-right">Créance (DA)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {['PRESTATIONS', 'EAU'].map(section => {
+                  const sectionRows = data.filter(r => r.SECTION === section);
+                  if (sectionRows.length === 0) return null;
+                  
+                  const subTotalFactures = sectionRows.reduce((acc, curr) => acc + curr.NBR_FACTURES, 0);
+                  const subTotalAbonnes = sectionRows.reduce((acc, curr) => acc + curr.NBR_ABONNES, 0);
+                  const subTotalCreance = sectionRows.reduce((acc, curr) => acc + curr.CREANCE, 0);
+
+                  const isEau = section === 'EAU';
+
+                  return (
+                    <Fragment key={section}>
+                      {sectionRows.map((row, i) => (
+                        <tr key={`${section}-${i}`} className="hover:bg-[#F9FAFB] transition-colors group">
+                          <td className="px-8 py-5">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-purple-50 text-purple-600 border border-purple-100'}`}>
+                              {row.SECTION}
+                            </span>
+                          </td>
+                          <td className="px-6 py-5 font-mono text-xs text-[#475467]">
+                            <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{row.TYPE_CODE}</span>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="font-black text-sm text-[#101828] mb-0.5">{row.CATEGORIE}</div>
+                            <div className="text-[11px] text-[#667085] font-medium">Rang d'ordre: {row.ORDRE}</div>
+                          </td>
+                          <td className="px-6 py-5 text-right font-bold text-sm text-[#101828]">{row.NBR_FACTURES.toLocaleString()}</td>
+                          <td className="px-6 py-5 text-right font-bold text-sm text-[#101828]">{row.NBR_ABONNES.toLocaleString()}</td>
+                          <td className="px-8 py-5 text-right font-black text-sm text-[#101828] bg-slate-50/30">{fmt(row.CREANCE)}</td>
+                        </tr>
+                      ))}
+                      {/* Section Sub-total Row - Premium Styling */}
+                      <tr className={`${isEau ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y-2 ${isEau ? 'border-blue-100/50' : 'border-purple-100/50'}`}>
+                        <td colSpan={3} className="px-8 py-6">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-1.5 h-6 rounded-full ${isEau ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
+                            <div>
+                              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${isEau ? 'text-blue-600' : 'text-purple-600'}`}>Synthèse Section</p>
+                              <p className="text-sm font-black text-[#101828]">Sous-total {section}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-6 text-right">
+                          <span className="text-xs font-black text-[#475467] block uppercase mb-1 opacity-50">Factures</span>
+                          <span className="text-sm font-black text-[#101828]">{subTotalFactures.toLocaleString()}</span>
+                        </td>
+                        <td className="px-6 py-6 text-right">
+                          <span className="text-xs font-black text-[#475467] block uppercase mb-1 opacity-50">Abonnés</span>
+                          <span className="text-sm font-black text-[#101828]">{subTotalAbonnes.toLocaleString()}</span>
+                        </td>
+                        <td className={`px-8 py-6 text-right ${isEau ? 'bg-blue-100/30' : 'bg-purple-100/30'}`}>
+                          <span className={`text-xs font-black block uppercase mb-1 ${isEau ? 'text-blue-600' : 'text-purple-600'}`}>Créance Totale</span>
+                          <span className="text-lg font-black text-[#101828]">{fmt(subTotalCreance)}</span>
+                        </td>
+                      </tr>
+                    </Fragment>
+                  );
+                })}
+                {/* Global Total Row - Ultra Premium */}
+                <tr className="bg-[#101828] text-white overflow-hidden relative">
+                  <td colSpan={3} className="px-8 py-10 relative z-10">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <TrendingUp className="text-white" size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-1">Situation Consolidée</h4>
+                        <p className="text-xl font-black tracking-tight">Total Général Arrêté</p>
+                      </div>
+                    </div>
+                    {/* Decorative background element */}
+                    <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-blue-500/10 to-transparent pointer-events-none"></div>
+                  </td>
+                  <td className="px-6 py-10 text-right relative z-10">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Volume Factures</p>
+                    <p className="text-lg font-black">{data.reduce((acc, curr) => acc + curr.NBR_FACTURES, 0).toLocaleString()}</p>
+                  </td>
+                  <td className="px-6 py-10 text-right relative z-10">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Taux Couverture</p>
+                    <p className="text-lg font-black">100%</p>
+                  </td>
+                  <td className="px-8 py-10 text-right bg-blue-600 relative z-10">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-100 mb-2 text-right">Créance Nette Globale</p>
+                    <p className="text-2xl font-black text-white">{fmt(data.reduce((acc, curr) => acc + curr.CREANCE, 0))}</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

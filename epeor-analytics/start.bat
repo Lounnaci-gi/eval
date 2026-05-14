@@ -4,7 +4,7 @@ echo       Lancement de EPEOR Analytics Dashboard
 echo ===================================================
 
 echo [1/2] Lancement du Backend FastAPI...
-start "EPEOR Backend" cmd /k "cd backend && ..\.venv\Scripts\python.exe main.py"
+start "EPEOR Backend" cmd /k "cd backend && ..\venv\Scripts\python.exe main.py"
 
 echo [2/2] Lancement du Frontend Next.js...
 start "EPEOR Frontend" cmd /c "npm run dev"

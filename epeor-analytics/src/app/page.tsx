@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Fragment } from "react";
+import { useEffect, useState, Fragment, useRef } from "react";
 import {
   Users,
   UserX,
@@ -17,8 +17,15 @@ import {
   Calendar,
   ChevronRight,
   Bell,
-  HelpCircle
+  HelpCircle,
+  Printer,
+  FileDown,
+  FileText,
+  FileSpreadsheet
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import {
   BarChart,
   Bar,
@@ -33,6 +40,42 @@ import {
 } from "recharts";
 
 // Removed dummy data
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return "";
+  const parts = dateStr.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return dateStr;
+};
+
+const FrenchDateInput = ({ value, onChange, className, label }: any) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="space-y-2 relative">
+      {label && <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">{label}</label>}
+      <div className="relative">
+        <input
+          type="text"
+          readOnly
+          value={formatDate(value)}
+          onClick={() => inputRef.current?.showPicker()}
+          className={`${className} cursor-pointer`}
+        />
+        <input
+          type="date"
+          ref={inputRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 opacity-0 pointer-events-none"
+          tabIndex={-1}
+        />
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#98A2B3]">
+          <Calendar size={14} />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function Dashboard() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'creance' | 'ventilation'>('dashboard');
@@ -111,7 +154,7 @@ export default function Dashboard() {
       {/* Floating Hover Card - Obat Style */}
       {hoveredAbonne && (
         <div
-          className="fixed z-50 w-80 bg-white border border-[#E4E7EC] shadow-2xl rounded-[2rem] p-6 pointer-events-none animate-in fade-in zoom-in duration-200"
+          className="fixed z-50 w-80 bg-white border border-[#E4E7EC] shadow-2xl rounded-[2rem] p-6 pointer-events-none animate-in fade-in zoom-in duration-200 no-print"
           style={{
             left: `${Math.min(mousePos.x + 20, window.innerWidth - 340)}px`,
             top: `${Math.min(mousePos.y + 20, window.innerHeight - 400)}px`
@@ -158,7 +201,7 @@ export default function Dashboard() {
         </div>
       )}
       {/* Sidebar - Obat Style */}
-      <aside className="w-72 bg-white border-r border-[#E4E7EC] p-6 flex flex-col gap-10 hidden md:flex">
+      <aside className="w-72 bg-white border-r border-[#E4E7EC] p-6 flex flex-col gap-10 hidden md:flex no-print">
         <div className="flex items-center gap-3 px-2">
           <div className="w-10 h-10 bg-[#0D83DE] rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
             <Database className="text-white" size={24} />
@@ -193,8 +236,8 @@ export default function Dashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-10 overflow-y-auto">
-        <header className="flex justify-between items-start mb-12">
+      <main className="flex-1 p-10 overflow-y-auto print:p-0">
+        <header className="flex justify-between items-start mb-12 no-print">
           <div>
             <h1 className="text-4xl font-black text-[#101828] tracking-tight">Bonjour, Admin !</h1>
             <p className="text-[#475467] mt-1 text-lg">Retrouvez la situation globale de votre réseau aujourd'hui.</p>
@@ -1284,29 +1327,25 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
           </div>
 
           <div className="flex items-end gap-3 p-4 bg-[#F9FAFB] rounded-2xl border border-[#F2F4F7] border-dashed">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Intervalle de date personnalisé</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                  className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none"
-                />
-                <span className="text-[#98A2B3] text-xs font-bold">au</span>
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                  className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none"
-                />
-                <button
-                  onClick={handleCustomFilter}
-                  className="p-2 bg-white border border-[#E4E7EC] rounded-xl text-violet-600 hover:bg-violet-50 transition-colors shadow-sm"
-                >
-                  <Search size={14} />
-                </button>
-              </div>
+            <FrenchDateInput
+              label="Du"
+              value={dateRange.start}
+              onChange={(val: string) => setDateRange({ ...dateRange, start: val })}
+              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-32"
+            />
+            <FrenchDateInput
+              label="Au"
+              value={dateRange.end}
+              onChange={(val: string) => setDateRange({ ...dateRange, end: val })}
+              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-32"
+            />
+            <div className="pb-1">
+              <button
+                onClick={handleCustomFilter}
+                className="p-3 bg-white border border-[#E4E7EC] rounded-xl text-violet-600 hover:bg-violet-50 transition-colors shadow-sm"
+              >
+                <Search size={14} />
+              </button>
             </div>
           </div>
         </div>
@@ -1497,6 +1536,8 @@ function CreanceVentilationView({ onBack }: any) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dateArrete, setDateArrete] = useState(new Date().toISOString().split('T')[0]);
+  const [tableSearch, setTableSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null });
 
   const fetchData = async (date: string) => {
     setLoading(true);
@@ -1513,38 +1554,188 @@ function CreanceVentilationView({ onBack }: any) {
     setLoading(false);
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedData = (rows: any[]) => {
+    if (!sortConfig.key || !sortConfig.direction) return rows;
+    
+    return [...rows].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      
+      const sA = String(aVal).toLowerCase();
+      const sB = String(bVal).toLowerCase();
+      if (sA < sB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (sA > sB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const getFilteredData = () => {
+    if (!tableSearch) return data;
+    const s = tableSearch.toLowerCase();
+    return data.filter(r => 
+      r.CATEGORIE.toLowerCase().includes(s) || 
+      r.SECTION.toLowerCase().includes(s) || 
+      r.TYPE_CODE.toLowerCase().includes(s)
+    );
+  };
+
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + " DA";
+
+  const handleExportExcel = () => {
+    if (data.length === 0) return;
+    
+    // Prepare data for Excel
+    const worksheetData = data.map(row => ({
+      'Section': row.SECTION,
+      'Type': row.TYPE_CODE,
+      'Désignation': row.CATEGORIE,
+      'Volume (Factures)': row.NBR_FACTURES,
+      'Abonnés': row.NBR_ABONNES,
+      'Créance (DA)': row.CREANCE
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Ventilation Créances");
+    
+    // Auto-size columns
+    const maxWidths = [15, 10, 40, 15, 15, 20];
+    worksheet['!cols'] = maxWidths.map(w => ({ wch: w }));
+
+    XLSX.writeFile(workbook, `Ventilation_Creances_${dateArrete}.xlsx`);
+  };
+
+  const handleExportPDF = () => {
+    if (data.length === 0) return;
+
+    const doc = new jsPDF();
+    const tableData = data.map(row => [
+      row.SECTION,
+      row.TYPE_CODE,
+      row.CATEGORIE,
+      row.NBR_FACTURES.toLocaleString(),
+      row.NBR_ABONNES.toLocaleString(),
+      fmt(row.CREANCE)
+    ]);
+
+    doc.setFontSize(18);
+    doc.text("Ventilation Détaillée des Créances", 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Situation arrêtée au : ${formatDate(dateArrete)}`, 14, 30);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [['Section', 'Type', 'Désignation', 'Volume', 'Abonnés', 'Créance']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillStyle: 'dark', fillColor: [16, 24, 40], textColor: [255, 255, 255] },
+      styles: { fontSize: 8, cellPadding: 3 },
+      columnStyles: {
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'right' }
+      }
+    });
+
+    doc.save(`Ventilation_Creances_${dateArrete}.pdf`);
+  };
+
 
   return (
     <div className="space-y-10">
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors no-print"
         >
           <ChevronRight className="rotate-180" size={16} /> Retour à l'analyse globale
         </button>
         <h3 className="text-2xl font-black tracking-tight text-[#101828]">Ventilation Détaillée des Créances</h3>
-        <p className="text-sm text-[#667085] mt-1">Structure financière arrêtée à une date précise (Requête SQL Legacy)</p>
+        <p className="text-sm text-[#667085] mt-1 no-print">Structure financière arrêtée à une date précise (Requête SQL Legacy)</p>
 
-        <div className="flex items-end gap-4 mt-8 pt-8 border-t border-[#F2F4F7]">
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Date d'Arrêté</label>
-            <input
-              type="date"
+        <div className="flex items-end justify-between mt-8 pt-8 border-t border-[#F2F4F7]">
+          <div className="flex items-end gap-6 no-print">
+            <FrenchDateInput
+              label="Date d'Arrêté"
               value={dateArrete}
-              onChange={(e) => setDateArrete(e.target.value)}
-              className="block bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
+              onChange={setDateArrete}
+              className="block bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all w-48"
             />
+            <button
+              onClick={() => fetchData(dateArrete)}
+              className="px-8 py-2.5 bg-[#0D83DE] text-white rounded-xl text-xs font-black shadow-lg shadow-blue-100 hover:bg-[#0b72c2] transition-all flex items-center gap-2 h-[42px]"
+            >
+              <TrendingUp size={16} />
+              Générer
+            </button>
+            
+            {data.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Filtrer le tableau</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={tableSearch}
+                    onChange={(e) => setTableSearch(e.target.value)}
+                    placeholder="Rechercher une catégorie..."
+                    className="block bg-white border border-[#E4E7EC] rounded-xl px-9 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-[#0D83DE]/20 w-64"
+                  />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" size={14} />
+                </div>
+              </div>
+            )}
           </div>
-          <button
-            onClick={() => fetchData(dateArrete)}
-            className="px-8 py-2.5 bg-[#0D83DE] text-white rounded-xl text-xs font-black shadow-lg shadow-blue-100 hover:bg-[#0b72c2] transition-all flex items-center gap-2"
-          >
-            <TrendingUp size={16} />
-            Générer le rapport
-          </button>
+
+          <div className="flex items-center gap-3 no-print">
+            <button
+              onClick={handleExportExcel}
+              disabled={data.length === 0}
+              className="px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileSpreadsheet size={16} />
+              Excel
+            </button>
+            <button
+              onClick={handleExportPDF}
+              disabled={data.length === 0}
+              className="px-6 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-black hover:bg-rose-100 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileText size={16} />
+              PDF
+            </button>
+            <button
+              onClick={handlePrint}
+              disabled={data.length === 0}
+              className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black shadow-lg shadow-slate-200 hover:bg-black transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Printer size={16} />
+              Imprimer (A4)
+            </button>
+          </div>
+
+          {/* Title for Print only */}
+          <div className="hidden print:block text-center w-full">
+            <h1 className="text-2xl font-black uppercase tracking-widest text-[#101828]">Ventilation Détaillée des Créances</h1>
+            <p className="text-sm font-bold text-[#475467] mt-1">Situation arrêtée au : {formatDate(dateArrete)}</p>
+          </div>
         </div>
       </div>
 
@@ -1561,103 +1752,116 @@ function CreanceVentilationView({ onBack }: any) {
 
       {data.length > 0 && !loading && (
         <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-          <div className="overflow-x-auto">
+          <div id="print-area" className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead>
-                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black">
-                  <th className="px-8 py-5">Section</th>
-                  <th className="px-6 py-5">Type</th>
-                  <th className="px-6 py-5">Catégorie / Service</th>
-                  <th className="px-6 py-5 text-right">Nb Factures</th>
-                  <th className="px-6 py-5 text-right">Nb Abonnés</th>
-                  <th className="px-8 py-5 text-right">Créance (DA)</th>
+              <thead className="sticky top-0 z-20 bg-white">
+                <tr className="bg-[#F9FAFB] text-[#667085] text-[10px] uppercase tracking-[0.2em] font-bold border-b border-[#E4E7EC]">
+                  <th className="px-8 py-4 cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('SECTION')}>
+                    <div className="flex items-center gap-1">Section {sortConfig.key === 'SECTION' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                  </th>
+                  <th className="px-6 py-4 cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('TYPE_CODE')}>
+                    <div className="flex items-center gap-1">Type {sortConfig.key === 'TYPE_CODE' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                  </th>
+                  <th className="px-6 py-4 cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('CATEGORIE')}>
+                    <div className="flex items-center gap-1">Désignation {sortConfig.key === 'CATEGORIE' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                  </th>
+                  <th className="px-6 py-4 text-right cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('NBR_FACTURES')}>
+                    <div className="flex items-center justify-end gap-1">Volume {sortConfig.key === 'NBR_FACTURES' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                  </th>
+                  <th className="px-6 py-4 text-right cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('NBR_ABONNES')}>
+                    <div className="flex items-center justify-end gap-1">Abonnés {sortConfig.key === 'NBR_ABONNES' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                  </th>
+                  <th className="px-8 py-4 text-right cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('CREANCE')}>
+                    <div className="flex items-center justify-end gap-1">Créance {sortConfig.key === 'CREANCE' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
-                {['PRESTATIONS', 'EAU'].map(section => {
-                  const sectionRows = data.filter(r => r.SECTION === section);
+                {['EAU', 'PRESTATIONS'].map(section => {
+                  const sectionRows = getSortedData(getFilteredData().filter((r: any) => r.SECTION === section));
                   if (sectionRows.length === 0) return null;
                   
-                  const subTotalFactures = sectionRows.reduce((acc, curr) => acc + curr.NBR_FACTURES, 0);
-                  const subTotalAbonnes = sectionRows.reduce((acc, curr) => acc + curr.NBR_ABONNES, 0);
-                  const subTotalCreance = sectionRows.reduce((acc, curr) => acc + curr.CREANCE, 0);
+                  const subTotalFactures = sectionRows.reduce((acc: number, curr: any) => acc + curr.NBR_FACTURES, 0);
+                  const subTotalAbonnes = sectionRows.reduce((acc: number, curr: any) => acc + curr.NBR_ABONNES, 0);
+                  const subTotalCreance = sectionRows.reduce((acc: number, curr: any) => acc + curr.CREANCE, 0);
 
                   const isEau = section === 'EAU';
 
                   return (
                     <Fragment key={section}>
                       {sectionRows.map((row, i) => (
-                        <tr key={`${section}-${i}`} className="hover:bg-[#F9FAFB] transition-colors group">
-                          <td className="px-8 py-5">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-purple-50 text-purple-600 border border-purple-100'}`}>
+                        <tr key={`${section}-${i}`} className="hover:bg-[#F9FAFB]/50 transition-colors group">
+                          <td className="px-8 py-4">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-purple-50 text-purple-600 border border-purple-100/50'}`}>
                               {row.SECTION}
                             </span>
                           </td>
-                          <td className="px-6 py-5 font-mono text-xs text-[#475467]">
-                            <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{row.TYPE_CODE}</span>
+                          <td className="px-6 py-4">
+                            <span className="font-mono text-[10px] font-medium text-[#667085] bg-[#F9FAFB] px-1.5 py-0.5 rounded border border-[#E4E7EC]">
+                              {row.TYPE_CODE}
+                            </span>
                           </td>
-                          <td className="px-6 py-5">
-                            <div className="font-black text-sm text-[#101828] mb-0.5">{row.CATEGORIE}</div>
-                            <div className="text-[11px] text-[#667085] font-medium">Rang d'ordre: {row.ORDRE}</div>
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-[13px] text-[#101828] uppercase tracking-tight leading-tight">{row.CATEGORIE}</div>
+                            <div className="text-[9px] text-[#98A2B3] font-medium uppercase mt-0.5 tracking-tighter">Code Ordre: {row.ORDRE.toString().padStart(3, '0')}</div>
                           </td>
-                          <td className="px-6 py-5 text-right font-bold text-sm text-[#101828]">{row.NBR_FACTURES.toLocaleString()}</td>
-                          <td className="px-6 py-5 text-right font-bold text-sm text-[#101828]">{row.NBR_ABONNES.toLocaleString()}</td>
-                          <td className="px-8 py-5 text-right font-black text-sm text-[#101828] bg-slate-50/30">{fmt(row.CREANCE)}</td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="font-medium text-[13px] text-[#475467] font-mono">{row.NBR_FACTURES.toLocaleString()}</div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="font-medium text-[13px] text-[#475467] font-mono">{row.NBR_ABONNES.toLocaleString()}</div>
+                          </td>
+                          <td className="px-8 py-4 text-right">
+                            <div className="font-semibold text-[13px] text-[#101828] font-mono tracking-tighter tabular-nums">{fmt(row.CREANCE)}</div>
+                          </td>
                         </tr>
                       ))}
                       {/* Section Sub-total Row - Premium Styling */}
-                      <tr className={`${isEau ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y-2 ${isEau ? 'border-blue-100/50' : 'border-purple-100/50'}`}>
-                        <td colSpan={3} className="px-8 py-6">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-1.5 h-6 rounded-full ${isEau ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
-                            <div>
-                              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${isEau ? 'text-blue-600' : 'text-purple-600'}`}>Synthèse Section</p>
-                              <p className="text-sm font-black text-[#101828]">Sous-total {section}</p>
-                            </div>
+                      <tr className={`${isEau ? 'bg-blue-50/20' : 'bg-purple-50/20'} border-y border-[#F2F4F7] print:bg-slate-50 print:h-8`}>
+                        <td colSpan={3} className="px-8 py-4 print:py-1">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-1 h-5 rounded-full ${isEau ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
+                            <p className="text-[13px] font-bold text-[#101828]">Sous-total {section}</p>
                           </div>
                         </td>
-                        <td className="px-6 py-6 text-right">
-                          <span className="text-xs font-black text-[#475467] block uppercase mb-1 opacity-50">Factures</span>
-                          <span className="text-sm font-black text-[#101828]">{subTotalFactures.toLocaleString()}</span>
+                        <td className="px-6 py-4 text-right print:py-1">
+                          <span className="text-[13px] font-semibold text-[#475467] font-mono">{subTotalFactures.toLocaleString()}</span>
                         </td>
-                        <td className="px-6 py-6 text-right">
-                          <span className="text-xs font-black text-[#475467] block uppercase mb-1 opacity-50">Abonnés</span>
-                          <span className="text-sm font-black text-[#101828]">{subTotalAbonnes.toLocaleString()}</span>
+                        <td className="px-6 py-4 text-right print:py-1">
+                          <span className="text-[13px] font-semibold text-[#475467] font-mono">{subTotalAbonnes.toLocaleString()}</span>
                         </td>
-                        <td className={`px-8 py-6 text-right ${isEau ? 'bg-blue-100/30' : 'bg-purple-100/30'}`}>
-                          <span className={`text-xs font-black block uppercase mb-1 ${isEau ? 'text-blue-600' : 'text-purple-600'}`}>Créance Totale</span>
-                          <span className="text-lg font-black text-[#101828]">{fmt(subTotalCreance)}</span>
+                        <td className={`px-8 py-4 text-right ${isEau ? 'bg-blue-50/50' : 'bg-purple-50/50'} print:py-1`}>
+                          <span className="text-[15px] font-bold text-[#101828] font-mono tracking-tighter">{fmt(subTotalCreance)}</span>
                         </td>
                       </tr>
                     </Fragment>
                   );
                 })}
-                {/* Global Total Row - Ultra Premium */}
-                <tr className="bg-[#101828] text-white overflow-hidden relative">
-                  <td colSpan={3} className="px-8 py-10 relative z-10">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <TrendingUp className="text-white" size={24} />
-                      </div>
+                <tr className="bg-white border-t-2 border-[#101828] relative z-10">
+                  <td colSpan={3} className="px-8 py-6 border-b border-white">
+                    <div className="flex items-center gap-3">
+                      <div className="w-1 h-8 bg-[#0D83DE] rounded-full"></div>
                       <div>
-                        <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-1">Situation Consolidée</h4>
-                        <p className="text-xl font-black tracking-tight">Total Général Arrêté</p>
+                        <h4 className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#0D83DE] mb-0.5">Situation Consolidée</h4>
+                        <p className="text-lg font-bold tracking-tight text-[#101828] uppercase">Total Général</p>
                       </div>
                     </div>
-                    {/* Decorative background element */}
-                    <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-blue-500/10 to-transparent pointer-events-none"></div>
                   </td>
-                  <td className="px-6 py-10 text-right relative z-10">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Volume Factures</p>
-                    <p className="text-lg font-black">{data.reduce((acc, curr) => acc + curr.NBR_FACTURES, 0).toLocaleString()}</p>
+                  <td className="px-6 py-6 text-right border-l border-[#F2F4F7]">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-[#98A2B3] mb-1">Volume</p>
+                    <p className="text-[15px] font-bold text-[#475467] font-mono">
+                      {data.reduce((acc, curr) => acc + curr.NBR_FACTURES, 0).toLocaleString()}
+                    </p>
                   </td>
-                  <td className="px-6 py-10 text-right relative z-10">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Taux Couverture</p>
-                    <p className="text-lg font-black">100%</p>
+                  <td className="px-6 py-6 text-right border-l border-[#F2F4F7]">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-[#98A2B3] mb-1">Couv.</p>
+                    <p className="text-[15px] font-bold text-[#475467] font-mono">100%</p>
                   </td>
-                  <td className="px-8 py-10 text-right bg-blue-600 relative z-10">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-100 mb-2 text-right">Créance Nette Globale</p>
-                    <p className="text-2xl font-black text-white">{fmt(data.reduce((acc, curr) => acc + curr.CREANCE, 0))}</p>
+                  <td className="px-8 py-6 text-right border-l border-[#F2F4F7] bg-[#F9FAFB]/30">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-[#0D83DE] mb-1">Créance Nette</p>
+                    <p className="text-xl font-bold text-[#101828] tracking-tighter font-mono tabular-nums">
+                      {fmt(data.reduce((acc, curr) => acc + curr.CREANCE, 0))}
+                    </p>
                   </td>
                 </tr>
               </tbody>

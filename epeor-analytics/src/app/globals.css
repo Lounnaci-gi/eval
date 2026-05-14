@@ -23,26 +23,132 @@ body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-rgb));
   min-height: 100vh;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.01em;
 }
 
 .obat-card {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 1.5rem; /* rounded-3xl */
-  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1), 0 1px 2px rgba(16, 24, 40, 0.06);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .obat-card:hover {
-  box-shadow: 0 10px 15px -3px rgba(16, 24, 40, 0.1), 0 4px 6px -2px rgba(16, 24, 40, 0.05);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
   border-color: #D0D5DD;
 }
 
-.text-obat-blue {
-  color: var(--primary);
+table thead th {
+  letter-spacing: 0.1em;
+  font-size: 11px;
 }
 
-.bg-obat-blue {
-  background-color: var(--primary);
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0.3cm !important;
+    /* Minimal margins */
+  }
+
+  body {
+    background-color: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .bg-white {
+    background-color: white !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  #print-area {
+    width: 100% !important;
+    transform: scale(0.88);
+    /* More aggressive scaling */
+    transform-origin: top center;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 7.2pt !important;
+    /* Extreme reduction */
+    table-layout: auto !important;
+    line-height: 1 !important;
+  }
+
+  th,
+  td {
+    padding: 2px 4px !important;
+    /* Extreme reduction */
+    border: 0.4pt solid #E4E7EC !important;
+    line-height: 1 !important;
+    word-break: break-word !important;
+  }
+
+  /* Force headers to be very small */
+  tr.bg-\[\#F9FAFB\] th {
+    background-color: #F9FAFB !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    font-size: 7pt !important;
+  }
+
+  /* Premium subtotal and total adjustments */
+  tr.bg-blue-50\/40,
+  tr.bg-purple-50\/40 {
+    background-color: #f1f5f9 !important;
+  }
+
+  tr.bg-\[\#101828\] {
+    background-color: black !important;
+    color: white !important;
+  }
+
+  td.bg-blue-600 {
+    background-color: #1e40af !important;
+    color: white !important;
+  }
+
+  /* Compact the consolidation block */
+  .py-10 {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  /* Remove decorative icons and extra lines */
+  .mb-1,
+  .mt-1,
+  .mb-2 {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  /* Ensure rows don't break but fit */
+  tr {
+    page-break-inside: avoid !important;
+  }
 }

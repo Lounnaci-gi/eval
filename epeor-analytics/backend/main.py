@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from dbfread import DBF
 import os
 import itertools
+import json
+from datetime import datetime
 
 app = FastAPI()
 
@@ -14,6 +16,39 @@ app.add_middleware(
 )
 
 DATA_DIR = r"d:\epeor"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CACHE_DIR = os.path.join(BASE_DIR, "cache")
+if not os.path.exists(CACHE_DIR):
+    os.makedirs(CACHE_DIR)
+
+def get_cache(name):
+    path = os.path.join(CACHE_DIR, f"{name}.json")
+    if os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error reading cache {name}: {e}")
+            return None
+    return None
+
+def save_cache(name, data):
+    path = os.path.join(CACHE_DIR, f"{name}.json")
+    try:
+        # If it's a list (ventilation), wrap it to include date_calcul
+        if isinstance(data, list):
+            cache_data = {
+                "date_calcul": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                "data": data
+            }
+        else:
+            data["date_calcul"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            cache_data = data
+            
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error saving cache {name}: {e}")
 
 def load_dbf(filename, load_all=False):
     path = os.path.join(DATA_DIR, filename)
@@ -403,6 +438,12 @@ def get_official_ca(period_name: str):
 
 @app.get("/creance")
 def get_creance(start_date: str = None, end_date: str = None):
+    cache_key = f"creance_{start_date or 'all'}_{end_date or 'all'}"
+    cached = get_cache(cache_key)
+    if cached:
+        cached["from_cache"] = True
+        return cached
+
     try:
         # Build period name for PROV lookup
         months_fr = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -603,7 +644,7 @@ def get_creance(start_date: str = None, end_date: str = None):
             })
         raw_types_list.sort(key=lambda x: x["creance"], reverse=True)
 
-        return {
+        result = {
             "total_ca_eau": round(total_ca_eau, 2),
             "total_ca_prestation": round(total_ca_prestation, 2),
             "total_ca": round(total_ca, 2),
@@ -614,12 +655,22 @@ def get_creance(start_date: str = None, end_date: str = None):
             "by_raw_type": raw_types_list,
             "is_official": official is not None
         }
+        save_cache(cache_key, result)
+        return result
 
     except Exception as e:
         return {"error": str(e)}
 
 @app.get("/creance_detaillee")
 def get_creance_detaillee(date_arrete: str):
+    cache_key = f"ventilation_{date_arrete}"
+    cached = get_cache(cache_key)
+    if cached:
+        # If it's the wrapped format, return the data part
+        if isinstance(cached, dict) and "data" in cached:
+            return cached["data"]
+        return cached
+
     """
     Calculates detailed debt (créance arrêtée) at a specific date.
     Follows the categorization logic from the provided SQL query.
@@ -737,6 +788,8 @@ def get_creance_detaillee(date_arrete: str):
         # Custom sort: PRESTATIONS first (P > E), then by ORDRE and CATEGORIE
         final_list.sort(key=lambda x: (0 if x["SECTION"] == 'PRESTATIONS' else 1, x["ORDRE"], x["CATEGORIE"]))
         
+        save_cache(cache_key, final_list)
+
         return final_list
 
     except Exception as e:

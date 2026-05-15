@@ -25,7 +25,8 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import {
   BarChart,
   Bar,
@@ -36,7 +37,13 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  Legend
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  RadialBarChart,
+  RadialBar,
+  PolarAngleAxis
 } from "recharts";
 
 // Removed dummy data
@@ -87,10 +94,11 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hoveredAbonne, setHoveredAbonne] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [ventilationFilter, setVentilationFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const itemsPerPage = 20;
 
   useEffect(() => {
-    fetch("http://localhost:8000/stats")
+    fetch("http://127.0.0.1:8000/stats")
       .then((res) => {
         if (!res.ok) throw new Error("Erreur réseau");
         return res.json();
@@ -117,7 +125,7 @@ export default function Dashboard() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery) return;
-    const res = await fetch(`http://localhost:8000/search?query=${searchQuery}`);
+    const res = await fetch(`http://127.0.0.1:8000/search?query=${searchQuery}`);
     const data = await res.json();
     setSearchResults(data);
     setFilteredResults(data);
@@ -262,6 +270,17 @@ export default function Dashboard() {
         </header>
 
         {/* Main Content */}
+        {stats?.error && (
+          <div className="mb-8 p-6 bg-rose-50 border border-rose-100 rounded-3xl flex items-center gap-4 text-rose-600 animate-pulse">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+              <Ban size={24} />
+            </div>
+            <div>
+              <p className="font-black uppercase text-xs tracking-widest mb-1">Erreur de Connexion</p>
+              <p className="font-bold text-sm">{stats.error}</p>
+            </div>
+          </div>
+        )}
         {currentView === 'dashboard' ? (
           <div className="space-y-10">
             {/* KPI Cards */}
@@ -485,9 +504,15 @@ export default function Dashboard() {
         ) : currentView === 'stopped' ? (
           <StoppedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'creance' ? (
-          <CreanceDetailView onBack={() => setCurrentView('dashboard')} onGoToVentilation={() => setCurrentView('ventilation')} />
+          <CreanceDetailView 
+            onBack={() => setCurrentView('dashboard')} 
+            onGoToVentilation={(filter: any) => {
+              setVentilationFilter(filter);
+              setCurrentView('ventilation');
+            }} 
+          />
         ) : currentView === 'ventilation' ? (
-          <CreanceVentilationView onBack={() => setCurrentView('creance')} />
+          <CreanceVentilationView onBack={() => setCurrentView('creance')} initialFilter={ventilationFilter} />
         ) : null}
       </main>
     </div>
@@ -546,7 +571,7 @@ function DetailedStatsView({ stats, onBack }: any) {
     setSelectedQuartier(q);
     setLoadingSubscribers(true);
     try {
-      const res = await fetch(`http://localhost:8000/subscribers?quartier=${q.id}`);
+      const res = await fetch(`http://127.0.0.1:8000/subscribers?quartier=${q.id}`);
       const data = await res.json();
       setQuartierSubscribers(data);
     } catch (e) {
@@ -729,7 +754,7 @@ function ResignedDetailView({ stats, onBack }: any) {
     setSelectedQuartier(q);
     setLoadingSubscribers(true);
     try {
-      const res = await fetch(`http://localhost:8000/subscribers?quartier=${q.id}&etat=40`);
+      const res = await fetch(`http://127.0.0.1:8000/subscribers?quartier=${q.id}&etat=40`);
       const data = await res.json();
       setQuartierSubscribers(data);
     } catch (e) {
@@ -907,7 +932,7 @@ function StoppedDetailView({ stats, onBack }: any) {
     setSelectedQuartier(q);
     setLoadingSubscribers(true);
     try {
-      const res = await fetch(`http://localhost:8000/subscribers?quartier=${q.id}&etat=20`);
+      const res = await fetch(`http://127.0.0.1:8000/subscribers?quartier=${q.id}&etat=20`);
       const data = await res.json();
       setQuartierSubscribers(data);
     } catch (e) {
@@ -1183,29 +1208,360 @@ function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
 }
 
 function CreanceDetailView({ onBack, onGoToVentilation }: any) {
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
   const [filterPeriod, setFilterPeriod] = useState('all');
+  const [ventilationData, setVentilationData] = useState<any[]>([]);
+  const [ventilationLoading, setVentilationLoading] = useState(false);
+  const [ventilationFilter, setVentilationFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS' | null>(null);
+  const [calcProgress, setCalcProgress] = useState(0);
+  const [calcStep, setCalcStep] = useState("");
+  const [expandedSections, setExpandedSections] = useState<string[]>(['EAU', 'PRESTATIONS']);
+  const [lastVentDate, setLastVentDate] = useState("");
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => 
+      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
+    );
+  };
+
+  const exportToJson = (globalData: any, ventData: any[]) => {
+    const exportData = {
+      date_calcul: new Date().toLocaleString('fr-DZ'),
+      parametres: {
+        annee: filterYear,
+        periode: filterPeriod,
+        dates: dateRange
+      },
+      indicateurs_globaux: globalData,
+      ventilation_detaillee: ventData
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.download = `epeor_analyse_${timestamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Ventilation");
+
+    const formattedDate = lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
+    const today = new Date();
+    const printDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+
+    // Add 4 empty rows first for the header
+    worksheet.addRow([]);
+    worksheet.addRow([]);
+    worksheet.addRow([]);
+    worksheet.addRow([]);
+
+    // Load Image
+    try {
+      const response = await fetch('/ade.png');
+      const arrayBuffer = await response.arrayBuffer();
+      const imageId = workbook.addImage({
+        buffer: arrayBuffer,
+        extension: 'png',
+      });
+      // Add image top-left
+      worksheet.addImage(imageId, {
+        tl: { col: 0, row: 0 },
+        ext: { width: 100, height: 60 }
+      });
+    } catch (e) {}
+
+    // Title Row
+    worksheet.mergeCells('C2:E2');
+    const titleCell = worksheet.getCell('C2');
+    titleCell.value = `Détail Ventilation des Créances  -  Arrêtées au : ${formattedDate}`;
+    titleCell.font = { bold: true, size: 12 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Unit & Print Date
+    worksheet.getCell('E1').value = `Unité : 26 - MEDEA`;
+    worksheet.getCell('E1').alignment = { horizontal: 'right' };
+    
+    worksheet.getCell('E3').value = `Centre : S02 - BERROUAGHIA`;
+    worksheet.getCell('E3').alignment = { horizontal: 'right' };
+    
+    worksheet.getCell('E4').value = `Edité le : ${printDate}`;
+    worksheet.getCell('E4').alignment = { horizontal: 'right' };
+
+    // Row 5 spacing
+    worksheet.addRow([]);
+
+    // Table Headers (Row 6)
+    const headerRow = worksheet.addRow(['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette (DA)']);
+    headerRow.font = { bold: true };
+    
+    worksheet.getColumn(1).width = 15;
+    worksheet.getColumn(2).width = 15;
+    worksheet.getColumn(3).width = 40;
+    worksheet.getColumn(4).width = 15;
+    worksheet.getColumn(5).width = 25;
+
+    const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
+    let globalTotalVolume = 0;
+    let globalTotalCreance = 0;
+    
+    let currentRow = 7;
+
+    sections.forEach(section => {
+      if (!section) return;
+      const rows = ventilationData.filter(r => r.SECTION === section);
+      if (rows.length === 0) return;
+
+      const subTotalCreance = rows.reduce((acc, r) => acc + r.CREANCE, 0);
+      const subTotalVolume = rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0);
+      globalTotalVolume += subTotalVolume;
+      globalTotalCreance += subTotalCreance;
+
+      rows.forEach((row, i) => {
+        worksheet.addRow([
+          i === 0 ? section : "",
+          row.TYPE_CODE,
+          row.CATEGORIE,
+          row.NBR_FACTURES,
+          row.CREANCE
+        ]);
+      });
+
+      if (rows.length > 1) {
+        worksheet.mergeCells(`A${currentRow}:A${currentRow + rows.length - 1}`);
+        worksheet.getCell(`A${currentRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+        worksheet.getCell(`A${currentRow}`).font = { bold: true };
+      }
+      currentRow += rows.length;
+
+      const subTotalRow = worksheet.addRow([
+        `Sous-total ${section}`,
+        '',
+        '',
+        subTotalVolume,
+        subTotalCreance
+      ]);
+      subTotalRow.font = { bold: true };
+      worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+      currentRow++;
+    });
+
+    // Add Global Total Row
+    const globalTotalRow = worksheet.addRow([
+      'TOTAL GÉNÉRAL',
+      '',
+      '',
+      globalTotalVolume,
+      globalTotalCreance
+    ]);
+    globalTotalRow.font = { bold: true };
+    worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+
+    // Generate Excel file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    saveAs(blob, `ventilation_${lastVentDate}.xlsx`);
+  };
+
+  const exportToPDF = async () => {
+    const doc = new jsPDF();
+    const formattedDate = lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
+    
+    const pageWidth = doc.internal.pageSize.width;
+    let imgHeightOut = 0;
+
+    // Load and add image
+    try {
+      const img = new window.Image();
+      img.src = '/ade.png';
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+
+      if (img.width) {
+        const imgWidth = 35;
+        imgHeightOut = (img.height * imgWidth) / img.width;
+        // Draw image on the left, aligned roughly with the title
+        doc.addImage(img, 'PNG', 14, 12, imgWidth, imgHeightOut);
+      }
+    } catch (e) {}
+
+    // Header Title (Centered)
+    const fullTitle = `Détail Ventilation des Créances  -  Arrêtées au : ${formattedDate}`;
+    doc.setFontSize(9.5);
+    doc.setTextColor(16, 24, 40); // text-[#101828]
+    doc.text(fullTitle, pageWidth / 2, 20, { align: 'center' });
+
+    const today = new Date();
+    const printDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+
+    // Unit & Center (Top Right)
+    doc.setFontSize(9);
+    doc.setTextColor(71, 84, 103);
+    doc.text("Unité : 26 - MEDEA", pageWidth - 14, 15, { align: 'right' });
+    doc.text("Centre : S02 - BERROUAGHIA", pageWidth - 14, 19, { align: 'right' });
+    doc.setFontSize(8);
+    doc.text(`Edité le : ${printDate}`, pageWidth - 14, 23, { align: 'right' });
+    
+    // Set starting Y for the table, ensuring it's below the image and text
+    let currentY = Math.max(32, 12 + imgHeightOut + 8);
+
+    const bodyData: any[] = [];
+    const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
+
+    let globalTotalVolume = 0;
+    let globalTotalCreance = 0;
+
+    sections.forEach(section => {
+      if (!section) return;
+      const rows = ventilationData.filter(r => r.SECTION === section);
+      if (rows.length === 0) return;
+
+      const subTotalCreance = rows.reduce((acc, r) => acc + r.CREANCE, 0);
+      const subTotalVolume = rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0);
+      globalTotalVolume += subTotalVolume;
+      globalTotalCreance += subTotalCreance;
+
+      rows.forEach((row, i) => {
+        const rowData: any[] = [];
+        if (i === 0) {
+          rowData.push({ 
+            content: section.split('').join('\n'), 
+            rowSpan: rows.length, 
+            styles: { 
+              halign: 'center', 
+              valign: 'middle', 
+              fontStyle: 'bold', 
+              fontSize: rows.length < 5 ? 5 : 8,
+              textColor: section === 'EAU' ? [13, 131, 222] : [147, 51, 234] 
+            } 
+          });
+        }
+        rowData.push(
+          { content: row.TYPE_CODE, styles: { halign: 'center', fontStyle: 'bold', textColor: [102, 112, 133] } },
+          { content: row.CATEGORIE, styles: { textColor: [16, 24, 40] } },
+          { content: row.NBR_FACTURES.toLocaleString(), styles: { halign: 'right', textColor: [71, 84, 103] } },
+          { content: fmt(row.CREANCE), styles: { halign: 'right', fontStyle: 'bold', textColor: [16, 24, 40] } }
+        );
+        bodyData.push(rowData);
+      });
+
+      const fillColor: [number, number, number] = section === 'EAU' ? [239, 246, 255] : [250, 245, 255];
+      bodyData.push([
+        { content: `Sous-total ${section}`, colSpan: 3, styles: { fontStyle: 'bold', fillColor, textColor: [16, 24, 40] } },
+        { content: subTotalVolume.toLocaleString(), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [71, 84, 103] } },
+        { content: fmt(subTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [16, 24, 40] } }
+      ]);
+    });
+
+    // Global Total Row
+    bodyData.push([
+      { content: 'TOTAL GÉNÉRAL', colSpan: 3, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+      { content: globalTotalVolume.toLocaleString(), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+      { content: fmt(globalTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } }
+    ]);
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { bottom: 12 },
+      head: [['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette']],
+      body: bodyData,
+      theme: 'grid',
+      headStyles: { fillColor: [249, 250, 251], textColor: [71, 84, 103], fontStyle: 'bold', lineWidth: 0.1, lineColor: [228, 231, 236] },
+      styles: { fontSize: 8.5, cellPadding: 3, lineColor: [242, 244, 247], lineWidth: 0.1 },
+      columnStyles: {
+        0: { cellWidth: 15 },
+        1: { cellWidth: 15 },
+        2: { cellWidth: 'auto' },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 35 }
+      }
+    });
+
+    doc.save(`ventilation_${lastVentDate}.pdf`);
+  };
+
+
 
   const fetchData = async (start = '', end = '') => {
     setData(null);
     setLoading(true);
+    setCalcProgress(0);
+    
+    const targetFilter = ventilationFilter || 'ALL';
+    setVentilationFilter(targetFilter);
+    const ventDate = end || new Date().toISOString().split('T')[0];
+    setLastVentDate(ventDate);
+
     try {
-      const url = new URL("http://localhost:8000/creance");
+      // Step 1: Start Global KPIs
+      setCalcStep("Calcul des indicateurs financiers globaux...");
+      setCalcProgress(10);
+      
+      const url = new URL("http://127.0.0.1:8000/creance");
       if (start) url.searchParams.append("start_date", start.replace(/-/g, ''));
       if (end) url.searchParams.append("end_date", end.replace(/-/g, ''));
 
-      const res = await fetch(url.toString());
-      const d = await res.json();
-      setData(d);
+      // We run them in sequence to show "real" progress as requested
+      // though parallel is faster, the user wants to see the steps
+      const res1 = await fetch(url.toString());
+      const d1 = await res1.json();
+      setData(d1);
+      setCalcProgress(50);
+      
+      // Step 2: Start Ventilation
+      setCalcStep("Calcul de la ventilation par type d'abonné...");
+      setCalcProgress(60);
+      
+      const res2 = await fetch(`http://127.0.0.1:8000/creance_detaillee?date_arrete=${ventDate.replace(/-/g, '')}`);
+      setCalcStep("Répartition des créances par commune...");
+      setCalcProgress(80);
+      
+      const d2 = await res2.json();
+      setVentilationData(d2);
+      
+      setCalcStep("Finalisation des calculs...");
+      setCalcProgress(100);
+      
+      // Export results to JSON ONLY if they are fresh (not from cache)
+      if (!d1.from_cache) {
+        exportToJson(d1, d2);
+      }
+      
+      // Small delay to show 100%
+      await new Promise(r => setTimeout(r, 500));
+      
     } catch (e) {
       setError("Erreur de connexion au serveur.");
     }
     setLoading(false);
   };
+
+  const fetchVentilation = async (date: string) => {
+    setVentilationLoading(true);
+    try {
+      const formattedDate = date.replace(/-/g, '');
+      const res = await fetch(`http://127.0.0.1:8000/creance_detaillee?date_arrete=${formattedDate}`);
+      const d = await res.json();
+      setVentilationData(d);
+    } catch (e) {
+      console.error("Erreur ventilation:", e);
+    }
+    setVentilationLoading(false);
+  };
+
 
   useEffect(() => {
     // Initial fetch removed as requested. 
@@ -1248,7 +1604,10 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
   };
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + " DA";
+    new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n)
+      .replace(/\u202F/g, ' ')
+      .replace(/\u00A0/g, ' ') + " DA";
 
   return (
     <div className="space-y-10">
@@ -1265,13 +1624,6 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
             <h3 className="text-2xl font-black tracking-tight text-[#101828]">Créance Globale & Chiffre d'Affaires</h3>
             <p className="text-sm text-[#667085] mt-1">Analyse de la facturation et du recouvrement depuis FACTURES.DBF</p>
           </div>
-          <button
-            onClick={onGoToVentilation}
-            className="px-6 py-3 bg-white border border-[#0D83DE] text-[#0D83DE] rounded-2xl text-xs font-black hover:bg-blue-50 transition-all flex items-center gap-2 shadow-sm"
-          >
-            <BarChart3 size={16} />
-            Ventilation Détaillée (SQL)
-          </button>
         </div>
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mt-8 pt-8 border-t border-[#F2F4F7]">
@@ -1319,11 +1671,12 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
 
             <button
               onClick={handleApplyFilter}
-              className="px-6 py-2.5 bg-violet-600 text-white rounded-xl text-xs font-black shadow-lg shadow-violet-100 hover:bg-violet-700 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-violet-600 text-white rounded-xl text-xs font-black shadow-lg shadow-violet-100 hover:bg-violet-700 transition-all flex items-center gap-2 h-[42px]"
             >
               <Search size={14} />
               Calculer
             </button>
+
           </div>
 
           <div className="flex items-end gap-3 p-4 bg-[#F9FAFB] rounded-2xl border border-[#F2F4F7] border-dashed">
@@ -1352,11 +1705,32 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
       </div>
 
       {loading && (
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center gap-6">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500"></div>
-          <div className="text-center">
-            <p className="font-black text-[#101828] text-lg">Calcul en cours…</p>
-            <p className="text-sm text-[#667085] mt-1">Traitement de plus d'un million de factures. Veuillez patienter.</p>
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-300">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-20 w-20 border-b-2 border-violet-500"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-[10px] font-black text-violet-600">{Math.round(calcProgress)}%</span>
+            </div>
+          </div>
+          
+          <div className="text-center w-full max-w-md space-y-6">
+            <div>
+              <p className="font-black text-[#101828] text-2xl tracking-tight">Analyse Financière en cours…</p>
+              <p className="text-sm text-[#667085] mt-2 font-medium">{calcStep}</p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="w-full bg-[#F2F4F7] rounded-full h-2 overflow-hidden p-0.5">
+                <div 
+                  className="h-full bg-violet-600 rounded-full transition-all duration-300 shadow-sm shadow-violet-200"
+                  style={{ width: `${calcProgress}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-black text-[#98A2B3] uppercase tracking-widest">Traitement Big Data</span>
+                <span className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Calcul Optimisé</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1379,6 +1753,23 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
 
       {data && !loading && (
         <>
+          {data.from_cache && (
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-3 flex items-center justify-between mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-500 p-1.5 rounded-lg shadow-sm shadow-blue-200">
+                  <Database size={14} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-blue-800 uppercase tracking-[0.15em]">Analyse Instantanée</p>
+                  <p className="text-[11px] font-bold text-blue-600/80">Données récupérées depuis l'archive locale (Calculée le {data.date_calcul})</p>
+                </div>
+              </div>
+              <div className="hidden md:block">
+                <span className="text-[9px] font-black text-blue-400 uppercase border border-blue-200 px-2 py-1 rounded-md bg-white">Mode Cache Activé</span>
+              </div>
+            </div>
+          )}
+
           {/* KPI Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             {[
@@ -1392,11 +1783,9 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
               <div 
                 key={i} 
                 onClick={() => {
-                  if (kpi.label === "Créance") {
-                    document.getElementById('raw-type-table')?.scrollIntoView({ behavior: 'smooth' });
-                  }
+                  // Scroll reference removed
                 }}
-                className={`bg-white border border-[#E4E7EC] rounded-[2.5rem] p-5 shadow-sm hover:shadow-md transition-all ${kpi.label === "Créance" ? "cursor-pointer ring-offset-2 hover:ring-2 hover:ring-rose-500" : ""}`}
+                className={`bg-white border border-[#E4E7EC] rounded-[2.5rem] p-5 shadow-sm hover:shadow-md transition-all`}
               >
                 <div className="flex items-center gap-2 mb-2">
                   <div className={`w-2 h-2 rounded-full ${kpi.dot}`}></div>
@@ -1407,24 +1796,253 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
             ))}
           </div>
 
-          {/* Progress bar recouvrement */}
-          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-sm font-bold text-[#475467]">Taux de recouvrement global</span>
-              <span className="text-sm font-black text-[#101828]">{((data.total_recouvre / data.total_ca) * 100).toFixed(2)}%</span>
+          {/* Detailed Ventilation Table - Integrated */}
+          {ventilationFilter && (
+            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+              <div className="p-8 border-b border-[#F2F4F7] flex justify-between items-center bg-slate-50/50">
+                <div>
+                  <h4 className="text-xl font-black tracking-tight text-[#101828]">Détail Ventilation des Créance Arrêtées au : {lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1')}</h4>
+                  <p className="text-sm text-[#667085] mt-1">Analyse granulaire de la section {ventilationFilter === 'ALL' ? 'Eau & Prestations' : ventilationFilter}</p>
+                </div>
+                {ventilationLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={exportToExcel}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all shadow-sm"
+                    >
+                      <FileSpreadsheet size={14} /> Excel
+                    </button>
+                    <button 
+                      onClick={exportToPDF}
+                      className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 transition-all shadow-sm"
+                    >
+                      <FileText size={14} /> PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-separate border-spacing-0">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-[0.15em] font-black border-b border-[#E4E7EC]">
+                      <th className="px-8 py-5 border-b border-[#E4E7EC]">Section</th>
+                      <th className="px-6 py-5 border-b border-[#E4E7EC]">Type</th>
+                      <th className="px-6 py-5 border-b border-[#E4E7EC]">Désignation</th>
+                      <th className="px-6 py-5 text-right border-b border-[#E4E7EC]">Volume</th>
+                      <th className="px-8 py-5 text-right border-b border-[#E4E7EC]">Créance Nette</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F2F4F7]">
+                    {ventilationLoading ? (
+                      <tr><td colSpan={5} className="px-8 py-12 text-center text-sm font-bold text-[#667085]">Chargement du détail...</td></tr>
+                    ) : ventilationData.length > 0 ? (
+                      <>
+                        {(ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter]).map(section => {
+                          const rows = ventilationData.filter(r => r.SECTION === section);
+                          if (rows.length === 0) return null;
+                          const isExpanded = expandedSections.includes(section);
+                          const subTotal = rows.reduce((acc, r) => acc + r.CREANCE, 0);
+                          return (
+                            <Fragment key={section}>
+                            {/* Group Header Toggle */}
+                            <tr 
+                              onClick={() => toggleSection(section)}
+                              className={`${section === 'EAU' ? 'bg-blue-50/10' : 'bg-purple-50/10'} cursor-pointer hover:bg-slate-50 transition-colors border-y border-[#F2F4F7]`}
+                            >
+                              <td colSpan={5} className="px-8 py-3">
+                                <div className="flex items-center gap-3">
+                                  <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                                    <ChevronRight size={16} className="text-[#98A2B3]" />
+                                  </div>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${section === 'EAU' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                                    {section}
+                                  </span>
+                                  <span className="text-[11px] font-bold text-[#667085]">
+                                    {isExpanded ? 'Masquer le détail' : `Afficher le détail (${rows.length} lignes)`}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {isExpanded && rows.map((row, i) => (
+                              <tr key={i} className="hover:bg-blue-50/20 transition-colors group">
+                                {i === 0 ? (
+                                  <td rowSpan={rows.length} className={`px-5 py-8 text-center border-r border-[#F2F4F7] ${section === 'EAU' ? 'bg-blue-50/10' : 'bg-purple-50/10'}`}>
+                                    <div className="flex flex-col items-center justify-center h-full">
+                                      <span className={`[writing-mode:vertical-lr] rotate-180 text-[13px] font-black uppercase tracking-[0.4em] ${section === 'EAU' ? 'text-blue-500' : 'text-purple-500'}`}>
+                                        {section}
+                                      </span>
+                                    </div>
+                                  </td>
+                                ) : null}
+                                <td className="px-6 py-4">
+                                  <span className="font-mono text-[11px] font-bold text-[#667085] bg-[#F2F4F7] px-1.5 py-0.5 rounded">
+                                    {row.TYPE_CODE}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="font-bold text-[13px] text-[#101828] uppercase tracking-tight">{row.CATEGORIE}</div>
+                                  <div className="text-[9px] text-[#98A2B3] font-medium uppercase mt-0.5">Code: {row.ORDRE}</div>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <div className="font-bold text-[13px] text-[#475467] font-mono tabular-nums">{row.NBR_FACTURES.toLocaleString()}</div>
+                                </td>
+                                <td className="px-8 py-4 text-right">
+                                  <div className="font-black text-[13px] text-[#101828] font-mono tracking-tighter">{fmt(row.CREANCE)}</div>
+                                </td>
+                              </tr>
+                            ))}
+                            <tr className={`${section === 'EAU' ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y border-[#F2F4F7]/50`}>
+                              <td colSpan={3} className="px-8 py-4">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-1 h-4 rounded-full ${section === 'EAU' ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
+                                  <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="font-black text-[13px] text-[#475467] font-mono">{rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0).toLocaleString()}</span>
+                              </td>
+                              <td className="px-8 py-4 text-right">
+                                <span className={`font-black text-[15px] ${section === 'EAU' ? 'text-blue-700' : 'text-purple-700'} font-mono tracking-tighter`}>{fmt(subTotal)}</span>
+                              </td>
+                            </tr>
+                            </Fragment>
+                          );
+                        })}
+                        {ventilationFilter === 'ALL' && (
+                          <tr className="bg-slate-950 text-white relative z-20">
+                            <td colSpan={3} className="px-8 py-7">
+                              <div className="flex flex-col">
+                                <span className="font-black uppercase tracking-[0.3em] text-[10px] text-slate-400 mb-1">Analyse Consolidée</span>
+                                <span className="font-black text-lg text-white">Total Créance Ventilation</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-7 text-right align-bottom">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Volume Global</div>
+                              <div className="font-black text-lg text-slate-200 font-mono">{ventilationData.reduce((acc, r) => acc + r.NBR_FACTURES, 0).toLocaleString()}</div>
+                            </td>
+                            <td className="px-8 py-7 text-right align-bottom bg-white/5 border-l border-white/10">
+                              <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Créance Totale Arretée</div>
+                              <div className="font-black text-2xl tracking-tighter text-white font-mono">{fmt(ventilationData.reduce((acc, r) => acc + r.CREANCE, 0))}</div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    ) : (
+                      <tr><td colSpan={5} className="px-8 py-12 text-center text-sm font-bold text-[#667085]">Cliquez sur Calculer pour voir le détail</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="w-full bg-[#F2F4F7] rounded-full h-3">
-              <div
-                className="h-3 rounded-full bg-gradient-to-r from-violet-500 to-emerald-500 transition-all duration-700"
-                style={{ width: `${Math.min((data.total_recouvre / data.total_ca) * 100, 100)}%` }}
-              ></div>
-            </div>
-            <div className="flex justify-between text-[11px] font-bold text-[#98A2B3] mt-2">
-              <span>0%</span>
-              <span className="text-amber-500">Objectif 90%</span>
-              <span>100%</span>
+          )}
+
+          {/* Graphique de Recouvrement Interactif */}
+          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-6">
+            <div className="flex flex-col lg:flex-row items-center gap-8">
+              <div className="w-full lg:w-[22%] aspect-square relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadialBarChart 
+                    innerRadius="75%" 
+                    outerRadius="100%" 
+                    barSize={24} 
+                    data={[{ 
+                      name: 'Taux', 
+                      value: (data.total_recouvre / data.total_ca) * 100, 
+                      fill: (data.total_recouvre / data.total_ca) * 100 >= 90 ? '#10B981' : '#F59E0B' 
+                    }]} 
+                    startAngle={225} 
+                    endAngle={-45}
+                  >
+                    <PolarAngleAxis
+                      type="number"
+                      domain={[0, 100]}
+                      angleAxisId={0}
+                      tick={false}
+                    />
+                    <RadialBar
+                      background={{ fill: '#F2F4F7' }}
+                      dataKey="value"
+                      cornerRadius={12}
+                    />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xl border border-white/10">
+                              Taux: {payload[0].value.toFixed(2)}%
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </RadialBarChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
+                  <div className="flex items-baseline gap-0.5">
+                    <span className="text-4xl font-black text-[#101828] tracking-tighter">
+                      {((data.total_recouvre / data.total_ca) * 100).toFixed(1)}
+                    </span>
+                    <span className="text-xl font-black text-[#98A2B3]">%</span>
+                  </div>
+                  <p className="text-[10px] font-black text-[#98A2B3] uppercase tracking-[0.2em] mt-1">Recouvrement</p>
+                </div>
+              </div>
+
+              <div className="flex-1 w-full space-y-5">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="text-xl font-black tracking-tight text-[#101828]">Performance du Recouvrement</h4>
+                    <p className="text-xs text-[#667085] mt-0.5 font-medium">Analyse comparative entre les factures émises et les encaissements réels.</p>
+                  </div>
+                  <div className={`px-4 py-2 rounded-2xl border font-black text-xs uppercase tracking-widest ${((data.total_recouvre / data.total_ca) * 100) >= 90 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                    {((data.total_recouvre / data.total_ca) * 100) >= 90 ? 'Objectif Atteint' : 'Sous Objectif (90%)'}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-[#F9FAFB] rounded-[2rem] border border-[#F2F4F7] group hover:border-violet-200 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500"></div>
+                      <p className="text-[10px] font-black text-[#98A2B3] uppercase tracking-widest">CA Total Émis</p>
+                    </div>
+                    <p className="text-lg font-black text-[#101828] font-mono tracking-tighter">{fmt(data.total_ca)}</p>
+                  </div>
+                  <div className="p-4 bg-emerald-50/50 rounded-[2rem] border border-emerald-100 group hover:border-emerald-200 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Montant Recouvré</p>
+                    </div>
+                    <p className="text-lg font-black text-emerald-700 font-mono tracking-tighter">{fmt(data.total_recouvre)}</p>
+                  </div>
+                  <div className="p-4 bg-rose-50/50 rounded-[2rem] border border-rose-100 group hover:border-rose-200 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div>
+                      <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Créance Restante</p>
+                    </div>
+                    <p className="text-lg font-black text-rose-700 font-mono tracking-tighter">{fmt(data.total_creance)}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-[#98A2B3]">
+                    <span>Niveau de Progression</span>
+                    <span className="text-emerald-600">Seuil de performance : 90%</span>
+                  </div>
+                  <div className="w-full bg-[#F2F4F7] rounded-full h-3 overflow-hidden p-0.5">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-1000 shadow-sm ${((data.total_recouvre / data.total_ca) * 100) >= 90 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                      style={{ width: `${Math.min((data.total_recouvre / data.total_ca) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
 
           {/* Tableau par Commune */}
           <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
@@ -1456,6 +2074,16 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot className="sticky bottom-0 z-10">
+                  <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                    <td className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                    <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
+                    <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
+                    <td className="px-6 py-5 text-right text-violet-400 font-mono">{fmt(data.total_ca)}</td>
+                    <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(data.total_creance)}</td>
+                    <td className="px-8 py-5 text-right text-slate-300 font-mono">{((data.total_creance / data.total_ca) * 100).toFixed(2)}%</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
@@ -1490,61 +2118,48 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
-          </div>
-          {/* Tableau par Type de Facture (Codes Raw) */}
-          <div id="raw-type-table" className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden scroll-mt-10">
-            <div className="p-8 border-b border-[#F2F4F7]">
-              <h4 className="text-xl font-black tracking-tight text-[#101828]">Répartition par Code de Facture (Raw TYPE)</h4>
-              <p className="text-sm text-[#667085] mt-1">Breakdown détaillé par code brut (E, C, 7, etc.) tel que défini dans le système</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black">
-                    <th className="px-8 py-5">Code Type</th>
-                    <th className="px-6 py-5 text-right">Nb Factures</th>
-                    <th className="px-6 py-5 text-right text-rose-600">Montant Créance (DA)</th>
-                    <th className="px-8 py-5 text-right">Part (%)</th>
+                <tfoot className="sticky bottom-0 z-10">
+                  <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                    <td className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                    <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
+                    <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
+                    <td className="px-6 py-5 text-right text-violet-400 font-mono">{fmt(data.total_ca)}</td>
+                    <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(data.total_creance)}</td>
+                    <td className="px-8 py-5 text-right text-slate-300 font-mono">{((data.total_creance / data.total_ca) * 100).toFixed(2)}%</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F2F4F7]">
-                  {data.by_raw_type?.map((t: any, i: number) => (
-                    <tr key={i} className="hover:bg-[#F9FAFB] transition-colors group">
-                      <td className="px-8 py-4 font-black text-sm text-[#101828]">Type {t.type}</td>
-                      <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467]">{t.count.toLocaleString()}</td>
-                      <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(t.creance)}</td>
-                      <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">
-                        {((t.creance / data.total_creance) * 100).toFixed(2)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                </tfoot>
               </table>
             </div>
           </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
+    );
+  }
 
-    </div>
-  );
-}
 
-function CreanceVentilationView({ onBack }: any) {
+function CreanceVentilationView({ onBack, initialFilter }: any) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dateArrete, setDateArrete] = useState(new Date().toISOString().split('T')[0]);
   const [tableSearch, setTableSearch] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null });
+  const [sectionFilter, setSectionFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>(initialFilter || 'ALL');
+
+  useEffect(() => {
+    if (initialFilter) {
+      setSectionFilter(initialFilter);
+    }
+  }, [initialFilter]);
+
 
   const fetchData = async (date: string) => {
     setLoading(true);
     setError(null);
     try {
       const formattedDate = date.replace(/-/g, '');
-      const res = await fetch(`http://localhost:8000/creance_detaillee?date_arrete=${formattedDate}`);
+      const res = await fetch(`http://127.0.0.1:8000/creance_detaillee?date_arrete=${formattedDate}`);
       const d = await res.json();
       if (d.error) throw new Error(d.error);
       setData(d);
@@ -1586,9 +2201,13 @@ function CreanceVentilationView({ onBack }: any) {
   };
 
   const getFilteredData = () => {
-    if (!tableSearch) return data;
+    let filtered = data;
+    if (sectionFilter !== 'ALL') {
+      filtered = filtered.filter(r => r.SECTION === sectionFilter);
+    }
+    if (!tableSearch) return filtered;
     const s = tableSearch.toLowerCase();
-    return data.filter(r => 
+    return filtered.filter(r => 
       r.CATEGORIE.toLowerCase().includes(s) || 
       r.SECTION.toLowerCase().includes(s) || 
       r.TYPE_CODE.toLowerCase().includes(s)
@@ -1599,10 +2218,11 @@ function CreanceVentilationView({ onBack }: any) {
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + " DA";
 
   const handleExportExcel = () => {
-    if (data.length === 0) return;
+    const filteredData = getFilteredData();
+    if (filteredData.length === 0) return;
     
     // Prepare data for Excel
-    const worksheetData = data.map(row => ({
+    const worksheetData = filteredData.map(row => ({
       'Section': row.SECTION,
       'Type': row.TYPE_CODE,
       'Désignation': row.CATEGORIE,
@@ -1623,14 +2243,15 @@ function CreanceVentilationView({ onBack }: any) {
   };
 
   const handleExportPDF = () => {
-    if (data.length === 0) return;
+    const filteredData = getFilteredData();
+    if (filteredData.length === 0) return;
 
     const doc = new jsPDF();
 
     // Group rows by section and only show section label on first row of each group
     const tableData: any[] = [];
     let lastSection = '';
-    data.forEach(row => {
+    filteredData.forEach(row => {
       tableData.push([
         row.SECTION !== lastSection ? row.SECTION : '',
         row.TYPE_CODE,
@@ -1695,6 +2316,32 @@ function CreanceVentilationView({ onBack }: any) {
               <TrendingUp size={16} />
               Générer
             </button>
+            
+            {data.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Type de Ventilation</label>
+                <div className="flex bg-[#F2F4F7] p-1 rounded-xl">
+                  <button
+                    onClick={() => setSectionFilter('ALL')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${sectionFilter === 'ALL' ? 'bg-white shadow-sm text-[#101828]' : 'text-[#667085] hover:text-[#101828]'}`}
+                  >
+                    Tout
+                  </button>
+                  <button
+                    onClick={() => setSectionFilter('EAU')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${sectionFilter === 'EAU' ? 'bg-white shadow-sm text-blue-600' : 'text-[#667085] hover:text-[#101828]'}`}
+                  >
+                    Eau
+                  </button>
+                  <button
+                    onClick={() => setSectionFilter('PRESTATIONS')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${sectionFilter === 'PRESTATIONS' ? 'bg-white shadow-sm text-purple-600' : 'text-[#667085] hover:text-[#101828]'}`}
+                  >
+                    Prestations
+                  </button>
+                </div>
+              </div>
+            )}
             
             {data.length > 0 && (
               <div className="space-y-2">
@@ -1786,7 +2433,7 @@ function CreanceVentilationView({ onBack }: any) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
-                {['EAU', 'PRESTATIONS'].map(section => {
+                {(sectionFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [sectionFilter]).map(section => {
                   const sectionRows = getSortedData(getFilteredData().filter((r: any) => r.SECTION === section));
                   if (sectionRows.length === 0) return null;
                   
@@ -1865,7 +2512,7 @@ function CreanceVentilationView({ onBack }: any) {
                   <td className="px-6 py-6 text-right border-l border-[#F2F4F7]">
                     <p className="text-[9px] font-bold uppercase tracking-widest text-[#98A2B3] mb-1">Volume</p>
                     <p className="text-[15px] font-bold text-[#475467] font-mono">
-                      {data.reduce((acc, curr) => acc + curr.NBR_FACTURES, 0).toLocaleString()}
+                      {getFilteredData().reduce((acc: number, curr: any) => acc + curr.NBR_FACTURES, 0).toLocaleString()}
                     </p>
                   </td>
                   <td className="px-6 py-6 text-right border-l border-[#F2F4F7]">
@@ -1875,7 +2522,7 @@ function CreanceVentilationView({ onBack }: any) {
                   <td className="px-8 py-6 text-right border-l border-[#F2F4F7] bg-[#F9FAFB]/30">
                     <p className="text-[9px] font-bold uppercase tracking-widest text-[#0D83DE] mb-1">Créance Nette</p>
                     <p className="text-xl font-bold text-[#101828] tracking-tighter font-mono tabular-nums">
-                      {fmt(data.reduce((acc, curr) => acc + curr.CREANCE, 0))}
+                      {fmt(getFilteredData().reduce((acc: number, curr: any) => acc + curr.CREANCE, 0))}
                     </p>
                   </td>
                 </tr>

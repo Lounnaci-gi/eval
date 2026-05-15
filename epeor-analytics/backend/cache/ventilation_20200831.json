@@ -1,0 +1,194 @@
+{
+  "date_calcul": "15/05/2026 21:29:52",
+  "data": [
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "B",
+      "CATEGORIE": "ANALYSE D'EAU / ANALYSE D'EAU",
+      "NBR_FACTURES": 3,
+      "NBR_ABONNES": 3,
+      "CREANCE": 75418.2
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "C",
+      "CATEGORIE": "CITERNAGE / VE/CITERNE ANT/2011",
+      "NBR_FACTURES": 12,
+      "NBR_ABONNES": 4,
+      "CREANCE": 159151.8
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "G",
+      "CATEGORIE": "GRANDS TRAVAUX. / EXTENSION OU PROLONGEMENT",
+      "NBR_FACTURES": 1,
+      "NBR_ABONNES": 1,
+      "CREANCE": 99157.5
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "G",
+      "CATEGORIE": "GRANDS TRAVAUX. / FUITES SUR COMPTEUR",
+      "NBR_FACTURES": 13,
+      "NBR_ABONNES": 13,
+      "CREANCE": 90858.95
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "G",
+      "CATEGORIE": "GRANDS TRAVAUX. / MARCHES GRANDS TRAVAUX",
+      "NBR_FACTURES": 3,
+      "NBR_ABONNES": 3,
+      "CREANCE": 1448211.16
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "G",
+      "CATEGORIE": "GRANDS TRAVAUX. / RETENUE DE GARANTIE",
+      "NBR_FACTURES": 1,
+      "NBR_ABONNES": 1,
+      "CREANCE": 14411.5
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "A",
+      "CATEGORIE": "TRAVAUX POUR ABONNES / CHANGEMENT DE NOM",
+      "NBR_FACTURES": 56,
+      "NBR_ABONNES": 55,
+      "CREANCE": 26632.5
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "A",
+      "CATEGORIE": "TRAVAUX POUR ABONNES / F.COUPURE/RETARD DE PAIEMENT",
+      "NBR_FACTURES": 701,
+      "NBR_ABONNES": 562,
+      "CREANCE": 666559.6
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "A",
+      "CATEGORIE": "TRAVAUX POUR ABONNES / FRAIS D'ABONNEMENT",
+      "NBR_FACTURES": 59,
+      "NBR_ABONNES": 59,
+      "CREANCE": 140180.0
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "A",
+      "CATEGORIE": "TRAVAUX POUR ABONNES / NOUVELLE PRISE.",
+      "NBR_FACTURES": 20,
+      "NBR_ABONNES": 20,
+      "CREANCE": 62653.8
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "A",
+      "CATEGORIE": "TRAVAUX POUR ABONNES / RESILIATION PAR L'ETS",
+      "NBR_FACTURES": 1,
+      "NBR_ABONNES": 1,
+      "CREANCE": 500.0
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "A",
+      "CATEGORIE": "TRAVAUX POUR ABONNES / TRAVAUX DE COUPURE.",
+      "NBR_FACTURES": 6,
+      "NBR_ABONNES": 6,
+      "CREANCE": 3600.0
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "A",
+      "CATEGORIE": "TRAVAUX POUR ABONNES / TRAVAUX SUR BRANCHEMENT",
+      "NBR_FACTURES": 1,
+      "NBR_ABONNES": 1,
+      "CREANCE": 6878.2
+    },
+    {
+      "SECTION": "PRESTATIONS",
+      "ORDRE": 100,
+      "TYPE_CODE": "D",
+      "CATEGORIE": "VENTE EN L'ETAT. / VENTE EN ETAT",
+      "NBR_FACTURES": 2,
+      "NBR_ABONNES": 2,
+      "CREANCE": 14441.54
+    },
+    {
+      "SECTION": "EAU",
+      "ORDRE": 1,
+      "TYPE_CODE": "E",
+      "CATEGORIE": "01:MENAGES",
+      "NBR_FACTURES": 50636,
+      "NBR_ABONNES": 13087,
+      "CREANCE": 48253935.03
+    },
+    {
+      "SECTION": "EAU",
+      "ORDRE": 2,
+      "TYPE_CODE": "E",
+      "CATEGORIE": "02:ADMINISTRATIONS",
+      "NBR_FACTURES": 1546,
+      "NBR_ABONNES": 253,
+      "CREANCE": 51907372.97
+    },
+    {
+      "SECTION": "EAU",
+      "ORDRE": 3,
+      "TYPE_CODE": "E",
+      "CATEGORIE": "03:COMMERCE",
+      "NBR_FACTURES": 6296,
+      "NBR_ABONNES": 502,
+      "CREANCE": 7725321.86
+    },
+    {
+      "SECTION": "EAU",
+      "ORDRE": 4,
+      "TYPE_CODE": "E",
+      "CATEGORIE": "04:INDUSTRIE & TOURISME",
+      "NBR_FACTURES": 1407,
+      "NBR_ABONNES": 44,
+      "CREANCE": 4696338.22
+    },
+    {
+      "SECTION": "EAU",
+      "ORDRE": 5,
+      "TYPE_CODE": "E",
+      "CATEGORIE": "05:VENTE EN GROS",
+      "NBR_FACTURES": 89,
+      "NBR_ABONNES": 13,
+      "CREANCE": 19419509.64
+    },
+    {
+      "SECTION": "EAU",
+      "ORDRE": 6,
+      "TYPE_CODE": "E",
+      "CATEGORIE": "06:AUTRE EAU (80)",
+      "NBR_FACTURES": 6,
+      "NBR_ABONNES": 1,
+      "CREANCE": 0.0
+    },
+    {
+      "SECTION": "EAU",
+      "ORDRE": 7,
+      "TYPE_CODE": "C",
+      "CATEGORIE": "07:E/CITERNE",
+      "NBR_FACTURES": 8,
+      "NBR_ABONNES": 8,
+      "CREANCE": 554387.77
+    }
+  ]
+}

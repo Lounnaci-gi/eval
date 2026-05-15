@@ -1626,14 +1626,21 @@ function CreanceVentilationView({ onBack }: any) {
     if (data.length === 0) return;
 
     const doc = new jsPDF();
-    const tableData = data.map(row => [
-      row.SECTION,
-      row.TYPE_CODE,
-      row.CATEGORIE,
-      row.NBR_FACTURES.toLocaleString(),
-      row.NBR_ABONNES.toLocaleString(),
-      fmt(row.CREANCE)
-    ]);
+
+    // Group rows by section and only show section label on first row of each group
+    const tableData: any[] = [];
+    let lastSection = '';
+    data.forEach(row => {
+      tableData.push([
+        row.SECTION !== lastSection ? row.SECTION : '',
+        row.TYPE_CODE,
+        row.CATEGORIE,
+        row.NBR_FACTURES.toLocaleString(),
+        row.NBR_ABONNES.toLocaleString(),
+        fmt(row.CREANCE)
+      ]);
+      lastSection = row.SECTION;
+    });
 
     doc.setFontSize(18);
     doc.text("Ventilation Détaillée des Créances", 14, 22);
@@ -1646,9 +1653,10 @@ function CreanceVentilationView({ onBack }: any) {
       head: [['Section', 'Type', 'Désignation', 'Volume', 'Abonnés', 'Créance']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillStyle: 'dark', fillColor: [16, 24, 40], textColor: [255, 255, 255] },
+      headStyles: { fillColor: [16, 24, 40], textColor: [255, 255, 255] },
       styles: { fontSize: 8, cellPadding: 3 },
       columnStyles: {
+        0: { fontStyle: 'bold', textColor: [13, 131, 222] },
         3: { halign: 'right' },
         4: { halign: 'right' },
         5: { halign: 'right' }
@@ -1657,6 +1665,7 @@ function CreanceVentilationView({ onBack }: any) {
 
     doc.save(`Ventilation_Creances_${dateArrete}.pdf`);
   };
+
 
 
   return (
@@ -1791,11 +1800,17 @@ function CreanceVentilationView({ onBack }: any) {
                     <Fragment key={section}>
                       {sectionRows.map((row, i) => (
                         <tr key={`${section}-${i}`} className="hover:bg-[#F9FAFB]/50 transition-colors group">
-                          <td className="px-8 py-4">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-purple-50 text-purple-600 border border-purple-100/50'}`}>
-                              {row.SECTION}
-                            </span>
-                          </td>
+                          {/* Section cell: only render on the first row of the group, spanning all rows */}
+                          {i === 0 && (
+                            <td
+                              rowSpan={sectionRows.length}
+                              className="px-8 py-4 align-middle border-r border-[#F2F4F7]"
+                            >
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-purple-50 text-purple-600 border border-purple-100/50'}`}>
+                                {row.SECTION}
+                              </span>
+                            </td>
+                          )}
                           <td className="px-6 py-4">
                             <span className="font-mono text-[10px] font-medium text-[#667085] bg-[#F9FAFB] px-1.5 py-0.5 rounded border border-[#E4E7EC]">
                               {row.TYPE_CODE}

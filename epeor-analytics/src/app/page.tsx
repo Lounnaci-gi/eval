@@ -26,6 +26,7 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
+import * as XLSX from 'xlsx';
 import { saveAs } from "file-saver";
 import {
   BarChart,
@@ -35,18 +36,17 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  AreaChart,
-  Area,
   Legend,
   PieChart,
   Pie,
   Cell,
   RadialBarChart,
   RadialBar,
-  PolarAngleAxis
+  PolarAngleAxis,
+  LabelList
 } from "recharts";
 
-// Removed dummy data
+
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "";
@@ -86,6 +86,7 @@ const FrenchDateInput = ({ value, onChange, className, label }: any) => {
 
 export default function Dashboard() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'creance' | 'ventilation'>('dashboard');
+  const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -221,10 +222,28 @@ export default function Dashboard() {
         </div>
 
         <nav className="flex flex-col gap-1">
-          <NavItem icon={<LayoutDashboard size={20} />} label="Tableau de bord" active />
-          <NavItem icon={<Users size={20} />} label="Gestion Abonnés" />
-          <NavItem icon={<BarChart3 size={20} />} label="Analyses Financières" />
-          <NavItem icon={<Calendar size={20} />} label="Périodes de Facturation" />
+          <NavItem 
+            icon={<LayoutDashboard size={20} />} 
+            label="Tableau de bord" 
+            active={currentView === 'dashboard'} 
+            onClick={() => setCurrentView('dashboard')}
+          />
+          <NavItem 
+            icon={<Users size={20} />} 
+            label="Gestion Abonnés" 
+            active={currentView === 'details' || currentView === 'resigned' || currentView === 'stopped'} 
+            onClick={() => setCurrentView('details')}
+          />
+          <NavItem 
+            icon={<BarChart3 size={20} />} 
+            label="Analyses Financières" 
+            active={currentView === 'creance' || currentView === 'ventilation'} 
+            onClick={() => setCurrentView('creance')}
+          />
+          <NavItem 
+            icon={<Calendar size={20} />} 
+            label="Périodes de Facturation" 
+          />
         </nav>
 
         <div className="mt-auto flex flex-col gap-1 pt-6 border-t border-[#F2F4F7]">
@@ -337,29 +356,102 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
               <div className="lg:col-span-4 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
                 <div className="flex justify-between items-center mb-8">
-                  <h3 className="text-xl font-black tracking-tight">Répartition par Commune</h3>
-                  <div className="flex bg-[#F9FAFB] p-1 rounded-xl">
-                    <button className="px-4 py-1.5 bg-white shadow-sm rounded-lg text-sm font-bold">Toutes les communes</button>
+                  <div 
+                    className="flex items-center gap-2 cursor-help"
+                    onMouseEnter={() => setShowChartGuide(true)}
+                    onMouseLeave={() => setShowChartGuide(false)}
+                  >
+                    <h3 className="text-xl font-black tracking-tight text-[#101828] hover:text-[#0D83DE] transition-colors">
+                      Répartition par Commune & Résiliations
+                    </h3>
                   </div>
                 </div>
                 <div className="h-[350px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats?.subscriber_communes || []} margin={{ left: -20, right: 20 }}>
+                    <BarChart data={stats?.subscriber_communes || []} margin={{ top: 30, right: 10, left: -20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
-                      <XAxis dataKey="name" stroke="#98A2B3" fontSize={11} tickLine={false} axisLine={false} dy={10} />
-                      <YAxis stroke="#98A2B3" fontSize={11} tickLine={false} axisLine={false} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "#101828", border: "none", borderRadius: "12px", color: "#fff" }}
-                        itemStyle={{ color: "#fff" }}
-                        formatter={(value: any, name: any, props: any) => {
-                          if (name === "value") return [`${value.toLocaleString()}`, "Abonnés Actifs/Total"];
-                          if (name === "resigned") return [`${value.toLocaleString()}`, "Abonnés Résiliés"];
-                          return [value, name];
-                        }}
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#667085', fontSize: 10, fontWeight: 500 }}
+                        interval={0}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
                       />
-                      <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', color: '#475467' }} />
-                      <Bar dataKey="value" name="Actifs/Total" fill="#0D83DE" radius={[8, 8, 0, 0]} barSize={20} />
-                      <Bar dataKey="resigned" name="Résiliés" fill="#E11D48" radius={[8, 8, 0, 0]} barSize={20} />
+                      <YAxis hide />
+                      <Tooltip
+                        cursor={{ fill: '#F9FAFB' }}
+                        contentStyle={{ 
+                          backgroundColor: "#101828", 
+                          border: "none", 
+                          borderRadius: "12px", 
+                          color: "#fff",
+                          fontSize: '12px'
+                        }}
+                        itemStyle={{ color: "#fff" }}
+                        formatter={(value: any, name: any) => [
+                          `${value.toLocaleString()} Abonnés`, 
+                          name === "value" ? "Actifs" : "Résiliés"
+                        ]}
+                      />
+                      <Legend 
+                        verticalAlign="top" 
+                        align="right" 
+                        iconType="circle" 
+                        wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '20px' }} 
+                      />
+                      <Bar 
+                        dataKey="value" 
+                        name="Actifs"
+                        fill="#0D83DE" 
+                        radius={[4, 4, 0, 0]} 
+                        barSize={40}
+                      >
+                        {showChartGuide && (
+                          <LabelList 
+                            dataKey="value" 
+                            position="top" 
+                            content={(props: any) => {
+                              const { x, y, width, value } = props;
+                              return (
+                                <g>
+                                  <path d={`M${x + width / 2} ${y - 5} L${x + width / 2 - 5} ${y - 15} L${x + width / 2 + 5} ${y - 15} Z`} fill="#0D83DE" />
+                                  <text x={x + width / 2} y={y - 20} fill="#0D83DE" fontSize={10} fontWeight="bold" textAnchor="middle">
+                                    {value.toLocaleString()}
+                                  </text>
+                                </g>
+                              );
+                            }}
+                          />
+                        )}
+                      </Bar>
+                      <Bar 
+                        dataKey="resigned" 
+                        name="Résiliés"
+                        fill="#E11D48" 
+                        radius={[4, 4, 0, 0]} 
+                        barSize={40}
+                      >
+                        {showChartGuide && (
+                          <LabelList 
+                            dataKey="resigned" 
+                            position="top" 
+                            content={(props: any) => {
+                              const { x, y, width, value } = props;
+                              return (
+                                <g>
+                                  <path d={`M${x + width / 2} ${y - 5} L${x + width / 2 - 5} ${y - 15} L${x + width / 2 + 5} ${y - 15} Z`} fill="#E11D48" />
+                                  <text x={x + width / 2} y={y - 20} fill="#E11D48" fontSize={10} fontWeight="bold" textAnchor="middle">
+                                    {value.toLocaleString()}
+                                  </text>
+                                </g>
+                              );
+                            }}
+                          />
+                        )}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -372,28 +464,50 @@ export default function Dashboard() {
                 <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">Types d'Abonnés</h3>
                 <div className="h-[350px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats?.subscriber_types?.slice(0, 8) || []} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" horizontal={false} />
-                      <XAxis type="number" hide />
-                      <YAxis
-                        dataKey="name"
-                        type="category"
-                        stroke="#475467"
-                        fontSize={11}
-                        width={120}
-                        tickLine={false}
-                        axisLine={false}
-                      />
+                    <PieChart>
+                      <Pie
+                        data={stats?.subscriber_types?.slice(0, 5) || []}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={120}
+                        paddingAngle={2}
+                        dataKey="value"
+                        stroke="#fff"
+                        strokeWidth={2}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {(stats?.subscriber_types || []).map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={[
+                            '#0D83DE', // Blue
+                            '#00D1FF', // Cyan
+                            '#7C3AED', // Violet
+                            '#10B981', // Emerald
+                            '#F59E0B', // Amber
+                            '#E11D48', // Rose
+                          ][index % 6]} />
+                        ))}
+                      </Pie>
                       <Tooltip
-                        contentStyle={{ backgroundColor: "#101828", border: "none", borderRadius: "12px", color: "#fff" }}
+                        contentStyle={{ 
+                          backgroundColor: "#101828", 
+                          border: "none", 
+                          borderRadius: "12px", 
+                          color: "#fff",
+                          fontSize: '12px'
+                        }}
                         itemStyle={{ color: "#fff" }}
                         formatter={(value: any, name: any, props: any) => [
                           `${value.toLocaleString()} (${props.payload.percentage}%)`,
-                          "Abonnés"
+                          name
                         ]}
                       />
-                      <Bar dataKey="value" fill="#00D1FF" radius={[0, 8, 8, 0]} barSize={24} />
-                    </BarChart>
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={36}
+                        iconType="circle"
+                        wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '20px' }}
+                      />
+                    </PieChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -548,9 +662,11 @@ function StatsCard({ title, value, icon, trend, color, onClick }: any) {
   );
 }
 
-function NavItem({ icon, label, active = false }: any) {
+function NavItem({ icon, label, active = false, onClick }: any) {
   return (
-    <div className={`
+    <div 
+      onClick={onClick}
+      className={`
       flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer transition-all
       ${active ? 'bg-blue-50 text-[#0D83DE] shadow-sm' : 'text-[#475467] hover:bg-[#F9FAFB] hover:text-[#101828]'}
     `}>
@@ -1254,243 +1370,266 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
   };
 
   const exportToExcel = async () => {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Ventilation");
-
-    const formattedDate = lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
-    const today = new Date();
-    const printDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-
-    // Add 4 empty rows first for the header
-    worksheet.addRow([]);
-    worksheet.addRow([]);
-    worksheet.addRow([]);
-    worksheet.addRow([]);
-
-    // Load Image
+    console.log("Starting Excel export...");
     try {
-      const response = await fetch('/ade.png');
-      const arrayBuffer = await response.arrayBuffer();
-      const imageId = workbook.addImage({
-        buffer: arrayBuffer,
-        extension: 'png',
-      });
-      // Add image top-left
-      worksheet.addImage(imageId, {
-        tl: { col: 0, row: 0 },
-        ext: { width: 100, height: 60 }
-      });
-    } catch (e) {}
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Ventilation");
 
-    // Title Row
-    worksheet.mergeCells('C2:E2');
-    const titleCell = worksheet.getCell('C2');
-    titleCell.value = `Détail Ventilation des Créances  -  Arrêtées au : ${formattedDate}`;
-    titleCell.font = { bold: true, size: 12 };
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      const formattedDate = lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
+      const today = new Date();
+      const printDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
 
-    // Unit & Print Date
-    worksheet.getCell('E1').value = `Unité : 26 - MEDEA`;
-    worksheet.getCell('E1').alignment = { horizontal: 'right' };
-    
-    worksheet.getCell('E3').value = `Centre : S02 - BERROUAGHIA`;
-    worksheet.getCell('E3').alignment = { horizontal: 'right' };
-    
-    worksheet.getCell('E4').value = `Edité le : ${printDate}`;
-    worksheet.getCell('E4').alignment = { horizontal: 'right' };
+      // Add 4 empty rows first for the header
+      worksheet.addRow([]);
+      worksheet.addRow([]);
+      worksheet.addRow([]);
+      worksheet.addRow([]);
 
-    // Row 5 spacing
-    worksheet.addRow([]);
-
-    // Table Headers (Row 6)
-    const headerRow = worksheet.addRow(['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette (DA)']);
-    headerRow.font = { bold: true };
-    
-    worksheet.getColumn(1).width = 15;
-    worksheet.getColumn(2).width = 15;
-    worksheet.getColumn(3).width = 40;
-    worksheet.getColumn(4).width = 15;
-    worksheet.getColumn(5).width = 25;
-
-    const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
-    let globalTotalVolume = 0;
-    let globalTotalCreance = 0;
-    
-    let currentRow = 7;
-
-    sections.forEach(section => {
-      if (!section) return;
-      const rows = ventilationData.filter(r => r.SECTION === section);
-      if (rows.length === 0) return;
-
-      const subTotalCreance = rows.reduce((acc, r) => acc + r.CREANCE, 0);
-      const subTotalVolume = rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0);
-      globalTotalVolume += subTotalVolume;
-      globalTotalCreance += subTotalCreance;
-
-      rows.forEach((row, i) => {
-        worksheet.addRow([
-          i === 0 ? section : "",
-          row.TYPE_CODE,
-          row.CATEGORIE,
-          row.NBR_FACTURES,
-          row.CREANCE
-        ]);
-      });
-
-      if (rows.length > 1) {
-        worksheet.mergeCells(`A${currentRow}:A${currentRow + rows.length - 1}`);
-        worksheet.getCell(`A${currentRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-        worksheet.getCell(`A${currentRow}`).font = { bold: true };
+      // Load Image
+      try {
+        const response = await fetch('/ade.png');
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const imageId = workbook.addImage({
+            buffer: arrayBuffer,
+            extension: 'png',
+          });
+          // Add image top-left
+          worksheet.addImage(imageId, {
+            tl: { col: 0, row: 0 },
+            ext: { width: 100, height: 60 }
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to load logo for Excel:", e);
       }
-      currentRow += rows.length;
 
-      const subTotalRow = worksheet.addRow([
-        `Sous-total ${section}`,
+      // Title Row
+      worksheet.mergeCells('C2:E2');
+      const titleCell = worksheet.getCell('C2');
+      titleCell.value = `Détail Ventilation des Créances  -  Arrêtées au : ${formattedDate}`;
+      titleCell.font = { bold: true, size: 12 };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Unit & Print Date
+      worksheet.getCell('E1').value = `Unité : 26 - MEDEA`;
+      worksheet.getCell('E1').alignment = { horizontal: 'right' };
+      
+      worksheet.getCell('E3').value = `Centre : S02 - BERROUAGHIA`;
+      worksheet.getCell('E3').alignment = { horizontal: 'right' };
+      
+      worksheet.getCell('E4').value = `Edité le : ${printDate}`;
+      worksheet.getCell('E4').alignment = { horizontal: 'right' };
+
+      // Row 5 spacing
+      worksheet.addRow([]);
+
+      // Table Headers (Row 6)
+      const headerRow = worksheet.addRow(['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette (DA)']);
+      headerRow.font = { bold: true };
+      
+      worksheet.getColumn(1).width = 25;
+      worksheet.getColumn(2).width = 15;
+      worksheet.getColumn(3).width = 40;
+      worksheet.getColumn(4).width = 15;
+      worksheet.getColumn(5).width = 25;
+
+      const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
+      let globalTotalVolume = 0;
+      let globalTotalCreance = 0;
+      
+      let currentRow = 7;
+
+      sections.forEach(section => {
+        if (!section) return;
+        const rows = ventilationData.filter(r => r.SECTION === section);
+        if (rows.length === 0) return;
+
+        const subTotalCreance = rows.reduce((acc, r) => acc + r.CREANCE, 0);
+        const subTotalVolume = rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0);
+        globalTotalVolume += subTotalVolume;
+        globalTotalCreance += subTotalCreance;
+
+        rows.forEach((row, i) => {
+          worksheet.addRow([
+            i === 0 ? section : "",
+            row.TYPE_CODE,
+            row.CATEGORIE,
+            row.NBR_FACTURES,
+            row.CREANCE
+          ]);
+        });
+
+        if (rows.length > 1) {
+          worksheet.mergeCells(`A${currentRow}:A${currentRow + rows.length - 1}`);
+          worksheet.getCell(`A${currentRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+          worksheet.getCell(`A${currentRow}`).font = { bold: true };
+        }
+        currentRow += rows.length;
+
+        const subTotalRow = worksheet.addRow([
+          `Sous-total ${section}`,
+          '',
+          '',
+          subTotalVolume,
+          subTotalCreance
+        ]);
+        subTotalRow.font = { bold: true };
+        worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+        currentRow++;
+      });
+
+      // Add Global Total Row
+      const globalTotalRow = worksheet.addRow([
+        'TOTAL GÉNÉRAL',
         '',
         '',
-        subTotalVolume,
-        subTotalCreance
+        globalTotalVolume,
+        globalTotalCreance
       ]);
-      subTotalRow.font = { bold: true };
+      globalTotalRow.font = { bold: true };
       worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
-      currentRow++;
-    });
 
-    // Add Global Total Row
-    const globalTotalRow = worksheet.addRow([
-      'TOTAL GÉNÉRAL',
-      '',
-      '',
-      globalTotalVolume,
-      globalTotalCreance
-    ]);
-    globalTotalRow.font = { bold: true };
-    worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
-
-    // Generate Excel file
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    saveAs(blob, `ventilation_${lastVentDate}.xlsx`);
+      // Generate Excel file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      saveAs(blob, `ventilation_${lastVentDate || 'export'}.xlsx`);
+      console.log("Excel export successful");
+    } catch (error) {
+      console.error("Excel export error:", error);
+      alert("Une erreur est survenue lors de l'exportation Excel. Veuillez vérifier la console.");
+    }
   };
 
   const exportToPDF = async () => {
-    const doc = new jsPDF();
-    const formattedDate = lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
-    
-    const pageWidth = doc.internal.pageSize.width;
-    let imgHeightOut = 0;
-
-    // Load and add image
+    console.log("Starting PDF export...");
     try {
-      const img = new window.Image();
-      img.src = '/ade.png';
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve;
-      });
+      const doc = new jsPDF();
+      const formattedDate = lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
+      
+      const pageWidth = doc.internal.pageSize.width;
+      let imgHeightOut = 0;
 
-      if (img.width) {
-        const imgWidth = 35;
-        imgHeightOut = (img.height * imgWidth) / img.width;
-        // Draw image on the left, aligned roughly with the title
-        doc.addImage(img, 'PNG', 14, 12, imgWidth, imgHeightOut);
-      }
-    } catch (e) {}
+      // Load and add image with timeout to prevent hanging
+      try {
+        const img = new window.Image();
+        img.src = '/ade.png';
+        await Promise.race([
+          new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Image timeout")), 3000))
+        ]);
 
-    // Header Title (Centered)
-    const fullTitle = `Détail Ventilation des Créances  -  Arrêtées au : ${formattedDate}`;
-    doc.setFontSize(9.5);
-    doc.setTextColor(16, 24, 40); // text-[#101828]
-    doc.text(fullTitle, pageWidth / 2, 20, { align: 'center' });
-
-    const today = new Date();
-    const printDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-
-    // Unit & Center (Top Right)
-    doc.setFontSize(9);
-    doc.setTextColor(71, 84, 103);
-    doc.text("Unité : 26 - MEDEA", pageWidth - 14, 15, { align: 'right' });
-    doc.text("Centre : S02 - BERROUAGHIA", pageWidth - 14, 19, { align: 'right' });
-    doc.setFontSize(8);
-    doc.text(`Edité le : ${printDate}`, pageWidth - 14, 23, { align: 'right' });
-    
-    // Set starting Y for the table, ensuring it's below the image and text
-    let currentY = Math.max(32, 12 + imgHeightOut + 8);
-
-    const bodyData: any[] = [];
-    const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
-
-    let globalTotalVolume = 0;
-    let globalTotalCreance = 0;
-
-    sections.forEach(section => {
-      if (!section) return;
-      const rows = ventilationData.filter(r => r.SECTION === section);
-      if (rows.length === 0) return;
-
-      const subTotalCreance = rows.reduce((acc, r) => acc + r.CREANCE, 0);
-      const subTotalVolume = rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0);
-      globalTotalVolume += subTotalVolume;
-      globalTotalCreance += subTotalCreance;
-
-      rows.forEach((row, i) => {
-        const rowData: any[] = [];
-        if (i === 0) {
-          rowData.push({ 
-            content: section.split('').join('\n'), 
-            rowSpan: rows.length, 
-            styles: { 
-              halign: 'center', 
-              valign: 'middle', 
-              fontStyle: 'bold', 
-              fontSize: rows.length < 5 ? 5 : 8,
-              textColor: section === 'EAU' ? [13, 131, 222] : [147, 51, 234] 
-            } 
-          });
+        if (img.width) {
+          const imgWidth = 35;
+          imgHeightOut = (img.height * imgWidth) / img.width;
+          // Draw image on the left, aligned roughly with the title
+          doc.addImage(img, 'PNG', 14, 12, imgWidth, imgHeightOut);
         }
-        rowData.push(
-          { content: row.TYPE_CODE, styles: { halign: 'center', fontStyle: 'bold', textColor: [102, 112, 133] } },
-          { content: row.CATEGORIE, styles: { textColor: [16, 24, 40] } },
-          { content: row.NBR_FACTURES.toLocaleString(), styles: { halign: 'right', textColor: [71, 84, 103] } },
-          { content: fmt(row.CREANCE), styles: { halign: 'right', fontStyle: 'bold', textColor: [16, 24, 40] } }
-        );
-        bodyData.push(rowData);
+      } catch (e) {
+        console.warn("Failed to load logo for PDF:", e);
+      }
+
+      // Header Title (Centered)
+      const fullTitle = `Détail Ventilation des Créances  -  Arrêtées au : ${formattedDate}`;
+      doc.setFontSize(9.5);
+      doc.setTextColor(16, 24, 40); // text-[#101828]
+      doc.text(fullTitle, pageWidth / 2, 20, { align: 'center' });
+
+      const today = new Date();
+      const printDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+
+      // Unit & Center (Top Right)
+      doc.setFontSize(9);
+      doc.setTextColor(71, 84, 103);
+      doc.text("Unité : 26 - MEDEA", pageWidth - 14, 15, { align: 'right' });
+      doc.text("Centre : S02 - BERROUAGHIA", pageWidth - 14, 19, { align: 'right' });
+      doc.setFontSize(8);
+      doc.text(`Edité le : ${printDate}`, pageWidth - 14, 23, { align: 'right' });
+      
+      // Set starting Y for the table, ensuring it's below the image and text
+      let currentY = Math.max(32, 12 + imgHeightOut + 8);
+
+      const bodyData: any[] = [];
+      const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
+
+      let globalTotalVolume = 0;
+      let globalTotalCreance = 0;
+
+      sections.forEach(section => {
+        if (!section) return;
+        const rows = ventilationData.filter(r => r.SECTION === section);
+        if (rows.length === 0) return;
+
+        const subTotalCreance = rows.reduce((acc, r) => acc + r.CREANCE, 0);
+        const subTotalVolume = rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0);
+        globalTotalVolume += subTotalVolume;
+        globalTotalCreance += subTotalCreance;
+
+        rows.forEach((row, i) => {
+          const rowData: any[] = [];
+          if (i === 0) {
+            rowData.push({ 
+              content: section.split('').join('\n'), 
+              rowSpan: rows.length, 
+              styles: { 
+                halign: 'center', 
+                valign: 'middle', 
+                fontStyle: 'bold', 
+                fontSize: rows.length < 5 ? 5 : 8,
+                textColor: section === 'EAU' ? [13, 131, 222] : [147, 51, 234] 
+              } 
+            });
+          }
+          rowData.push(
+            { content: row.TYPE_CODE, styles: { halign: 'center', fontStyle: 'bold', textColor: [102, 112, 133] } },
+            { content: row.CATEGORIE, styles: { textColor: [16, 24, 40] } },
+            { content: fmtNum(row.NBR_FACTURES), styles: { halign: 'right', textColor: [71, 84, 103] } },
+            { content: fmt(row.CREANCE), styles: { halign: 'right', fontStyle: 'bold', textColor: [16, 24, 40] } }
+          );
+          bodyData.push(rowData);
+        });
+
+        const fillColor: [number, number, number] = section === 'EAU' ? [239, 246, 255] : [250, 245, 255];
+        bodyData.push([
+          { content: `Sous-total ${section}`, colSpan: 3, styles: { fontStyle: 'bold', fillColor, textColor: [16, 24, 40] } },
+          { content: fmtNum(subTotalVolume), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [71, 84, 103] } },
+          { content: fmt(subTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [16, 24, 40] } }
+        ]);
       });
 
-      const fillColor: [number, number, number] = section === 'EAU' ? [239, 246, 255] : [250, 245, 255];
+      // Global Total Row
       bodyData.push([
-        { content: `Sous-total ${section}`, colSpan: 3, styles: { fontStyle: 'bold', fillColor, textColor: [16, 24, 40] } },
-        { content: subTotalVolume.toLocaleString(), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [71, 84, 103] } },
-        { content: fmt(subTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [16, 24, 40] } }
+        { content: 'TOTAL GÉNÉRAL', colSpan: 3, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+        { content: fmtNum(globalTotalVolume), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+        { content: fmt(globalTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } }
       ]);
-    });
 
-    // Global Total Row
-    bodyData.push([
-      { content: 'TOTAL GÉNÉRAL', colSpan: 3, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
-      { content: globalTotalVolume.toLocaleString(), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
-      { content: fmt(globalTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } }
-    ]);
+      autoTable(doc, {
+        startY: currentY,
+        margin: { bottom: 12 },
+        head: [['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette']],
+        body: bodyData,
+        theme: 'grid',
+        headStyles: { fillColor: [249, 250, 251], textColor: [71, 84, 103], fontStyle: 'bold', lineWidth: 0.1, lineColor: [228, 231, 236] },
+        styles: { fontSize: 8.5, cellPadding: 3, lineColor: [242, 244, 247], lineWidth: 0.1 },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 15 },
+          2: { cellWidth: 'auto' },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 35 }
+        }
+      });
 
-    autoTable(doc, {
-      startY: currentY,
-      margin: { bottom: 12 },
-      head: [['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette']],
-      body: bodyData,
-      theme: 'grid',
-      headStyles: { fillColor: [249, 250, 251], textColor: [71, 84, 103], fontStyle: 'bold', lineWidth: 0.1, lineColor: [228, 231, 236] },
-      styles: { fontSize: 8.5, cellPadding: 3, lineColor: [242, 244, 247], lineWidth: 0.1 },
-      columnStyles: {
-        0: { cellWidth: 15 },
-        1: { cellWidth: 15 },
-        2: { cellWidth: 'auto' },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 35 }
-      }
-    });
-
-    doc.save(`ventilation_${lastVentDate}.pdf`);
+      doc.save(`ventilation_${lastVentDate || 'export'}.pdf`);
+      console.log("PDF export successful");
+    } catch (error) {
+      console.error("PDF export error:", error);
+      alert("Une erreur est survenue lors de l'exportation PDF. Veuillez vérifier la console.");
+    }
   };
 
 
@@ -1606,8 +1745,12 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(n)
-      .replace(/\u202F/g, ' ')
-      .replace(/\u00A0/g, ' ') + " DA";
+      .replace(/[\u202F\u00A0]/g, ' ') + " DA";
+
+  const fmtNum = (n: number) =>
+    new Intl.NumberFormat("fr-DZ", { maximumFractionDigits: 0 })
+      .format(n)
+      .replace(/[\u202F\u00A0]/g, ' ');
 
   return (
     <div className="space-y-10">
@@ -1887,7 +2030,7 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
                                   <div className="text-[9px] text-[#98A2B3] font-medium uppercase mt-0.5">Code: {row.ORDRE}</div>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                  <div className="font-bold text-[13px] text-[#475467] font-mono tabular-nums">{row.NBR_FACTURES.toLocaleString()}</div>
+                                  <div className="font-bold text-[13px] text-[#475467] font-mono tabular-nums">{fmtNum(row.NBR_FACTURES)}</div>
                                 </td>
                                 <td className="px-8 py-4 text-right">
                                   <div className="font-black text-[13px] text-[#101828] font-mono tracking-tighter">{fmt(row.CREANCE)}</div>
@@ -1902,7 +2045,7 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
                                 </div>
                               </td>
                               <td className="px-6 py-4 text-right">
-                                <span className="font-black text-[13px] text-[#475467] font-mono">{rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0).toLocaleString()}</span>
+                                <span className="font-black text-[13px] text-[#475467] font-mono">{fmtNum(rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0))}</span>
                               </td>
                               <td className="px-8 py-4 text-right">
                                 <span className={`font-black text-[15px] ${section === 'EAU' ? 'text-blue-700' : 'text-purple-700'} font-mono tracking-tighter`}>{fmt(subTotal)}</span>
@@ -1921,7 +2064,7 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
                             </td>
                             <td className="px-6 py-7 text-right align-bottom">
                               <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Volume Global</div>
-                              <div className="font-black text-lg text-slate-200 font-mono">{ventilationData.reduce((acc, r) => acc + r.NBR_FACTURES, 0).toLocaleString()}</div>
+                              <div className="font-black text-lg text-slate-200 font-mono">{fmtNum(ventilationData.reduce((acc, r) => acc + r.NBR_FACTURES, 0))}</div>
                             </td>
                             <td className="px-8 py-7 text-right align-bottom bg-white/5 border-l border-white/10">
                               <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Créance Totale Arretée</div>

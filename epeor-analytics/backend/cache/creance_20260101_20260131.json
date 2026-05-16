@@ -1,0 +1,222 @@
+{
+  "total_ca_eau": 6251244.65,
+  "total_ca_prestation": 258366.68,
+  "total_ca": 6509611.33,
+  "total_creance": 129857699.09,
+  "total_recouvre": 5180752.48,
+  "by_commune": [
+    {
+      "id": "02",
+      "name": "BERROUAGHIA",
+      "ca_eau": 4617656.1,
+      "ca_prestation": 136380.7,
+      "ca": 4754036.8,
+      "creance": 91331785.02,
+      "recouvre": 4097608.97,
+      "taux": 1921.14
+    },
+    {
+      "id": "30",
+      "name": "REBAIA",
+      "ca_eau": 392648.9,
+      "ca_prestation": 15574.01,
+      "ca": 408222.91,
+      "creance": 15834028.07,
+      "recouvre": 159620.55,
+      "taux": 3878.77
+    },
+    {
+      "id": "16",
+      "name": "OULED DEID",
+      "ca_eau": 748457.12,
+      "ca_prestation": 0.0,
+      "ca": 748457.12,
+      "creance": 6429496.25,
+      "recouvre": 112138.95,
+      "taux": 859.03
+    },
+    {
+      "id": "91",
+      "name": "OUED CHORFA",
+      "ca_eau": 0.0,
+      "ca_prestation": 0.0,
+      "ca": 0.0,
+      "creance": 5964924.72,
+      "recouvre": 0.0,
+      "taux": 0
+    },
+    {
+      "id": "13",
+      "name": "ZOUBIRIA",
+      "ca_eau": 487408.71,
+      "ca_prestation": 46443.57,
+      "ca": 533852.28,
+      "creance": 3727049.38,
+      "recouvre": 222424.88,
+      "taux": 698.14
+    },
+    {
+      "id": "11",
+      "name": "SEGHOUANE",
+      "ca_eau": 5073.82,
+      "ca_prestation": 0.0,
+      "ca": 5073.82,
+      "creance": 3520091.38,
+      "recouvre": 189826.51,
+      "taux": 69377.54
+    },
+    {
+      "id": "15",
+      "name": "BENCHICAO",
+      "ca_eau": 0.0,
+      "ca_prestation": 0.0,
+      "ca": 0.0,
+      "creance": 639.99,
+      "recouvre": 0.0,
+      "taux": 0
+    },
+    {
+      "id": "12",
+      "name": "BOUAICHOUNE",
+      "ca_eau": 0.0,
+      "ca_prestation": 0.0,
+      "ca": 0.0,
+      "creance": 0.0,
+      "recouvre": 0.0,
+      "taux": 0
+    }
+  ],
+  "by_type": [
+    {
+      "name": "Ménages",
+      "ca_eau": 5360248.03,
+      "ca_prestation": 0.0,
+      "ca": 5360248.03,
+      "creance": 35929990.28,
+      "recouvre": 3111707.93,
+      "taux": 670.3
+    },
+    {
+      "name": "Industrie & Tourisme",
+      "ca_eau": 440603.58,
+      "ca_prestation": 0.0,
+      "ca": 440603.58,
+      "creance": 5455203.27,
+      "recouvre": 68155.08,
+      "taux": 1238.12
+    },
+    {
+      "name": "Autres",
+      "ca_eau": 0.0,
+      "ca_prestation": 258366.68,
+      "ca": 258366.68,
+      "creance": 10291840.58,
+      "recouvre": 893697.76,
+      "taux": 3983.42
+    },
+    {
+      "name": "Citernage",
+      "ca_eau": 228857.75,
+      "ca_prestation": 0.0,
+      "ca": 228857.75,
+      "creance": 672376.44,
+      "recouvre": 0.0,
+      "taux": 293.8
+    },
+    {
+      "name": "Services",
+      "ca_eau": 194867.38,
+      "ca_prestation": 0.0,
+      "ca": 194867.38,
+      "creance": 6590221.22,
+      "recouvre": 594011.93,
+      "taux": 3381.9
+    },
+    {
+      "name": "Manque à Gagner",
+      "ca_eau": 21149.04,
+      "ca_prestation": 0.0,
+      "ca": 21149.04,
+      "creance": 32307.92,
+      "recouvre": 21149.04,
+      "taux": 152.76
+    },
+    {
+      "name": "Administrations",
+      "ca_eau": 5518.87,
+      "ca_prestation": 0.0,
+      "ca": 5518.87,
+      "creance": 53783330.06,
+      "recouvre": 433046.84,
+      "taux": 974535.19
+    },
+    {
+      "name": "Vente en Gros",
+      "ca_eau": 0.0,
+      "ca_prestation": 0.0,
+      "ca": 0.0,
+      "creance": 17102429.32,
+      "recouvre": 58983.9,
+      "taux": 0
+    }
+  ],
+  "by_raw_type": [
+    {
+      "type": "E",
+      "creance": 118861174.15,
+      "count": 63924
+    },
+    {
+      "type": "A",
+      "creance": 5704189.22,
+      "count": 1258
+    },
+    {
+      "type": "G",
+      "creance": 1656167.46,
+      "count": 19
+    },
+    {
+      "type": "2",
+      "creance": 1257549.16,
+      "count": 8
+    },
+    {
+      "type": "7",
+      "creance": 1147100.0,
+      "count": 873
+    },
+    {
+      "type": "C",
+      "creance": 672376.44,
+      "count": 25
+    },
+    {
+      "type": "4",
+      "creance": 263325.0,
+      "count": 165
+    },
+    {
+      "type": "X",
+      "creance": 173650.0,
+      "count": 82
+    },
+    {
+      "type": "B",
+      "creance": 75418.2,
+      "count": 3
+    },
+    {
+      "type": "6",
+      "creance": 32307.92,
+      "count": 2
+    },
+    {
+      "type": "D",
+      "creance": 14441.54,
+      "count": 2
+    }
+  ],
+  "is_official": false,
+  "date_calcul": "16/05/2026 16:13:41"
+}

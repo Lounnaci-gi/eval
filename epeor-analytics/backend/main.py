@@ -807,6 +807,84 @@ def get_creance_detaillee(date_arrete: str):
     except Exception as e:
         return {"error": str(e)}
 
+# Global indexes for extremely fast lookups
+ABONNE_INDEX = None
+FACTURES_INDEX = None
+
+def get_abonne_index():
+    global ABONNE_INDEX
+    if ABONNE_INDEX is not None:
+        return ABONNE_INDEX
+    
+    table_abonne = load_dbf("ABONNE.DBF", load_all=False)
+    idx = {}
+    if table_abonne:
+        for r in table_abonne:
+            numab = str(r.get('NUMAB', '')).strip()
+            if not numab: continue
+            nom = str(r.get('NOM', '')).strip()
+            raisoc = str(r.get('RAISOC', '')).strip()
+            idx[numab] = {
+                "NOM": raisoc if raisoc else nom,
+                "ADRESSE": str(r.get('ADRESSE', '')).strip()
+            }
+    ABONNE_INDEX = idx
+    return idx
+
+def get_factures_index():
+    global FACTURES_INDEX
+    if FACTURES_INDEX is not None:
+        return FACTURES_INDEX
+
+    table_factures = load_dbf("FACTURES.DBF", load_all=False)
+    idx = {}
+    if table_factures:
+        for r in table_factures:
+            numab = str(r.get('NUMAB', '')).strip()
+            if not numab: continue
+            if numab not in idx:
+                idx[numab] = []
+            
+            idx[numab].append({
+                "DATFACT": str(r.get('DATFACT') or '').strip(),
+                "MONTTC": float(r.get('MONTTC') or 0),
+                "DATREG": str(r.get('DATREG') or '').strip(),
+                "MODALITE": str(r.get('MODALITE') or '').strip(),
+                "PERIODE": str(r.get('PERIODE') or '').strip(),
+                "TYPE": str(r.get('TYPE') or '').strip(),
+                "NUMREC": str(r.get('NUMREC') or '').strip(),
+                "CHEQUE": str(r.get('CHEQUE') or '').strip(),
+            })
+    
+    # Sort them all by DATFACT desc initially
+    for k in idx:
+        idx[k].sort(key=lambda x: x["DATFACT"], reverse=True)
+        
+    FACTURES_INDEX = idx
+    return idx
+
+@app.get("/abonne_factures")
+def get_abonne_factures(numab: str = None):
+    if not numab:
+        return {"error": "numab parameter is required"}
+    try:
+        ab_idx = get_abonne_index()
+        fac_idx = get_factures_index()
+
+        abonne_info = ab_idx.get(numab, None)
+        factures = fac_idx.get(numab, [])
+
+        results = []
+        for f in factures:
+            f_copy = dict(f)
+            f_copy["NOM"] = abonne_info["NOM"] if abonne_info else "Inconnu"
+            f_copy["ADRESSE"] = abonne_info["ADRESSE"] if abonne_info else ""
+            results.append(f_copy)
+
+        return results
+    except Exception as e:
+        return {"error": str(e)}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

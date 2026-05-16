@@ -1317,6 +1317,155 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   const [sortKey, setSortKey] = useState<string>('numab');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [filterText, setFilterText] = useState('');
+  const [selectedSubForInvoices, setSelectedSubForInvoices] = useState<any>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [invoicePage, setInvoicePage] = useState(1);
+  const INVOICES_PER_PAGE = 20;
+
+  const handleRowClick = async (sub: any) => {
+    setSelectedSubForInvoices(sub);
+    setLoadingInvoices(true);
+    setInvoicePage(1);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/abonne_factures?numab=${sub.numab}`);
+      const data = await res.json();
+      setInvoices(data || []);
+    } catch (e) {
+      console.error(e);
+      setInvoices([]);
+    }
+    setLoadingInvoices(false);
+  };
+
+  if (selectedSubForInvoices) {
+    const formatYMD = (d: string) => {
+      if (!d || d.length !== 8) return d;
+      return `${d.substring(6,8)}-${d.substring(4,6)}-${d.substring(0,4)}`;
+    };
+
+    const formatDatFact = (d: string, p: string) => {
+      if (!d || d.length !== 8) return d;
+      const year = d.substring(0, 4);
+      const month = d.substring(4, 6);
+      
+      const numP = Number(p);
+      if (numP === 3) {
+        if (month === '03') return `1er Trim ${year}`;
+        if (month === '06') return `2ème Trim ${year}`;
+        if (month === '09') return `3ème Trim ${year}`;
+        if (month === '12') return `4ème Trim ${year}`;
+      }
+      
+      return `${month}-${year}`;
+    };
+
+    const formatModalite = (m: string) => {
+      if (!m) return '---';
+      const mod = m.trim().toUpperCase();
+      const map: Record<string, string> = {
+        'ES': 'Espèce',
+        'VB': 'Virement bancaire',
+        'VP': 'Virement Postal',
+        'CB': 'Chèque bancaire',
+        'CP': 'Chèque Postal',
+        'PT': 'Paiement par TPE',
+        'EP': 'Paiement en ligne',
+        'MP': 'Paiement mobile'
+      };
+      return map[mod] || mod;
+    };
+
+    return (
+      <div className="bg-white flex flex-col animate-in fade-in duration-300">
+        <div className="p-6 border-b border-[#F2F4F7] flex flex-col gap-4 bg-[#F9FAFB]">
+          <button onClick={() => setSelectedSubForInvoices(null)} className="self-start flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="rotate-180"><path d="m9 18 6-6-6-6"/></svg> Retour à la liste
+          </button>
+
+        </div>
+        
+        <div className="flex-1 overflow-x-auto p-0">
+          {loadingInvoices ? (
+            <div className="flex justify-center items-center py-20">
+              <div className={`animate-spin rounded-full h-10 w-10 border-b-2 ${style.spinner}`}></div>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
+                  <th className="px-6 py-5 border-b border-[#F2F4F7]">Date Facture</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7]">Type</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">Montant TTC</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">Date Règlement</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">Modalité</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7] text-center">Statut</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">N° Reçu</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">N° Chèque / Versement</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {invoices.length > 0 ? invoices.slice((invoicePage - 1) * INVOICES_PER_PAGE, invoicePage * INVOICES_PER_PAGE).map((inv: any, i: number) => {
+                  const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
+                  return (
+                    <tr key={i} className="hover:bg-[#F9FAFB] transition-colors">
+                      <td className="px-6 py-4 font-bold text-[13px] text-[#101828]">{formatDatFact(inv.DATFACT, inv.PERIODE)}</td>
+                      <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{inv.TYPE || '---'}</td>
+                      <td className="px-6 py-4 font-black text-[13px] text-[#101828] text-right">{inv.MONTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA</td>
+                      <td className="px-6 py-4 font-medium text-[13px] text-[#475467] text-right">{isPaid ? formatYMD(inv.DATREG) : '---'}</td>
+                      <td className="px-6 py-4 font-medium text-[13px] text-[#667085] text-right">{formatModalite(inv.MODALITE)}</td>
+                      <td className="px-6 py-4 text-center">
+                        {isPaid ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase">Payé</span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100 uppercase">Impayé</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 font-mono text-[12px] text-[#667085] text-right">{inv.NUMREC || '---'}</td>
+                      <td className="px-6 py-4 font-mono text-[12px] text-[#667085] text-right">{inv.CHEQUE || '---'}</td>
+                    </tr>
+                  )
+                }) : (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-[#667085] font-medium">Aucune facture trouvée pour cet abonné.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Invoice Pagination Footer */}
+        {invoices.length > 0 && !loadingInvoices && (
+          <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#F2F4F7] flex items-center justify-between rounded-b-2xl">
+            <p className="text-xs font-bold text-[#667085]">
+              Affichage {(invoicePage - 1) * INVOICES_PER_PAGE + 1}–{Math.min(invoicePage * INVOICES_PER_PAGE, invoices.length)} sur{" "}
+              <span className="text-[#101828]">{invoices.length}</span> factures
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setInvoicePage(p => Math.max(1, p - 1))}
+                disabled={invoicePage === 1}
+                className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-40 hover:bg-[#F2F4F7] transition-colors"
+              >
+                ← Précédent
+              </button>
+              <span className="px-4 py-2 text-xs font-bold text-[#475467]">
+                Page {invoicePage} / {Math.max(1, Math.ceil(invoices.length / INVOICES_PER_PAGE))}
+              </span>
+              <button
+                onClick={() => setInvoicePage(p => Math.min(Math.ceil(invoices.length / INVOICES_PER_PAGE), p + 1))}
+                disabled={invoicePage === Math.max(1, Math.ceil(invoices.length / INVOICES_PER_PAGE))}
+                className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-40 hover:bg-[#F2F4F7] transition-colors"
+              >
+                Suivant →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -1423,7 +1572,8 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           {pageItems.length > 0 ? pageItems.map((sub: any, i: number) => (
             <tr
               key={i}
-              className="hover:bg-[#F9FAFB] transition-colors cursor-default"
+              className="hover:bg-[#F9FAFB] transition-colors cursor-pointer"
+              onClick={() => handleRowClick(sub)}
               onMouseEnter={(e) => { setHoveredSub(sub); setMousePos({ x: e.clientX, y: e.clientY }); }}
               onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
               onMouseLeave={() => setHoveredSub(null)}
@@ -1476,6 +1626,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           </div>
         </div>
       )}
+
     </>
   );
 }

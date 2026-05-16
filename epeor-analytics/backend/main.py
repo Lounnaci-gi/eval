@@ -396,6 +396,7 @@ def get_subscribers(quartier: str = None, etat: str = None):
             numordre = str(record.get('NUMORDRE', '')).strip()
             numser   = abonment_info.get('NUMSER', '---')
             etatcpt  = abonment_info.get('ETATCPT', '')
+            tournee  = str(record.get('TOURNEE', '')).strip()
             # Join TABCODE: 'E' + etatcpt -> LIBELLE
             etat_label = etat_map.get(etatcpt, etatcpt if etatcpt else '—')
                 
@@ -409,6 +410,7 @@ def get_subscribers(quartier: str = None, etat: str = None):
                 "adresse":    adresse,
                 "bloc":       bloc,
                 "ndom":       ndom,
+                "tournee":    tournee,
                 "numordre":   numordre
             })
             

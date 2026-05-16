@@ -1306,27 +1306,109 @@ function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
 function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos }: any) {
   const ITEMS_PER_PAGE = 20;
   const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<string>('numab');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [filterText, setFilterText] = useState('');
 
-  const total = subscribers.length;
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+    setPage(1);
+  };
+
+  // Filter subscribers
+  const filtered = subscribers.filter((sub: any) => {
+    if (!filterText) return true;
+    const q = filterText.toLowerCase();
+    return (
+      (sub.numab || '').toLowerCase().includes(q) ||
+      (sub.name || '').toLowerCase().includes(q) ||
+      (sub.adresse || '').toLowerCase().includes(q) ||
+      (sub.numser || '').toLowerCase().includes(q) ||
+      (sub.type || '').toLowerCase().includes(q) ||
+      (sub.etat_label || '').toLowerCase().includes(q) ||
+      (sub.tournee || '').toLowerCase().includes(q)
+    );
+  });
+
+  // Sort subscribers
+  const sorted = [...filtered].sort((a: any, b: any) => {
+    const va = (a[sortKey] ?? '').toString().toLowerCase();
+    const vb = (b[sortKey] ?? '').toString().toLowerCase();
+    const cmp = va.localeCompare(vb, 'fr', { numeric: true });
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const total = sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
   const start = (safePage - 1) * ITEMS_PER_PAGE;
-  const pageItems = subscribers.slice(start, start + ITEMS_PER_PAGE);
+  const pageItems = sorted.slice(start, start + ITEMS_PER_PAGE);
+
+  // Sortable header cell
+  const Th = ({ label, field, align = 'left', px = 'px-6' }: { label: string; field: string; align?: string; px?: string }) => {
+    const active = sortKey === field;
+    return (
+      <th
+        className={`${px} py-5 ${align === 'right' ? 'text-right' : ''} cursor-pointer select-none group`}
+        onClick={() => handleSort(field)}
+      >
+        <span className="inline-flex items-center gap-1.5">
+          {align === 'right' && (
+            <span className={`text-[10px] transition-colors ${active ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+              {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+            </span>
+          )}
+          <span className={`transition-colors ${active ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>{label}</span>
+          {align !== 'right' && (
+            <span className={`text-[10px] transition-colors ${active ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+              {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+            </span>
+          )}
+        </span>
+      </th>
+    );
+  };
 
   return (
     <>
+      <div className="p-4 border-b border-[#F2F4F7] bg-white">
+        <div className="relative max-w-sm">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-9 pr-3 py-2 border border-[#E4E7EC] rounded-xl text-sm font-medium focus:ring-2 focus:ring-[#0D83DE]/20 focus:border-[#0D83DE] outline-none transition-all placeholder-[#98A2B3]"
+            placeholder="Rechercher un abonné (Nom, N° série...)"
+            value={filterText}
+            onChange={(e) => {
+              setFilterText(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+      </div>
       <table className="w-full text-left">
         <thead>
           <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-            <th className="px-6 py-5">N° Abonné</th>
-            <th className="px-6 py-5">Nom / Raison Sociale</th>
-            <th className="px-6 py-5">Adresse</th>
-            <th className="px-4 py-5">Bloc</th>
-            <th className="px-4 py-5">N° Dom</th>
-            <th className="px-6 py-5">N° Série</th>
-            <th className="px-6 py-5">Type d'Abonnement</th>
-            <th className="px-6 py-5">État</th>
-            <th className="px-6 py-5 text-right">N° Ordre</th>
+            <Th label="N° Abonné"          field="numab"    />
+            <Th label="Nom / Raison Sociale" field="name"   />
+            <Th label="Adresse"             field="adresse" />
+            <Th label="Tournée"             field="tournee" />
+            <Th label="Bloc"                field="bloc"    px="px-4" />
+            <Th label="N° Dom"              field="ndom"    px="px-4" />
+            <Th label="N° Série"            field="numser"  />
+            <Th label="Type d'Abonnement"   field="type"    />
+            <Th label="État"                field="etat_label" />
+            <Th label="N° Ordre"            field="numordre" align="right" />
           </tr>
         </thead>
         <tbody className="divide-y divide-[#F2F4F7]">
@@ -1341,6 +1423,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
               <td className="px-6 py-4 font-black text-[13px] text-[#101828] whitespace-nowrap">{sub.numab}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#101828] min-w-[200px]">{sub.name}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#667085] min-w-[200px]">{sub.adresse}</td>
+              <td className="px-6 py-4 font-bold text-[13px] text-[#0D83DE] whitespace-nowrap">T-{sub.tournee}</td>
               <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.bloc}</td>
               <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.ndom}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap">{sub.numser}</td>
@@ -1350,7 +1433,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             </tr>
           )) : (
             <tr>
-              <td colSpan={9} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
+              <td colSpan={10} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
             </tr>
           )}
         </tbody>
@@ -1362,6 +1445,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           <p className="text-xs font-bold text-[#667085]">
             Affichage {start + 1}–{Math.min(start + ITEMS_PER_PAGE, total)} sur{" "}
             <span className="text-[#101828]">{total}</span> abonnés
+            {sortKey && <span className="ml-2 text-[#0D83DE]">· Trié par {sortKey} ({sortDir === 'asc' ? '↑ ASC' : '↓ DESC'})</span>}
           </p>
           <div className="flex items-center gap-2">
             <button

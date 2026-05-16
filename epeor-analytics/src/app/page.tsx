@@ -474,7 +474,7 @@ export default function Dashboard() {
                         dataKey="value"
                         stroke="#fff"
                         strokeWidth={2}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => percent !== undefined ? `${name} ${(percent * 100).toFixed(0)}%` : name}
                       >
                         {(stats?.subscriber_types || []).map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={[
@@ -1216,6 +1216,23 @@ function StoppedDetailView({ stats, onBack }: any) {
   );
 }
 
+function etatBadge(etatcpt: string, etatLabel?: string) {
+  const label = etatLabel || etatcpt || '—';
+  const leading = (etatcpt || '').charAt(0);
+  switch (leading) {
+    case '1': // 10-19: active states
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">{label}</span>;
+    case '2': // 20-29: stopped states
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">{label}</span>;
+    case '3': // 30-39: no meter
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">{label}</span>;
+    case '4': // 40-49: cancelled
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">{label}</span>;
+    default:
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-500 border border-slate-200 whitespace-nowrap">{label}</span>;
+  }
+}
+
 function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
   const [hoveredSub, setHoveredSub] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -1280,46 +1297,94 @@ function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
           <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${style.spinner}`}></div>
         </div>
       ) : (
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-              <th className="px-6 py-5">N° Abonné</th>
-              <th className="px-6 py-5">Nom / Raison Sociale</th>
-              <th className="px-6 py-5">Adresse</th>
-              <th className="px-4 py-5">Bloc</th>
-              <th className="px-4 py-5">N° Dom</th>
-              <th className="px-6 py-5">N° Série</th>
-              <th className="px-6 py-5">Type d'Abonnement</th>
-              <th className="px-6 py-5 text-right">N° Ordre</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#F2F4F7]">
-            {subscribers.length > 0 ? subscribers.map((sub: any, i: number) => (
-              <tr
-                key={i}
-                className="hover:bg-[#F9FAFB] transition-colors cursor-default"
-                onMouseEnter={(e) => { setHoveredSub(sub); setMousePos({ x: e.clientX, y: e.clientY }); }}
-                onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
-                onMouseLeave={() => setHoveredSub(null)}
-              >
-                <td className="px-6 py-4 font-black text-[13px] text-[#101828] whitespace-nowrap">{sub.numab}</td>
-                <td className="px-6 py-4 font-medium text-[13px] text-[#101828] min-w-[200px]">{sub.name}</td>
-                <td className="px-6 py-4 font-medium text-[13px] text-[#667085] min-w-[200px]">{sub.adresse}</td>
-                <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.bloc}</td>
-                <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.ndom}</td>
-                <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap">{sub.numser}</td>
-                <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{sub.type}</td>
-                <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467]">{sub.numordre}</td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={8} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} />
       )}
     </div>
+  );
+}
+
+function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos }: any) {
+  const ITEMS_PER_PAGE = 20;
+  const [page, setPage] = useState(1);
+
+  const total = subscribers.length;
+  const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * ITEMS_PER_PAGE;
+  const pageItems = subscribers.slice(start, start + ITEMS_PER_PAGE);
+
+  return (
+    <>
+      <table className="w-full text-left">
+        <thead>
+          <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
+            <th className="px-6 py-5">N° Abonné</th>
+            <th className="px-6 py-5">Nom / Raison Sociale</th>
+            <th className="px-6 py-5">Adresse</th>
+            <th className="px-4 py-5">Bloc</th>
+            <th className="px-4 py-5">N° Dom</th>
+            <th className="px-6 py-5">N° Série</th>
+            <th className="px-6 py-5">Type d'Abonnement</th>
+            <th className="px-6 py-5">État</th>
+            <th className="px-6 py-5 text-right">N° Ordre</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#F2F4F7]">
+          {pageItems.length > 0 ? pageItems.map((sub: any, i: number) => (
+            <tr
+              key={i}
+              className="hover:bg-[#F9FAFB] transition-colors cursor-default"
+              onMouseEnter={(e) => { setHoveredSub(sub); setMousePos({ x: e.clientX, y: e.clientY }); }}
+              onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
+              onMouseLeave={() => setHoveredSub(null)}
+            >
+              <td className="px-6 py-4 font-black text-[13px] text-[#101828] whitespace-nowrap">{sub.numab}</td>
+              <td className="px-6 py-4 font-medium text-[13px] text-[#101828] min-w-[200px]">{sub.name}</td>
+              <td className="px-6 py-4 font-medium text-[13px] text-[#667085] min-w-[200px]">{sub.adresse}</td>
+              <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.bloc}</td>
+              <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.ndom}</td>
+              <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap">{sub.numser}</td>
+              <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{sub.type}</td>
+              <td className="px-6 py-4">{etatBadge(sub.etatcpt, sub.etat_label)}</td>
+              <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467]">{sub.numordre}</td>
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={9} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* Pagination footer */}
+      {total > 0 && (
+        <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#F2F4F7] flex items-center justify-between">
+          <p className="text-xs font-bold text-[#667085]">
+            Affichage {start + 1}–{Math.min(start + ITEMS_PER_PAGE, total)} sur{" "}
+            <span className="text-[#101828]">{total}</span> abonnés
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-40 hover:bg-[#F2F4F7] transition-colors"
+            >
+              ← Précédent
+            </button>
+            <span className="px-4 py-2 text-xs font-bold text-[#475467]">
+              Page {safePage} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-40 hover:bg-[#F2F4F7] transition-colors"
+            >
+              Suivant →
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -2115,7 +2180,7 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
                         if (active && payload && payload.length) {
                           return (
                             <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xl border border-white/10">
-                              Taux: {payload[0].value.toFixed(2)}%
+                              Taux: {(payload[0].value as number ?? 0).toFixed(2)}%
                             </div>
                           );
                         }

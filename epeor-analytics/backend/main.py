@@ -338,13 +338,18 @@ def get_subscribers(quartier: str = None, etat: str = None):
         table_abonne = load_dbf("ABONNE.DBF", load_all=False)
         table_abonment = load_dbf("ABONMENT.DBF", load_all=True)
         
-        # Load types mapping
+        # Load types mapping (T-prefix) and état mapping (E-prefix) from TABCODE
         table_tabcode = load_dbf("TABCODE.DBF", load_all=True)
         type_map = {}
+        etat_map = {}  # e.g. '10' -> 'EN MARCHE', '20' -> "A L'ARRET"
         if table_tabcode is not None:
             for r in table_tabcode:
-                if r['CODE_AFFEC'].startswith('T'):
-                    type_map[r['CODE_AFFEC'][1:]] = r['LIBELLE']
+                code_affec = str(r.get('CODE_AFFEC', '')).strip()
+                libelle    = str(r.get('LIBELLE', '')).strip()
+                if code_affec.startswith('T'):
+                    type_map[code_affec[1:]] = libelle
+                elif code_affec.startswith('E'):
+                    etat_map[code_affec[1:]] = libelle  # strip 'E', key = '10','20',...
         
         table_rue = load_dbf("RUE.DBF", load_all=True)
         rue_map = {}
@@ -389,17 +394,22 @@ def get_subscribers(quartier: str = None, etat: str = None):
             bloc = str(record.get('BLOC', '')).strip()
             ndom = str(record.get('NDOM', '')).strip()
             numordre = str(record.get('NUMORDRE', '')).strip()
-            numser = abonment_info.get('NUMSER', '---')
+            numser   = abonment_info.get('NUMSER', '---')
+            etatcpt  = abonment_info.get('ETATCPT', '')
+            # Join TABCODE: 'E' + etatcpt -> LIBELLE
+            etat_label = etat_map.get(etatcpt, etatcpt if etatcpt else '—')
                 
             results.append({
-                "numab": numab,
-                "name": display_name,
-                "type": type_label,
-                "numser": numser,
-                "adresse": adresse,
-                "bloc": bloc,
-                "ndom": ndom,
-                "numordre": numordre
+                "numab":      numab,
+                "name":       display_name,
+                "type":       type_label,
+                "numser":     numser,
+                "etatcpt":    etatcpt,       # raw code ('10','20'...) for colour logic
+                "etat_label": etat_label,   # full label from TABCODE.DBF
+                "adresse":    adresse,
+                "bloc":       bloc,
+                "ndom":       ndom,
+                "numordre":   numordre
             })
             
         return results

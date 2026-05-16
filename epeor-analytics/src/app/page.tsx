@@ -1276,12 +1276,20 @@ function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
                 </span>
               </div>
               <div className="flex justify-between items-center gap-3">
+                <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Tournée</span>
+                <span className="text-[12px] font-bold text-[#0D83DE]">{hoveredSub.tournee ? `T-${hoveredSub.tournee}` : '—'}</span>
+              </div>
+              <div className="flex justify-between items-center gap-3">
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">N° Série</span>
                 <span className="text-[12px] font-medium text-[#475467]">{hoveredSub.numser || '—'}</span>
               </div>
               <div className="flex justify-between items-center gap-3">
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Type</span>
                 <span className="text-[12px] font-medium text-[#475467] text-right">{hoveredSub.type || '—'}</span>
+              </div>
+              <div className="flex justify-between items-center gap-3">
+                <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">État</span>
+                <span className="text-[12px]">{etatBadge(hoveredSub.etatcpt, hoveredSub.etat_label)}</span>
               </div>
               <div className="flex justify-between items-center gap-3">
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">N° Ordre</span>

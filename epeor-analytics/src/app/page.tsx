@@ -1559,6 +1559,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoicePage, setInvoicePage] = useState(1);
+  const [invoiceFilter, setInvoiceFilter] = useState<'ALL' | 'PAID' | 'UNPAID'>('ALL');
   const INVOICES_PER_PAGE = 20;
 
   const handleRowClick = async (sub: any) => {
@@ -1614,13 +1615,154 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       return map[mod] || mod;
     };
 
+    const filteredInvoices = invoices.filter((inv: any) => {
+      const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
+      if (invoiceFilter === 'PAID') return isPaid;
+      if (invoiceFilter === 'UNPAID') return !isPaid;
+      return true;
+    });
+
+    const handlePrintInvoices = () => {
+      const doc = new jsPDF("p", "pt", "a4");
+      const pageWidth = doc.internal.pageSize.width;
+      
+      // HEADER
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(13, 131, 222);
+      doc.text("Algérienne Des Eaux", 40, 40);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(71, 84, 103);
+      doc.text("Unité : 26 - MEDEA", pageWidth - 40, 35, { align: 'right' });
+      doc.text("Centre : S02 - BERROUAGHIA", pageWidth - 40, 47, { align: 'right' });
+      
+      // TITLE
+      doc.setFontSize(16);
+      doc.setTextColor(16, 24, 40);
+      doc.text("HISTORIQUE DES FACTURES", pageWidth / 2, 85, { align: 'center' });
+      
+      // SUBSCRIBER INFO BOX
+      doc.setDrawColor(228, 231, 236);
+      doc.setFillColor(249, 250, 251);
+      doc.roundedRect(40, 105, pageWidth - 80, 75, 5, 5, 'FD');
+      
+      doc.setFontSize(9);
+      doc.setTextColor(102, 112, 133);
+      doc.text("Abonné :", 50, 125);
+      doc.text("Réf :", 50, 140);
+      doc.text("Adresse :", 50, 155);
+      doc.text("Type :", 50, 170);
+      
+      doc.text("Tournée :", pageWidth / 2 + 20, 125);
+      doc.text("État :", pageWidth / 2 + 20, 140);
+      doc.text("Compteur :", pageWidth / 2 + 20, 155);
+      
+      doc.setTextColor(16, 24, 40);
+      doc.setFont("helvetica", "normal");
+      doc.text(selectedSubForInvoices.name || '---', 105, 125);
+      doc.text(selectedSubForInvoices.numab || '---', 105, 140);
+      const addr = [selectedSubForInvoices.adresse, selectedSubForInvoices.bloc ? `Bl. ${selectedSubForInvoices.bloc}` : '', selectedSubForInvoices.ndom ? `N°${selectedSubForInvoices.ndom}` : ''].filter(Boolean).join(' · ') || '---';
+      doc.text(addr, 105, 155);
+      doc.text(selectedSubForInvoices.type || '---', 105, 170);
+      
+      doc.text(selectedSubForInvoices.tournee ? `T-${selectedSubForInvoices.tournee}` : '---', pageWidth / 2 + 80, 125);
+      const etatLabel = selectedSubForInvoices.etat_label || selectedSubForInvoices.etatcpt || '---';
+      doc.text(etatLabel, pageWidth / 2 + 80, 140);
+      doc.text(selectedSubForInvoices.numser || '---', pageWidth / 2 + 80, 155);
+      
+      // FILTER & SUMMARY INFO
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(102, 112, 133);
+      doc.text(`Filtre : ${invoiceFilter === 'ALL' ? 'Toutes les factures' : invoiceFilter === 'PAID' ? 'Factures payées' : 'Factures impayées'}`, 40, 205);
+      
+      const formatPDFNumber = (num: number) => num.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}).replace(/\u202F/g, ' ').replace(/\s/g, ' ');
+      
+      const totalTtc = filteredInvoices.reduce((acc: number, inv: any) => acc + (parseFloat(inv.MONTTC) || 0), 0);
+      doc.text(`Total : ${formatPDFNumber(totalTtc)} DA (${filteredInvoices.length} factures)`, pageWidth - 40, 205, { align: 'right' });
+
+      // TABLE
+      const tableColumn = ["Date", "Type", "Montant (DA)", "Date Regl.", "Modalité", "Statut", "Reçu/Chèque"];
+      const tableRows: any[] = [];
+
+      filteredInvoices.forEach((inv: any) => {
+        const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
+        tableRows.push([
+          formatDatFact(inv.DATFACT, inv.PERIODE),
+          inv.TYPE || '---',
+          formatPDFNumber(parseFloat(inv.MONTTC)),
+          isPaid ? formatYMD(inv.DATREG) : '---',
+          formatModalite(inv.MODALITE),
+          isPaid ? 'Payé' : 'Impayé',
+          (inv.NUMREC || inv.CHEQUE) ? `${inv.NUMREC || ''} ${inv.CHEQUE || ''}`.trim() : '---'
+        ]);
+      });
+
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 215,
+        theme: 'grid',
+        styles: { fontSize: 8, font: 'helvetica' },
+        headStyles: { fillColor: [13, 131, 222], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          2: { halign: 'right' },
+          3: { halign: 'center' },
+          5: { halign: 'center' }
+        },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+      });
+
+      // FOOTER
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(152, 162, 179);
+        const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        doc.text(`Imprimé le ${printDate} - EPEOR Analytics`, 40, doc.internal.pageSize.height - 20);
+        doc.text(`Page ${i} / ${pageCount}`, pageWidth - 40, doc.internal.pageSize.height - 20, { align: 'right' });
+      }
+
+      doc.save(`Historique_Factures_${selectedSubForInvoices.numab}.pdf`);
+    };
+
     return (
       <div className="bg-white flex flex-col animate-in fade-in duration-300">
-        <div className="p-6 border-b border-[#F2F4F7] flex flex-col gap-4 bg-[#F9FAFB]">
+        <div className="p-6 border-b border-[#F2F4F7] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#F9FAFB]">
           <button onClick={() => setSelectedSubForInvoices(null)} className="self-start flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="rotate-180"><path d="m9 18 6-6-6-6"/></svg> Retour à la liste
           </button>
-
+          
+          <div className="flex items-center gap-2">
+            <label htmlFor="invoice-filter" className="text-[11px] font-bold text-[#667085] uppercase tracking-wider">Filtrer :</label>
+            <div className="relative">
+              <select
+                id="invoice-filter"
+                value={invoiceFilter}
+                onChange={(e) => { setInvoiceFilter(e.target.value as any); setInvoicePage(1); }}
+                className="pl-3 pr-9 py-1.5 bg-white border border-[#D0D5DD] rounded-lg text-xs font-bold text-[#101828] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/20 focus:border-[#0D83DE] transition-all cursor-pointer appearance-none"
+              >
+                <option value="ALL">Toutes les factures</option>
+                <option value="PAID">Factures payées</option>
+                <option value="UNPAID">Factures impayées</option>
+              </select>
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#667085]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+            
+            <div className="h-6 w-px bg-[#E4E7EC] mx-1"></div>
+            
+            <button
+              onClick={handlePrintInvoices}
+              disabled={filteredInvoices.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#D0D5DD] rounded-lg text-xs font-bold text-[#475467] hover:bg-gray-50 hover:text-[#101828] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Imprimer cette liste"
+            >
+              <Printer size={14} /> Imprimer
+            </button>
+          </div>
         </div>
         
         <div className="flex-1 overflow-x-auto p-0">
@@ -1643,7 +1785,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
-                {invoices.length > 0 ? invoices.slice((invoicePage - 1) * INVOICES_PER_PAGE, invoicePage * INVOICES_PER_PAGE).map((inv: any, i: number) => {
+                {filteredInvoices.length > 0 ? filteredInvoices.slice((invoicePage - 1) * INVOICES_PER_PAGE, invoicePage * INVOICES_PER_PAGE).map((inv: any, i: number) => {
                   const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
                   return (
                     <tr key={i} className="hover:bg-[#F9FAFB] transition-colors">
@@ -1665,7 +1807,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                   )
                 }) : (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-[#667085] font-medium">Aucune facture trouvée pour cet abonné.</td>
+                    <td colSpan={8} className="px-6 py-12 text-center text-[#667085] font-medium">Aucune facture trouvée avec ce filtre.</td>
                   </tr>
                 )}
               </tbody>
@@ -1674,11 +1816,11 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
         </div>
 
         {/* Invoice Pagination Footer */}
-        {invoices.length > 0 && !loadingInvoices && (
+        {filteredInvoices.length > 0 && !loadingInvoices && (
           <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#F2F4F7] flex items-center justify-between rounded-b-2xl">
             <p className="text-xs font-bold text-[#667085]">
-              Affichage {(invoicePage - 1) * INVOICES_PER_PAGE + 1}–{Math.min(invoicePage * INVOICES_PER_PAGE, invoices.length)} sur{" "}
-              <span className="text-[#101828]">{invoices.length}</span> factures
+              Affichage {(invoicePage - 1) * INVOICES_PER_PAGE + 1}–{Math.min(invoicePage * INVOICES_PER_PAGE, filteredInvoices.length)} sur{" "}
+              <span className="text-[#101828]">{filteredInvoices.length}</span> factures
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -1689,11 +1831,11 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                 ← Précédent
               </button>
               <span className="px-4 py-2 text-xs font-bold text-[#475467]">
-                Page {invoicePage} / {Math.max(1, Math.ceil(invoices.length / INVOICES_PER_PAGE))}
+                Page {invoicePage} / {Math.max(1, Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE))}
               </span>
               <button
-                onClick={() => setInvoicePage(p => Math.min(Math.ceil(invoices.length / INVOICES_PER_PAGE), p + 1))}
-                disabled={invoicePage === Math.max(1, Math.ceil(invoices.length / INVOICES_PER_PAGE))}
+                onClick={() => setInvoicePage(p => Math.min(Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE), p + 1))}
+                disabled={invoicePage === Math.max(1, Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE))}
                 className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-40 hover:bg-[#F2F4F7] transition-colors"
               >
                 Suivant →

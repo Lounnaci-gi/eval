@@ -84,7 +84,7 @@ const FrenchDateInput = ({ value, onChange, className, label }: any) => {
 };
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'creance' | 'ventilation'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'ventilation'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -394,6 +394,7 @@ export default function Dashboard() {
                 icon={<Ban className="text-cyan-500" size={24} />}
                 trend="Code 30"
                 color="cyan"
+                onClick={() => setCurrentView('no_meter')}
               />
               <StatsCard
                 title="Chiffre d'Affaire"
@@ -677,6 +678,8 @@ export default function Dashboard() {
           <ResignedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'stopped' ? (
           <StoppedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
+        ) : currentView === 'no_meter' ? (
+          <NoMeterDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'creance' ? (
           <CreanceDetailView 
             onBack={() => setCurrentView('dashboard')} 
@@ -1272,6 +1275,184 @@ function StoppedDetailView({ stats, onBack }: any) {
   );
 }
 
+function NoMeterDetailView({ stats, onBack }: any) {
+  const [selectedCommune, setSelectedCommune] = useState<any>(null);
+  const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
+  const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
+  const [loadingSubscribers, setLoadingSubscribers] = useState(false);
+
+  const handleQuartierClick = async (q: any) => {
+    setSelectedQuartier(q);
+    setLoadingSubscribers(true);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/subscribers?quartier=${q.id}&etat=30`);
+      const data = await res.json();
+      setQuartierSubscribers(data);
+    } catch (e) {
+      console.error(e);
+      setQuartierSubscribers([]);
+    }
+    setLoadingSubscribers(false);
+  };
+
+  // Sort by no_meter descending
+  const communes = [...(stats?.subscriber_communes || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
+  const types = [...(stats?.subscriber_types || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
+
+  if (selectedQuartier) {
+    return (
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <button
+              onClick={() => setSelectedQuartier(null)}
+              className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+            >
+              <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
+            </button>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Abonnés Sans Compteur - {selectedQuartier.name}</h3>
+            <p className="text-sm text-[#667085] mt-1">Liste nominative des abonnés sans compteur (Code 30)</p>
+          </div>
+        </div>
+        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="cyan" />
+      </div>
+    );
+  }
+
+  if (selectedCommune) {
+    const quartiers = [...(selectedCommune.quartiers || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
+    return (
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <button
+              onClick={() => setSelectedCommune(null)}
+              className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+            >
+              <ChevronRight className="rotate-180" size={16} /> Retour aux communes
+            </button>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Quartiers de {selectedCommune.name} (Sans Compteur)</h3>
+            <p className="text-sm text-[#667085] mt-1">Détail des abonnés sans compteur (Code 30) pour chaque quartier</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
+                <th className="px-8 py-5">Quartier</th>
+                <th className="px-6 py-5 text-right">Abonnés Sans Compteur</th>
+                <th className="px-6 py-5 text-right">Total Abonnés</th>
+                <th className="px-8 py-5 text-right">Taux (%)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F2F4F7]">
+              {quartiers.length > 0 ? quartiers.map((q: any, i: number) => {
+                const taux = q.value > 0 ? ((q.no_meter || 0) / q.value) * 100 : 0;
+                return (
+                  <tr
+                    key={i}
+                    onClick={() => handleQuartierClick(q)}
+                    className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
+                  >
+                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{q.name}</td>
+                    <td className="px-6 py-5 text-right font-bold text-cyan-600">{q.no_meter?.toLocaleString() || 0}</td>
+                    <td className="px-6 py-5 text-right font-medium text-[#475467]">{q.value.toLocaleString()}</td>
+                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={4} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun quartier trouvé.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-10">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+            >
+              <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
+            </button>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés Sans Compteur par Commune</h3>
+            <p className="text-sm text-[#667085] mt-1">Analyse détaillée des abonnés sans compteur (Code 30) par zone géographique</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
+                <th className="px-8 py-5">Commune</th>
+                <th className="px-6 py-5 text-right">Abonnés Sans Compteur</th>
+                <th className="px-6 py-5 text-right">Total Abonnés</th>
+                <th className="px-8 py-5 text-right">Taux (%)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F2F4F7]">
+              {communes.map((c: any, i: number) => {
+                const taux = c.value > 0 ? ((c.no_meter || 0) / c.value) * 100 : 0;
+                return (
+                  <tr
+                    key={i}
+                    onClick={() => setSelectedCommune(c)}
+                    className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
+                  >
+                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
+                    <td className="px-6 py-5 text-right font-bold text-cyan-600">{c.no_meter?.toLocaleString() || 0}</td>
+                    <td className="px-6 py-5 text-right font-medium text-[#475467]">{c.value.toLocaleString()}</td>
+                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="p-8 border-b border-[#F2F4F7]">
+          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés Sans Compteur par Type</h3>
+          <p className="text-sm text-[#667085] mt-1">Analyse des abonnés sans compteur classés par catégorie</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
+                <th className="px-8 py-5">Catégorie / Type</th>
+                <th className="px-6 py-5 text-right">Abonnés Sans Compteur</th>
+                <th className="px-6 py-5 text-right">Total Abonnés</th>
+                <th className="px-8 py-5 text-right">Taux (%)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F2F4F7]">
+              {types.map((t: any, i: number) => {
+                const taux = t.value > 0 ? ((t.no_meter || 0) / t.value) * 100 : 0;
+                return (
+                  <tr key={i} className="hover:bg-[#F9FAFB] transition-colors group">
+                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
+                    <td className="px-6 py-5 text-right font-bold text-cyan-600">{t.no_meter?.toLocaleString() || 0}</td>
+                    <td className="px-6 py-5 text-right font-medium text-[#475467]">{t.value.toLocaleString()}</td>
+                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function etatBadge(etatcpt: string, etatLabel?: string) {
   const label = etatLabel || etatcpt || '—';
   const leading = (etatcpt || '').charAt(0);
@@ -1297,6 +1478,7 @@ function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
     blue: { spinner: "border-[#0D83DE]", badge: "bg-blue-50 text-[#0D83DE] border-blue-200", dot: "bg-[#0D83DE]" },
     rose: { spinner: "border-rose-500", badge: "bg-rose-50 text-rose-600 border-rose-200", dot: "bg-rose-500" },
     amber: { spinner: "border-amber-500", badge: "bg-amber-50 text-amber-600 border-amber-200", dot: "bg-amber-500" },
+    cyan: { spinner: "border-cyan-500", badge: "bg-cyan-50 text-cyan-600 border-cyan-200", dot: "bg-cyan-500" },
   };
   const style = accentMap[accentColor] || accentMap.blue;
 

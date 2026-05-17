@@ -261,8 +261,7 @@ def startup_event():
 
 @app.on_event("shutdown")
 def shutdown_event():
-    print("[INFO] Server is stopping. Clearing cache...")
-    clear_cache_directory()
+    print("[INFO] Server is stopping. Cache is preserved for fast restart.")
 
 @app.get("/api/clear_cache")
 def clear_cache_endpoint():
@@ -331,7 +330,7 @@ def get_stats():
             
             stats["total_subscribers"] += 1
             if t not in type_counts:
-                type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0}
+                type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
             
             type_counts[t]["total"] += 1
             
@@ -340,13 +339,14 @@ def get_stats():
             codcom = quartier_to_commune.get(prefix, '02') # Default to 02 if mapping missing
             
             if codcom not in commune_counts:
-                commune_counts[codcom] = {"total": 0, "resigned": 0, "stopped": 0, "quartiers": {}}
+                commune_counts[codcom] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}}
             
             commune_counts[codcom]["total"] += 1
             
             state = abonment_state_map.get(numab)
             is_resigned = (state == '40')
             is_stopped = (state == '20')
+            is_no_meter = (state == '30')
             
             if is_resigned:
                 commune_counts[codcom]["resigned"] += 1
@@ -354,15 +354,20 @@ def get_stats():
             if is_stopped:
                 commune_counts[codcom]["stopped"] += 1
                 type_counts[t]["stopped"] += 1
+            if is_no_meter:
+                commune_counts[codcom]["no_meter"] += 1
+                type_counts[t]["no_meter"] += 1
             
             if prefix not in commune_counts[codcom]["quartiers"]:
-                commune_counts[codcom]["quartiers"][prefix] = {"total": 0, "resigned": 0, "stopped": 0}
+                commune_counts[codcom]["quartiers"][prefix] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
             
             commune_counts[codcom]["quartiers"][prefix]["total"] += 1
             if is_resigned:
                 commune_counts[codcom]["quartiers"][prefix]["resigned"] += 1
             if is_stopped:
                 commune_counts[codcom]["quartiers"][prefix]["stopped"] += 1
+            if is_no_meter:
+                commune_counts[codcom]["quartiers"][prefix]["no_meter"] += 1
         
         total = stats["total_subscribers"]
         
@@ -375,6 +380,7 @@ def get_stats():
                 "value": counts["total"],
                 "resigned": counts["resigned"],
                 "stopped": counts["stopped"],
+                "no_meter": counts["no_meter"],
                 "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0
             })
         
@@ -382,7 +388,7 @@ def get_stats():
 
         stats["subscriber_communes"] = []
         for codcom, label in commune_map.items():
-            counts = commune_counts.get(codcom, {"total": 0, "resigned": 0, "stopped": 0, "quartiers": {}})
+            counts = commune_counts.get(codcom, {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}})
             
             formatted_quartiers = []
             for q_id, q_counts in counts.get("quartiers", {}).items():
@@ -393,6 +399,7 @@ def get_stats():
                     "value": q_counts["total"],
                     "resigned": q_counts["resigned"],
                     "stopped": q_counts["stopped"],
+                    "no_meter": q_counts["no_meter"],
                     "percentage": round((q_counts["total"] / counts["total"]) * 100, 2) if counts["total"] > 0 else 0
                 })
             formatted_quartiers.sort(key=lambda x: x['value'], reverse=True)
@@ -403,6 +410,7 @@ def get_stats():
                 "value": counts["total"],
                 "resigned": counts["resigned"],
                 "stopped": counts["stopped"],
+                "no_meter": counts["no_meter"],
                 "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0,
                 "quartiers": formatted_quartiers
             })

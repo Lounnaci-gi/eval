@@ -19,7 +19,6 @@ import {
   Bell,
   HelpCircle,
   Printer,
-  FileDown,
   FileText,
   FileSpreadsheet
 } from "lucide-react";
@@ -99,18 +98,52 @@ export default function Dashboard() {
   const itemsPerPage = 20;
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/stats")
-      .then((res) => {
-        if (!res.ok) throw new Error("Erreur réseau");
-        return res.json();
-      })
-      .then((data) => {
-        setStats(data);
-      })
-      .catch((err) => {
-        console.error("Erreur de chargement des stats:", err);
-        setStats({ error: "Impossible de contacter le serveur backend (Port 8000)" });
-      });
+    let intervalId: any;
+
+    const checkStats = () => {
+      fetch("http://127.0.0.1:8000/stats")
+        .then((res) => {
+          if (!res.ok) throw new Error("Erreur réseau");
+          return res.json();
+        })
+        .then((data) => {
+          setStats(data);
+          if (data && data.status === 'loading') {
+            if (!intervalId) {
+              intervalId = setInterval(checkStats, 2000);
+            }
+          } else {
+            if (intervalId) {
+              clearInterval(intervalId);
+              intervalId = null;
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Erreur de chargement des stats:", err);
+          setStats({ error: "Impossible de contacter le serveur backend (Port 8000)" });
+          if (!intervalId) {
+            intervalId = setInterval(checkStats, 3000);
+          }
+        });
+    };
+
+    checkStats();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleUnload = () => {
+      // Clear backend database pickle caches dynamically when the user closes the site tab/window
+      navigator.sendBeacon("http://127.0.0.1:8000/api/clear_cache");
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+    };
   }, []);
 
   const getEtatBadge = (etat: string) => {
@@ -156,6 +189,33 @@ export default function Dashboard() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  if (!stats || stats.status === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
+        <div className="bg-white border border-[#E4E7EC] shadow-2xl rounded-[3rem] p-16 flex flex-col items-center gap-8 max-w-md w-full text-center">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-24 w-24 border-4 border-violet-100 border-t-violet-600"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest animate-pulse">EPEOR</span>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <h1 className="text-2xl font-black text-[#101828] tracking-tight">Initialisation du Système</h1>
+            <p className="text-sm text-[#475467] font-medium min-h-[40px] flex items-center justify-center">
+              {stats?.message || "Connexion au serveur backend..."}
+            </p>
+          </div>
+          <div className="w-full bg-[#F2F4F7] rounded-full h-1.5 overflow-hidden">
+            <div className="bg-violet-600 h-full animate-pulse w-full rounded-full"></div>
+          </div>
+          <p className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">
+            Reconstitution du cache de performance (cela peut prendre 1 à 2 minutes la première fois)
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#F9FAFB] text-[#101828] relative" onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}>
@@ -367,7 +427,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="h-[350px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <BarChart data={stats?.subscriber_communes || []} margin={{ top: 30, right: 10, left: -20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
                       <XAxis 
@@ -463,7 +523,7 @@ export default function Dashboard() {
               >
                 <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">Types d'Abonnés</h3>
                 <div className="h-[350px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <PieChart>
                       <Pie
                         data={stats?.subscriber_types?.slice(0, 5) || []}
@@ -620,10 +680,6 @@ export default function Dashboard() {
         ) : currentView === 'creance' ? (
           <CreanceDetailView 
             onBack={() => setCurrentView('dashboard')} 
-            onGoToVentilation={(filter: any) => {
-              setVentilationFilter(filter);
-              setCurrentView('ventilation');
-            }} 
           />
         ) : currentView === 'ventilation' ? (
           <CreanceVentilationView onBack={() => setCurrentView('creance')} initialFilter={ventilationFilter} />
@@ -1631,7 +1687,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   );
 }
 
-function CreanceDetailView({ onBack, onGoToVentilation }: any) {
+function CreanceDetailView({ onBack }: any) {
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -1653,29 +1709,7 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
     );
   };
 
-  const exportToJson = (globalData: any, ventData: any[]) => {
-    const exportData = {
-      date_calcul: new Date().toLocaleString('fr-DZ'),
-      parametres: {
-        annee: filterYear,
-        periode: filterPeriod,
-        dates: dateRange
-      },
-      indicateurs_globaux: globalData,
-      ventilation_detaillee: ventData
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    link.download = `epeor_analyse_${timestamp}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  // exportToJson has been removed to disable exporting JSON files at the end of calculations
 
   const exportToExcel = async () => {
     console.log("Starting Excel export...");
@@ -1982,31 +2016,15 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
       setCalcStep("Finalisation des calculs...");
       setCalcProgress(100);
       
-      // Export results to JSON ONLY if they are fresh (not from cache)
-      if (!d1.from_cache) {
-        exportToJson(d1, d2);
-      }
+      // Automatic JSON export is disabled as requested by the user (ne pas exporter de json en fin de traitement)
       
       // Small delay to show 100%
       await new Promise(r => setTimeout(r, 500));
       
-    } catch (e) {
+    } catch {
       setError("Erreur de connexion au serveur.");
     }
     setLoading(false);
-  };
-
-  const fetchVentilation = async (date: string) => {
-    setVentilationLoading(true);
-    try {
-      const formattedDate = date.replace(/-/g, '');
-      const res = await fetch(`http://127.0.0.1:8000/creance_detaillee?date_arrete=${formattedDate}`);
-      const d = await res.json();
-      setVentilationData(d);
-    } catch (e) {
-      console.error("Erreur ventilation:", e);
-    }
-    setVentilationLoading(false);
   };
 
 
@@ -2394,7 +2412,7 @@ function CreanceDetailView({ onBack, onGoToVentilation }: any) {
           <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-6">
             <div className="flex flex-col lg:flex-row items-center gap-8">
               <div className="w-full lg:w-[22%] aspect-square relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <RadialBarChart 
                     innerRadius="75%" 
                     outerRadius="100%" 

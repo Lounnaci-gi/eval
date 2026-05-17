@@ -19,7 +19,7 @@
 
 # production
 /build
-
+/backend/cache/
 # misc
 .DS_Store
 *.pem
@@ -60,3 +60,7 @@ env/
 .idea/
 *.swp
 *.swo
+
+# backend cache and pickle files
+backend/cache/
+*.pkl

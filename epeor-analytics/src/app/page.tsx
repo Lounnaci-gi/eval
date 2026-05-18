@@ -282,27 +282,27 @@ export default function Dashboard() {
         </div>
 
         <nav className="flex flex-col gap-1">
-          <NavItem 
-            icon={<LayoutDashboard size={20} />} 
-            label="Tableau de bord" 
-            active={currentView === 'dashboard'} 
+          <NavItem
+            icon={<LayoutDashboard size={20} />}
+            label="Tableau de bord"
+            active={currentView === 'dashboard'}
             onClick={() => setCurrentView('dashboard')}
           />
-          <NavItem 
-            icon={<Users size={20} />} 
-            label="Gestion Abonnés" 
-            active={currentView === 'details' || currentView === 'resigned' || currentView === 'stopped'} 
+          <NavItem
+            icon={<Users size={20} />}
+            label="Gestion Abonnés"
+            active={currentView === 'details' || currentView === 'resigned' || currentView === 'stopped'}
             onClick={() => setCurrentView('details')}
           />
-          <NavItem 
-            icon={<BarChart3 size={20} />} 
-            label="Analyses Financières" 
-            active={currentView === 'creance' || currentView === 'ventilation'} 
+          <NavItem
+            icon={<BarChart3 size={20} />}
+            label="Analyses Financières"
+            active={currentView === 'creance' || currentView === 'ventilation'}
             onClick={() => setCurrentView('creance')}
           />
-          <NavItem 
-            icon={<Calendar size={20} />} 
-            label="Périodes de Facturation" 
+          <NavItem
+            icon={<Calendar size={20} />}
+            label="Périodes de Facturation"
           />
         </nav>
 
@@ -417,7 +417,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
               <div className="lg:col-span-4 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
                 <div className="flex justify-between items-center mb-8">
-                  <div 
+                  <div
                     className="flex items-center gap-2 cursor-help"
                     onMouseEnter={() => setShowChartGuide(true)}
                     onMouseLeave={() => setShowChartGuide(false)}
@@ -431,10 +431,10 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <BarChart data={stats?.subscriber_communes || []} margin={{ top: 30, right: 10, left: -20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={false} 
-                        tickLine={false} 
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
                         tick={{ fill: '#667085', fontSize: 10, fontWeight: 500 }}
                         interval={0}
                         angle={-45}
@@ -444,36 +444,36 @@ export default function Dashboard() {
                       <YAxis hide />
                       <Tooltip
                         cursor={{ fill: '#F9FAFB' }}
-                        contentStyle={{ 
-                          backgroundColor: "#101828", 
-                          border: "none", 
-                          borderRadius: "12px", 
+                        contentStyle={{
+                          backgroundColor: "#101828",
+                          border: "none",
+                          borderRadius: "12px",
                           color: "#fff",
                           fontSize: '12px'
                         }}
                         itemStyle={{ color: "#fff" }}
                         formatter={(value: any, name: any) => [
-                          `${value.toLocaleString()} Abonnés`, 
+                          `${value.toLocaleString()} Abonnés`,
                           name === "value" ? "Actifs" : "Résiliés"
                         ]}
                       />
-                      <Legend 
-                        verticalAlign="top" 
-                        align="right" 
-                        iconType="circle" 
-                        wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '20px' }} 
+                      <Legend
+                        verticalAlign="top"
+                        align="right"
+                        iconType="circle"
+                        wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '20px' }}
                       />
-                      <Bar 
-                        dataKey="value" 
+                      <Bar
+                        dataKey="value"
                         name="Actifs"
-                        fill="#0D83DE" 
-                        radius={[4, 4, 0, 0]} 
+                        fill="#0D83DE"
+                        radius={[4, 4, 0, 0]}
                         barSize={40}
                       >
                         {showChartGuide && (
-                          <LabelList 
-                            dataKey="value" 
-                            position="top" 
+                          <LabelList
+                            dataKey="value"
+                            position="top"
                             content={(props: any) => {
                               const { x, y, width, value } = props;
                               return (
@@ -488,17 +488,17 @@ export default function Dashboard() {
                           />
                         )}
                       </Bar>
-                      <Bar 
-                        dataKey="resigned" 
+                      <Bar
+                        dataKey="resigned"
                         name="Résiliés"
-                        fill="#E11D48" 
-                        radius={[4, 4, 0, 0]} 
+                        fill="#E11D48"
+                        radius={[4, 4, 0, 0]}
                         barSize={40}
                       >
                         {showChartGuide && (
-                          <LabelList 
-                            dataKey="resigned" 
-                            position="top" 
+                          <LabelList
+                            dataKey="resigned"
+                            position="top"
                             content={(props: any) => {
                               const { x, y, width, value } = props;
                               return (
@@ -549,10 +549,10 @@ export default function Dashboard() {
                         ))}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ 
-                          backgroundColor: "#101828", 
-                          border: "none", 
-                          borderRadius: "12px", 
+                        contentStyle={{
+                          backgroundColor: "#101828",
+                          border: "none",
+                          borderRadius: "12px",
                           color: "#fff",
                           fontSize: '12px'
                         }}
@@ -562,8 +562,8 @@ export default function Dashboard() {
                           name
                         ]}
                       />
-                      <Legend 
-                        verticalAlign="bottom" 
+                      <Legend
+                        verticalAlign="bottom"
                         height={36}
                         iconType="circle"
                         wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '20px' }}
@@ -681,8 +681,8 @@ export default function Dashboard() {
         ) : currentView === 'no_meter' ? (
           <NoMeterDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'creance' ? (
-          <CreanceDetailView 
-            onBack={() => setCurrentView('dashboard')} 
+          <CreanceDetailView
+            onBack={() => setCurrentView('dashboard')}
           />
         ) : currentView === 'ventilation' ? (
           <CreanceVentilationView onBack={() => setCurrentView('creance')} initialFilter={ventilationFilter} />
@@ -723,7 +723,7 @@ function StatsCard({ title, value, icon, trend, color, onClick }: any) {
 
 function NavItem({ icon, label, active = false, onClick }: any) {
   return (
-    <div 
+    <div
       onClick={onClick}
       className={`
       flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer transition-all
@@ -1580,14 +1580,14 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   if (selectedSubForInvoices) {
     const formatYMD = (d: string) => {
       if (!d || d.length !== 8) return d;
-      return `${d.substring(6,8)}-${d.substring(4,6)}-${d.substring(0,4)}`;
+      return `${d.substring(6, 8)}-${d.substring(4, 6)}-${d.substring(0, 4)}`;
     };
 
     const formatDatFact = (d: string, p: string) => {
       if (!d || d.length !== 8) return d;
       const year = d.substring(0, 4);
       const month = d.substring(4, 6);
-      
+
       const numP = Number(p);
       if (numP === 3) {
         if (month === '03') return `1er Trim ${year}`;
@@ -1595,8 +1595,15 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
         if (month === '09') return `3ème Trim ${year}`;
         if (month === '12') return `4ème Trim ${year}`;
       }
-      
+
       return `${month}-${year}`;
+    };
+
+    const formatInvoiceRef = (d: string, type: string) => {
+      if (!d || d.length !== 8) return `---/${type || ''}`;
+      const year = d.substring(0, 4);
+      const month = d.substring(4, 6);
+      return `${month}-${year}/${type || ''}`;
     };
 
     const formatModalite = (m: string) => {
@@ -1625,39 +1632,39 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
     const handlePrintInvoices = () => {
       const doc = new jsPDF("p", "pt", "a4");
       const pageWidth = doc.internal.pageSize.width;
-      
+
       // HEADER
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
       doc.setTextColor(13, 131, 222);
       doc.text("Algérienne Des Eaux", 40, 40);
-      
+
       doc.setFontSize(10);
       doc.setTextColor(71, 84, 103);
       doc.text("Unité : 26 - MEDEA", pageWidth - 40, 35, { align: 'right' });
       doc.text("Centre : S02 - BERROUAGHIA", pageWidth - 40, 47, { align: 'right' });
-      
+
       // TITLE
       doc.setFontSize(16);
       doc.setTextColor(16, 24, 40);
       doc.text("HISTORIQUE DES FACTURES", pageWidth / 2, 85, { align: 'center' });
-      
+
       // SUBSCRIBER INFO BOX
       doc.setDrawColor(228, 231, 236);
       doc.setFillColor(249, 250, 251);
       doc.roundedRect(40, 105, pageWidth - 80, 75, 5, 5, 'FD');
-      
+
       doc.setFontSize(9);
       doc.setTextColor(102, 112, 133);
       doc.text("Abonné :", 50, 125);
       doc.text("Réf :", 50, 140);
       doc.text("Adresse :", 50, 155);
       doc.text("Type :", 50, 170);
-      
+
       doc.text("Tournée :", pageWidth / 2 + 20, 125);
       doc.text("État :", pageWidth / 2 + 20, 140);
       doc.text("Compteur :", pageWidth / 2 + 20, 155);
-      
+
       doc.setTextColor(16, 24, 40);
       doc.setFont("helvetica", "normal");
       doc.text(selectedSubForInvoices.name || '---', 105, 125);
@@ -1665,30 +1672,31 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       const addr = [selectedSubForInvoices.adresse, selectedSubForInvoices.bloc ? `Bl. ${selectedSubForInvoices.bloc}` : '', selectedSubForInvoices.ndom ? `N°${selectedSubForInvoices.ndom}` : ''].filter(Boolean).join(' · ') || '---';
       doc.text(addr, 105, 155);
       doc.text(selectedSubForInvoices.type || '---', 105, 170);
-      
+
       doc.text(selectedSubForInvoices.tournee ? `T-${selectedSubForInvoices.tournee}` : '---', pageWidth / 2 + 80, 125);
       const etatLabel = selectedSubForInvoices.etat_label || selectedSubForInvoices.etatcpt || '---';
       doc.text(etatLabel, pageWidth / 2 + 80, 140);
       doc.text(selectedSubForInvoices.numser || '---', pageWidth / 2 + 80, 155);
-      
+
       // FILTER & SUMMARY INFO
       doc.setFont("helvetica", "bold");
       doc.setTextColor(102, 112, 133);
       doc.text(`Filtre : ${invoiceFilter === 'ALL' ? 'Toutes les factures' : invoiceFilter === 'PAID' ? 'Factures payées' : 'Factures impayées'}`, 40, 205);
-      
-      const formatPDFNumber = (num: number) => num.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}).replace(/\u202F/g, ' ').replace(/\s/g, ' ');
-      
+
+      const formatPDFNumber = (num: number) => num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\u202F/g, ' ').replace(/\s/g, ' ');
+
       const totalTtc = filteredInvoices.reduce((acc: number, inv: any) => acc + (parseFloat(inv.MONTTC) || 0), 0);
       doc.text(`Total : ${formatPDFNumber(totalTtc)} DA (${filteredInvoices.length} factures)`, pageWidth - 40, 205, { align: 'right' });
 
       // TABLE
-      const tableColumn = ["Date", "Type", "Montant (DA)", "Date Regl.", "Modalité", "Statut", "Reçu/Chèque"];
+      const tableColumn = ["Date", "Référence", "Type", "Montant (DA)", "Date Regl.", "Modalité", "Statut", "Reçu/Chèque"];
       const tableRows: any[] = [];
 
       filteredInvoices.forEach((inv: any) => {
         const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
         tableRows.push([
           formatDatFact(inv.DATFACT, inv.PERIODE),
+          formatInvoiceRef(inv.DATFACT, inv.TYPE),
           inv.TYPE || '---',
           formatPDFNumber(parseFloat(inv.MONTTC)),
           isPaid ? formatYMD(inv.DATREG) : '---',
@@ -1731,9 +1739,9 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       <div className="bg-white flex flex-col animate-in fade-in duration-300">
         <div className="p-6 border-b border-[#F2F4F7] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#F9FAFB]">
           <button onClick={() => setSelectedSubForInvoices(null)} className="self-start flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="rotate-180"><path d="m9 18 6-6-6-6"/></svg> Retour à la liste
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="rotate-180"><path d="m9 18 6-6-6-6" /></svg> Retour à la liste
           </button>
-          
+
           <div className="flex items-center gap-2">
             <label htmlFor="invoice-filter" className="text-[11px] font-bold text-[#667085] uppercase tracking-wider">Filtrer :</label>
             <div className="relative">
@@ -1748,12 +1756,12 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                 <option value="UNPAID">Factures impayées</option>
               </select>
               <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#667085]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </div>
             </div>
-            
+
             <div className="h-6 w-px bg-[#E4E7EC] mx-1"></div>
-            
+
             <button
               onClick={handlePrintInvoices}
               disabled={filteredInvoices.length === 0}
@@ -1764,7 +1772,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             </button>
           </div>
         </div>
-        
+
         <div className="flex-1 overflow-x-auto p-0">
           {loadingInvoices ? (
             <div className="flex justify-center items-center py-20">
@@ -1774,7 +1782,8 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                  <th className="px-6 py-5 border-b border-[#F2F4F7]">Date Facture</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7]">Période</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7]">Référence</th>
                   <th className="px-6 py-5 border-b border-[#F2F4F7]">Type</th>
                   <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">Montant TTC</th>
                   <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">Date Règlement</th>
@@ -1790,6 +1799,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                   return (
                     <tr key={i} className="hover:bg-[#F9FAFB] transition-colors">
                       <td className="px-6 py-4 font-bold text-[13px] text-[#101828]">{formatDatFact(inv.DATFACT, inv.PERIODE)}</td>
+                      <td className="px-6 py-4 font-medium text-[13px] text-[#0D83DE] font-mono">{formatInvoiceRef(inv.DATFACT, inv.TYPE)}</td>
                       <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{inv.TYPE || '---'}</td>
                       <td className="px-6 py-4 font-black text-[13px] text-[#101828] text-right">{inv.MONTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA</td>
                       <td className="px-6 py-4 font-medium text-[13px] text-[#475467] text-right">{isPaid ? formatYMD(inv.DATREG) : '---'}</td>
@@ -1807,7 +1817,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                   )
                 }) : (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-[#667085] font-medium">Aucune facture trouvée avec ce filtre.</td>
+                    <td colSpan={9} className="px-6 py-12 text-center text-[#667085] font-medium">Aucune facture trouvée avec ce filtre.</td>
                   </tr>
                 )}
               </tbody>
@@ -1936,16 +1946,16 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       <table className="w-full text-left">
         <thead>
           <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-            <Th label="N° Abonné"          field="numab"    />
-            <Th label="Nom / Raison Sociale" field="name"   />
-            <Th label="Adresse"             field="adresse" />
-            <Th label="Tournée"             field="tournee" />
-            <Th label="Bloc"                field="bloc"    px="px-4" />
-            <Th label="N° Dom"              field="ndom"    px="px-4" />
-            <Th label="N° Série"            field="numser"  />
-            <Th label="Type d'Abonnement"   field="type"    />
-            <Th label="État"                field="etat_label" />
-            <Th label="N° Ordre"            field="numordre" align="right" />
+            <Th label="N° Abonné" field="numab" />
+            <Th label="Nom / Raison Sociale" field="name" />
+            <Th label="Adresse" field="adresse" />
+            <Th label="Tournée" field="tournee" />
+            <Th label="Bloc" field="bloc" px="px-4" />
+            <Th label="N° Dom" field="ndom" px="px-4" />
+            <Th label="N° Série" field="numser" />
+            <Th label="Type d'Abonnement" field="type" />
+            <Th label="État" field="etat_label" />
+            <Th label="N° Ordre" field="numordre" align="right" />
           </tr>
         </thead>
         <tbody className="divide-y divide-[#F2F4F7]">
@@ -2028,7 +2038,7 @@ function CreanceDetailView({ onBack }: any) {
   const [lastVentDate, setLastVentDate] = useState("");
 
   const toggleSection = (section: string) => {
-    setExpandedSections(prev => 
+    setExpandedSections(prev =>
       prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
     );
   };
@@ -2080,10 +2090,10 @@ function CreanceDetailView({ onBack }: any) {
       // Unit & Print Date
       worksheet.getCell('E1').value = `Unité : 26 - MEDEA`;
       worksheet.getCell('E1').alignment = { horizontal: 'right' };
-      
+
       worksheet.getCell('E3').value = `Centre : S02 - BERROUAGHIA`;
       worksheet.getCell('E3').alignment = { horizontal: 'right' };
-      
+
       worksheet.getCell('E4').value = `Edité le : ${printDate}`;
       worksheet.getCell('E4').alignment = { horizontal: 'right' };
 
@@ -2093,7 +2103,7 @@ function CreanceDetailView({ onBack }: any) {
       // Table Headers (Row 6)
       const headerRow = worksheet.addRow(['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette (DA)']);
       headerRow.font = { bold: true };
-      
+
       worksheet.getColumn(1).width = 25;
       worksheet.getColumn(2).width = 15;
       worksheet.getColumn(3).width = 40;
@@ -2103,7 +2113,7 @@ function CreanceDetailView({ onBack }: any) {
       const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
       let globalTotalVolume = 0;
       let globalTotalCreance = 0;
-      
+
       let currentRow = 7;
 
       sections.forEach(section => {
@@ -2172,7 +2182,7 @@ function CreanceDetailView({ onBack }: any) {
     try {
       const doc = new jsPDF();
       const formattedDate = lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
-      
+
       const pageWidth = doc.internal.pageSize.width;
       let imgHeightOut = 0;
 
@@ -2214,7 +2224,7 @@ function CreanceDetailView({ onBack }: any) {
       doc.text("Centre : S02 - BERROUAGHIA", pageWidth - 14, 19, { align: 'right' });
       doc.setFontSize(8);
       doc.text(`Edité le : ${printDate}`, pageWidth - 14, 23, { align: 'right' });
-      
+
       // Set starting Y for the table, ensuring it's below the image and text
       let currentY = Math.max(32, 12 + imgHeightOut + 8);
 
@@ -2237,16 +2247,16 @@ function CreanceDetailView({ onBack }: any) {
         rows.forEach((row, i) => {
           const rowData: any[] = [];
           if (i === 0) {
-            rowData.push({ 
-              content: section.split('').join('\n'), 
-              rowSpan: rows.length, 
-              styles: { 
-                halign: 'center', 
-                valign: 'middle', 
-                fontStyle: 'bold', 
+            rowData.push({
+              content: section.split('').join('\n'),
+              rowSpan: rows.length,
+              styles: {
+                halign: 'center',
+                valign: 'middle',
+                fontStyle: 'bold',
                 fontSize: rows.length < 5 ? 5 : 8,
-                textColor: section === 'EAU' ? [13, 131, 222] : [147, 51, 234] 
-              } 
+                textColor: section === 'EAU' ? [13, 131, 222] : [147, 51, 234]
+              }
             });
           }
           rowData.push(
@@ -2304,7 +2314,7 @@ function CreanceDetailView({ onBack }: any) {
     setData(null);
     setLoading(true);
     setCalcProgress(0);
-    
+
     const targetFilter = ventilationFilter || 'ALL';
     setVentilationFilter(targetFilter);
     const ventDate = end || new Date().toISOString().split('T')[0];
@@ -2314,7 +2324,7 @@ function CreanceDetailView({ onBack }: any) {
       // Step 1: Start Global KPIs
       setCalcStep("Calcul des indicateurs financiers globaux...");
       setCalcProgress(10);
-      
+
       const url = new URL("http://127.0.0.1:8000/creance");
       if (start) url.searchParams.append("start_date", start.replace(/-/g, ''));
       if (end) url.searchParams.append("end_date", end.replace(/-/g, ''));
@@ -2325,26 +2335,26 @@ function CreanceDetailView({ onBack }: any) {
       const d1 = await res1.json();
       setData(d1);
       setCalcProgress(50);
-      
+
       // Step 2: Start Ventilation
       setCalcStep("Calcul de la ventilation par type d'abonné...");
       setCalcProgress(60);
-      
+
       const res2 = await fetch(`http://127.0.0.1:8000/creance_detaillee?date_arrete=${ventDate.replace(/-/g, '')}`);
       setCalcStep("Répartition des créances par commune...");
       setCalcProgress(80);
-      
+
       const d2 = await res2.json();
       setVentilationData(d2);
-      
+
       setCalcStep("Finalisation des calculs...");
       setCalcProgress(100);
-      
+
       // Automatic JSON export is disabled as requested by the user (ne pas exporter de json en fin de traitement)
-      
+
       // Small delay to show 100%
       await new Promise(r => setTimeout(r, 500));
-      
+
     } catch {
       setError("Erreur de connexion au serveur.");
     }
@@ -2505,7 +2515,7 @@ function CreanceDetailView({ onBack }: any) {
               <span className="text-[10px] font-black text-violet-600">{Math.round(calcProgress)}%</span>
             </div>
           </div>
-          
+
           <div className="text-center w-full max-w-md space-y-6">
             <div>
               <p className="font-black text-[#101828] text-2xl tracking-tight">Analyse Financière en cours…</p>
@@ -2514,7 +2524,7 @@ function CreanceDetailView({ onBack }: any) {
 
             <div className="space-y-2">
               <div className="w-full bg-[#F2F4F7] rounded-full h-2 overflow-hidden p-0.5">
-                <div 
+                <div
                   className="h-full bg-violet-600 rounded-full transition-all duration-300 shadow-sm shadow-violet-200"
                   style={{ width: `${calcProgress}%` }}
                 ></div>
@@ -2573,8 +2583,8 @@ function CreanceDetailView({ onBack }: any) {
               { label: "Créance", value: fmt(data.total_creance), color: "bg-rose-50 text-rose-600", dot: "bg-rose-500" },
               { label: "Taux Recov.", value: `${((data.total_recouvre / data.total_ca) * 100).toFixed(2)}%`, color: "bg-amber-50 text-amber-600", dot: "bg-amber-500" },
             ].map((kpi, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 onClick={() => {
                   // Scroll reference removed
                 }}
@@ -2601,13 +2611,13 @@ function CreanceDetailView({ onBack }: any) {
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                 ) : (
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       onClick={exportToExcel}
                       className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all shadow-sm"
                     >
                       <FileSpreadsheet size={14} /> Excel
                     </button>
-                    <button 
+                    <button
                       onClick={exportToPDF}
                       className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 transition-all shadow-sm"
                     >
@@ -2639,68 +2649,68 @@ function CreanceDetailView({ onBack }: any) {
                           const subTotal = rows.reduce((acc, r) => acc + r.CREANCE, 0);
                           return (
                             <Fragment key={section}>
-                            {/* Group Header Toggle */}
-                            <tr 
-                              onClick={() => toggleSection(section)}
-                              className={`${section === 'EAU' ? 'bg-blue-50/10' : 'bg-purple-50/10'} cursor-pointer hover:bg-slate-50 transition-colors border-y border-[#F2F4F7]`}
-                            >
-                              <td colSpan={5} className="px-8 py-3">
-                                <div className="flex items-center gap-3">
-                                  <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
-                                    <ChevronRight size={16} className="text-[#98A2B3]" />
-                                  </div>
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${section === 'EAU' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
-                                    {section}
-                                  </span>
-                                  <span className="text-[11px] font-bold text-[#667085]">
-                                    {isExpanded ? 'Masquer le détail' : `Afficher le détail (${rows.length} lignes)`}
-                                  </span>
-                                </div>
-                              </td>
-                            </tr>
-
-                            {isExpanded && rows.map((row, i) => (
-                              <tr key={i} className="hover:bg-blue-50/20 transition-colors group">
-                                {i === 0 ? (
-                                  <td rowSpan={rows.length} className={`px-5 py-8 text-center border-r border-[#F2F4F7] ${section === 'EAU' ? 'bg-blue-50/10' : 'bg-purple-50/10'}`}>
-                                    <div className="flex flex-col items-center justify-center h-full">
-                                      <span className={`[writing-mode:vertical-lr] rotate-180 text-[13px] font-black uppercase tracking-[0.4em] ${section === 'EAU' ? 'text-blue-500' : 'text-purple-500'}`}>
-                                        {section}
-                                      </span>
+                              {/* Group Header Toggle */}
+                              <tr
+                                onClick={() => toggleSection(section)}
+                                className={`${section === 'EAU' ? 'bg-blue-50/10' : 'bg-purple-50/10'} cursor-pointer hover:bg-slate-50 transition-colors border-y border-[#F2F4F7]`}
+                              >
+                                <td colSpan={5} className="px-8 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                                      <ChevronRight size={16} className="text-[#98A2B3]" />
                                     </div>
-                                  </td>
-                                ) : null}
-                                <td className="px-6 py-4">
-                                  <span className="font-mono text-[11px] font-bold text-[#667085] bg-[#F2F4F7] px-1.5 py-0.5 rounded">
-                                    {row.TYPE_CODE}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="font-bold text-[13px] text-[#101828] uppercase tracking-tight">{row.CATEGORIE}</div>
-                                  <div className="text-[9px] text-[#98A2B3] font-medium uppercase mt-0.5">Code: {row.ORDRE}</div>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                  <div className="font-bold text-[13px] text-[#475467] font-mono tabular-nums">{fmtNum(row.NBR_FACTURES)}</div>
-                                </td>
-                                <td className="px-8 py-4 text-right">
-                                  <div className="font-black text-[13px] text-[#101828] font-mono tracking-tighter">{fmt(row.CREANCE)}</div>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${section === 'EAU' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                                      {section}
+                                    </span>
+                                    <span className="text-[11px] font-bold text-[#667085]">
+                                      {isExpanded ? 'Masquer le détail' : `Afficher le détail (${rows.length} lignes)`}
+                                    </span>
+                                  </div>
                                 </td>
                               </tr>
-                            ))}
-                            <tr className={`${section === 'EAU' ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y border-[#F2F4F7]/50`}>
-                              <td colSpan={3} className="px-8 py-4">
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-1 h-4 rounded-full ${section === 'EAU' ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
-                                  <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                <span className="font-black text-[13px] text-[#475467] font-mono">{fmtNum(rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0))}</span>
-                              </td>
-                              <td className="px-8 py-4 text-right">
-                                <span className={`font-black text-[15px] ${section === 'EAU' ? 'text-blue-700' : 'text-purple-700'} font-mono tracking-tighter`}>{fmt(subTotal)}</span>
-                              </td>
-                            </tr>
+
+                              {isExpanded && rows.map((row, i) => (
+                                <tr key={i} className="hover:bg-blue-50/20 transition-colors group">
+                                  {i === 0 ? (
+                                    <td rowSpan={rows.length} className={`px-5 py-8 text-center border-r border-[#F2F4F7] ${section === 'EAU' ? 'bg-blue-50/10' : 'bg-purple-50/10'}`}>
+                                      <div className="flex flex-col items-center justify-center h-full">
+                                        <span className={`[writing-mode:vertical-lr] rotate-180 text-[13px] font-black uppercase tracking-[0.4em] ${section === 'EAU' ? 'text-blue-500' : 'text-purple-500'}`}>
+                                          {section}
+                                        </span>
+                                      </div>
+                                    </td>
+                                  ) : null}
+                                  <td className="px-6 py-4">
+                                    <span className="font-mono text-[11px] font-bold text-[#667085] bg-[#F2F4F7] px-1.5 py-0.5 rounded">
+                                      {row.TYPE_CODE}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="font-bold text-[13px] text-[#101828] uppercase tracking-tight">{row.CATEGORIE}</div>
+                                    <div className="text-[9px] text-[#98A2B3] font-medium uppercase mt-0.5">Code: {row.ORDRE}</div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <div className="font-bold text-[13px] text-[#475467] font-mono tabular-nums">{fmtNum(row.NBR_FACTURES)}</div>
+                                  </td>
+                                  <td className="px-8 py-4 text-right">
+                                    <div className="font-black text-[13px] text-[#101828] font-mono tracking-tighter">{fmt(row.CREANCE)}</div>
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr className={`${section === 'EAU' ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y border-[#F2F4F7]/50`}>
+                                <td colSpan={3} className="px-8 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-1 h-4 rounded-full ${section === 'EAU' ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
+                                    <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <span className="font-black text-[13px] text-[#475467] font-mono">{fmtNum(rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0))}</span>
+                                </td>
+                                <td className="px-8 py-4 text-right">
+                                  <span className={`font-black text-[15px] ${section === 'EAU' ? 'text-blue-700' : 'text-purple-700'} font-mono tracking-tighter`}>{fmt(subTotal)}</span>
+                                </td>
+                              </tr>
                             </Fragment>
                           );
                         })}
@@ -2737,16 +2747,16 @@ function CreanceDetailView({ onBack }: any) {
             <div className="flex flex-col lg:flex-row items-center gap-8">
               <div className="w-full lg:w-[22%] aspect-square relative flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                  <RadialBarChart 
-                    innerRadius="75%" 
-                    outerRadius="100%" 
-                    barSize={24} 
-                    data={[{ 
-                      name: 'Taux', 
-                      value: (data.total_recouvre / data.total_ca) * 100, 
-                      fill: (data.total_recouvre / data.total_ca) * 100 >= 90 ? '#10B981' : '#F59E0B' 
-                    }]} 
-                    startAngle={225} 
+                  <RadialBarChart
+                    innerRadius="75%"
+                    outerRadius="100%"
+                    barSize={24}
+                    data={[{
+                      name: 'Taux',
+                      value: (data.total_recouvre / data.total_ca) * 100,
+                      fill: (data.total_recouvre / data.total_ca) * 100 >= 90 ? '#10B981' : '#F59E0B'
+                    }]}
+                    startAngle={225}
                     endAngle={-45}
                   >
                     <PolarAngleAxis
@@ -2760,7 +2770,7 @@ function CreanceDetailView({ onBack }: any) {
                       dataKey="value"
                       cornerRadius={12}
                     />
-                    <Tooltip 
+                    <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
@@ -2826,7 +2836,7 @@ function CreanceDetailView({ onBack }: any) {
                     <span className="text-emerald-600">Seuil de performance : 90%</span>
                   </div>
                   <div className="w-full bg-[#F2F4F7] rounded-full h-3 overflow-hidden p-0.5">
-                    <div 
+                    <div
                       className={`h-full rounded-full transition-all duration-1000 shadow-sm ${((data.total_recouvre / data.total_ca) * 100) >= 90 ? 'bg-emerald-500' : 'bg-amber-500'}`}
                       style={{ width: `${Math.min((data.total_recouvre / data.total_ca) * 100, 100)}%` }}
                     ></div>
@@ -2924,11 +2934,11 @@ function CreanceDetailView({ onBack }: any) {
               </table>
             </div>
           </div>
-          </>
-        )}
-      </div>
-    );
-  }
+        </>
+      )}
+    </div>
+  );
+}
 
 
 function CreanceVentilationView({ onBack, initialFilter }: any) {
@@ -2976,15 +2986,15 @@ function CreanceVentilationView({ onBack, initialFilter }: any) {
 
   const getSortedData = (rows: any[]) => {
     if (!sortConfig.key || !sortConfig.direction) return rows;
-    
+
     return [...rows].sort((a, b) => {
       const aVal = a[sortConfig.key];
       const bVal = b[sortConfig.key];
-      
+
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
       }
-      
+
       const sA = String(aVal).toLowerCase();
       const sB = String(bVal).toLowerCase();
       if (sA < sB) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -3000,9 +3010,9 @@ function CreanceVentilationView({ onBack, initialFilter }: any) {
     }
     if (!tableSearch) return filtered;
     const s = tableSearch.toLowerCase();
-    return filtered.filter(r => 
-      r.CATEGORIE.toLowerCase().includes(s) || 
-      r.SECTION.toLowerCase().includes(s) || 
+    return filtered.filter(r =>
+      r.CATEGORIE.toLowerCase().includes(s) ||
+      r.SECTION.toLowerCase().includes(s) ||
       r.TYPE_CODE.toLowerCase().includes(s)
     );
   };
@@ -3013,7 +3023,7 @@ function CreanceVentilationView({ onBack, initialFilter }: any) {
   const handleExportExcel = () => {
     const filteredData = getFilteredData();
     if (filteredData.length === 0) return;
-    
+
     // Prepare data for Excel
     const worksheetData = filteredData.map(row => ({
       'Section': row.SECTION,
@@ -3027,7 +3037,7 @@ function CreanceVentilationView({ onBack, initialFilter }: any) {
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Ventilation Créances");
-    
+
     // Auto-size columns
     const maxWidths = [15, 10, 40, 15, 15, 20];
     worksheet['!cols'] = maxWidths.map(w => ({ wch: w }));
@@ -3109,7 +3119,7 @@ function CreanceVentilationView({ onBack, initialFilter }: any) {
               <TrendingUp size={16} />
               Générer
             </button>
-            
+
             {data.length > 0 && (
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Type de Ventilation</label>
@@ -3135,7 +3145,7 @@ function CreanceVentilationView({ onBack, initialFilter }: any) {
                 </div>
               </div>
             )}
-            
+
             {data.length > 0 && (
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Filtrer le tableau</label>
@@ -3191,7 +3201,7 @@ function CreanceVentilationView({ onBack, initialFilter }: any) {
       {loading && (
         <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center gap-6">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0D83DE]"></div>
-          <p className="font-black text-[#101828] text-lg text-center">Calcul de la ventilation en cours…<br/><span className="text-sm text-[#667085] font-bold">Analyse de la section EAU et PRESTATIONS</span></p>
+          <p className="font-black text-[#101828] text-lg text-center">Calcul de la ventilation en cours…<br /><span className="text-sm text-[#667085] font-bold">Analyse de la section EAU et PRESTATIONS</span></p>
         </div>
       )}
 
@@ -3229,7 +3239,7 @@ function CreanceVentilationView({ onBack, initialFilter }: any) {
                 {(sectionFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [sectionFilter]).map(section => {
                   const sectionRows = getSortedData(getFilteredData().filter((r: any) => r.SECTION === section));
                   if (sectionRows.length === 0) return null;
-                  
+
                   const subTotalFactures = sectionRows.reduce((acc: number, curr: any) => acc + curr.NBR_FACTURES, 0);
                   const subTotalAbonnes = sectionRows.reduce((acc: number, curr: any) => acc + curr.NBR_ABONNES, 0);
                   const subTotalCreance = sectionRows.reduce((acc: number, curr: any) => acc + curr.CREANCE, 0);

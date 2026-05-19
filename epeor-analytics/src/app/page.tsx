@@ -2093,10 +2093,17 @@ function CreanceDetailView({ onBack }: any) {
   const [calcProgress, setCalcProgress] = useState(0);
   const [calcStep, setCalcStep] = useState("");
   const [expandedSections, setExpandedSections] = useState<string[]>(['EAU', 'PRESTATIONS']);
+  const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [lastVentDate, setLastVentDate] = useState("");
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev =>
+      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
+    );
+  };
+
+  const toggleTypeSection = (section: string) => {
+    setExpandedTypes(prev =>
       prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
     );
   };
@@ -2966,6 +2973,8 @@ function CreanceDetailView({ onBack }: any) {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black">
+                    <th className="px-8 py-5">Section</th>
+                    <th className="px-6 py-5">Type</th>
                     <th className="px-8 py-5">Type d'Abonné</th>
                     <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                     <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
@@ -2977,29 +2986,102 @@ function CreanceDetailView({ onBack }: any) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F2F4F7]">
-                  {data.by_type.map((t: any, i: number) => (
-                    <tr key={i} className="hover:bg-[#F9FAFB] transition-colors group">
-                      <td className="px-8 py-4 font-black text-sm text-[#101828]">{t.name}</td>
-                      <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(t.ca_eau)}</td>
-                      <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(t.ca_prestation)}</td>
-                      <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600">{fmt(t.ca)}</td>
-                      <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(t.ca_recouvre || 0)}</td>
-                      <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(t.recouvre)}</td>
-                      <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(t.creance)}</td>
-                      <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{t.taux.toFixed(2)}%</td>
-                    </tr>
-                  ))}
+                  {['EAU', 'PRESTATIONS'].map(section => {
+                    const sectionRows = data.by_type.filter((t: any) => t.section === section);
+                    if (sectionRows.length === 0) return null;
+
+                    const isExpanded = expandedTypes.includes(section);
+                    const subTotalCaEau = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca_eau, 0);
+                    const subTotalCaPrest = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca_prestation, 0);
+                    const subTotalCa = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca, 0);
+                    const subTotalCaRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + (curr.ca_recouvre || 0), 0);
+                    const subTotalRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + curr.recouvre, 0);
+                    const subTotalCreance = sectionRows.reduce((acc: number, curr: any) => acc + curr.creance, 0);
+                    const subTotalTaux = subTotalCa > 0 ? (subTotalCaRecouvre / subTotalCa * 100) : 0;
+
+                    const isEau = section === 'EAU';
+
+                    return (
+                      <Fragment key={section}>
+                        {/* Group Header Toggle */}
+                        <tr
+                          onClick={() => toggleTypeSection(section)}
+                          className={`${isEau ? 'bg-blue-50/10' : 'bg-purple-50/10'} cursor-pointer hover:bg-slate-50 transition-colors border-y border-[#F2F4F7]`}
+                        >
+                          <td colSpan={10} className="px-8 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                                <ChevronRight size={16} className="text-[#98A2B3]" />
+                              </div>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${isEau ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                                {section}
+                              </span>
+                              <span className="text-[11px] font-bold text-[#667085]">
+                                {isExpanded ? 'Masquer le détail' : `Afficher le détail (${sectionRows.length} types)`}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {isExpanded && sectionRows.map((t: any, i: number) => (
+                          <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
+                            {/* Section cell: only render on the first row of the group, spanning all rows */}
+                            {i === 0 && (
+                              <td
+                                rowSpan={sectionRows.length}
+                                className="px-8 py-4 align-middle border-r border-[#F2F4F7]"
+                              >
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-purple-50 text-purple-600 border border-purple-100/50'}`}>
+                                  {t.section}
+                                </span>
+                              </td>
+                            )}
+                            <td className="px-6 py-4">
+                              <span className="font-mono text-[10px] font-medium text-[#667085] bg-[#F9FAFB] px-1.5 py-0.5 rounded border border-[#E4E7EC]">
+                                {t.type_code}
+                              </span>
+                            </td>
+                            <td className="px-8 py-4 font-black text-sm text-[#101828]">{t.name}</td>
+                            <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 whitespace-nowrap">{fmt(t.ca_eau)}</td>
+                            <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 whitespace-nowrap">{fmt(t.ca_prestation)}</td>
+                            <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600 whitespace-nowrap">{fmt(t.ca)}</td>
+                            <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10 whitespace-nowrap">{fmt(t.ca_recouvre || 0)}</td>
+                            <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10 whitespace-nowrap">{fmt(t.recouvre)}</td>
+                            <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30 whitespace-nowrap">{fmt(t.creance)}</td>
+                            <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] whitespace-nowrap">{t.taux.toFixed(2)}%</td>
+                          </tr>
+                        ))}
+
+                        {/* Section Subtotal Row */}
+                        <tr className={`${isEau ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y border-[#F2F4F7]/50`}>
+                          <td colSpan={3} className="px-8 py-4">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-1 h-4 rounded-full ${isEau ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
+                              <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-blue-600 font-mono whitespace-nowrap">{fmt(subTotalCaEau)}</td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-cyan-600 font-mono whitespace-nowrap">{fmt(subTotalCaPrest)}</td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600 font-mono whitespace-nowrap">{fmt(subTotalCa)}</td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-teal-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalCaRecouvre)}</td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-emerald-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalRecouvre)}</td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalCreance)}</td>
+                          <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] font-mono whitespace-nowrap">{subTotalTaux.toFixed(2)}%</td>
+                        </tr>
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
                 <tfoot className="sticky bottom-0 z-10">
                   <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
-                    <td className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
-                    <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
-                    <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
-                    <td className="px-6 py-5 text-right text-violet-400 font-mono">{fmt(data.total_ca)}</td>
-                    <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5">{fmt(data.total_ca_recouvre || 0)}</td>
-                    <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5">{fmt(data.total_recouvre)}</td>
-                    <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(data.total_creance)}</td>
-                    <td className="px-8 py-5 text-right text-slate-300 font-mono">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
+                    <td colSpan={3} className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                    <td className="px-6 py-5 text-right text-blue-400 font-mono whitespace-nowrap">{fmt(data.total_ca_eau)}</td>
+                    <td className="px-6 py-5 text-right text-cyan-400 font-mono whitespace-nowrap">{fmt(data.total_ca_prestation)}</td>
+                    <td className="px-6 py-5 text-right text-violet-400 font-mono whitespace-nowrap">{fmt(data.total_ca)}</td>
+                    <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_ca_recouvre || 0)}</td>
+                    <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_recouvre)}</td>
+                    <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono whitespace-nowrap">{fmt(data.total_creance)}</td>
+                    <td className="px-8 py-5 text-right text-slate-300 font-mono whitespace-nowrap">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
                   </tr>
                 </tfoot>
               </table>

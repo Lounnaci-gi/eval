@@ -659,6 +659,7 @@ def get_creance(start_date: str = None, end_date: str = None):
                 continue
 
             tp = str(r.get('TYPE') or '').strip()
+            periode = str(r.get('PERIODE') or '').strip()
             monttc  = float(r.get('MONTTC') or 0)
             timbre  = float(r.get('TIMBRE') or 0)
             
@@ -668,40 +669,77 @@ def get_creance(start_date: str = None, end_date: str = None):
             codcom  = quartier_to_commune.get(prefix, '??')
 
             # Category determination
-            cat_key = "Autre"
-            cat_label = "Autres"
-            if tp == 'C': cat_key = "411080"; cat_label = "Citernage"
-            elif tp == '6': cat_key = "411090"; cat_label = "Manque à Gagner"
-            elif tp == 'E':
-                if typabon == '15': cat_key = "411050"; cat_label = "Vente en Gros"
-                elif typabon.startswith('1'): cat_key = "411010"; cat_label = "Ménages"
-                elif typabon.startswith('2'): cat_key = "411020"; cat_label = "Administrations"
-                elif typabon.startswith('3'): cat_key = "411030"; cat_label = "Services"
-                elif typabon.startswith('4'): cat_key = "411040"; cat_label = "Industrie & Tourisme"
+            section = None
+            ordre = 0
+            type_code = tp
+            categorie = ""
+
+            if tp == 'E':
+                section = 'EAU'
+                type_code = 'E'
+                if typabon == '15':
+                    ordre = 5
+                    categorie = 'VENTE EN GROS'
+                elif '10' <= typabon <= '19':
+                    ordre = 1
+                    categorie = 'MENAGES'
+                elif '20' <= typabon <= '29':
+                    ordre = 2
+                    categorie = 'ADMINISTRATIONS'
+                elif '30' <= typabon <= '39':
+                    ordre = 3
+                    categorie = 'SERVICES'
+                elif '40' <= typabon <= '49':
+                    ordre = 4
+                    categorie = 'INDUSTRIE & TOURISME'
+                else:
+                    ordre = 6
+                    categorie = f'AUTRE EAU ({typabon})'
+            elif tp == 'C' and periode == '0002':
+                section = 'EAU'
+                ordre = 7
+                type_code = 'C'
+                categorie = 'E/CITERNE'
+            elif tp == '6':
+                section = 'EAU'
+                ordre = 9
+                type_code = '6'
+                categorie = 'E/MANQUE A GAGNER'
+            elif tp != '':
+                section = 'PRESTATIONS'
+                ordre = 100
+                cl_design = classe_map.get((tp, '****'), tp)
+                cs_design = classe_map.get((tp, periode), periode)
+                categorie = f"{cl_design} / {cs_design}"
+
+            cat_key = (section, ordre, type_code, categorie)
             
             # Aggregation logic
             if codcom not in commune_ca:
                 commune_ca[codcom] = {"ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
-            if cat_key not in type_ca:
-                type_ca[cat_key] = {"label": cat_label, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
+            if section and cat_key not in type_ca:
+                type_ca[cat_key] = {"section": section, "ordre": ordre, "type_code": type_code, "label": categorie, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
 
             # CA logic (within range)
             if is_in_saisie:
                 if tp in ['E', 'C', '6']:
                     total_ca_eau += monttc
                     commune_ca[codcom]["ca_eau"] += monttc
-                    type_ca[cat_key]["ca_eau"] += monttc
-                elif tp == 'A':
+                    if section:
+                        type_ca[cat_key]["ca_eau"] += monttc
+                else:
                     total_ca_prestation += monttc
                     commune_ca[codcom]["ca_prestation"] += monttc
-                    type_ca[cat_key]["ca_prestation"] += monttc
+                    if section:
+                        type_ca[cat_key]["ca_prestation"] += monttc
 
             # Recouvrement logic (within range)
             if is_in_reg and not is_avoir:
                 m_rec = monttc + timbre
                 total_recouvre += m_rec
                 commune_ca[codcom]["recouvre"] += m_rec
-                type_ca[cat_key]["recouvre"] += m_rec
+                if section:
+                    type_ca[cat_key]["recouvre"] += m_rec
 
             # CA Recouvré logic (portion of current CA that is paid by target_date)
             if is_in_saisie and not is_avoir:
@@ -709,13 +747,15 @@ def get_creance(start_date: str = None, end_date: str = None):
                 if is_paid:
                     total_ca_recouvre += monttc
                     commune_ca[codcom]["ca_recouvre"] += monttc
-                    type_ca[cat_key]["ca_recouvre"] += monttc
+                    if section:
+                        type_ca[cat_key]["ca_recouvre"] += monttc
 
             # Créance arrêtée logic
             if is_creance_arretee:
                 total_creance += monttc
                 commune_ca[codcom]["creance"] += monttc
-                type_ca[cat_key]["creance"] += monttc
+                if section:
+                    type_ca[cat_key]["creance"] += monttc
                 
                 if tp not in raw_type_ca:
                     raw_type_ca[tp] = {"creance": 0.0, "count": 0}
@@ -744,12 +784,15 @@ def get_creance(start_date: str = None, end_date: str = None):
 
         # Format types
         types_list = []
-        for typabon, d in type_ca.items():
+        for cat_key, d in type_ca.items():
             tot_ca = d["ca_eau"] + d["ca_prestation"]
-            if tot_ca < 100 and d["recouvre"] < 100: continue
+            if tot_ca < 100 and d["recouvre"] < 100 and d["creance"] < 100: continue
             ca_rec = d.get("ca_recouvre", 0.0)
             taux = (ca_rec / tot_ca * 100) if tot_ca > 0 else 0
             types_list.append({
+                "section": d["section"],
+                "ordre": d["ordre"],
+                "type_code": d["type_code"],
                 "name": d["label"],
                 "ca_eau": round(d["ca_eau"], 2),
                 "ca_prestation": round(d["ca_prestation"], 2),
@@ -759,7 +802,7 @@ def get_creance(start_date: str = None, end_date: str = None):
                 "ca_recouvre": round(ca_rec, 2),
                 "taux": round(taux, 2)
             })
-        types_list.sort(key=lambda x: x["ca"], reverse=True)
+        types_list.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
         total_ca = total_ca_eau + total_ca_prestation
 

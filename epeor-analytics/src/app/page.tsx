@@ -2920,8 +2920,10 @@ function CreanceDetailView({ onBack }: any) {
                     <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                     <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
                     <th className="px-6 py-5 text-right">Total CA (DA)</th>
+                    <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
+                    <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
                     <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
-                    <th className="px-8 py-5 text-right">Taux Cré. (%)</th>
+                    <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F2F4F7]">
@@ -2931,6 +2933,8 @@ function CreanceDetailView({ onBack }: any) {
                       <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
                       <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600">{fmt(c.ca)}</td>
+                      <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(c.ca_recouvre || 0)}</td>
+                      <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(c.recouvre)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(c.creance)}</td>
                       <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{c.taux.toFixed(2)}%</td>
                     </tr>
@@ -2942,8 +2946,10 @@ function CreanceDetailView({ onBack }: any) {
                     <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
                     <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
                     <td className="px-6 py-5 text-right text-violet-400 font-mono">{fmt(data.total_ca)}</td>
+                    <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5">{fmt(data.total_ca_recouvre || 0)}</td>
+                    <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5">{fmt(data.total_recouvre)}</td>
                     <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(data.total_creance)}</td>
-                    <td className="px-8 py-5 text-right text-slate-300 font-mono">{((data.total_creance / data.total_ca) * 100).toFixed(2)}%</td>
+                    <td className="px-8 py-5 text-right text-slate-300 font-mono">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
                   </tr>
                 </tfoot>
               </table>
@@ -2964,8 +2970,10 @@ function CreanceDetailView({ onBack }: any) {
                     <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                     <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
                     <th className="px-6 py-5 text-right">Total CA (DA)</th>
+                    <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
+                    <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
                     <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
-                    <th className="px-8 py-5 text-right">Taux Cré. (%)</th>
+                    <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F2F4F7]">
@@ -2975,6 +2983,8 @@ function CreanceDetailView({ onBack }: any) {
                       <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(t.ca_eau)}</td>
                       <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(t.ca_prestation)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600">{fmt(t.ca)}</td>
+                      <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(t.ca_recouvre || 0)}</td>
+                      <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(t.recouvre)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(t.creance)}</td>
                       <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{t.taux.toFixed(2)}%</td>
                     </tr>
@@ -2986,8 +2996,10 @@ function CreanceDetailView({ onBack }: any) {
                     <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
                     <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
                     <td className="px-6 py-5 text-right text-violet-400 font-mono">{fmt(data.total_ca)}</td>
+                    <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5">{fmt(data.total_ca_recouvre || 0)}</td>
+                    <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5">{fmt(data.total_recouvre)}</td>
                     <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(data.total_creance)}</td>
-                    <td className="px-8 py-5 text-right text-slate-300 font-mono">{((data.total_creance / data.total_ca) * 100).toFixed(2)}%</td>
+                    <td className="px-8 py-5 text-right text-slate-300 font-mono">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
                   </tr>
                 </tfoot>
               </table>

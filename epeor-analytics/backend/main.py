@@ -727,7 +727,8 @@ def get_creance(start_date: str = None, end_date: str = None):
         for codcom, label in commune_map.items():
             d = commune_ca.get(codcom, {"ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0})
             tot_ca = d["ca_eau"] + d["ca_prestation"]
-            taux = (d["creance"] / tot_ca * 100) if tot_ca > 0 else 0
+            ca_rec = d.get("ca_recouvre", 0.0)
+            taux = (ca_rec / tot_ca * 100) if tot_ca > 0 else 0
             communes_list.append({
                 "id": codcom,
                 "name": label,
@@ -736,7 +737,7 @@ def get_creance(start_date: str = None, end_date: str = None):
                 "ca": round(tot_ca, 2),
                 "creance": round(d["creance"], 2),
                 "recouvre": round(d["recouvre"], 2),
-                "ca_recouvre": round(d.get("ca_recouvre", 0.0), 2),
+                "ca_recouvre": round(ca_rec, 2),
                 "taux": round(taux, 2)
             })
         communes_list.sort(key=lambda x: x["creance"], reverse=True)
@@ -746,7 +747,8 @@ def get_creance(start_date: str = None, end_date: str = None):
         for typabon, d in type_ca.items():
             tot_ca = d["ca_eau"] + d["ca_prestation"]
             if tot_ca < 100 and d["recouvre"] < 100: continue
-            taux = (d["creance"] / tot_ca * 100) if tot_ca > 0 else 0
+            ca_rec = d.get("ca_recouvre", 0.0)
+            taux = (ca_rec / tot_ca * 100) if tot_ca > 0 else 0
             types_list.append({
                 "name": d["label"],
                 "ca_eau": round(d["ca_eau"], 2),
@@ -754,7 +756,7 @@ def get_creance(start_date: str = None, end_date: str = None):
                 "ca": round(tot_ca, 2),
                 "creance": round(d["creance"], 2),
                 "recouvre": round(d["recouvre"], 2),
-                "ca_recouvre": round(d.get("ca_recouvre", 0.0), 2),
+                "ca_recouvre": round(ca_rec, 2),
                 "taux": round(taux, 2)
             })
         types_list.sort(key=lambda x: x["ca"], reverse=True)

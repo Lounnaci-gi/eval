@@ -1629,25 +1629,55 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       return true;
     });
 
-    const handlePrintInvoices = () => {
+    const totals = filteredInvoices.reduce((acc: any, inv: any) => {
+      const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
+      const amount = parseFloat(inv.MONTTC) || 0;
+      if (isPaid) {
+        acc.paidAmount += amount;
+        acc.paidCount += 1;
+      } else {
+        acc.unpaidAmount += amount;
+        acc.unpaidCount += 1;
+      }
+      return acc;
+    }, { paidAmount: 0, paidCount: 0, unpaidAmount: 0, unpaidCount: 0 });
+
+    const handlePrintInvoices = async () => {
       const doc = new jsPDF("p", "pt", "a4");
       const pageWidth = doc.internal.pageSize.width;
 
       // HEADER
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.setTextColor(13, 131, 222);
-      doc.text("Algérienne Des Eaux", 40, 40);
+      const loadImage = (url: string): Promise<HTMLImageElement> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.src = url;
+          img.onload = () => resolve(img);
+          img.onerror = (e) => reject(e);
+        });
+      };
 
+      try {
+        const logoImg = await loadImage("/ade.png");
+        doc.addImage(logoImg, "PNG", 40, 25, 150, 45);
+      } catch (e) {
+        console.error("Failed to load logo, falling back to text:", e);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(13, 131, 222);
+        doc.text("Algérienne Des Eaux", 40, 40);
+      }
+
+      // TITLE
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(16, 24, 40);
+      doc.text("HISTORIQUE DES FACTURES", pageWidth / 2, 45, { align: 'center' });
+
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(71, 84, 103);
       doc.text("Unité : 26 - MEDEA", pageWidth - 40, 35, { align: 'right' });
       doc.text("Centre : S02 - BERROUAGHIA", pageWidth - 40, 47, { align: 'right' });
-
-      // TITLE
-      doc.setFontSize(16);
-      doc.setTextColor(16, 24, 40);
-      doc.text("HISTORIQUE DES FACTURES", pageWidth / 2, 85, { align: 'center' });
 
       // SUBSCRIBER INFO BOX
       doc.setDrawColor(228, 231, 236);
@@ -1709,10 +1739,16 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
+        foot: [
+          ["Total Payé", "", "", `${formatPDFNumber(totals.paidAmount)} DA`, "", "", `${totals.paidCount} fact.`, ""],
+          ["Total Impayé", "", "", `${formatPDFNumber(totals.unpaidAmount)} DA`, "", "", `${totals.unpaidCount} fact.`, ""]
+        ],
+        showFoot: 'lastPage',
         startY: 215,
         theme: 'grid',
         styles: { fontSize: 8, font: 'helvetica' },
         headStyles: { fillColor: [13, 131, 222], textColor: 255, fontStyle: 'bold' },
+        footStyles: { fillColor: [245, 247, 250], textColor: [16, 24, 40], fontStyle: 'bold' },
         columnStyles: {
           2: { halign: 'right' },
           3: { halign: 'center' },
@@ -1821,6 +1857,28 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                   </tr>
                 )}
               </tbody>
+              {filteredInvoices.length > 0 && (
+                <tfoot>
+                  <tr className="bg-emerald-50/40 font-bold border-t border-[#E4E7EC]">
+                    <td colSpan={3} className="px-6 py-4 text-xs font-bold text-emerald-800 uppercase tracking-wider">Total Factures Payées</td>
+                    <td className="px-6 py-4 text-right text-[13px] font-black text-emerald-700 font-mono">
+                      {totals.paidAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA
+                    </td>
+                    <td colSpan={5} className="px-6 py-4 text-left text-xs text-emerald-600 font-medium">
+                      ({totals.paidCount} facture{totals.paidCount > 1 ? 's' : ''})
+                    </td>
+                  </tr>
+                  <tr className="bg-rose-50/40 font-bold border-t border-[#E4E7EC]">
+                    <td colSpan={3} className="px-6 py-4 text-xs font-bold text-rose-800 uppercase tracking-wider">Total Factures Impayées</td>
+                    <td className="px-6 py-4 text-right text-[13px] font-black text-rose-700 font-mono">
+                      {totals.unpaidAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA
+                    </td>
+                    <td colSpan={5} className="px-6 py-4 text-left text-xs text-rose-600 font-medium">
+                      ({totals.unpaidCount} facture{totals.unpaidCount > 1 ? 's' : ''})
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
         </div>

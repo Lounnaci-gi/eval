@@ -716,7 +716,19 @@ def get_creance(start_date: str = None, end_date: str = None):
             
             # Aggregation logic
             if codcom not in commune_ca:
-                commune_ca[codcom] = {"ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
+                commune_ca[codcom] = {
+                    "ca_eau": 0.0,
+                    "ca_prestation": 0.0,
+                    "creance": 0.0,
+                    "creance_eau": 0.0,
+                    "creance_prestation": 0.0,
+                    "recouvre": 0.0,
+                    "recouvre_eau": 0.0,
+                    "recouvre_prestation": 0.0,
+                    "ca_recouvre": 0.0,
+                    "ca_recouvre_eau": 0.0,
+                    "ca_recouvre_prestation": 0.0
+                }
             if section and cat_key not in type_ca:
                 type_ca[cat_key] = {"section": section, "ordre": ordre, "type_code": type_code, "label": categorie, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
 
@@ -738,6 +750,10 @@ def get_creance(start_date: str = None, end_date: str = None):
                 m_rec = monttc + timbre
                 total_recouvre += m_rec
                 commune_ca[codcom]["recouvre"] += m_rec
+                if section == 'EAU':
+                    commune_ca[codcom]["recouvre_eau"] += m_rec
+                else:
+                    commune_ca[codcom]["recouvre_prestation"] += m_rec
                 if section:
                     type_ca[cat_key]["recouvre"] += m_rec
 
@@ -747,6 +763,10 @@ def get_creance(start_date: str = None, end_date: str = None):
                 if is_paid:
                     total_ca_recouvre += monttc
                     commune_ca[codcom]["ca_recouvre"] += monttc
+                    if section == 'EAU':
+                        commune_ca[codcom]["ca_recouvre_eau"] += monttc
+                    else:
+                        commune_ca[codcom]["ca_recouvre_prestation"] += monttc
                     if section:
                         type_ca[cat_key]["ca_recouvre"] += monttc
 
@@ -754,6 +774,10 @@ def get_creance(start_date: str = None, end_date: str = None):
             if is_creance_arretee:
                 total_creance += monttc
                 commune_ca[codcom]["creance"] += monttc
+                if section == 'EAU':
+                    commune_ca[codcom]["creance_eau"] += monttc
+                else:
+                    commune_ca[codcom]["creance_prestation"] += monttc
                 if section:
                     type_ca[cat_key]["creance"] += monttc
                 
@@ -765,10 +789,32 @@ def get_creance(start_date: str = None, end_date: str = None):
         # Format communes
         communes_list = []
         for codcom, label in commune_map.items():
-            d = commune_ca.get(codcom, {"ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0})
+            d = commune_ca.get(codcom, {
+                "ca_eau": 0.0,
+                "ca_prestation": 0.0,
+                "creance": 0.0,
+                "creance_eau": 0.0,
+                "creance_prestation": 0.0,
+                "recouvre": 0.0,
+                "recouvre_eau": 0.0,
+                "recouvre_prestation": 0.0,
+                "ca_recouvre": 0.0,
+                "ca_recouvre_eau": 0.0,
+                "ca_recouvre_prestation": 0.0
+            })
             tot_ca = d["ca_eau"] + d["ca_prestation"]
             ca_rec = d.get("ca_recouvre", 0.0)
             taux = (ca_rec / tot_ca * 100) if tot_ca > 0 else 0
+            
+            # calculate rates for sections
+            ca_rec_eau = d.get("ca_recouvre_eau", 0.0)
+            tot_ca_eau = d["ca_eau"]
+            taux_eau = (ca_rec_eau / tot_ca_eau * 100) if tot_ca_eau > 0 else 0
+            
+            ca_rec_prest = d.get("ca_recouvre_prestation", 0.0)
+            tot_ca_prest = d["ca_prestation"]
+            taux_prest = (ca_rec_prest / tot_ca_prest * 100) if tot_ca_prest > 0 else 0
+
             communes_list.append({
                 "id": codcom,
                 "name": label,
@@ -778,7 +824,17 @@ def get_creance(start_date: str = None, end_date: str = None):
                 "creance": round(d["creance"], 2),
                 "recouvre": round(d["recouvre"], 2),
                 "ca_recouvre": round(ca_rec, 2),
-                "taux": round(taux, 2)
+                "taux": round(taux, 2),
+                # Details EAU
+                "creance_eau": round(d.get("creance_eau", 0.0), 2),
+                "recouvre_eau": round(d.get("recouvre_eau", 0.0), 2),
+                "ca_recouvre_eau": round(ca_rec_eau, 2),
+                "taux_eau": round(taux_eau, 2),
+                # Details PRESTATIONS
+                "creance_prestation": round(d.get("creance_prestation", 0.0), 2),
+                "recouvre_prestation": round(d.get("recouvre_prestation", 0.0), 2),
+                "ca_recouvre_prestation": round(ca_rec_prest, 2),
+                "taux_prestation": round(taux_prest, 2)
             })
         communes_list.sort(key=lambda x: x["creance"], reverse=True)
 

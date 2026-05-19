@@ -2095,6 +2095,26 @@ function CreanceDetailView({ onBack }: any) {
   const [expandedSections, setExpandedSections] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [lastVentDate, setLastVentDate] = useState("");
+  const [collapsedCommunes, setCollapsedCommunes] = useState<string[]>([]);
+  const [isTableCollapsed, setIsTableCollapsed] = useState(false);
+
+  const recoveryRate = data ? (data.total_ca > 0 ? ((data.total_ca_recouvre || 0) / data.total_ca) * 100 : 0) : 0;
+
+  const toggleCommune = (communeId: string) => {
+    setCollapsedCommunes(prev =>
+      prev.includes(communeId) ? prev.filter(id => id !== communeId) : [...prev, communeId]
+    );
+  };
+
+  const expandAllCommunes = () => {
+    setCollapsedCommunes([]);
+  };
+
+  const collapseAllCommunes = () => {
+    if (data?.by_commune) {
+      setCollapsedCommunes(data.by_commune.map((c: any) => c.id));
+    }
+  };
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev =>
@@ -2819,8 +2839,8 @@ function CreanceDetailView({ onBack }: any) {
                     barSize={24}
                     data={[{
                       name: 'Taux',
-                      value: (data.total_recouvre / data.total_ca) * 100,
-                      fill: (data.total_recouvre / data.total_ca) * 100 >= 90 ? '#10B981' : '#F59E0B'
+                      value: recoveryRate,
+                      fill: recoveryRate >= 90 ? '#10B981' : '#F59E0B'
                     }]}
                     startAngle={225}
                     endAngle={-45}
@@ -2853,7 +2873,7 @@ function CreanceDetailView({ onBack }: any) {
                 <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
                   <div className="flex items-baseline gap-0.5">
                     <span className="text-4xl font-black text-[#101828] tracking-tighter">
-                      {((data.total_recouvre / data.total_ca) * 100).toFixed(1)}
+                      {recoveryRate.toFixed(1)}
                     </span>
                     <span className="text-xl font-black text-[#98A2B3]">%</span>
                   </div>
@@ -2867,12 +2887,12 @@ function CreanceDetailView({ onBack }: any) {
                     <h4 className="text-xl font-black tracking-tight text-[#101828]">Performance du Recouvrement</h4>
                     <p className="text-xs text-[#667085] mt-0.5 font-medium">Analyse comparative entre les factures émises et les encaissements réels.</p>
                   </div>
-                  <div className={`px-4 py-2 rounded-2xl border font-black text-xs uppercase tracking-widest ${((data.total_recouvre / data.total_ca) * 100) >= 90 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
-                    {((data.total_recouvre / data.total_ca) * 100) >= 90 ? 'Objectif Atteint' : 'Sous Objectif (90%)'}
+                  <div className={`px-4 py-2 rounded-2xl border font-black text-xs uppercase tracking-widest ${recoveryRate >= 90 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                    {recoveryRate >= 90 ? 'Objectif Atteint' : 'Sous Objectif (90%)'}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="p-4 bg-[#F9FAFB] rounded-[2rem] border border-[#F2F4F7] group hover:border-violet-200 transition-colors">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-violet-500"></div>
@@ -2880,10 +2900,17 @@ function CreanceDetailView({ onBack }: any) {
                     </div>
                     <p className="text-lg font-black text-[#101828] font-mono tracking-tighter">{fmt(data.total_ca)}</p>
                   </div>
+                  <div className="p-4 bg-teal-50/50 rounded-[2rem] border border-teal-100 group hover:border-teal-200 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-teal-500"></div>
+                      <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest">CA Recouvré</p>
+                    </div>
+                    <p className="text-lg font-black text-teal-700 font-mono tracking-tighter">{fmt(data.total_ca_recouvre || 0)}</p>
+                  </div>
                   <div className="p-4 bg-emerald-50/50 rounded-[2rem] border border-emerald-100 group hover:border-emerald-200 transition-colors">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Montant Recouvré</p>
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Encaissement Réel</p>
                     </div>
                     <p className="text-lg font-black text-emerald-700 font-mono tracking-tighter">{fmt(data.total_recouvre)}</p>
                   </div>
@@ -2903,8 +2930,8 @@ function CreanceDetailView({ onBack }: any) {
                   </div>
                   <div className="w-full bg-[#F2F4F7] rounded-full h-3 overflow-hidden p-0.5">
                     <div
-                      className={`h-full rounded-full transition-all duration-1000 shadow-sm ${((data.total_recouvre / data.total_ca) * 100) >= 90 ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                      style={{ width: `${Math.min((data.total_recouvre / data.total_ca) * 100, 100)}%` }}
+                      className={`h-full rounded-full transition-all duration-1000 shadow-sm ${recoveryRate >= 90 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                      style={{ width: `${Math.min(recoveryRate, 100)}%` }}
                     ></div>
                   </div>
                 </div>
@@ -2915,11 +2942,55 @@ function CreanceDetailView({ onBack }: any) {
 
           {/* Tableau par Commune */}
           <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-            <div className="p-8 border-b border-[#F2F4F7]">
-              <h4 className="text-xl font-black tracking-tight text-[#101828]">Répartition par Commune</h4>
-              <p className="text-sm text-[#667085] mt-1">Détails du Chiffre d'Affaire Eau et Prestation</p>
+            <div 
+              className="p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row justify-between sm:items-center gap-4 cursor-pointer select-none group/table-hdr hover:bg-slate-50/50 transition-colors"
+              onClick={() => setIsTableCollapsed(!isTableCollapsed)}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-8 h-8 rounded-full bg-violet-50 flex items-center justify-center text-violet-600 transition-transform duration-300 ${!isTableCollapsed ? 'rotate-90' : ''}`}>
+                  <ChevronRight size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xl font-black tracking-tight text-[#101828] group-hover/table-hdr:text-violet-700 transition-colors flex items-center gap-2">
+                    Répartition par Commune
+                  </h4>
+                  <p className="text-sm text-[#667085] mt-1">Détails du Chiffre d'Affaire Eau et Prestation</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2.5" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setIsTableCollapsed(!isTableCollapsed)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-sm active:scale-95 cursor-pointer border ${
+                    isTableCollapsed 
+                      ? 'bg-violet-600 text-white border-violet-700 hover:bg-violet-700' 
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {isTableCollapsed ? 'Déplier le Tableau' : 'Plier le Tableau'}
+                </button>
+
+                {!isTableCollapsed && (
+                  <>
+                    <div className="w-[1px] h-6 bg-[#E4E7EC] mx-1 hidden sm:block"></div>
+                    <button
+                      onClick={expandAllCommunes}
+                      className="flex items-center gap-2 px-4 py-2 bg-violet-50 text-violet-600 border border-violet-100 rounded-xl text-xs font-black hover:bg-violet-100 hover:text-violet-700 transition-all shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      Déplier Tout
+                    </button>
+                    <button
+                      onClick={collapseAllCommunes}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-black hover:bg-slate-100 hover:text-slate-700 transition-all shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      Plier Tout
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="overflow-x-auto">
+
+            <div className={`transition-all duration-300 ease-in-out ${isTableCollapsed ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-[5000px] opacity-100'}`}>
+              <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black">
@@ -2934,18 +3005,66 @@ function CreanceDetailView({ onBack }: any) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F2F4F7]">
-                  {data.by_commune.map((c: any, i: number) => (
-                    <tr key={i} className="hover:bg-[#F9FAFB] transition-colors group">
-                      <td className="px-8 py-4 font-black text-sm text-[#101828]">{c.name}</td>
-                      <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
-                      <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
-                      <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600">{fmt(c.ca)}</td>
-                      <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(c.ca_recouvre || 0)}</td>
-                      <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(c.recouvre)}</td>
-                      <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(c.creance)}</td>
-                      <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{c.taux.toFixed(2)}%</td>
-                    </tr>
-                  ))}
+                  {data.by_commune.map((c: any, i: number) => {
+                    const isCollapsed = collapsedCommunes.includes(c.id);
+                    return (
+                      <Fragment key={c.id || i}>
+                        {/* Main Commune Row */}
+                        <tr className="hover:bg-[#F9FAFB] transition-colors group">
+                          <td className="px-8 py-4 font-black text-sm text-[#101828]">
+                            <div
+                              className="flex items-center gap-2 cursor-pointer select-none group-hover:text-violet-600 transition-colors"
+                              onClick={() => toggleCommune(c.id)}
+                            >
+                              <div className={`transition-transform duration-200 ${!isCollapsed ? 'rotate-90' : ''}`}>
+                                <ChevronRight size={14} className="text-[#98A2B3]" />
+                              </div>
+                              <span>{c.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
+                          <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600">{fmt(c.ca)}</td>
+                          <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(c.ca_recouvre || 0)}</td>
+                          <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(c.recouvre)}</td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(c.creance)}</td>
+                          <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{c.taux.toFixed(2)}%</td>
+                        </tr>
+
+                        {/* Eau Sub-row */}
+                        {!isCollapsed && (
+                          <tr className="bg-blue-50/5 hover:bg-blue-50/15 transition-colors border-b border-[#F2F4F7]">
+                            <td className="px-8 py-2.5 pl-14 text-xs font-bold text-blue-600">
+                              <span className="text-[#98A2B3] mr-2">↳</span>Eau
+                            </td>
+                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-blue-600 font-mono">{fmt(c.ca_eau)}</td>
+                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-slate-300 font-mono">-</td>
+                            <td className="px-6 py-2.5 text-right font-bold text-[12px] text-blue-800 font-mono">{fmt(c.ca_eau)}</td>
+                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-teal-600 bg-teal-50/5 font-mono">{fmt(c.ca_recouvre_eau || 0)}</td>
+                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/5 font-mono">{fmt(c.recouvre_eau || 0)}</td>
+                            <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600 bg-rose-50/10 font-mono">{fmt(c.creance_eau || 0)}</td>
+                            <td className="px-8 py-2.5 text-right font-black text-[12px] text-blue-700 font-mono">{c.taux_eau.toFixed(2)}%</td>
+                          </tr>
+                        )}
+
+                        {/* Prestations Sub-row */}
+                        {!isCollapsed && (
+                          <tr className="bg-cyan-50/5 hover:bg-cyan-50/15 transition-colors border-b border-[#F2F4F7]">
+                            <td className="px-8 py-2.5 pl-14 text-xs font-bold text-cyan-600">
+                              <span className="text-[#98A2B3] mr-2">↳</span>Prestations
+                            </td>
+                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-slate-300 font-mono">-</td>
+                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-cyan-600 font-mono">{fmt(c.ca_prestation)}</td>
+                            <td className="px-6 py-2.5 text-right font-bold text-[12px] text-cyan-800 font-mono">{fmt(c.ca_prestation)}</td>
+                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-teal-600 bg-teal-50/5 font-mono">{fmt(c.ca_recouvre_prestation || 0)}</td>
+                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/5 font-mono">{fmt(c.recouvre_prestation || 0)}</td>
+                            <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600 bg-rose-50/10 font-mono">{fmt(c.creance_prestation || 0)}</td>
+                            <td className="px-8 py-2.5 text-right font-black text-[12px] text-cyan-700 font-mono">{c.taux_prestation.toFixed(2)}%</td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
                 <tfoot className="sticky bottom-0 z-10">
                   <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
@@ -2962,6 +3081,7 @@ function CreanceDetailView({ onBack }: any) {
               </table>
             </div>
           </div>
+        </div>
 
           {/* Tableau par Type */}
           <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">

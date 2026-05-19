@@ -20,7 +20,8 @@ import {
   HelpCircle,
   Printer,
   FileText,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Percent
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -189,6 +190,10 @@ export default function Dashboard() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  const totalSubs = stats?.total_subscribers || 0;
+  const targetSubs = (stats?.stopped_subscribers || 0) + (stats?.no_meter_subscribers || 0);
+  const pctCpt2030 = totalSubs > 0 ? (targetSubs / totalSubs) * 100 : 0;
 
   if (!stats || stats.status === 'loading') {
     return (
@@ -363,7 +368,7 @@ export default function Dashboard() {
         {currentView === 'dashboard' ? (
           <div className="space-y-10">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-6">
               <StatsCard
                 title="Total Abonnés"
                 value={stats?.total_subscribers?.toLocaleString() || "..."}
@@ -395,6 +400,13 @@ export default function Dashboard() {
                 trend="Code 30"
                 color="cyan"
                 onClick={() => setCurrentView('no_meter')}
+              />
+              <StatsCard
+                title="Taux Cpt. (20/30)"
+                value={`${pctCpt2030.toFixed(2)}%`}
+                icon={<Percent className="text-indigo-500" size={24} />}
+                trend={`${targetSubs.toLocaleString()} abonnés`}
+                color="indigo"
               />
               <StatsCard
                 title="Chiffre d'Affaire"
@@ -700,6 +712,7 @@ function StatsCard({ title, value, icon, trend, color, onClick }: any) {
     cyan: "bg-cyan-50 text-cyan-600",
     violet: "bg-violet-50 text-violet-600",
     emerald: "bg-emerald-50 text-emerald-600",
+    indigo: "bg-indigo-50 text-indigo-600",
   };
 
   return (

@@ -1274,6 +1274,160 @@ def get_abonne_api(numab: str):
         "factures": factures_formatted
     }
 
+@app.get("/creance_subscribers")
+def get_creance_subscribers(start_date: str = None, end_date: str = None, target_name: str = None, column: str = None):
+    try:
+        EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
+        target_date = end_date if end_date else '99991231'
+
+        records = itertools.chain(
+            ((r, False) for r in MEM_FACTURES),
+            ((r, True) for r in MEM_AVOIRS)
+        )
+
+        subscribers_data = {} # numab -> {numab, name, type_abonne, commune, amount, count}
+
+        for r, is_avoir in records:
+            datsaisie = str(r.get('DATSAISIE') or '').strip()
+            datreg  = str(r.get('DATREG') or '').strip()
+            
+            # 1. Activity filters
+            is_in_saisie = True
+            if start_date and datsaisie < start_date:
+                is_in_saisie = False
+            if end_date and datsaisie > end_date:
+                is_in_saisie = False
+
+            is_in_reg = True
+            if datreg in EMPTY_DATE_VALUES:
+                is_in_reg = False
+            else:
+                if start_date and datreg < start_date:
+                    is_in_reg = False
+                if end_date and datreg > end_date:
+                    is_in_reg = False
+
+            is_creance_arretee = False
+            if not is_avoir:
+                if datsaisie and datsaisie <= target_date:
+                    if datreg in EMPTY_DATE_VALUES or datreg > target_date:
+                        is_creance_arretee = True
+
+            # Skip if doesn't match any criteria
+            if not is_in_saisie and not is_in_reg and not is_creance_arretee:
+                continue
+
+            tp = str(r.get('TYPE') or '').strip()
+            periode = str(r.get('PERIODE') or '').strip()
+            monttc  = float(r.get('MONTTC') or 0)
+            timbre  = float(r.get('TIMBRE') or 0)
+            
+            numab   = str(r.get('NUMAB', '') or '').strip()
+            typabon = str(r.get('TYPABON', '') or '').strip()
+            prefix  = numab[:2]
+            codcom  = quartier_to_commune.get(prefix, '??')
+
+            # Category determination
+            section = None
+            categorie = ""
+
+            if tp == 'E':
+                section = 'EAU'
+                if typabon == '15':
+                    categorie = 'VENTE EN GROS'
+                elif '10' <= typabon <= '19':
+                    categorie = 'MENAGES'
+                elif '20' <= typabon <= '29':
+                    categorie = 'ADMINISTRATIONS'
+                elif '30' <= typabon <= '39':
+                    categorie = 'SERVICES'
+                elif '40' <= typabon <= '49':
+                    categorie = 'INDUSTRIE & TOURISME'
+                else:
+                    categorie = f'AUTRE EAU ({typabon})'
+            elif tp == 'C' and periode == '0002':
+                section = 'EAU'
+                categorie = 'E/CITERNE'
+            elif tp == '6':
+                section = 'EAU'
+                categorie = 'E/MANQUE A GAGNER'
+            elif tp != '':
+                section = 'PRESTATIONS'
+                cl_design = classe_map.get((tp, '****'), tp)
+                cs_design = classe_map.get((tp, periode), periode)
+                categorie = f"{cl_design} / {cs_design}"
+
+            if not section:
+                continue
+
+            # Filter by category name
+            if target_name and categorie != target_name:
+                continue
+
+            # Determine matching amount based on selected column
+            amount = 0.0
+            matched = False
+
+            if column == 'ca_eau':
+                if section == 'EAU' and is_in_saisie and not is_avoir:
+                    amount = monttc
+                    matched = True
+            elif column == 'ca_prestation':
+                if section == 'PRESTATIONS' and is_in_saisie and not is_avoir:
+                    amount = monttc
+                    matched = True
+            elif column == 'ca': # Total CA
+                if is_in_saisie and not is_avoir:
+                    amount = monttc
+                    matched = True
+            elif column == 'ca_recouvre':
+                if is_in_saisie and not is_avoir:
+                    is_paid = datreg not in EMPTY_DATE_VALUES and datreg <= target_date
+                    if is_paid:
+                        amount = monttc
+                        matched = True
+            elif column == 'recouvre':
+                if is_in_reg:
+                    amount = monttc + timbre
+                    matched = True
+            elif column == 'creance':
+                if is_creance_arretee:
+                    amount = monttc
+                    matched = True
+
+            if matched and abs(amount) >= 0.01:
+                if numab not in subscribers_data:
+                    abonne_rec = abonnes_by_numab.get(numab)
+                    name = abonne_rec.get('RAISOC', 'Nom inconnu') if abonne_rec else 'Nom inconnu'
+                    raw_typabon = str(abonne_rec.get('TYPABON', '')).strip() if abonne_rec else typabon
+                    t_rec = tabcodes_by_code.get("T" + raw_typabon)
+                    type_abonne_str = t_rec.get('LIBELLE', f"Type {raw_typabon}") if t_rec else f"Type {raw_typabon}"
+
+                    libcom = communes_by_code.get(codcom, {}).get('LIBCOM', codcom)
+
+                    subscribers_data[numab] = {
+                        "numab": numab,
+                        "name": name,
+                        "type_abonne": type_abonne_str,
+                        "commune": libcom,
+                        "amount": 0.0,
+                        "count": 0
+                    }
+                
+                subscribers_data[numab]["amount"] += amount
+                subscribers_data[numab]["count"] += 1
+
+        # Format list and sort by amount desc
+        result_list = list(subscribers_data.values())
+        for x in result_list:
+            x["amount"] = round(x["amount"], 2)
+        result_list.sort(key=lambda x: abs(x["amount"]), reverse=True)
+
+        return {"subscribers": result_list}
+
+    except Exception as e:
+        return {"error": str(e)}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -21,7 +21,8 @@ import {
   Printer,
   FileText,
   FileSpreadsheet,
-  Percent
+  Percent,
+  MapPin
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -85,7 +86,7 @@ const FrenchDateInput = ({ value, onChange, className, label }: any) => {
 };
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'ventilation'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -96,6 +97,9 @@ export default function Dashboard() {
   const [hoveredAbonne, setHoveredAbonne] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [ventilationFilter, setVentilationFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
+  const [creanceData, setCreanceData] = useState<any>(null);
+  const [repartitionFilter, setRepartitionFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
+  const [calcDateRange, setCalcDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -302,7 +306,7 @@ export default function Dashboard() {
           <NavItem
             icon={<BarChart3 size={20} />}
             label="Analyses Financières"
-            active={currentView === 'creance' || currentView === 'ventilation'}
+            active={currentView === 'creance' || currentView === 'repartition' || currentView === 'ventilation'}
             onClick={() => setCurrentView('creance')}
           />
           <NavItem
@@ -692,12 +696,79 @@ export default function Dashboard() {
           <StoppedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'no_meter' ? (
           <NoMeterDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
-        ) : currentView === 'creance' ? (
-          <CreanceDetailView
-            onBack={() => setCurrentView('dashboard')}
-          />
-        ) : currentView === 'ventilation' ? (
-          <CreanceVentilationView onBack={() => setCurrentView('creance')} initialFilter={ventilationFilter} />
+        ) : ['creance', 'repartition', 'commune', 'ventilation'].includes(currentView) ? (
+          <div className="space-y-8 animate-in fade-in duration-300">
+            {/* Unified Financial Suite Header */}
+            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+              <button
+                onClick={() => setCurrentView('dashboard')}
+                className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors animate-in fade-in duration-200"
+              >
+                <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
+              </button>
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                  <h2 className="text-3xl font-black tracking-tight text-[#101828]">Analyses Financières</h2>
+                  <p className="text-sm text-[#667085] mt-1 font-medium">Facturation, recouvrement et ventilation granulaire du réseau</p>
+                </div>
+                
+                {/* Modern Segmented Navigation Tabs */}
+                <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 self-start md:self-auto border border-[#E4E7EC] shadow-sm">
+                  {[
+                    { id: 'creance', label: 'Synthèse Globale' },
+                    { id: 'repartition', label: "Répartition par Type" },
+                    { id: 'commune', label: 'Répartition par Commune' },
+                    { id: 'ventilation', label: 'Ventilation Commune' }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setCurrentView(tab.id as any)}
+                      className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 active:scale-95 border ${
+                        currentView === tab.id
+                          ? 'bg-white text-violet-600 shadow-sm border-[#E4E7EC]/40'
+                          : 'text-[#667085] border-transparent hover:text-[#101828]'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Render Active View */}
+            {currentView === 'creance' ? (
+              <CreanceDetailView
+                creanceData={creanceData}
+                setCreanceData={setCreanceData}
+                onNavigateToRepartition={(filter: 'ALL' | 'EAU' | 'PRESTATIONS') => {
+                  setRepartitionFilter(filter);
+                  setCurrentView('repartition');
+                }}
+                onCalcDateChange={(s: string, e: string) => setCalcDateRange({start: s, end: e})}
+              />
+            ) : currentView === 'repartition' ? (
+              <CreanceRepartitionView
+                data={creanceData}
+                typeSectionFilter={repartitionFilter}
+                setTypeSectionFilter={setRepartitionFilter}
+                onGoToCalculation={() => setCurrentView('creance')}
+                startDate={calcDateRange.start}
+                endDate={calcDateRange.end}
+              />
+            ) : currentView === 'commune' ? (
+              <CreanceCommuneView
+                data={creanceData}
+                onGoToCalculation={() => setCurrentView('creance')}
+              />
+            ) : (
+              <CreanceVentilationView
+                onBack={() => setCurrentView('creance')}
+                initialFilter={ventilationFilter}
+              />
+            )}
+          </div>
         ) : null}
       </main>
     </div>
@@ -2092,9 +2163,10 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   );
 }
 
-function CreanceDetailView({ onBack }: any) {
+function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartition, onCalcDateChange }: any) {
 
-  const [data, setData] = useState<any>(null);
+  const data = creanceData;
+  const setData = setCreanceData;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -2108,26 +2180,9 @@ function CreanceDetailView({ onBack }: any) {
   const [expandedSections, setExpandedSections] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [lastVentDate, setLastVentDate] = useState("");
-  const [collapsedCommunes, setCollapsedCommunes] = useState<string[]>([]);
-  const [isTableCollapsed, setIsTableCollapsed] = useState(false);
 
   const recoveryRate = data ? (data.total_ca > 0 ? ((data.total_ca_recouvre || 0) / data.total_ca) * 100 : 0) : 0;
 
-  const toggleCommune = (communeId: string) => {
-    setCollapsedCommunes(prev =>
-      prev.includes(communeId) ? prev.filter(id => id !== communeId) : [...prev, communeId]
-    );
-  };
-
-  const expandAllCommunes = () => {
-    setCollapsedCommunes([]);
-  };
-
-  const collapseAllCommunes = () => {
-    if (data?.by_commune) {
-      setCollapsedCommunes(data.by_commune.map((c: any) => c.id));
-    }
-  };
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev =>
@@ -2447,6 +2502,7 @@ function CreanceDetailView({ onBack }: any) {
 
       setCalcStep("Finalisation des calculs...");
       setCalcProgress(100);
+      onCalcDateChange?.(start, end);
 
       // Automatic JSON export is disabled as requested by the user (ne pas exporter de json en fin de traitement)
 
@@ -2514,20 +2570,7 @@ function CreanceDetailView({ onBack }: any) {
     <div className="space-y-10">
       {/* Header */}
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
-        >
-          <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
-        </button>
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Créance Globale & Chiffre d'Affaires</h3>
-            <p className="text-sm text-[#667085] mt-1">Analyse de la facturation et du recouvrement depuis FACTURES.DBF</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mt-8 pt-8 border-t border-[#F2F4F7]">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="flex flex-col md:flex-row md:items-end gap-4">
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Année</label>
@@ -2681,21 +2724,28 @@ function CreanceDetailView({ onBack }: any) {
               { label: "Encaissement", value: fmt(data.total_recouvre), color: "bg-emerald-50 text-emerald-600", dot: "bg-emerald-500" },
               { label: "Créance", value: fmt(data.total_creance), color: "bg-rose-50 text-rose-600", dot: "bg-rose-500" },
               { label: "Taux Recov.", value: `${data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100).toFixed(2) : "0.00"}%`, color: "bg-amber-50 text-amber-600", dot: "bg-amber-500" },
-            ].map((kpi, i) => (
-              <div
-                key={i}
-                onClick={() => {
-                  // Scroll reference removed
-                }}
-                className={`bg-white border border-[#E4E7EC] rounded-[2.5rem] p-5 shadow-sm hover:shadow-md transition-all`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-2 h-2 rounded-full ${kpi.dot}`}></div>
-                  <p className="text-[10px] font-black text-[#667085] uppercase tracking-widest">{kpi.label}</p>
+            ].map((kpi, i) => {
+              const isClickable = ["CA Eau", "CA Prestation", "CA Total"].includes(kpi.label);
+              return (
+                <div
+                  key={i}
+                  onClick={() => {
+                    if (isClickable) {
+                      if (kpi.label === "CA Eau") onNavigateToRepartition('EAU');
+                      else if (kpi.label === "CA Prestation") onNavigateToRepartition('PRESTATIONS');
+                      else if (kpi.label === "CA Total") onNavigateToRepartition('ALL');
+                    }
+                  }}
+                  className={`bg-white border border-[#E4E7EC] rounded-[2.5rem] p-5 shadow-sm hover:shadow-md transition-all ${isClickable ? "cursor-pointer hover:border-violet-300 hover:bg-slate-50/30" : ""}`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-2 h-2 rounded-full ${kpi.dot}`}></div>
+                    <p className="text-[10px] font-black text-[#667085] uppercase tracking-widest">{kpi.label}</p>
+                  </div>
+                  <p className={`text-base font-black tracking-tighter ${kpi.color.split(' ')[1]}`}>{kpi.value}</p>
                 </div>
-                <p className={`text-base font-black tracking-tighter ${kpi.color.split(' ')[1]}`}>{kpi.value}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Detailed Ventilation Table - Integrated */}
@@ -2953,275 +3003,629 @@ function CreanceDetailView({ onBack }: any) {
           </div>
 
 
-          {/* Tableau par Commune */}
-          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-            <div 
-              className="p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row justify-between sm:items-center gap-4 cursor-pointer select-none group/table-hdr hover:bg-slate-50/50 transition-colors"
-              onClick={() => setIsTableCollapsed(!isTableCollapsed)}
-            >
-              <div className="flex items-center gap-4">
-                <div className={`w-8 h-8 rounded-full bg-violet-50 flex items-center justify-center text-violet-600 transition-transform duration-300 ${!isTableCollapsed ? 'rotate-90' : ''}`}>
-                  <ChevronRight size={18} />
-                </div>
-                <div>
-                  <h4 className="text-xl font-black tracking-tight text-[#101828] group-hover/table-hdr:text-violet-700 transition-colors flex items-center gap-2">
-                    Répartition par Commune
-                  </h4>
-                  <p className="text-sm text-[#667085] mt-1">Détails du Chiffre d'Affaire Eau et Prestation</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2.5" onClick={(e) => e.stopPropagation()}>
-                <button
-                  onClick={() => setIsTableCollapsed(!isTableCollapsed)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-sm active:scale-95 cursor-pointer border ${
-                    isTableCollapsed 
-                      ? 'bg-violet-600 text-white border-violet-700 hover:bg-violet-700' 
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {isTableCollapsed ? 'Déplier le Tableau' : 'Plier le Tableau'}
-                </button>
-
-                {!isTableCollapsed && (
-                  <>
-                    <div className="w-[1px] h-6 bg-[#E4E7EC] mx-1 hidden sm:block"></div>
-                    <button
-                      onClick={expandAllCommunes}
-                      className="flex items-center gap-2 px-4 py-2 bg-violet-50 text-violet-600 border border-violet-100 rounded-xl text-xs font-black hover:bg-violet-100 hover:text-violet-700 transition-all shadow-sm active:scale-95 cursor-pointer"
-                    >
-                      Déplier Tout
-                    </button>
-                    <button
-                      onClick={collapseAllCommunes}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-black hover:bg-slate-100 hover:text-slate-700 transition-all shadow-sm active:scale-95 cursor-pointer"
-                    >
-                      Plier Tout
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className={`transition-all duration-300 ease-in-out ${isTableCollapsed ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-[5000px] opacity-100'}`}>
-              <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black">
-                    <th className="px-8 py-5">Commune</th>
-                    <th className="px-6 py-5 text-right">CA Eau (DA)</th>
-                    <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
-                    <th className="px-6 py-5 text-right">Total CA (DA)</th>
-                    <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
-                    <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
-                    <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
-                    <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F2F4F7]">
-                  {data.by_commune.map((c: any, i: number) => {
-                    const isCollapsed = collapsedCommunes.includes(c.id);
-                    return (
-                      <Fragment key={c.id || i}>
-                        {/* Main Commune Row */}
-                        <tr className="hover:bg-[#F9FAFB] transition-colors group">
-                          <td className="px-8 py-4 font-black text-sm text-[#101828]">
-                            <div
-                              className="flex items-center gap-2 cursor-pointer select-none group-hover:text-violet-600 transition-colors"
-                              onClick={() => toggleCommune(c.id)}
-                            >
-                              <div className={`transition-transform duration-200 ${!isCollapsed ? 'rotate-90' : ''}`}>
-                                <ChevronRight size={14} className="text-[#98A2B3]" />
-                              </div>
-                              <span>{c.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
-                          <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600">{fmt(c.ca)}</td>
-                          <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(c.ca_recouvre || 0)}</td>
-                          <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(c.recouvre)}</td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(c.creance)}</td>
-                          <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{c.taux.toFixed(2)}%</td>
-                        </tr>
-
-                        {/* Eau Sub-row */}
-                        {!isCollapsed && (
-                          <tr className="bg-blue-50/5 hover:bg-blue-50/15 transition-colors border-b border-[#F2F4F7]">
-                            <td className="px-8 py-2.5 pl-14 text-xs font-bold text-blue-600">
-                              <span className="text-[#98A2B3] mr-2">↳</span>Eau
-                            </td>
-                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-blue-600 font-mono">{fmt(c.ca_eau)}</td>
-                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-slate-300 font-mono">-</td>
-                            <td className="px-6 py-2.5 text-right font-bold text-[12px] text-blue-800 font-mono">{fmt(c.ca_eau)}</td>
-                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-teal-600 bg-teal-50/5 font-mono">{fmt(c.ca_recouvre_eau || 0)}</td>
-                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/5 font-mono">{fmt(c.recouvre_eau || 0)}</td>
-                            <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600 bg-rose-50/10 font-mono">{fmt(c.creance_eau || 0)}</td>
-                            <td className="px-8 py-2.5 text-right font-black text-[12px] text-blue-700 font-mono">{c.taux_eau.toFixed(2)}%</td>
-                          </tr>
-                        )}
-
-                        {/* Prestations Sub-row */}
-                        {!isCollapsed && (
-                          <tr className="bg-cyan-50/5 hover:bg-cyan-50/15 transition-colors border-b border-[#F2F4F7]">
-                            <td className="px-8 py-2.5 pl-14 text-xs font-bold text-cyan-600">
-                              <span className="text-[#98A2B3] mr-2">↳</span>Prestations
-                            </td>
-                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-slate-300 font-mono">-</td>
-                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-cyan-600 font-mono">{fmt(c.ca_prestation)}</td>
-                            <td className="px-6 py-2.5 text-right font-bold text-[12px] text-cyan-800 font-mono">{fmt(c.ca_prestation)}</td>
-                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-teal-600 bg-teal-50/5 font-mono">{fmt(c.ca_recouvre_prestation || 0)}</td>
-                            <td className="px-6 py-2.5 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/5 font-mono">{fmt(c.recouvre_prestation || 0)}</td>
-                            <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600 bg-rose-50/10 font-mono">{fmt(c.creance_prestation || 0)}</td>
-                            <td className="px-8 py-2.5 text-right font-black text-[12px] text-cyan-700 font-mono">{c.taux_prestation.toFixed(2)}%</td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="sticky bottom-0 z-10">
-                  <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
-                    <td className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
-                    <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
-                    <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
-                    <td className="px-6 py-5 text-right text-violet-400 font-mono">{fmt(data.total_ca)}</td>
-                    <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5">{fmt(data.total_ca_recouvre || 0)}</td>
-                    <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5">{fmt(data.total_recouvre)}</td>
-                    <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(data.total_creance)}</td>
-                    <td className="px-8 py-5 text-right text-slate-300 font-mono">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        </div>
-
-          {/* Tableau par Type */}
-          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-            <div className="p-8 border-b border-[#F2F4F7]">
-              <h4 className="text-xl font-black tracking-tight text-[#101828]">Répartition par Type d'Abonné</h4>
-              <p className="text-sm text-[#667085] mt-1">Analyse comparative Eau / Prestation</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black">
-                    <th className="px-8 py-5">Section</th>
-                    <th className="px-6 py-5">Type</th>
-                    <th className="px-8 py-5">Type d'Abonné</th>
-                    <th className="px-6 py-5 text-right">CA Eau (DA)</th>
-                    <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
-                    <th className="px-6 py-5 text-right">Total CA (DA)</th>
-                    <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
-                    <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
-                    <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
-                    <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F2F4F7]">
-                  {['EAU', 'PRESTATIONS'].map(section => {
-                    const sectionRows = data.by_type.filter((t: any) => t.section === section);
-                    if (sectionRows.length === 0) return null;
-
-                    const isExpanded = expandedTypes.includes(section);
-                    const subTotalCaEau = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca_eau, 0);
-                    const subTotalCaPrest = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca_prestation, 0);
-                    const subTotalCa = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca, 0);
-                    const subTotalCaRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + (curr.ca_recouvre || 0), 0);
-                    const subTotalRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + curr.recouvre, 0);
-                    const subTotalCreance = sectionRows.reduce((acc: number, curr: any) => acc + curr.creance, 0);
-                    const subTotalTaux = subTotalCa > 0 ? (subTotalCaRecouvre / subTotalCa * 100) : 0;
-
-                    const isEau = section === 'EAU';
-
-                    return (
-                      <Fragment key={section}>
-                        {/* Group Header Toggle */}
-                        <tr
-                          onClick={() => toggleTypeSection(section)}
-                          className={`${isEau ? 'bg-blue-50/10' : 'bg-purple-50/10'} cursor-pointer hover:bg-slate-50 transition-colors border-y border-[#F2F4F7]`}
-                        >
-                          <td colSpan={10} className="px-8 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
-                                <ChevronRight size={16} className="text-[#98A2B3]" />
-                              </div>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${isEau ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
-                                {section}
-                              </span>
-                              <span className="text-[11px] font-bold text-[#667085]">
-                                {isExpanded ? 'Masquer le détail' : `Afficher le détail (${sectionRows.length} types)`}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-
-                        {isExpanded && sectionRows.map((t: any, i: number) => (
-                          <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                            {/* Section cell: only render on the first row of the group, spanning all rows */}
-                            {i === 0 && (
-                              <td
-                                rowSpan={sectionRows.length}
-                                className="px-8 py-4 align-middle border-r border-[#F2F4F7]"
-                              >
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-purple-50 text-purple-600 border border-purple-100/50'}`}>
-                                  {t.section}
-                                </span>
-                              </td>
-                            )}
-                            <td className="px-6 py-4">
-                              <span className="font-mono text-[10px] font-medium text-[#667085] bg-[#F9FAFB] px-1.5 py-0.5 rounded border border-[#E4E7EC]">
-                                {t.type_code}
-                              </span>
-                            </td>
-                            <td className="px-8 py-4 font-black text-sm text-[#101828]">{t.name}</td>
-                            <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 whitespace-nowrap">{fmt(t.ca_eau)}</td>
-                            <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 whitespace-nowrap">{fmt(t.ca_prestation)}</td>
-                            <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600 whitespace-nowrap">{fmt(t.ca)}</td>
-                            <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10 whitespace-nowrap">{fmt(t.ca_recouvre || 0)}</td>
-                            <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10 whitespace-nowrap">{fmt(t.recouvre)}</td>
-                            <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30 whitespace-nowrap">{fmt(t.creance)}</td>
-                            <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] whitespace-nowrap">{t.taux.toFixed(2)}%</td>
-                          </tr>
-                        ))}
-
-                        {/* Section Subtotal Row */}
-                        <tr className={`${isEau ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y border-[#F2F4F7]/50`}>
-                          <td colSpan={3} className="px-8 py-4">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-1 h-4 rounded-full ${isEau ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
-                              <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-blue-600 font-mono whitespace-nowrap">{fmt(subTotalCaEau)}</td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-cyan-600 font-mono whitespace-nowrap">{fmt(subTotalCaPrest)}</td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600 font-mono whitespace-nowrap">{fmt(subTotalCa)}</td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-teal-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalCaRecouvre)}</td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-emerald-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalRecouvre)}</td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalCreance)}</td>
-                          <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] font-mono whitespace-nowrap">{subTotalTaux.toFixed(2)}%</td>
-                        </tr>
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="sticky bottom-0 z-10">
-                  <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
-                    <td colSpan={3} className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
-                    <td className="px-6 py-5 text-right text-blue-400 font-mono whitespace-nowrap">{fmt(data.total_ca_eau)}</td>
-                    <td className="px-6 py-5 text-right text-cyan-400 font-mono whitespace-nowrap">{fmt(data.total_ca_prestation)}</td>
-                    <td className="px-6 py-5 text-right text-violet-400 font-mono whitespace-nowrap">{fmt(data.total_ca)}</td>
-                    <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_ca_recouvre || 0)}</td>
-                    <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_recouvre)}</td>
-                    <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono whitespace-nowrap">{fmt(data.total_creance)}</td>
-                    <td className="px-8 py-5 text-right text-slate-300 font-mono whitespace-nowrap">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
         </>
       )}
+    </div>
+  );
+}
+
+function SubscriberDrillDownModal({ targetName, column, startDate, endDate, onClose }: any) {
+  const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  const COLUMN_LABELS: Record<string, string> = {
+    ca_eau: 'CA Eau',
+    ca_prestation: 'CA Prestation',
+    ca: 'Total CA',
+    ca_recouvre: 'CA Recouvré',
+    recouvre: 'Encaissement',
+    creance: 'Créance',
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    setSubscribers([]);
+    const url = new URL('http://127.0.0.1:8000/creance_subscribers');
+    if (startDate) url.searchParams.append('start_date', startDate);
+    if (endDate) url.searchParams.append('end_date', endDate);
+    if (targetName) url.searchParams.append('target_name', targetName);
+    if (column) url.searchParams.append('column', column);
+    fetch(url.toString())
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setError(data.error); } else { setSubscribers(data.subscribers || []); }
+        setLoading(false);
+      })
+      .catch(() => { setError('Erreur de connexion au serveur.'); setLoading(false); });
+  }, [targetName, column, startDate, endDate]);
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n)
+      .replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+
+  const filtered = subscribers.filter(s =>
+    !search ||
+    s.numab?.toLowerCase().includes(search.toLowerCase()) ||
+    s.name?.toLowerCase().includes(search.toLowerCase()) ||
+    s.commune?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const columnLabel = COLUMN_LABELS[column] || column;
+
+  const exportCSV = () => {
+    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Commune', 'Type Abonné', columnLabel, 'Nb Opérations'];
+    const rows = filtered.map((s: any) => [s.numab, s.name, s.commune, s.type_abonne, s.amount, s.count]);
+    const csv = [header, ...rows].map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `abonnes_${targetName}_${column}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+      <div
+        className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-[#E4E7EC] animate-in fade-in slide-in-from-bottom-4 duration-300"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-violet-50/60 to-white flex-shrink-0">
+          <div>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-violet-50 text-violet-600 border-violet-100">
+                Détail Abonnés
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-blue-50 text-blue-600 border-blue-100">
+                {columnLabel}
+              </span>
+            </div>
+            <h2 className="text-xl font-black text-[#101828] tracking-tight">{targetName}</h2>
+            <p className="text-sm text-[#667085] mt-1 font-medium">
+              {loading ? 'Chargement...' : `${filtered.length} abonné${filtered.length !== 1 ? 's' : ''} trouvé${filtered.length !== 1 ? 's' : ''}`}
+              {startDate ? ` · du ${startDate.slice(6,8)}/${startDate.slice(4,6)}/${startDate.slice(0,4)}` : ''}
+              {endDate ? ` au ${endDate.slice(6,8)}/${endDate.slice(4,6)}/${endDate.slice(0,4)}` : ''}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2.5 rounded-xl text-[#98A2B3] hover:bg-[#F2F4F7] hover:text-[#101828] transition-all active:scale-95 flex-shrink-0 ml-4"
+          >
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Toolbar */}
+        <div className="flex items-center gap-3 px-8 py-4 border-b border-[#F2F4F7] flex-shrink-0">
+          <div className="relative flex-1">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3] pointer-events-none">
+              <Search size={14} />
+            </div>
+            <input
+              type="text"
+              placeholder="Rechercher par code abonné, nom ou commune..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              className="w-full pl-9 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-medium text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100/50 transition-all"
+            />
+          </div>
+          <button
+            onClick={exportCSV}
+            disabled={loading || filtered.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all shadow-sm shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileSpreadsheet size={13} />
+            Exporter CSV
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-56 gap-4">
+              <div className="w-10 h-10 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
+              <p className="text-sm font-medium text-[#667085]">Chargement des abonnés...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center h-56 gap-3">
+              <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center">
+                <UserX className="text-rose-500" size={24} />
+              </div>
+              <p className="text-sm font-bold text-rose-600">{error}</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-56 gap-3">
+              <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center">
+                <Users className="text-[#D0D5DD]" size={24} />
+              </div>
+              <p className="text-sm font-medium text-[#667085]">Aucun abonné trouvé pour ce filtre.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                  <th className="px-6 py-4 w-12">#</th>
+                  <th className="px-4 py-4">Code Abonn.</th>
+                  <th className="px-4 py-4">Nom / Raison Sociale</th>
+                  <th className="px-4 py-4">Commune</th>
+                  <th className="px-4 py-4">Type</th>
+                  <th className="px-4 py-4 text-right text-violet-600">{columnLabel}</th>
+                  <th className="px-6 py-4 text-right">Opérations</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {paged.map((s: any, i: number) => (
+                  <tr key={s.numab} className="hover:bg-violet-50/20 transition-colors">
+                    <td className="px-6 py-3.5 text-xs text-[#98A2B3] font-mono">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                    <td className="px-4 py-3.5">
+                      <span className="font-mono text-[11px] font-bold text-[#101828] bg-[#F9FAFB] px-2 py-0.5 rounded border border-[#E4E7EC]">{s.numab}</span>
+                    </td>
+                    <td className="px-4 py-3.5 text-sm font-semibold text-[#101828]">{s.name}</td>
+                    <td className="px-4 py-3.5 text-xs text-[#475467] font-medium">{s.commune}</td>
+                    <td className="px-4 py-3.5 text-[11px] text-[#667085]">{s.type_abonne}</td>
+                    <td className="px-4 py-3.5 text-right font-black text-sm text-violet-600 whitespace-nowrap">{fmt(s.amount)}</td>
+                    <td className="px-6 py-3.5 text-right text-xs font-bold text-[#475467]">{s.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {!loading && !error && totalPages > 1 && (
+          <div className="flex items-center justify-between px-8 py-4 border-t border-[#F2F4F7] bg-[#F9FAFB]/50 flex-shrink-0">
+            <span className="text-xs text-[#667085] font-medium">
+              Page {page} / {totalPages} · {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+              >← Préc.</button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, idx) => {
+                let p: number;
+                if (totalPages <= 5) p = idx + 1;
+                else if (page <= 3) p = idx + 1;
+                else if (page >= totalPages - 2) p = totalPages - 4 + idx;
+                else p = page - 2 + idx;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                      page === p ? 'bg-violet-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
+                    }`}
+                  >{p}</button>
+                );
+              })}
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+              >Suiv. →</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter, onGoToCalculation, startDate, endDate }: any) {
+  const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
+  const [drillDown, setDrillDown] = useState<{targetName: string, column: string} | null>(null);
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n)
+      .replace(/[\u202F\u00A0]/g, ' ') + " DA";
+
+  const fmtNum = (n: number) =>
+    new Intl.NumberFormat("fr-DZ", { maximumFractionDigits: 0 })
+      .format(n)
+      .replace(/[\u202F\u00A0]/g, ' ');
+
+  const toggleTypeSection = (section: string) => {
+    setExpandedTypes(prev =>
+      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
+    );
+  };
+
+  if (!data || !data.by_type) {
+    return (
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-12 text-center max-w-2xl mx-auto my-12 animate-in fade-in duration-300">
+        <div className="w-20 h-20 bg-violet-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-violet-100 shadow-inner">
+          <BarChart3 className="text-violet-600" size={36} />
+        </div>
+        <h3 className="text-2xl font-black text-[#101828] mb-3">Aucune donnée disponible</h3>
+        <p className="text-sm text-[#667085] leading-relaxed max-w-md mx-auto mb-8 font-medium">
+          Les calculs financiers n'ont pas encore été lancés pour la période actuelle. Veuillez vous rendre sur la Synthèse Globale pour charger les données.
+        </p>
+        <button
+          onClick={onGoToCalculation}
+          className="inline-flex items-center justify-center px-6 py-3.5 bg-violet-600 text-white rounded-2xl text-sm font-black hover:bg-violet-700 active:scale-95 transition-all shadow-lg shadow-violet-600/25 border border-violet-500/10"
+        >
+          Aller à la Synthèse Globale
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      {/* Drill-down Modal */}
+      {drillDown && (
+        <SubscriberDrillDownModal
+          targetName={drillDown.targetName}
+          column={drillDown.column}
+          startDate={startDate}
+          endDate={endDate}
+          onClose={() => setDrillDown(null)}
+        />
+      )}
+
+      {/* Filters and Context */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition par Type d'Abonné</h3>
+          <p className="text-sm text-[#667085] mt-1 font-medium">Cliquez sur un montant pour voir le détail des abonnés concernés</p>
+        </div>
+        
+        {/* Modern Tab Filters */}
+        <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 self-start md:self-auto border border-[#E4E7EC]">
+          {[
+            { id: 'ALL', label: 'Tous les Types' },
+            { id: 'EAU', label: 'Eau Uniquement' },
+            { id: 'PRESTATIONS', label: 'Prestations Uniquement' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setTypeSectionFilter(tab.id as any)}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
+                typeSectionFilter === tab.id
+                  ? 'bg-white text-violet-600 shadow-sm border-[#E4E7EC]/40'
+                  : 'text-[#667085] border-transparent hover:text-[#101828]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table Container */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                <th className="px-8 py-5">Section</th>
+                <th className="px-6 py-5">Type</th>
+                <th className="px-8 py-5">Type d'Abonné</th>
+                <th className="px-6 py-5 text-right">CA Eau</th>
+                <th className="px-6 py-5 text-right">CA Prest.</th>
+                <th className="px-6 py-5 text-right">Total CA</th>
+                <th className="px-6 py-5 text-right text-teal-600">CA Recouvré</th>
+                <th className="px-6 py-5 text-right text-emerald-600">Encaissement</th>
+                <th className="px-6 py-5 text-right text-rose-600">Créance</th>
+                <th className="px-8 py-5 text-right">Taux Recov.</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F2F4F7]">
+              {(typeSectionFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [typeSectionFilter]).map(section => {
+                const sectionRows = data.by_type.filter((t: any) => t.section === section);
+                if (sectionRows.length === 0) return null;
+
+                const isExpanded = expandedTypes.includes(section);
+                const subTotalCaEau = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca_eau, 0);
+                const subTotalCaPrest = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca_prestation, 0);
+                const subTotalCa = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca, 0);
+                const subTotalCaRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + (curr.ca_recouvre || 0), 0);
+                const subTotalRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + curr.recouvre, 0);
+                const subTotalCreance = sectionRows.reduce((acc: number, curr: any) => acc + curr.creance, 0);
+                const subTotalTaux = subTotalCa > 0 ? (subTotalCaRecouvre / subTotalCa * 100) : 0;
+
+                const isEau = section === 'EAU';
+
+                return (
+                  <Fragment key={section}>
+                    {/* Group Header Toggle */}
+                    <tr
+                      onClick={() => toggleTypeSection(section)}
+                      className={`${isEau ? 'bg-blue-50/10' : 'bg-purple-50/10'} cursor-pointer hover:bg-slate-50/50 transition-colors border-y border-[#F2F4F7]`}
+                    >
+                      <td colSpan={10} className="px-8 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                            <ChevronRight size={16} className="text-[#98A2B3]" />
+                          </div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border ${isEau ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                            {section}
+                          </span>
+                          <span className="text-[11px] font-bold text-[#667085]">
+                            {isExpanded ? 'Masquer le détail' : `Afficher le détail (${sectionRows.length} types d'abonnés)`}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {isExpanded && sectionRows.map((t: any, i: number) => (
+                      <tr key={i} className="hover:bg-slate-50/40 transition-colors group">
+                        {i === 0 && (
+                          <td
+                            rowSpan={sectionRows.length}
+                            className="px-8 py-4 align-middle border-r border-[#F2F4F7]"
+                          >
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-purple-50 text-purple-600 border border-purple-100/50'}`}>
+                              {t.section}
+                            </span>
+                          </td>
+                        )}
+                        <td className="px-6 py-4">
+                          <span className="font-mono text-[10px] font-medium text-[#667085] bg-[#F9FAFB] px-2 py-0.5 rounded border border-[#E4E7EC]">
+                            {t.type_code}
+                          </span>
+                        </td>
+                        <td className="px-8 py-4 font-black text-sm text-[#101828]">{t.name}</td>
+                        <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 whitespace-nowrap">
+                          <span className="cursor-pointer hover:bg-blue-50/60 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_eau' })} title="Voir les abonnés concernés">{fmt(t.ca_eau)}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 whitespace-nowrap">
+                          <span className="cursor-pointer hover:bg-cyan-50/60 hover:text-cyan-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_prestation' })} title="Voir les abonnés concernés">{fmt(t.ca_prestation)}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600 whitespace-nowrap">
+                          <span className="cursor-pointer hover:bg-violet-50/60 hover:text-violet-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca' })} title="Voir les abonnés concernés">{fmt(t.ca)}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/5 whitespace-nowrap">
+                          <span className="cursor-pointer hover:bg-teal-50/60 hover:text-teal-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_recouvre' })} title="Voir les abonnés concernés">{fmt(t.ca_recouvre || 0)}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/5 whitespace-nowrap">
+                          <span className="cursor-pointer hover:bg-emerald-50/60 hover:text-emerald-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'recouvre' })} title="Voir les abonnés concernés">{fmt(t.recouvre)}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/10 whitespace-nowrap">
+                          <span className="cursor-pointer hover:bg-rose-50/60 hover:text-rose-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'creance' })} title="Voir les abonnés concernés">{fmt(t.creance)}</span>
+                        </td>
+                        <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] whitespace-nowrap">{t.taux.toFixed(2)}%</td>
+                      </tr>
+                    ))}
+
+                    {/* Section Subtotal Row */}
+                    <tr className={`${isEau ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y border-[#F2F4F7]/50`}>
+                      <td colSpan={3} className="px-8 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-1 h-4 rounded-full ${isEau ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
+                          <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-blue-600 font-mono whitespace-nowrap">{fmt(subTotalCaEau)}</td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-cyan-600 font-mono whitespace-nowrap">{fmt(subTotalCaPrest)}</td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600 font-mono whitespace-nowrap">{fmt(subTotalCa)}</td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-teal-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalCaRecouvre)}</td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-emerald-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalRecouvre)}</td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalCreance)}</td>
+                      <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] font-mono whitespace-nowrap">{subTotalTaux.toFixed(2)}%</td>
+                    </tr>
+                  </Fragment>
+                );
+              })}
+            </tbody>
+            {typeSectionFilter === 'ALL' && (
+              <tfoot className="sticky bottom-0 z-10">
+                <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                  <td colSpan={3} className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                  <td className="px-6 py-5 text-right text-blue-400 font-mono whitespace-nowrap">{fmt(data.total_ca_eau)}</td>
+                  <td className="px-6 py-5 text-right text-cyan-400 font-mono whitespace-nowrap">{fmt(data.total_ca_prestation)}</td>
+                  <td className="px-6 py-5 text-right text-violet-400 font-mono whitespace-nowrap">{fmt(data.total_ca)}</td>
+                  <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_ca_recouvre || 0)}</td>
+                  <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_recouvre)}</td>
+                  <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono whitespace-nowrap">{fmt(data.total_creance)}</td>
+                  <td className="px-8 py-5 text-right text-slate-300 font-mono whitespace-nowrap">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function CreanceCommuneView({ data, onGoToCalculation }: any) {
+  const [collapsedCommunes, setCollapsedCommunes] = useState<string[]>([]);
+  const [isTableCollapsed, setIsTableCollapsed] = useState(false);
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n)
+      .replace(/[\u202F\u00A0]/g, ' ') + " DA";
+
+  const toggleCommune = (communeId: string) => {
+    setCollapsedCommunes(prev =>
+      prev.includes(communeId) ? prev.filter(id => id !== communeId) : [...prev, communeId]
+    );
+  };
+
+  const expandAllCommunes = () => {
+    setCollapsedCommunes([]);
+  };
+
+  const collapseAllCommunes = () => {
+    if (data?.by_commune) {
+      setCollapsedCommunes(data.by_commune.map((c: any) => c.id));
+    }
+  };
+
+  if (!data || !data.by_commune) {
+    return (
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-12 text-center max-w-2xl mx-auto my-12 animate-in fade-in duration-300">
+        <div className="w-20 h-20 bg-violet-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-violet-100 shadow-inner">
+          <MapPin className="text-violet-600" size={36} />
+        </div>
+        <h3 className="text-2xl font-black text-[#101828] mb-3">Aucune donnée disponible</h3>
+        <p className="text-sm text-[#667085] leading-relaxed max-w-md mx-auto mb-8 font-medium">
+          Les calculs financiers n'ont pas encore été lancés pour la période actuelle. Veuillez vous rendre sur la Synthèse Globale pour charger les données.
+        </p>
+        <button
+          onClick={onGoToCalculation}
+          className="inline-flex items-center justify-center px-6 py-3.5 bg-violet-600 text-white rounded-2xl text-sm font-black hover:bg-violet-700 active:scale-95 transition-all shadow-lg shadow-violet-600/25 border border-violet-500/10"
+        >
+          Aller à la Synthèse Globale
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      {/* Header and Controls */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition par Commune</h3>
+          <p className="text-sm text-[#667085] mt-1 font-medium">Détails du Chiffre d'Affaire Eau et Prestation par commune</p>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => setIsTableCollapsed(!isTableCollapsed)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm active:scale-95 cursor-pointer border ${
+              isTableCollapsed 
+                ? 'bg-violet-600 text-white border-violet-700 hover:bg-violet-700' 
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {isTableCollapsed ? 'Déplier le Tableau' : 'Plier le Tableau'}
+          </button>
+
+          {!isTableCollapsed && (
+            <>
+              <div className="w-[1px] h-6 bg-[#E4E7EC] mx-1 hidden sm:block"></div>
+              <button
+                onClick={expandAllCommunes}
+                className="flex items-center gap-2 px-4 py-2.5 bg-violet-50 text-violet-600 border border-violet-100 rounded-xl text-xs font-black hover:bg-violet-100 hover:text-violet-700 transition-all shadow-sm active:scale-95 cursor-pointer"
+              >
+                Déplier Tout
+              </button>
+              <button
+                onClick={collapseAllCommunes}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-black hover:bg-slate-100 hover:text-slate-700 transition-all shadow-sm active:scale-95 cursor-pointer"
+              >
+                Plier Tout
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Table Container */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className={`transition-all duration-300 ease-in-out ${isTableCollapsed ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-[5000px] opacity-100'}`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                  <th className="px-8 py-5">Commune</th>
+                  <th className="px-6 py-5 text-right">CA Eau (DA)</th>
+                  <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
+                  <th className="px-6 py-5 text-right">Total CA (DA)</th>
+                  <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
+                  <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
+                  <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
+                  <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {data.by_commune.map((c: any, i: number) => {
+                  const isCollapsed = collapsedCommunes.includes(c.id);
+                  return (
+                    <Fragment key={c.id || i}>
+                      {/* Main Commune Row */}
+                      <tr className="hover:bg-[#F9FAFB] transition-colors group">
+                        <td className="px-8 py-4 font-black text-sm text-[#101828]">
+                          <div
+                            className="flex items-center gap-2 cursor-pointer select-none group-hover:text-violet-600 transition-colors"
+                            onClick={() => toggleCommune(c.id)}
+                          >
+                            <div className={`transition-transform duration-200 ${!isCollapsed ? 'rotate-90' : ''}`}>
+                              <ChevronRight size={14} className="text-[#98A2B3]" />
+                            </div>
+                            <span>{c.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
+                        <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
+                        <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600">{fmt(c.ca)}</td>
+                        <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(c.ca_recouvre || 0)}</td>
+                        <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(c.recouvre)}</td>
+                        <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(c.creance)}</td>
+                        <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{c.taux.toFixed(2)}%</td>
+                      </tr>
+
+                      {/* Eau Sub-row */}
+                      {!isCollapsed && (
+                        <tr className="bg-blue-50/5 hover:bg-blue-50/15 transition-colors border-b border-[#F2F4F7]">
+                          <td className="px-8 py-2.5 pl-14 text-xs font-bold text-blue-600">
+                            <span className="text-[#98A2B3] mr-2">↳</span>Eau
+                          </td>
+                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-blue-600 font-mono">{fmt(c.ca_eau)}</td>
+                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-slate-300 font-mono">-</td>
+                          <td className="px-6 py-2.5 text-right font-bold text-[12px] text-blue-800 font-mono">{fmt(c.ca_eau)}</td>
+                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-teal-600 bg-teal-50/5 font-mono">{fmt(c.ca_recouvre_eau || 0)}</td>
+                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/5 font-mono">{fmt(c.recouvre_eau || 0)}</td>
+                          <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600 bg-rose-50/10 font-mono">{fmt(c.creance_eau || 0)}</td>
+                          <td className="px-8 py-2.5 text-right font-black text-[12px] text-blue-700 font-mono">{c.taux_eau.toFixed(2)}%</td>
+                        </tr>
+                      )}
+
+                      {/* Prestations Sub-row */}
+                      {!isCollapsed && (
+                        <tr className="bg-cyan-50/5 hover:bg-cyan-50/15 transition-colors border-b border-[#F2F4F7]">
+                          <td className="px-8 py-2.5 pl-14 text-xs font-bold text-cyan-600">
+                            <span className="text-[#98A2B3] mr-2">↳</span>Prestations
+                          </td>
+                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-slate-300 font-mono">-</td>
+                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-cyan-600 font-mono">{fmt(c.ca_prestation)}</td>
+                          <td className="px-6 py-2.5 text-right font-bold text-[12px] text-cyan-800 font-mono">{fmt(c.ca_prestation)}</td>
+                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-teal-600 bg-teal-50/5 font-mono">{fmt(c.ca_recouvre_prestation || 0)}</td>
+                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/5 font-mono">{fmt(c.recouvre_prestation || 0)}</td>
+                          <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600 bg-rose-50/10 font-mono">{fmt(c.creance_prestation || 0)}</td>
+                          <td className="px-8 py-2.5 text-right font-black text-[12px] text-cyan-700 font-mono">{c.taux_prestation.toFixed(2)}%</td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+              <tfoot className="sticky bottom-0 z-10">
+                <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                  <td className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                  <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
+                  <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
+                  <td className="px-6 py-5 text-right text-violet-400 font-mono">{fmt(data.total_ca)}</td>
+                  <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5">{fmt(data.total_ca_recouvre || 0)}</td>
+                  <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5">{fmt(data.total_recouvre)}</td>
+                  <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(data.total_creance)}</td>
+                  <td className="px-8 py-5 text-right text-slate-300 font-mono">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -3381,16 +3785,7 @@ function CreanceVentilationView({ onBack, initialFilter }: any) {
   return (
     <div className="space-y-10">
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors no-print"
-        >
-          <ChevronRight className="rotate-180" size={16} /> Retour à l'analyse globale
-        </button>
-        <h3 className="text-2xl font-black tracking-tight text-[#101828]">Ventilation Détaillée des Créances</h3>
-        <p className="text-sm text-[#667085] mt-1 no-print">Structure financière arrêtée à une date précise (Requête SQL Legacy)</p>
-
-        <div className="flex items-end justify-between mt-8 pt-8 border-t border-[#F2F4F7]">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="flex items-end gap-6 no-print">
             <FrenchDateInput
               label="Date d'Arrêté"

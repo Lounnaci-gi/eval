@@ -416,30 +416,50 @@ def get_stats():
             })
         stats["subscriber_communes"].sort(key=lambda x: x['value'], reverse=True)
 
+        # Identify the current system month (mois système en cours)
+        latest_period = datetime.now().strftime('%Y%m')
+
+        def format_period(period_str):
+            if not period_str or len(period_str) < 6:
+                return "Période en cours"
+            year = period_str[:4]
+            month = period_str[4:6]
+            months = {
+                "01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril",
+                "05": "Mai", "06": "Juin", "07": "Juillet", "08": "Août",
+                "09": "Septembre", "10": "Octobre", "11": "Novembre", "12": "Décembre"
+            }
+            return f"{months.get(month, month)} {year}"
+
         total_rev = 0
         count = 0
         paid_count = 0
         
-        # Sum revenue across entire database in memory
+        # Sum revenue for the latest active billing period in memory
         for r in MEM_FACTURES:
             tp = str(r.get('TYPE') or '').strip()
             monttc = float(r.get('MONTTC') or 0)
-            if tp in ['E', 'C', '6']:
-                total_rev += monttc
+            df = str(r.get('DATFACT') or '').strip()
             count += 1
             if r.get('DATREG'):
                 paid_count += 1
+            if latest_period and df.startswith(latest_period):
+                if tp in ['E', 'C', '6']:
+                    total_rev += monttc
                 
         for r in MEM_AVOIRS:
             tp = str(r.get('TYPE') or '').strip()
             monttc = float(r.get('MONTTC') or 0)
-            if tp in ['E', 'C', '6']:
-                total_rev += monttc
+            df = str(r.get('DATFACT') or '').strip()
             count += 1
             if r.get('DATREG'):
                 paid_count += 1
+            if latest_period and df.startswith(latest_period):
+                if tp in ['E', 'C', '6']:
+                    total_rev += monttc
         
         stats["total_revenue"] = round(total_rev, 2)
+        stats["revenue_period"] = format_period(latest_period) if latest_period else "Période en cours"
         stats["recent_invoices_count"] = count
         stats["recovery_rate"] = round((paid_count / count) * 100, 2) if count > 0 else 0
 

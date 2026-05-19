@@ -402,7 +402,7 @@ export default function Dashboard() {
                 onClick={() => setCurrentView('no_meter')}
               />
               <StatsCard
-                title="Taux Cpt. (20/30)"
+                title="Taux Forfait"
                 value={`${pctCpt2030.toFixed(2)}%`}
                 icon={<Percent className="text-indigo-500" size={24} />}
                 trend={`${targetSubs.toLocaleString()} abonnés`}
@@ -412,7 +412,7 @@ export default function Dashboard() {
                 title="Chiffre d'Affaire"
                 value={`${stats?.total_revenue?.toLocaleString() || "..."} DA`}
                 icon={<CreditCard className="text-violet-500" size={24} />}
-                trend="HT / TTC"
+                trend={stats?.revenue_period || "Période en cours"}
                 color="violet"
                 onClick={() => setCurrentView('creance')}
               />

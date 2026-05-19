@@ -613,8 +613,9 @@ def get_creance(start_date: str = None, end_date: str = None):
         total_ca_prestation = 0.0
         total_creance       = 0.0
         total_recouvre      = 0.0
-        commune_ca          = {}   # codcom -> {ca_eau, ca_prestation, creance, recouvre}
-        type_ca             = {}   # typabon -> {label, ca_eau, ca_prestation, creance, recouvre}
+        total_ca_recouvre   = 0.0
+        commune_ca          = {}   # codcom -> {ca_eau, ca_prestation, creance, recouvre, ca_recouvre}
+        type_ca             = {}   # typabon -> {label, ca_eau, ca_prestation, creance, recouvre, ca_recouvre}
         raw_type_ca         = {}   # type -> {creance, count}
 
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
@@ -680,9 +681,9 @@ def get_creance(start_date: str = None, end_date: str = None):
             
             # Aggregation logic
             if codcom not in commune_ca:
-                commune_ca[codcom] = {"ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0}
+                commune_ca[codcom] = {"ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
             if cat_key not in type_ca:
-                type_ca[cat_key] = {"label": cat_label, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0}
+                type_ca[cat_key] = {"label": cat_label, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
 
             # CA logic (within range)
             if is_in_saisie:
@@ -702,6 +703,14 @@ def get_creance(start_date: str = None, end_date: str = None):
                 commune_ca[codcom]["recouvre"] += m_rec
                 type_ca[cat_key]["recouvre"] += m_rec
 
+            # CA Recouvré logic (portion of current CA that is paid by target_date)
+            if is_in_saisie and not is_avoir:
+                is_paid = datreg not in EMPTY_DATE_VALUES and datreg <= target_date
+                if is_paid:
+                    total_ca_recouvre += monttc
+                    commune_ca[codcom]["ca_recouvre"] += monttc
+                    type_ca[cat_key]["ca_recouvre"] += monttc
+
             # Créance arrêtée logic
             if is_creance_arretee:
                 total_creance += monttc
@@ -716,7 +725,7 @@ def get_creance(start_date: str = None, end_date: str = None):
         # Format communes
         communes_list = []
         for codcom, label in commune_map.items():
-            d = commune_ca.get(codcom, {"ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0})
+            d = commune_ca.get(codcom, {"ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0})
             tot_ca = d["ca_eau"] + d["ca_prestation"]
             taux = (d["creance"] / tot_ca * 100) if tot_ca > 0 else 0
             communes_list.append({
@@ -727,6 +736,7 @@ def get_creance(start_date: str = None, end_date: str = None):
                 "ca": round(tot_ca, 2),
                 "creance": round(d["creance"], 2),
                 "recouvre": round(d["recouvre"], 2),
+                "ca_recouvre": round(d.get("ca_recouvre", 0.0), 2),
                 "taux": round(taux, 2)
             })
         communes_list.sort(key=lambda x: x["creance"], reverse=True)
@@ -744,6 +754,7 @@ def get_creance(start_date: str = None, end_date: str = None):
                 "ca": round(tot_ca, 2),
                 "creance": round(d["creance"], 2),
                 "recouvre": round(d["recouvre"], 2),
+                "ca_recouvre": round(d.get("ca_recouvre", 0.0), 2),
                 "taux": round(taux, 2)
             })
         types_list.sort(key=lambda x: x["ca"], reverse=True)
@@ -766,6 +777,7 @@ def get_creance(start_date: str = None, end_date: str = None):
             "total_ca": round(total_ca, 2),
             "total_creance": round(total_creance, 2),
             "total_recouvre": round(total_recouvre, 2),
+            "total_ca_recouvre": round(total_ca_recouvre, 2),
             "by_commune": communes_list,
             "by_type": types_list,
             "by_raw_type": raw_types_list,

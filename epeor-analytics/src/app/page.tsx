@@ -2632,14 +2632,15 @@ function CreanceDetailView({ onBack }: any) {
           )}
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
             {[
               { label: "CA Eau", value: fmt(data.total_ca_eau), color: "bg-blue-50 text-blue-600", dot: "bg-blue-500" },
               { label: "CA Prestation", value: fmt(data.total_ca_prestation), color: "bg-cyan-50 text-cyan-600", dot: "bg-cyan-500" },
               { label: "CA Total", value: fmt(data.total_ca), color: "bg-violet-50 text-violet-600", dot: "bg-violet-500" },
-              { label: "Recouvré", value: fmt(data.total_recouvre), color: "bg-emerald-50 text-emerald-600", dot: "bg-emerald-500" },
+              { label: "CA Recouvré", value: fmt(data.total_ca_recouvre || 0), color: "bg-teal-50 text-teal-600", dot: "bg-teal-500" },
+              { label: "Encaissement", value: fmt(data.total_recouvre), color: "bg-emerald-50 text-emerald-600", dot: "bg-emerald-500" },
               { label: "Créance", value: fmt(data.total_creance), color: "bg-rose-50 text-rose-600", dot: "bg-rose-500" },
-              { label: "Taux Recov.", value: `${((data.total_recouvre / data.total_ca) * 100).toFixed(2)}%`, color: "bg-amber-50 text-amber-600", dot: "bg-amber-500" },
+              { label: "Taux Recov.", value: `${data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100).toFixed(2) : "0.00"}%`, color: "bg-amber-50 text-amber-600", dot: "bg-amber-500" },
             ].map((kpi, i) => (
               <div
                 key={i}

@@ -86,7 +86,7 @@ const FrenchDateInput = ({ value, onChange, className, label }: any) => {
 };
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -96,7 +96,6 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hoveredAbonne, setHoveredAbonne] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [ventilationFilter, setVentilationFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [creanceData, setCreanceData] = useState<any>(null);
   const [repartitionFilter, setRepartitionFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [calcDateRange, setCalcDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
@@ -306,7 +305,7 @@ export default function Dashboard() {
           <NavItem
             icon={<BarChart3 size={20} />}
             label="Analyses Financières"
-            active={currentView === 'creance' || currentView === 'repartition' || currentView === 'ventilation'}
+            active={currentView === 'creance' || currentView === 'repartition' || currentView === 'commune'}
             onClick={() => setCurrentView('creance')}
           />
           <NavItem
@@ -696,7 +695,7 @@ export default function Dashboard() {
           <StoppedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'no_meter' ? (
           <NoMeterDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
-        ) : ['creance', 'repartition', 'commune', 'ventilation'].includes(currentView) ? (
+        ) : ['creance', 'repartition', 'commune'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
             <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
@@ -718,8 +717,7 @@ export default function Dashboard() {
                   {[
                     { id: 'creance', label: 'Synthèse Globale' },
                     { id: 'repartition', label: "Répartition par Type" },
-                    { id: 'commune', label: 'Répartition par Commune' },
-                    { id: 'ventilation', label: 'Ventilation Commune' }
+                    { id: 'commune', label: 'Répartition par Commune' }
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -762,12 +760,7 @@ export default function Dashboard() {
                 data={creanceData}
                 onGoToCalculation={() => setCurrentView('creance')}
               />
-            ) : (
-              <CreanceVentilationView
-                onBack={() => setCurrentView('creance')}
-                initialFilter={ventilationFilter}
-              />
-            )}
+            ) : null}
           </div>
         ) : null}
       </main>
@@ -3626,395 +3619,6 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-
-function CreanceVentilationView({ onBack, initialFilter }: any) {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dateArrete, setDateArrete] = useState(new Date().toISOString().split('T')[0]);
-  const [tableSearch, setTableSearch] = useState("");
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null });
-  const [sectionFilter, setSectionFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>(initialFilter || 'ALL');
-
-  useEffect(() => {
-    if (initialFilter) {
-      setSectionFilter(initialFilter);
-    }
-  }, [initialFilter]);
-
-
-  const fetchData = async (date: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const formattedDate = date.replace(/-/g, '');
-      const res = await fetch(`http://127.0.0.1:8000/creance_detaillee?date_arrete=${formattedDate}`);
-      const d = await res.json();
-      if (d.error) throw new Error(d.error);
-      setData(d);
-    } catch (e: any) {
-      setError(e.message || "Erreur de connexion.");
-    }
-    setLoading(false);
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortedData = (rows: any[]) => {
-    if (!sortConfig.key || !sortConfig.direction) return rows;
-
-    return [...rows].sort((a, b) => {
-      const aVal = a[sortConfig.key];
-      const bVal = b[sortConfig.key];
-
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
-      }
-
-      const sA = String(aVal).toLowerCase();
-      const sB = String(bVal).toLowerCase();
-      if (sA < sB) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (sA > sB) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  };
-
-  const getFilteredData = () => {
-    let filtered = data;
-    if (sectionFilter !== 'ALL') {
-      filtered = filtered.filter(r => r.SECTION === sectionFilter);
-    }
-    if (!tableSearch) return filtered;
-    const s = tableSearch.toLowerCase();
-    return filtered.filter(r =>
-      r.CATEGORIE.toLowerCase().includes(s) ||
-      r.SECTION.toLowerCase().includes(s) ||
-      r.TYPE_CODE.toLowerCase().includes(s)
-    );
-  };
-
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + " DA";
-
-  const handleExportExcel = () => {
-    const filteredData = getFilteredData();
-    if (filteredData.length === 0) return;
-
-    // Prepare data for Excel
-    const worksheetData = filteredData.map(row => ({
-      'Section': row.SECTION,
-      'Type': row.TYPE_CODE,
-      'Désignation': row.CATEGORIE,
-      'Volume (Factures)': row.NBR_FACTURES,
-      'Abonnés': row.NBR_ABONNES,
-      'Créance (DA)': row.CREANCE
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Ventilation Créances");
-
-    // Auto-size columns
-    const maxWidths = [15, 10, 40, 15, 15, 20];
-    worksheet['!cols'] = maxWidths.map(w => ({ wch: w }));
-
-    XLSX.writeFile(workbook, `Ventilation_Creances_${dateArrete}.xlsx`);
-  };
-
-  const handleExportPDF = () => {
-    const filteredData = getFilteredData();
-    if (filteredData.length === 0) return;
-
-    const doc = new jsPDF();
-
-    // Group rows by section and only show section label on first row of each group
-    const tableData: any[] = [];
-    let lastSection = '';
-    filteredData.forEach(row => {
-      tableData.push([
-        row.SECTION !== lastSection ? row.SECTION : '',
-        row.TYPE_CODE,
-        row.CATEGORIE,
-        row.NBR_FACTURES.toLocaleString(),
-        row.NBR_ABONNES.toLocaleString(),
-        fmt(row.CREANCE)
-      ]);
-      lastSection = row.SECTION;
-    });
-
-    doc.setFontSize(18);
-    doc.text("Ventilation Détaillée des Créances", 14, 22);
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    doc.text(`Situation arrêtée au : ${formatDate(dateArrete)}`, 14, 30);
-
-    autoTable(doc, {
-      startY: 40,
-      head: [['Section', 'Type', 'Désignation', 'Volume', 'Abonnés', 'Créance']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [16, 24, 40], textColor: [255, 255, 255] },
-      styles: { fontSize: 8, cellPadding: 3 },
-      columnStyles: {
-        0: { fontStyle: 'bold', textColor: [13, 131, 222] },
-        3: { halign: 'right' },
-        4: { halign: 'right' },
-        5: { halign: 'right' }
-      }
-    });
-
-    doc.save(`Ventilation_Creances_${dateArrete}.pdf`);
-  };
-
-
-
-  return (
-    <div className="space-y-10">
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="flex items-end gap-6 no-print">
-            <FrenchDateInput
-              label="Date d'Arrêté"
-              value={dateArrete}
-              onChange={setDateArrete}
-              className="block bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all w-48"
-            />
-            <button
-              onClick={() => fetchData(dateArrete)}
-              className="px-8 py-2.5 bg-[#0D83DE] text-white rounded-xl text-xs font-black shadow-lg shadow-blue-100 hover:bg-[#0b72c2] transition-all flex items-center gap-2 h-[42px]"
-            >
-              <TrendingUp size={16} />
-              Générer
-            </button>
-
-            {data.length > 0 && (
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Type de Ventilation</label>
-                <div className="flex bg-[#F2F4F7] p-1 rounded-xl">
-                  <button
-                    onClick={() => setSectionFilter('ALL')}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${sectionFilter === 'ALL' ? 'bg-white shadow-sm text-[#101828]' : 'text-[#667085] hover:text-[#101828]'}`}
-                  >
-                    Tout
-                  </button>
-                  <button
-                    onClick={() => setSectionFilter('EAU')}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${sectionFilter === 'EAU' ? 'bg-white shadow-sm text-blue-600' : 'text-[#667085] hover:text-[#101828]'}`}
-                  >
-                    Eau
-                  </button>
-                  <button
-                    onClick={() => setSectionFilter('PRESTATIONS')}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${sectionFilter === 'PRESTATIONS' ? 'bg-white shadow-sm text-purple-600' : 'text-[#667085] hover:text-[#101828]'}`}
-                  >
-                    Prestations
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {data.length > 0 && (
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Filtrer le tableau</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={tableSearch}
-                    onChange={(e) => setTableSearch(e.target.value)}
-                    placeholder="Rechercher une catégorie..."
-                    className="block bg-white border border-[#E4E7EC] rounded-xl px-9 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-[#0D83DE]/20 w-64"
-                  />
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" size={14} />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3 no-print">
-            <button
-              onClick={handleExportExcel}
-              disabled={data.length === 0}
-              className="px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FileSpreadsheet size={16} />
-              Excel
-            </button>
-            <button
-              onClick={handleExportPDF}
-              disabled={data.length === 0}
-              className="px-6 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-black hover:bg-rose-100 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FileText size={16} />
-              PDF
-            </button>
-            <button
-              onClick={handlePrint}
-              disabled={data.length === 0}
-              className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black shadow-lg shadow-slate-200 hover:bg-black transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Printer size={16} />
-              Imprimer (A4)
-            </button>
-          </div>
-
-          {/* Title for Print only */}
-          <div className="hidden print:block text-center w-full">
-            <h1 className="text-2xl font-black uppercase tracking-widest text-[#101828]">Ventilation Détaillée des Créances</h1>
-            <p className="text-sm font-bold text-[#475467] mt-1">Situation arrêtée au : {formatDate(dateArrete)}</p>
-          </div>
-        </div>
-      </div>
-
-      {loading && (
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center gap-6">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0D83DE]"></div>
-          <p className="font-black text-[#101828] text-lg text-center">Calcul de la ventilation en cours…<br /><span className="text-sm text-[#667085] font-bold">Analyse de la section EAU et PRESTATIONS</span></p>
-        </div>
-      )}
-
-      {error && (
-        <div className="bg-rose-50 border border-rose-200 rounded-[2rem] p-8 text-rose-600 font-bold">{error}</div>
-      )}
-
-      {data.length > 0 && !loading && (
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-          <div id="print-area" className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="sticky top-0 z-20 bg-white">
-                <tr className="bg-[#F9FAFB] text-[#667085] text-[10px] uppercase tracking-[0.2em] font-bold border-b border-[#E4E7EC]">
-                  <th className="px-8 py-4 cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('SECTION')}>
-                    <div className="flex items-center gap-1">Section {sortConfig.key === 'SECTION' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                  </th>
-                  <th className="px-6 py-4 cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('TYPE_CODE')}>
-                    <div className="flex items-center gap-1">Type {sortConfig.key === 'TYPE_CODE' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                  </th>
-                  <th className="px-6 py-4 cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('CATEGORIE')}>
-                    <div className="flex items-center gap-1">Désignation {sortConfig.key === 'CATEGORIE' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                  </th>
-                  <th className="px-6 py-4 text-right cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('NBR_FACTURES')}>
-                    <div className="flex items-center justify-end gap-1">Volume {sortConfig.key === 'NBR_FACTURES' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                  </th>
-                  <th className="px-6 py-4 text-right cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('NBR_ABONNES')}>
-                    <div className="flex items-center justify-end gap-1">Abonnés {sortConfig.key === 'NBR_ABONNES' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                  </th>
-                  <th className="px-8 py-4 text-right cursor-pointer hover:text-[#101828] transition-colors" onClick={() => handleSort('CREANCE')}>
-                    <div className="flex items-center justify-end gap-1">Créance {sortConfig.key === 'CREANCE' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F2F4F7]">
-                {(sectionFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [sectionFilter]).map(section => {
-                  const sectionRows = getSortedData(getFilteredData().filter((r: any) => r.SECTION === section));
-                  if (sectionRows.length === 0) return null;
-
-                  const subTotalFactures = sectionRows.reduce((acc: number, curr: any) => acc + curr.NBR_FACTURES, 0);
-                  const subTotalAbonnes = sectionRows.reduce((acc: number, curr: any) => acc + curr.NBR_ABONNES, 0);
-                  const subTotalCreance = sectionRows.reduce((acc: number, curr: any) => acc + curr.CREANCE, 0);
-
-                  const isEau = section === 'EAU';
-
-                  return (
-                    <Fragment key={section}>
-                      {sectionRows.map((row, i) => (
-                        <tr key={`${section}-${i}`} className="hover:bg-[#F9FAFB]/50 transition-colors group">
-                          {/* Section cell: only render on the first row of the group, spanning all rows */}
-                          {i === 0 && (
-                            <td
-                              rowSpan={sectionRows.length}
-                              className="px-8 py-4 align-middle border-r border-[#F2F4F7]"
-                            >
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-purple-50 text-purple-600 border border-purple-100/50'}`}>
-                                {row.SECTION}
-                              </span>
-                            </td>
-                          )}
-                          <td className="px-6 py-4">
-                            <span className="font-mono text-[10px] font-medium text-[#667085] bg-[#F9FAFB] px-1.5 py-0.5 rounded border border-[#E4E7EC]">
-                              {row.TYPE_CODE}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="font-semibold text-[13px] text-[#101828] uppercase tracking-tight leading-tight">{row.CATEGORIE}</div>
-                            <div className="text-[9px] text-[#98A2B3] font-medium uppercase mt-0.5 tracking-tighter">Code Ordre: {row.ORDRE.toString().padStart(3, '0')}</div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="font-medium text-[13px] text-[#475467] font-mono">{row.NBR_FACTURES.toLocaleString()}</div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="font-medium text-[13px] text-[#475467] font-mono">{row.NBR_ABONNES.toLocaleString()}</div>
-                          </td>
-                          <td className="px-8 py-4 text-right">
-                            <div className="font-semibold text-[13px] text-[#101828] font-mono tracking-tighter tabular-nums">{fmt(row.CREANCE)}</div>
-                          </td>
-                        </tr>
-                      ))}
-                      {/* Section Sub-total Row - Premium Styling */}
-                      <tr className={`${isEau ? 'bg-blue-50/20' : 'bg-purple-50/20'} border-y border-[#F2F4F7] print:bg-slate-50 print:h-8`}>
-                        <td colSpan={3} className="px-8 py-4 print:py-1">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-1 h-5 rounded-full ${isEau ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
-                            <p className="text-[13px] font-bold text-[#101828]">Sous-total {section}</p>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right print:py-1">
-                          <span className="text-[13px] font-semibold text-[#475467] font-mono">{subTotalFactures.toLocaleString()}</span>
-                        </td>
-                        <td className="px-6 py-4 text-right print:py-1">
-                          <span className="text-[13px] font-semibold text-[#475467] font-mono">{subTotalAbonnes.toLocaleString()}</span>
-                        </td>
-                        <td className={`px-8 py-4 text-right ${isEau ? 'bg-blue-50/50' : 'bg-purple-50/50'} print:py-1`}>
-                          <span className="text-[15px] font-bold text-[#101828] font-mono tracking-tighter">{fmt(subTotalCreance)}</span>
-                        </td>
-                      </tr>
-                    </Fragment>
-                  );
-                })}
-                <tr className="bg-white border-t-2 border-[#101828] relative z-10">
-                  <td colSpan={3} className="px-8 py-6 border-b border-white">
-                    <div className="flex items-center gap-3">
-                      <div className="w-1 h-8 bg-[#0D83DE] rounded-full"></div>
-                      <div>
-                        <h4 className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#0D83DE] mb-0.5">Situation Consolidée</h4>
-                        <p className="text-lg font-bold tracking-tight text-[#101828] uppercase">Total Général</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-6 text-right border-l border-[#F2F4F7]">
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-[#98A2B3] mb-1">Volume</p>
-                    <p className="text-[15px] font-bold text-[#475467] font-mono">
-                      {getFilteredData().reduce((acc: number, curr: any) => acc + curr.NBR_FACTURES, 0).toLocaleString()}
-                    </p>
-                  </td>
-                  <td className="px-6 py-6 text-right border-l border-[#F2F4F7]">
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-[#98A2B3] mb-1">Couv.</p>
-                    <p className="text-[15px] font-bold text-[#475467] font-mono">100%</p>
-                  </td>
-                  <td className="px-8 py-6 text-right border-l border-[#F2F4F7] bg-[#F9FAFB]/30">
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-[#0D83DE] mb-1">Créance Nette</p>
-                    <p className="text-xl font-bold text-[#101828] tracking-tighter font-mono tabular-nums">
-                      {fmt(getFilteredData().reduce((acc: number, curr: any) => acc + curr.CREANCE, 0))}
-                    </p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

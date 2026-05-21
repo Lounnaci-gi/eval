@@ -3002,7 +3002,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
   );
 }
 
-function SubscriberDrillDownModal({ targetName, column, startDate, endDate, onClose }: any) {
+function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClose }: any) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -3066,154 +3066,146 @@ function SubscriberDrillDownModal({ targetName, column, startDate, endDate, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
-      <div
-        className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-[#E4E7EC] animate-in fade-in slide-in-from-bottom-4 duration-300"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-violet-50/60 to-white flex-shrink-0">
-          <div>
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-violet-50 text-violet-600 border-violet-100">
-                Détail Abonnés
-              </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-blue-50 text-blue-600 border-blue-100">
-                {columnLabel}
-              </span>
-            </div>
-            <h2 className="text-xl font-black text-[#101828] tracking-tight">{targetName}</h2>
-            <p className="text-sm text-[#667085] mt-1 font-medium">
-              {loading ? 'Chargement...' : `${filtered.length} abonné${filtered.length !== 1 ? 's' : ''} trouvé${filtered.length !== 1 ? 's' : ''}`}
-              {startDate ? ` · du ${startDate.slice(6,8)}/${startDate.slice(4,6)}/${startDate.slice(0,4)}` : ''}
-              {endDate ? ` au ${endDate.slice(6,8)}/${endDate.slice(4,6)}/${endDate.slice(0,4)}` : ''}
-            </p>
-          </div>
+    <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
+      {/* Header */}
+      <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-violet-50/60 to-white flex-shrink-0">
+        <div>
           <button
             onClick={onClose}
-            className="p-2.5 rounded-xl text-[#98A2B3] hover:bg-[#F2F4F7] hover:text-[#101828] transition-all active:scale-95 flex-shrink-0 ml-4"
+            className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
           >
-            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
+            <ChevronRight className="rotate-180" size={16} /> Retour à la répartition
           </button>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex items-center gap-3 px-8 py-4 border-b border-[#F2F4F7] flex-shrink-0">
-          <div className="relative flex-1">
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3] pointer-events-none">
-              <Search size={14} />
-            </div>
-            <input
-              type="text"
-              placeholder="Rechercher par code abonné, nom ou commune..."
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-medium text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100/50 transition-all"
-            />
-          </div>
-          <button
-            onClick={exportCSV}
-            disabled={loading || filtered.length === 0}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all shadow-sm shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FileSpreadsheet size={13} />
-            Exporter CSV
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-auto">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-56 gap-4">
-              <div className="w-10 h-10 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
-              <p className="text-sm font-medium text-[#667085]">Chargement des abonnés...</p>
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center h-56 gap-3">
-              <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center">
-                <UserX className="text-rose-500" size={24} />
-              </div>
-              <p className="text-sm font-bold text-rose-600">{error}</p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-56 gap-3">
-              <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center">
-                <Users className="text-[#D0D5DD]" size={24} />
-              </div>
-              <p className="text-sm font-medium text-[#667085]">Aucun abonné trouvé pour ce filtre.</p>
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
-                  <th className="px-6 py-4 w-12">#</th>
-                  <th className="px-4 py-4">Code Abonn.</th>
-                  <th className="px-4 py-4">Nom / Raison Sociale</th>
-                  <th className="px-4 py-4">Commune</th>
-                  <th className="px-4 py-4">Type</th>
-                  <th className="px-4 py-4 text-right text-violet-600">{columnLabel}</th>
-                  <th className="px-6 py-4 text-right">Opérations</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F2F4F7]">
-                {paged.map((s: any, i: number) => (
-                  <tr key={s.numab} className="hover:bg-violet-50/20 transition-colors">
-                    <td className="px-6 py-3.5 text-xs text-[#98A2B3] font-mono">{(page - 1) * PAGE_SIZE + i + 1}</td>
-                    <td className="px-4 py-3.5">
-                      <span className="font-mono text-[11px] font-bold text-[#101828] bg-[#F9FAFB] px-2 py-0.5 rounded border border-[#E4E7EC]">{s.numab}</span>
-                    </td>
-                    <td className="px-4 py-3.5 text-sm font-semibold text-[#101828]">{s.name}</td>
-                    <td className="px-4 py-3.5 text-xs text-[#475467] font-medium">{s.commune}</td>
-                    <td className="px-4 py-3.5 text-[11px] text-[#667085]">{s.type_abonne}</td>
-                    <td className="px-4 py-3.5 text-right font-black text-sm text-violet-600 whitespace-nowrap">{fmt(s.amount)}</td>
-                    <td className="px-6 py-3.5 text-right text-xs font-bold text-[#475467]">{s.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Pagination */}
-        {!loading && !error && totalPages > 1 && (
-          <div className="flex items-center justify-between px-8 py-4 border-t border-[#F2F4F7] bg-[#F9FAFB]/50 flex-shrink-0">
-            <span className="text-xs text-[#667085] font-medium">
-              Page {page} / {totalPages} · {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-violet-50 text-violet-600 border-violet-100">
+              Détail Abonnés
             </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
-              >← Préc.</button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, idx) => {
-                let p: number;
-                if (totalPages <= 5) p = idx + 1;
-                else if (page <= 3) p = idx + 1;
-                else if (page >= totalPages - 2) p = totalPages - 4 + idx;
-                else p = page - 2 + idx;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all active:scale-95 ${
-                      page === p ? 'bg-violet-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
-                    }`}
-                  >{p}</button>
-                );
-              })}
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
-              >Suiv. →</button>
-            </div>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-blue-50 text-blue-600 border-blue-100">
+              {columnLabel}
+            </span>
           </div>
+          <h2 className="text-xl font-black text-[#101828] tracking-tight">{targetName}</h2>
+          <p className="text-sm text-[#667085] mt-1 font-medium">
+            {loading ? 'Chargement...' : `${filtered.length} abonné${filtered.length !== 1 ? 's' : ''} trouvé${filtered.length !== 1 ? 's' : ''}`}
+            {startDate ? ` · du ${startDate.slice(6,8)}/${startDate.slice(4,6)}/${startDate.slice(0,4)}` : ''}
+            {endDate ? ` au ${endDate.slice(6,8)}/${endDate.slice(4,6)}/${endDate.slice(0,4)}` : ''}
+          </p>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 px-8 py-4 border-b border-[#F2F4F7] flex-shrink-0">
+        <div className="relative flex-1">
+          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3] pointer-events-none">
+            <Search size={14} />
+          </div>
+          <input
+            type="text"
+            placeholder="Rechercher par code abonné, nom ou commune..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="w-full pl-9 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-medium text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100/50 transition-all"
+          />
+        </div>
+        <button
+          onClick={exportCSV}
+          disabled={loading || filtered.length === 0}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all shadow-sm shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <FileSpreadsheet size={13} />
+          Exporter CSV
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-56 gap-4">
+            <div className="w-10 h-10 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
+            <p className="text-sm font-medium text-[#667085]">Chargement des abonnés...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-56 gap-3">
+            <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center">
+              <UserX className="text-rose-500" size={24} />
+            </div>
+            <p className="text-sm font-bold text-rose-600">{error}</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-56 gap-3">
+            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center">
+              <Users className="text-[#D0D5DD]" size={24} />
+            </div>
+            <p className="text-sm font-medium text-[#667085]">Aucun abonné trouvé pour ce filtre.</p>
+          </div>
+        ) : (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                <th className="px-6 py-4 w-12">#</th>
+                <th className="px-4 py-4">Code Abonn.</th>
+                <th className="px-4 py-4">Nom / Raison Sociale</th>
+                <th className="px-4 py-4">Commune</th>
+                <th className="px-4 py-4">Type</th>
+                <th className="px-4 py-4 text-right text-violet-600">{columnLabel}</th>
+                <th className="px-6 py-4 text-right">Opérations</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F2F4F7]">
+              {paged.map((s: any, i: number) => (
+                <tr key={s.numab} className="hover:bg-violet-50/20 transition-colors">
+                  <td className="px-6 py-3.5 text-xs text-[#98A2B3] font-mono">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                  <td className="px-4 py-3.5">
+                    <span className="font-mono text-[11px] font-bold text-[#101828] bg-[#F9FAFB] px-2 py-0.5 rounded border border-[#E4E7EC]">{s.numab}</span>
+                  </td>
+                  <td className="px-4 py-3.5 text-sm font-semibold text-[#101828]">{s.name}</td>
+                  <td className="px-4 py-3.5 text-xs text-[#475467] font-medium">{s.commune}</td>
+                  <td className="px-4 py-3.5 text-[11px] text-[#667085]">{s.type_abonne}</td>
+                  <td className="px-4 py-3.5 text-right font-black text-sm text-violet-600 whitespace-nowrap">{fmt(s.amount)}</td>
+                  <td className="px-6 py-3.5 text-right text-xs font-bold text-[#475467]">{s.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && !error && totalPages > 1 && (
+        <div className="flex items-center justify-between px-8 py-4 border-t border-[#F2F4F7] bg-[#F9FAFB]/50 flex-shrink-0">
+          <span className="text-xs text-[#667085] font-medium">
+            Page {page} / {totalPages} · {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+            >← Préc.</button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, idx) => {
+              let p: number;
+              if (totalPages <= 5) p = idx + 1;
+              else if (page <= 3) p = idx + 1;
+              else if (page >= totalPages - 2) p = totalPages - 4 + idx;
+              else p = page - 2 + idx;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                    page === p ? 'bg-violet-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
+                  }`}
+                >{p}</button>
+              );
+            })}
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+            >Suiv. →</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3258,19 +3250,20 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
     );
   }
 
+  if (drillDown) {
+    return (
+      <SubscriberDrillDownView
+        targetName={drillDown.targetName}
+        column={drillDown.column}
+        startDate={startDate}
+        endDate={endDate}
+        onClose={() => setDrillDown(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      {/* Drill-down Modal */}
-      {drillDown && (
-        <SubscriberDrillDownModal
-          targetName={drillDown.targetName}
-          column={drillDown.column}
-          startDate={startDate}
-          endDate={endDate}
-          onClose={() => setDrillDown(null)}
-        />
-      )}
-
       {/* Filters and Context */}
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>

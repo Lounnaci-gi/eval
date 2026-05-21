@@ -1194,6 +1194,222 @@ function StoppedDetailView({ stats, onBack }: any) {
     setLoadingSubscribers(false);
   };
 
+  const handlePrint = () => {
+    if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Liste nominative des abonnés à l'arrêt - ${selectedQuartier.name}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 40px;
+              font-size: 11px;
+              line-height: 1.5;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 20px;
+              margin-bottom: 25px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin-bottom: 2px;
+            }
+            .company-name {
+              font-size: 9px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 18px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+              letter-spacing: -0.5px;
+            }
+            .subtitle {
+              font-size: 11px;
+              color: #667085;
+              margin: 4px 0 0 0;
+              font-weight: 500;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 15px;
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 12px;
+              padding: 12px 20px;
+              margin-bottom: 30px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 9px;
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 3px;
+            }
+            .meta-value {
+              font-size: 11px;
+              font-weight: 700;
+              color: #344054;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            th {
+              background-color: #F9FAFB;
+              color: #475467;
+              font-size: 9px;
+              text-transform: uppercase;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #EAECF0;
+              padding: 10px 12px;
+              text-align: left;
+            }
+            td {
+              border-bottom: 1px solid #EAECF0;
+              padding: 10px 12px;
+              text-align: left;
+              color: #475467;
+            }
+            .font-bold-black {
+              font-weight: 700;
+              color: #101828;
+            }
+            .tournee-badge {
+              font-weight: 700;
+              color: #D97706;
+            }
+            @media print {
+              body {
+                margin: 20px;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
+              <div style="display: flex; flex-direction: column;">
+                <span class="logo-text">EPEOR Analytics</span>
+                <span class="company-name">Algérienne Des Eaux</span>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1 class="title">Abonnés À l'Arrêt (Code 20)</h1>
+              <p class="subtitle">Liste nominative des compteurs à l'arrêt</p>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Commune</span>
+              <span class="meta-value">${selectedCommune?.name || '—'}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Quartier</span>
+              <span class="meta-value">${selectedQuartier.name}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Date d'édition</span>
+              <span class="meta-value">${new Date().toLocaleDateString('fr-FR')}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Total Abonnés</span>
+              <span class="meta-value">${quartierSubscribers.length}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 12%">N° Abonné</th>
+                <th style="width: 26%">Nom / Raison Sociale</th>
+                <th style="width: 26%">Adresse</th>
+                <th style="width: 8%">Tournée</th>
+                <th style="width: 10%">N° Série</th>
+                <th style="width: 10%; text-align: right;">Nouvel Index</th>
+                <th style="width: 8%">Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${quartierSubscribers.map(sub => `
+                <tr>
+                  <td class="font-bold-black">${sub.numab || '—'}</td>
+                  <td class="font-bold-black">${sub.name || '—'}</td>
+                  <td>${[sub.adresse, sub.bloc ? `Bl. ${sub.bloc}` : '', sub.ndom ? `N°${sub.ndom}` : ''].filter(Boolean).join(' · ') || '—'}</td>
+                  <td class="tournee-badge">${sub.tournee ? `T-${sub.tournee}` : '—'}</td>
+                  <td>${sub.numser || '—'}</td>
+                  <td style="font-weight: 700; text-align: right; color: #101828;">${sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
+                  <td>${sub.type || '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   // Sort by stopped descending
   const communes = [...(stats?.subscriber_communes || [])].sort((a, b) => (b.stopped || 0) - (a.stopped || 0));
   const types = [...(stats?.subscriber_types || [])].sort((a, b) => (b.stopped || 0) - (a.stopped || 0));
@@ -1212,6 +1428,15 @@ function StoppedDetailView({ stats, onBack }: any) {
             <h3 className="text-2xl font-black tracking-tight text-[#101828]">Abonnés À l'arrêt - {selectedQuartier.name}</h3>
             <p className="text-sm text-[#667085] mt-1">Liste nominative des compteurs à l'arrêt (Code 20)</p>
           </div>
+          {!loadingSubscribers && quartierSubscribers && quartierSubscribers.length > 0 && (
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl text-xs font-black hover:bg-amber-100 transition-all shadow-sm self-start md:self-center"
+            >
+              <Printer size={14} />
+              Imprimer la liste
+            </button>
+          )}
         </div>
         <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="amber" />
       </div>
@@ -1372,6 +1597,222 @@ function NoMeterDetailView({ stats, onBack }: any) {
     setLoadingSubscribers(false);
   };
 
+  const handlePrint = () => {
+    if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Liste nominative des abonnés sans compteur - ${selectedQuartier.name}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 40px;
+              font-size: 11px;
+              line-height: 1.5;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 20px;
+              margin-bottom: 25px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin-bottom: 2px;
+            }
+            .company-name {
+              font-size: 9px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 18px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+              letter-spacing: -0.5px;
+            }
+            .subtitle {
+              font-size: 11px;
+              color: #667085;
+              margin: 4px 0 0 0;
+              font-weight: 500;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 15px;
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 12px;
+              padding: 12px 20px;
+              margin-bottom: 30px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 9px;
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 3px;
+            }
+            .meta-value {
+              font-size: 11px;
+              font-weight: 700;
+              color: #344054;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            th {
+              background-color: #F9FAFB;
+              color: #475467;
+              font-size: 9px;
+              text-transform: uppercase;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #EAECF0;
+              padding: 10px 12px;
+              text-align: left;
+            }
+            td {
+              border-bottom: 1px solid #EAECF0;
+              padding: 10px 12px;
+              text-align: left;
+              color: #475467;
+            }
+            .font-bold-black {
+              font-weight: 700;
+              color: #101828;
+            }
+            .tournee-badge {
+              font-weight: 700;
+              color: #0d9488;
+            }
+            @media print {
+              body {
+                margin: 20px;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
+              <div style="display: flex; flex-direction: column;">
+                <span class="logo-text">EPEOR Analytics</span>
+                <span class="company-name">Algérienne Des Eaux</span>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1 class="title">Abonnés Sans Compteur (Code 30)</h1>
+              <p class="subtitle">Liste nominative des branchements sans appareil de mesure</p>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Commune</span>
+              <span class="meta-value">${selectedCommune?.name || '—'}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Quartier</span>
+              <span class="meta-value">${selectedQuartier.name}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Date d'édition</span>
+              <span class="meta-value">${new Date().toLocaleDateString('fr-FR')}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Total Abonnés</span>
+              <span class="meta-value">${quartierSubscribers.length}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 12%">N° Abonné</th>
+                <th style="width: 26%">Nom / Raison Sociale</th>
+                <th style="width: 26%">Adresse</th>
+                <th style="width: 8%">Tournée</th>
+                <th style="width: 10%">N° Série</th>
+                <th style="width: 10%; text-align: right;">Nouvel Index</th>
+                <th style="width: 8%">Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${quartierSubscribers.map(sub => `
+                <tr>
+                  <td class="font-bold-black">${sub.numab || '—'}</td>
+                  <td class="font-bold-black">${sub.name || '—'}</td>
+                  <td>${[sub.adresse, sub.bloc ? `Bl. ${sub.bloc}` : '', sub.ndom ? `N°${sub.ndom}` : ''].filter(Boolean).join(' · ') || '—'}</td>
+                  <td class="tournee-badge">${sub.tournee ? `T-${sub.tournee}` : '—'}</td>
+                  <td>${sub.numser || '—'}</td>
+                  <td style="font-weight: 700; text-align: right; color: #101828;">${sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
+                  <td>${sub.type || '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   // Sort by no_meter descending
   const communes = [...(stats?.subscriber_communes || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
   const types = [...(stats?.subscriber_types || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
@@ -1390,6 +1831,15 @@ function NoMeterDetailView({ stats, onBack }: any) {
             <h3 className="text-2xl font-black tracking-tight text-[#101828]">Abonnés Sans Compteur - {selectedQuartier.name}</h3>
             <p className="text-sm text-[#667085] mt-1">Liste nominative des abonnés sans compteur (Code 30)</p>
           </div>
+          {!loadingSubscribers && quartierSubscribers && quartierSubscribers.length > 0 && (
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2.5 bg-cyan-50 text-cyan-700 border border-cyan-100 rounded-xl text-xs font-black hover:bg-cyan-100 transition-all shadow-sm self-start md:self-center"
+            >
+              <Printer size={14} />
+              Imprimer la liste
+            </button>
+          )}
         </div>
         <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="cyan" />
       </div>
@@ -1598,6 +2048,12 @@ function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">N° Série</span>
                 <span className="text-[12px] font-medium text-[#475467]">{hoveredSub.numser || '—'}</span>
               </div>
+              {hoveredSub.nouvelx !== undefined && (
+                <div className="flex justify-between items-center gap-3">
+                  <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Nouvel Index</span>
+                  <span className="text-[12px] font-bold text-[#101828]">{hoveredSub.nouvelx.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center gap-3">
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Type</span>
                 <span className="text-[12px] font-medium text-[#475467] text-right">{hoveredSub.type || '—'}</span>
@@ -2088,6 +2544,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             <Th label="Bloc" field="bloc" px="px-4" />
             <Th label="N° Dom" field="ndom" px="px-4" />
             <Th label="N° Série" field="numser" />
+            <Th label="Nouvel Index" field="nouvelx" align="right" />
             <Th label="Type d'Abonnement" field="type" />
             <Th label="État" field="etat_label" />
             <Th label="N° Ordre" field="numordre" align="right" />
@@ -2110,13 +2567,14 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
               <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.bloc}</td>
               <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.ndom}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap">{sub.numser}</td>
+              <td className="px-6 py-4 font-bold text-[13px] text-[#101828] text-right">{sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{sub.type}</td>
               <td className="px-6 py-4">{etatBadge(sub.etatcpt, sub.etat_label)}</td>
               <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467]">{sub.numordre}</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={10} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
+              <td colSpan={11} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
             </tr>
           )}
         </tbody>

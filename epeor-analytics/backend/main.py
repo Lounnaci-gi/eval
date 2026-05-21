@@ -567,6 +567,13 @@ def get_subscribers(quartier: str = None, etat: str = None):
             etatcpt  = abonment_info.get('ETATCPT', '')
             tournee  = str(record.get('TOURNEE', '')).strip()
             etat_label = etat_map.get(etatcpt, etatcpt if etatcpt else '—')
+            
+            sub_invoices = factures_by_numab.get(numab, [])
+            raw_nouvelx = sub_invoices[0].get('NOUVELX') if sub_invoices else None
+            try:
+                nouvelx = float(raw_nouvelx) if raw_nouvelx is not None else 0
+            except:
+                nouvelx = 0
                 
             results.append({
                 "numab":      numab,
@@ -579,7 +586,8 @@ def get_subscribers(quartier: str = None, etat: str = None):
                 "bloc":       bloc,
                 "ndom":       ndom,
                 "tournee":    tournee,
-                "numordre":   numordre
+                "numordre":   numordre,
+                "nouvelx":    nouvelx
             })
             
         return results

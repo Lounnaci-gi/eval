@@ -32,6 +32,8 @@ import { saveAs } from "file-saver";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -2631,6 +2633,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
   const [expandedSections, setExpandedSections] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [lastVentDate, setLastVentDate] = useState("");
+  const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre'>('creance');
 
   const recoveryRate = data ? (data.total_ca > 0 ? ((data.total_ca_recouvre || 0) / data.total_ca) * 100 : 0) : 0;
 
@@ -3453,6 +3456,131 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
             </div>
           </div>
 
+          {/* Graphique d'Analyse Rétrospective des 12 Derniers Mois */}
+          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 mt-8">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+              <div>
+                <h4 className="text-xl font-black tracking-tight text-[#101828]">Analyse Rétrospective des 12 Derniers Mois</h4>
+                <p className="text-xs text-[#667085] mt-0.5 font-medium">
+                  Évolution mensuelle des indicateurs sur les 12 mois précédant la date d'arrêt ({lastVentDate ? formatDate(lastVentDate) : '...'})
+                </p>
+              </div>
+
+              {/* Toggles interactifs de métrique */}
+              <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC] self-start lg:self-auto shadow-sm">
+                {[
+                  { id: 'creance', label: 'Créances' },
+                  { id: 'ca', label: "Chiffre d'Affaires" },
+                  { id: 'encaissement', label: 'Encaissements' },
+                  { id: 'ca_recouvre', label: 'CA Recouvré' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveHistoryMetric(tab.id as any)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 border ${
+                      activeHistoryMetric === tab.id
+                        ? 'bg-white text-violet-600 shadow-sm border-[#E4E7EC]/40'
+                        : 'text-[#667085] border-transparent hover:text-[#101828]'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {data.history && data.history.length > 0 ? (
+              <div className="h-[380px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={data.history}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: '#667085', fontSize: 11, fontWeight: 600 }}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: '#667085', fontSize: 11 }}
+                      tickFormatter={(val) => fmtNum(val) + " DA"}
+                      width={100}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#101828",
+                        border: "none",
+                        borderRadius: "16px",
+                        color: "#fff",
+                        fontSize: '12px',
+                        padding: '12px'
+                      }}
+                      itemStyle={{ color: "#fff" }}
+                      labelStyle={{ color: "#98A2B3", fontWeight: 'bold', marginBottom: '4px' }}
+                      formatter={(value: any, name: any) => [fmt(value), name]}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '16px' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={
+                        activeHistoryMetric === 'creance' ? 'creance_eau' :
+                        activeHistoryMetric === 'ca' ? 'ca_eau' :
+                        activeHistoryMetric === 'encaissement' ? 'encaissement_eau' :
+                        'ca_recouvre_eau'
+                      }
+                      name="Eau"
+                      stroke="#0D83DE"
+                      strokeWidth={3}
+                      dot={{ r: 4, stroke: "#0D83DE", strokeWidth: 2, fill: "#fff" }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={
+                        activeHistoryMetric === 'creance' ? 'creance_prest' :
+                        activeHistoryMetric === 'ca' ? 'ca_prest' :
+                        activeHistoryMetric === 'encaissement' ? 'encaissement_prest' :
+                        'ca_recouvre_prest'
+                      }
+                      name="Prestations"
+                      stroke="#9333EA"
+                      strokeWidth={3}
+                      dot={{ r: 4, stroke: "#9333EA", strokeWidth: 2, fill: "#fff" }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={
+                        activeHistoryMetric === 'creance' ? 'creance_total' :
+                        activeHistoryMetric === 'ca' ? 'ca_total' :
+                        activeHistoryMetric === 'encaissement' ? 'encaissement_total' :
+                        'ca_recouvre_total'
+                      }
+                      name="Total"
+                      stroke="#10B981"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-60 gap-2 border-2 border-dashed border-[#E4E7EC] rounded-3xl bg-[#F9FAFB]">
+                <p className="text-sm font-bold text-[#667085]">Aucune donnée historique disponible.</p>
+                <p className="text-xs text-[#98A2B3]">Veuillez relancer le calcul pour charger l'historique.</p>
+              </div>
+            )}
+          </div>
 
         </>
       )}

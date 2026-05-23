@@ -906,6 +906,135 @@ def get_creance(start_date: str = None, end_date: str = None):
             })
         raw_types_list.sort(key=lambda x: x["creance"], reverse=True)
 
+        # 12-Month Historical Data Calculation (Eau & Prestations)
+        history_list = []
+        try:
+            hist_target = target_date
+            if not hist_target or hist_target == '99991231' or len(hist_target) < 8:
+                latest_ds = "20240831"
+                for r in MEM_FACTURES:
+                    ds = str(r.get('DATSAISIE') or '').strip()
+                    if ds and ds > latest_ds and len(ds) == 8 and ds < '9999':
+                        latest_ds = ds
+                hist_target = latest_ds
+            
+            y_end = int(hist_target[:4])
+            m_end = int(hist_target[4:6])
+            d_end = int(hist_target[6:8])
+            
+            # Generate 12 months backwards
+            months_list = []
+            cur_y, cur_m = y_end, m_end
+            for _ in range(12):
+                months_list.append((cur_y, cur_m))
+                cur_m -= 1
+                if cur_m == 0:
+                    cur_m = 12
+                    cur_y -= 1
+            months_list.reverse()
+            
+            import calendar
+            intervals = []
+            for y, m in months_list:
+                last_day = calendar.monthrange(y, m)[1]
+                intervals.append({
+                    "year": y,
+                    "month": m,
+                    "start": f"{y}{m:02d}01",
+                    "end": f"{y}{m:02d}{last_day:02d}",
+                    "label": f"{months_fr[m-1]} {y}",
+                    "short_label": f"{m:02d}/{y}",
+                    "ca_eau": 0.0,
+                    "ca_prest": 0.0,
+                    "recouvre_eau": 0.0,
+                    "recouvre_prest": 0.0,
+                    "ca_recouvre_eau": 0.0,
+                    "ca_recouvre_prest": 0.0,
+                    "creance_eau": 0.0,
+                    "creance_prest": 0.0
+                })
+                
+            records_hist = itertools.chain(
+                ((r, False) for r in MEM_FACTURES),
+                ((r, True) for r in MEM_AVOIRS)
+            )
+            
+            for r, is_avoir in records_hist:
+                datsaisie = str(r.get('DATSAISIE') or '').strip()
+                datreg = str(r.get('DATREG') or '').strip()
+                tp = str(r.get('TYPE') or '').strip()
+                monttc = float(r.get('MONTTC') or 0)
+                timbre = float(r.get('TIMBRE') or 0)
+                
+                is_eau = tp in ['E', 'C', '6']
+                m_rec = monttc + timbre
+                
+                for interval in intervals:
+                    start_str = interval["start"]
+                    end_str = interval["end"]
+                    
+                    if start_str <= datsaisie <= end_str:
+                        if is_eau:
+                            interval["ca_eau"] += monttc
+                        else:
+                            interval["ca_prest"] += monttc
+                            
+                    if not is_avoir and datreg not in EMPTY_DATE_VALUES and start_str <= datreg <= end_str:
+                        if is_eau:
+                            interval["recouvre_eau"] += m_rec
+                        else:
+                            interval["recouvre_prest"] += m_rec
+                            
+                    if not is_avoir and start_str <= datsaisie <= end_str:
+                        if datreg not in EMPTY_DATE_VALUES and datreg <= hist_target:
+                            if is_eau:
+                                interval["ca_recouvre_eau"] += monttc
+                            else:
+                                interval["ca_recouvre_prest"] += monttc
+                                
+                    is_creance_arretee = False
+                    if not is_avoir:
+                        if datsaisie and datsaisie <= end_str:
+                            if datreg in EMPTY_DATE_VALUES or datreg > end_str:
+                                is_creance_arretee = True
+                    else:
+                        datanul = str(r.get('DATANUL') or '').strip()
+                        if datsaisie and datsaisie <= end_str:
+                            if datanul and datanul > end_str:
+                                if datreg in EMPTY_DATE_VALUES or datreg > end_str:
+                                    is_creance_arretee = True
+                                    
+                    if is_creance_arretee:
+                        if is_eau:
+                            interval["creance_eau"] += monttc
+                        else:
+                            interval["creance_prest"] += monttc
+                            
+            for interval in intervals:
+                ca_total = interval["ca_eau"] + interval["ca_prest"]
+                recouvre_total = interval["recouvre_eau"] + interval["recouvre_prest"]
+                ca_recouvre_total = interval["ca_recouvre_eau"] + interval["ca_recouvre_prest"]
+                creance_total = interval["creance_eau"] + interval["creance_prest"]
+                
+                history_list.append({
+                    "month": interval["short_label"],
+                    "label": interval["label"],
+                    "ca_eau": round(interval["ca_eau"], 2),
+                    "ca_prest": round(interval["ca_prest"], 2),
+                    "ca_total": round(ca_total, 2),
+                    "encaissement_eau": round(interval["recouvre_eau"], 2),
+                    "encaissement_prest": round(interval["recouvre_prest"], 2),
+                    "encaissement_total": round(recouvre_total, 2),
+                    "ca_recouvre_eau": round(interval["ca_recouvre_eau"], 2),
+                    "ca_recouvre_prest": round(interval["ca_recouvre_prest"], 2),
+                    "ca_recouvre_total": round(ca_recouvre_total, 2),
+                    "creance_eau": round(interval["creance_eau"], 2),
+                    "creance_prest": round(interval["creance_prest"], 2),
+                    "creance_total": round(creance_total, 2)
+                })
+        except Exception as ex:
+            print("Error computing history:", ex)
+
         result = {
             "total_ca_eau": round(total_ca_eau, 2),
             "total_ca_prestation": round(total_ca_prestation, 2),
@@ -916,7 +1045,8 @@ def get_creance(start_date: str = None, end_date: str = None):
             "by_commune": communes_list,
             "by_type": types_list,
             "by_raw_type": raw_types_list,
-            "is_official": official is not None
+            "is_official": official is not None,
+            "history": history_list
         }
         return result
 

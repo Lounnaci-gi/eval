@@ -681,6 +681,12 @@ def get_creance(start_date: str = None, end_date: str = None):
                 if datsaisie and datsaisie <= target_date:
                     if datreg in EMPTY_DATE_VALUES or datreg > target_date:
                         is_creance_arretee = True
+            else:
+                datanul = str(r.get('DATANUL') or '').strip()
+                if datsaisie and datsaisie <= target_date:
+                    if datanul and datanul > target_date:
+                        if datreg in EMPTY_DATE_VALUES or datreg > target_date:
+                            is_creance_arretee = True
 
             # Skip if doesn't match any criteria
             if not is_in_saisie and not is_in_reg and not is_creance_arretee:
@@ -923,7 +929,13 @@ def get_creance_detaillee(date_arrete: str):
         stats = {}
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
 
-        for r in MEM_FACTURES:
+        # Chain all records in memory
+        records = itertools.chain(
+            ((r, False) for r in MEM_FACTURES),
+            ((r, True) for r in MEM_AVOIRS)
+        )
+
+        for r, is_avoir in records:
             datsaisie = str(r.get('DATSAISIE') or '').strip()
             datreg = str(r.get('DATREG') or '').strip()
             
@@ -937,12 +949,18 @@ def get_creance_detaillee(date_arrete: str):
             
             if is_paid_before:
                 continue
+
+            if is_avoir:
+                datanul = str(r.get('DATANUL') or '').strip()
+                if not datanul or datanul <= date_arrete:
+                    continue
             
             tp = str(r.get('TYPE') or '').strip()
             typabon = str(r.get('TYPABON') or '').strip()
             periode = str(r.get('PERIODE') or '').strip()
             numab = str(r.get('NUMAB') or '').strip()
             monttc = float(r.get('MONTTC') or 0)
+            amount = monttc
 
             section = None
             ordre = 0
@@ -995,7 +1013,7 @@ def get_creance_detaillee(date_arrete: str):
                 
                 stats[key]["nbr_factures"] += 1
                 stats[key]["numabs"].add(numab)
-                stats[key]["creance"] += monttc
+                stats[key]["creance"] += amount
 
         # Format results
         final_list = []
@@ -1320,6 +1338,12 @@ def get_creance_subscribers(start_date: str = None, end_date: str = None, target
                 if datsaisie and datsaisie <= target_date:
                     if datreg in EMPTY_DATE_VALUES or datreg > target_date:
                         is_creance_arretee = True
+            else:
+                datanul = str(r.get('DATANUL') or '').strip()
+                if datsaisie and datsaisie <= target_date:
+                    if datanul and datanul > target_date:
+                        if datreg in EMPTY_DATE_VALUES or datreg > target_date:
+                            is_creance_arretee = True
 
             # Skip if doesn't match any criteria
             if not is_in_saisie and not is_in_reg and not is_creance_arretee:

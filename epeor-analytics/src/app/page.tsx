@@ -88,7 +88,7 @@ const FrenchDateInput = ({ value, onChange, className, label }: any) => {
 };
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -309,6 +309,12 @@ export default function Dashboard() {
             label="Analyses Financières"
             active={currentView === 'creance' || currentView === 'repartition' || currentView === 'commune'}
             onClick={() => setCurrentView('creance')}
+          />
+          <NavItem
+            icon={<CreditCard size={20} />}
+            label="Créances Abonnés"
+            active={currentView === 'creances_abonnes'}
+            onClick={() => setCurrentView('creances_abonnes')}
           />
           <NavItem
             icon={<Calendar size={20} />}
@@ -697,6 +703,8 @@ export default function Dashboard() {
           <StoppedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'no_meter' ? (
           <NoMeterDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
+        ) : currentView === 'creances_abonnes' ? (
+          <CreancesAbonnesView onBack={() => setCurrentView('dashboard')} />
         ) : ['creance', 'repartition', 'commune'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
@@ -4201,3 +4209,556 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
     </div>
   );
 }
+
+function CreancesAbonnesView({ onBack }: any) {
+  // ─── Raw data from API ───────────────────────────────────────────
+  const [allSubscribers, setAllSubscribers] = useState<any[]>([]);
+  const [availableTournees, setAvailableTournees] = useState<string[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // ─── Filter state ────────────────────────────────────────────────
+  const [selectedTournees, setSelectedTournees] = useState<string[]>([]);
+  const [tourneeSearch, setTourneeSearch] = useState('');
+  const [montantOp, setMontantOp] = useState<'>='|'='|'<='>('>=');
+  const [montantVal, setMontantVal] = useState('');
+  const [nbCreanceOp, setNbCreanceOp] = useState<'>='|'='|'<='>('>=');
+  const [nbCreanceVal, setNbCreanceVal] = useState('');
+  const [dernierPaiementDays, setDernierPaiementDays] = useState('');
+  const [dernierPaiementOp, setDernierPaiementOp] = useState<'>'|'='|'<'>('>');
+
+  // ─── Results state ───────────────────────────────────────────────
+  const [results, setResults] = useState<any[] | null>(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n).replace(/[\u202F\u00A0]/g, ' ') + " DA";
+
+  // Load all data once
+  const loadData = async () => {
+    setDataLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("http://127.0.0.1:8000/creances_abonnes");
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setAllSubscribers(data.subscribers || []);
+        setAvailableTournees(data.tournees || []);
+        setDataLoaded(true);
+      }
+    } catch {
+      setError("Impossible de contacter le serveur backend.");
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  // ─── Day helper ──────────────────────────────────────────────────
+  const daysSince = (raw: string | null): number | null => {
+    if (!raw || raw.length !== 8) return null;
+    try {
+      const y = parseInt(raw.slice(0, 4));
+      const m = parseInt(raw.slice(4, 6)) - 1;
+      const d = parseInt(raw.slice(6, 8));
+      const diff = Date.now() - new Date(y, m, d).getTime();
+      return Math.floor(diff / 86400000);
+    } catch { return null; }
+  };
+
+  // ─── Apply filters ───────────────────────────────────────────────
+  const applyFilters = () => {
+    setPage(1);
+    setSearch('');
+    let filtered = [...allSubscribers];
+
+    // 1. Tournées filter
+    if (selectedTournees.length > 0) {
+      filtered = filtered.filter(s => selectedTournees.includes(s.tournee));
+    }
+
+    // 2. Montant filter
+    if (montantVal.trim() !== '') {
+      const threshold = parseFloat(montantVal);
+      if (!isNaN(threshold)) {
+        filtered = filtered.filter(s => {
+          if (montantOp === '>=') return s.montant_creance >= threshold;
+          if (montantOp === '=')  return Math.abs(s.montant_creance - threshold) < 0.01;
+          if (montantOp === '<=') return s.montant_creance <= threshold;
+          return true;
+        });
+      }
+    }
+
+    // 3. Nombre créances filter
+    if (nbCreanceVal.trim() !== '') {
+      const threshold = parseInt(nbCreanceVal);
+      if (!isNaN(threshold)) {
+        filtered = filtered.filter(s => {
+          if (nbCreanceOp === '>=') return s.nombre_creance >= threshold;
+          if (nbCreanceOp === '=')  return s.nombre_creance === threshold;
+          if (nbCreanceOp === '<=') return s.nombre_creance <= threshold;
+          return true;
+        });
+      }
+    }
+
+    // 4. Dernière date de paiement filter
+    if (dernierPaiementDays.trim() !== '') {
+      const threshold = parseInt(dernierPaiementDays);
+      if (!isNaN(threshold)) {
+        filtered = filtered.filter(s => {
+          const days = daysSince(s.raw_last_payment);
+          // days === null means "never paid" → treat as infinite days ago
+          const effectiveDays = days === null ? Infinity : days;
+          if (dernierPaiementOp === '>') return effectiveDays > threshold;
+          if (dernierPaiementOp === '=') return days !== null && Math.abs(effectiveDays - threshold) < 1;
+          if (dernierPaiementOp === '<') return days !== null && effectiveDays < threshold;
+          return true;
+        });
+      }
+    }
+
+    setResults(filtered);
+  };
+
+  const resetFilters = () => {
+    setSelectedTournees([]);
+    setMontantOp('>='); setMontantVal('');
+    setNbCreanceOp('>='); setNbCreanceVal('');
+    setDernierPaiementOp('>'); setDernierPaiementDays('');
+    setResults(null);
+    setSearch('');
+    setPage(1);
+  };
+
+  const toggleTournee = (t: string) => {
+    setSelectedTournees(prev =>
+      prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+    );
+  };
+
+  const displayedTournees = availableTournees.filter(t =>
+    !tourneeSearch || t.toLowerCase().includes(tourneeSearch.toLowerCase())
+  );
+
+  // Post-filter text search
+  const filtered = (results ?? []).filter(s =>
+    !search ||
+    s.numab?.toLowerCase().includes(search.toLowerCase()) ||
+    s.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const exportCSV = () => {
+    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Tournée', 'Dernière Date de Paiement', 'Nombre de Créances', 'Montant Créance (DA)'];
+    const rows = filtered.map((s: any) => [s.numab, s.name, s.tournee, s.derniere_date_paiement, s.nombre_creance, s.montant_creance]);
+    const csv = [header, ...rows].map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `liste_creanciers_filtree.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const OP_OPTIONS = [
+    { value: '>=', label: '≥ (Supérieur ou égal)' },
+    { value: '=',  label: '= (Égal à)' },
+    { value: '<=', label: '≤ (Inférieur ou égal)' },
+  ];
+  const DAY_OP_OPTIONS = [
+    { value: '>', label: '> Plus de N jours' },
+    { value: '=', label: '= Exactement N jours' },
+    { value: '<', label: '< Moins de N jours' },
+  ];
+
+  const inputCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100/60 transition-all";
+  const selectCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100/60 transition-all appearance-none cursor-pointer";
+  const labelCls = "block text-[10px] font-black uppercase tracking-widest text-[#667085] mb-2";
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+
+      {/* ── Page Header ─────────────────────────────────────────────── */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
+        >
+          <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
+        </button>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight text-[#101828]">Créances Abonnés</h2>
+            <p className="text-sm text-[#667085] mt-1 font-medium">
+              Établissez une liste nominative des abonnés créanciers en configurant vos critères de filtrage
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold text-[#98A2B3]">
+            {dataLoaded && <span className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">{allSubscribers.length} créanciers chargés</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Filter Panel ─────────────────────────────────────────────── */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="px-8 py-5 border-b border-[#F2F4F7] bg-gradient-to-r from-violet-50/60 to-white flex items-center gap-3">
+          <div className="w-8 h-8 bg-violet-100 rounded-xl flex items-center justify-center">
+            <Search size={14} className="text-violet-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-[#101828]">Critères de Filtrage</h3>
+            <p className="text-xs text-[#667085] font-medium">Définissez vos critères puis cliquez sur Rechercher</p>
+          </div>
+        </div>
+
+        <div className="p-8">
+          {dataLoading ? (
+            <div className="flex items-center justify-center gap-3 py-10">
+              <div className="w-8 h-8 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
+              <p className="text-sm font-bold text-[#667085]">Chargement des données...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center gap-3 py-10">
+              <p className="text-sm font-bold text-rose-600">{error}</p>
+              <button onClick={loadData} className="px-4 py-2 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition-all">
+                Réessayer le chargement
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+              {/* 1. Tournées */}
+              <div className="lg:col-span-2">
+                <label className={labelCls}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 bg-blue-100 rounded-md flex items-center justify-center text-blue-600 text-[9px] font-black">1</span>
+                    Tournée(s) — Sélectionnez une ou plusieurs tournées
+                  </span>
+                </label>
+                <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden">
+                  {/* search inside tournees */}
+                  <div className="relative border-b border-[#F2F4F7] bg-[#F9FAFB]">
+                    <Search size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
+                    <input
+                      type="text"
+                      placeholder="Filtrer les tournées..."
+                      value={tourneeSearch}
+                      onChange={e => setTourneeSearch(e.target.value)}
+                      className="w-full pl-8 pr-4 py-2.5 bg-transparent text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 p-4 max-h-44 overflow-y-auto">
+                    {displayedTournees.length === 0 ? (
+                      <p className="col-span-full text-xs text-[#98A2B3] font-medium text-center py-4">Aucune tournée disponible</p>
+                    ) : (
+                      displayedTournees.map(t => (
+                        <button
+                          key={t}
+                          onClick={() => toggleTournee(t)}
+                          className={`px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 border ${
+                            selectedTournees.includes(t)
+                              ? 'bg-violet-600 text-white border-violet-700 shadow-sm shadow-violet-600/20'
+                              : 'bg-[#F9FAFB] text-[#475467] border-[#E4E7EC] hover:border-violet-300 hover:text-violet-600'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  {selectedTournees.length > 0 && (
+                    <div className="px-4 pb-3 flex items-center gap-2 flex-wrap border-t border-[#F2F4F7] pt-3">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#667085]">Sélectionnées :</span>
+                      {selectedTournees.map(t => (
+                        <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-700 rounded-lg text-[11px] font-black border border-violet-200">
+                          {t}
+                          <button onClick={() => toggleTournee(t)} className="text-violet-400 hover:text-violet-700 ml-0.5">×</button>
+                        </span>
+                      ))}
+                      <button onClick={() => setSelectedTournees([])} className="text-[10px] text-rose-500 font-bold hover:text-rose-700 ml-1">Tout effacer</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Montant de créance */}
+              <div>
+                <label className={labelCls}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 bg-rose-100 rounded-md flex items-center justify-center text-rose-600 text-[9px] font-black">2</span>
+                    Montant de Créance (DA)
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative w-44 flex-shrink-0">
+                    <select
+                      value={montantOp}
+                      onChange={e => setMontantOp(e.target.value as any)}
+                      className={selectCls}
+                    >
+                      {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="ex: 2000"
+                    value={montantVal}
+                    onChange={e => setMontantVal(e.target.value)}
+                    className={inputCls}
+                    min="0"
+                  />
+                </div>
+                <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer ce critère</p>
+              </div>
+
+              {/* 3. Nombre de créances */}
+              <div>
+                <label className={labelCls}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 bg-amber-100 rounded-md flex items-center justify-center text-amber-600 text-[9px] font-black">3</span>
+                    Nombre de Factures Impayées
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative w-44 flex-shrink-0">
+                    <select
+                      value={nbCreanceOp}
+                      onChange={e => setNbCreanceOp(e.target.value as any)}
+                      className={selectCls}
+                    >
+                      {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="ex: 5"
+                    value={nbCreanceVal}
+                    onChange={e => setNbCreanceVal(e.target.value)}
+                    className={inputCls}
+                    min="0"
+                    step="1"
+                  />
+                </div>
+                <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer ce critère</p>
+              </div>
+
+              {/* 4. Dernier paiement */}
+              <div className="lg:col-span-2">
+                <label className={labelCls}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-4 h-4 bg-teal-100 rounded-md flex items-center justify-center text-teal-600 text-[9px] font-black">4</span>
+                    Dernier Paiement — Ancienneté en jours
+                  </span>
+                </label>
+                <div className="flex gap-2 max-w-xl">
+                  <div className="relative w-56 flex-shrink-0">
+                    <select
+                      value={dernierPaiementOp}
+                      onChange={e => setDernierPaiementOp(e.target.value as any)}
+                      className={selectCls}
+                    >
+                      {DAY_OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      placeholder="ex: 30"
+                      value={dernierPaiementDays}
+                      onChange={e => setDernierPaiementDays(e.target.value)}
+                      className={inputCls}
+                      min="0"
+                      step="1"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-[#98A2B3]">jours</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Les abonnés sans aucun paiement seront toujours inclus avec &gt; N jours</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        {!dataLoading && !error && (
+          <div className="flex items-center justify-between gap-4 px-8 py-5 border-t border-[#F2F4F7] bg-[#F9FAFB]/60">
+            <button
+              onClick={resetFilters}
+              className="px-5 py-2.5 rounded-xl text-xs font-black text-[#667085] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] active:scale-95 transition-all"
+            >
+              Réinitialiser
+            </button>
+            <button
+              onClick={applyFilters}
+              disabled={!dataLoaded}
+              className="inline-flex items-center gap-2 px-7 py-3 bg-violet-600 text-white rounded-xl text-sm font-black hover:bg-violet-700 active:scale-95 transition-all shadow-lg shadow-violet-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Search size={15} />
+              Rechercher les Créanciers
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Results ───────────────────────────────────────────────────── */}
+      {results === null ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-4 bg-white border border-dashed border-[#D0D5DD] rounded-[2rem]">
+          <div className="w-16 h-16 bg-violet-50 rounded-full flex items-center justify-center border border-violet-100">
+            <Search size={24} className="text-violet-400" />
+          </div>
+          <p className="text-base font-black text-[#344054]">Configurez vos critères puis cliquez sur Rechercher</p>
+          <p className="text-xs text-[#98A2B3] font-medium">Les résultats apparaîtront ici</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+          {/* Results toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-8 py-5 border-b border-[#F2F4F7] bg-slate-50/30">
+            <div className="flex items-center gap-3">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black border ${results.length === 0 ? 'bg-slate-50 text-slate-600 border-slate-200' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
+                {results.length} abonné{results.length !== 1 ? 's' : ''} créancier{results.length !== 1 ? 's' : ''}
+              </span>
+              {results.length > 0 && (
+                <span className="text-xs text-[#667085] font-bold">
+                  Total créances : <span className="text-rose-600">{fmt(results.reduce((a, s) => a + s.montant_creance, 0))}</span>
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
+                <input
+                  type="text"
+                  placeholder="Affiner par code ou nom..."
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(1); }}
+                  className="pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 transition-all w-60"
+                />
+              </div>
+              <button
+                onClick={exportCSV}
+                disabled={filtered.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileSpreadsheet size={13} /> Exporter CSV
+              </button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            {results.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-3">
+                <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
+                  <Users size={26} className="text-[#D0D5DD]" />
+                </div>
+                <p className="text-sm font-bold text-[#667085]">Aucun abonné ne correspond à ces critères.</p>
+                <p className="text-xs text-[#98A2B3]">Essayez d'assouplir vos conditions de filtrage.</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                    <th className="px-8 py-5 w-12">#</th>
+                    <th className="px-6 py-5">Code Abonné</th>
+                    <th className="px-6 py-5">Nom / Raison Sociale</th>
+                    <th className="px-6 py-5 text-center">Tournée</th>
+                    <th className="px-6 py-5 text-center">Dernier Paiement</th>
+                    <th className="px-6 py-5 text-center">Factures Impayées</th>
+                    <th className="px-8 py-5 text-right text-rose-600">Montant Créance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F2F4F7]">
+                  {paged.map((s: any, i: number) => {
+                    const days = daysSince(s.raw_last_payment);
+                    const isAlarmant = days === null || days > 90;
+                    return (
+                      <tr key={s.numab} className="hover:bg-violet-50/10 transition-colors group">
+                        <td className="px-8 py-4 text-xs text-[#98A2B3] font-mono font-bold">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                        <td className="px-6 py-4">
+                          <span className="font-mono text-xs font-black text-[#101828] bg-[#F9FAFB] px-2.5 py-1 rounded-lg border border-[#E4E7EC]">{s.numab}</span>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-bold text-[#101828]">{s.name}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black border bg-blue-50 text-blue-600 border-blue-100">{s.tournee}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                            isAlarmant
+                              ? 'bg-rose-50 text-rose-700 border-rose-100'
+                              : days !== null && days > 30
+                                ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                : 'bg-slate-50 text-slate-600 border-slate-200'
+                          }`}>
+                            <Calendar size={10} />
+                            <span>{s.derniere_date_paiement}</span>
+                            {days !== null && <span className="opacity-70">({days}j)</span>}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-black border ${
+                            s.nombre_creance >= 5
+                              ? 'bg-rose-50 text-rose-700 border-rose-100'
+                              : 'bg-amber-50 text-amber-700 border-amber-100'
+                          }`}>
+                            {s.nombre_creance} facture{s.nombre_creance > 1 ? 's' : ''}
+                          </span>
+                        </td>
+                        <td className="px-8 py-4 text-right font-black text-sm text-rose-600 font-mono whitespace-nowrap">{fmt(s.montant_creance)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {!error && totalPages > 1 && (
+            <div className="flex items-center justify-between px-8 py-5 border-t border-[#F2F4F7] bg-[#F9FAFB]/50">
+              <span className="text-xs text-[#667085] font-bold">
+                Page {page}/{totalPages} · {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className="px-3.5 py-2 rounded-xl text-xs font-black text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all">
+                  ← Préc.
+                </button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, idx) => {
+                  let p: number;
+                  if (totalPages <= 5) p = idx + 1;
+                  else if (page <= 3) p = idx + 1;
+                  else if (page >= totalPages - 2) p = totalPages - 4 + idx;
+                  else p = page - 2 + idx;
+                  return (
+                    <button key={p} onClick={() => setPage(p)}
+                      className={`w-9 h-9 rounded-xl text-xs font-black transition-all active:scale-95 ${
+                        page === p ? 'bg-violet-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
+                      }`}>{p}</button>
+                  );
+                })}
+                <button disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  className="px-3.5 py-2 rounded-xl text-xs font-black text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all">
+                  Suiv. →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+

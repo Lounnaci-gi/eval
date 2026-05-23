@@ -1430,6 +1430,86 @@ def get_abonne_api(numab: str):
         "factures": factures_formatted
     }
 
+@app.get("/creances_abonnes")
+def get_creances_abonnes():
+    try:
+        EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
+        debtors = {}
+        tournees_set = set()
+
+        records = itertools.chain(
+            ((r, False) for r in MEM_FACTURES),
+            ((r, True) for r in MEM_AVOIRS)
+        )
+
+        for r, is_avoir in records:
+            numab = str(r.get('NUMAB', '') or '').strip()
+            if not numab: continue
+
+            datsaisie = str(r.get('DATSAISIE') or '').strip()
+            datreg = str(r.get('DATREG') or '').strip()
+            monttc = float(r.get('MONTTC') or 0)
+
+            is_creance = False
+            if not is_avoir:
+                if datsaisie:
+                    if datreg in EMPTY_DATE_VALUES:
+                        is_creance = True
+            else:
+                datanul = str(r.get('DATANUL') or '').strip()
+                if datsaisie:
+                    if datanul and datreg in EMPTY_DATE_VALUES:
+                        is_creance = True
+
+            if numab not in debtors:
+                abonne_rec = abonnes_by_numab.get(numab)
+                name = abonne_rec.get('RAISOC', '') or abonne_rec.get('NOM', '') if abonne_rec else 'Nom inconnu'
+                if not name: name = 'Nom inconnu'
+                tournee = str(abonne_rec.get('TOURNEE', '') if abonne_rec else '').strip()
+                if tournee:
+                    tournees_set.add(tournee)
+
+                debtors[numab] = {
+                    "numab": numab,
+                    "name": name,
+                    "tournee": tournee if tournee else "—",
+                    "raw_last_payment": None,   # YYYYMMDD string for day arithmetic
+                    "derniere_date_paiement": "Aucun",
+                    "nombre_creance": 0,
+                    "montant_creance": 0.0
+                }
+
+            if datreg and datreg not in EMPTY_DATE_VALUES:
+                cur_last = debtors[numab]["raw_last_payment"]
+                if not cur_last or datreg > cur_last:
+                    debtors[numab]["raw_last_payment"] = datreg
+
+            if is_creance:
+                debtors[numab]["nombre_creance"] += 1
+                debtors[numab]["montant_creance"] += monttc
+
+        debtor_list = []
+        for d in debtors.values():
+            if d["montant_creance"] >= 0.01:
+                ld = d["raw_last_payment"]
+                if ld and len(ld) == 8:
+                    d["derniere_date_paiement"] = f"{ld[6:8]}/{ld[4:6]}/{ld[:4]}"
+                else:
+                    d["derniere_date_paiement"] = "Aucun"
+                    d["raw_last_payment"] = None
+
+                d["montant_creance"] = round(d["montant_creance"], 2)
+                debtor_list.append(d)
+
+        debtor_list.sort(key=lambda x: x["montant_creance"], reverse=True)
+
+        tournees_list = sorted(tournees_set)
+
+        return {"subscribers": debtor_list, "tournees": tournees_list}
+
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/creance_subscribers")
 def get_creance_subscribers(start_date: str = None, end_date: str = None, target_name: str = None, column: str = None):
     try:

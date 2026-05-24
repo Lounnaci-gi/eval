@@ -4383,17 +4383,17 @@ function CreancesAbonnesView({ onBack }: any) {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const exportCSV = () => {
-    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Type Abonné', 'Code Type', 'État Cpt', 'Code État', 'Adresse (Rue)', 'Bloc', 'N° Dom', 'N° Série Compteur', 'Tournée', 'Dernière Date de Paiement', 'Nombre de Créances', 'Montant Créance (DA)'];
+    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Adresse', 'Bloc', 'N° Dom', 'Type Abonné', 'Code Type', 'État Cpt', 'Code État', 'N° Série Compteur', 'Tournée', 'Dernier Paiement', 'Factures Impayées', 'Montant Créance (DA)'];
     const rows = filtered.map((s: any) => [
       s.numab,
       s.name,
+      s.adresse || '—',
+      s.bloc || '—',
+      s.ndom || '—',
       s.type_abon || '—',
       s.type_abon_code || '—',
       s.etat_cpt || '—',
       s.etat_cpt_code || '—',
-      s.adresse || '—',
-      s.bloc || '—',
-      s.ndom || '—',
       s.numser || '—',
       s.tournee,
       s.derniere_date_paiement,
@@ -4699,11 +4699,11 @@ function CreancesAbonnesView({ onBack }: any) {
                     <th className="px-8 py-5 w-12">#</th>
                     <th className="px-6 py-5">Code Abonné</th>
                     <th className="px-6 py-5">Nom / Raison Sociale</th>
-                    <th className="px-6 py-5 text-center">Type Abonné</th>
-                    <th className="px-6 py-5 text-center">État Cpt</th>
                     <th className="px-6 py-5 text-center">Adresse</th>
                     <th className="px-6 py-5 text-center">Bloc</th>
                     <th className="px-6 py-5 text-center">N° Dom</th>
+                    <th className="px-6 py-5 text-center">Type Abonné</th>
+                    <th className="px-6 py-5 text-center">État Cpt</th>
                     <th className="px-6 py-5 text-center">N° Série Compteur</th>
                     <th className="px-6 py-5 text-center">Tournée</th>
                     <th className="px-6 py-5 text-center">Dernier Paiement</th>
@@ -4722,11 +4722,11 @@ function CreancesAbonnesView({ onBack }: any) {
                           <span className="font-mono text-xs font-black text-[#101828] bg-[#F9FAFB] px-2.5 py-1 rounded-lg border border-[#E4E7EC]">{s.numab}</span>
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-[#101828]">{s.name}</td>
-                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[200px]" title={s.type_abon_code ? `Code T${s.type_abon_code}` : undefined}>{s.type_abon}</td>
-                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[180px]" title={s.etat_cpt_code ? `Code ${s.etat_cpt_code}` : undefined}>{s.etat_cpt}</td>
                         <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[220px]">{s.adresse}</td>
                         <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.bloc}</td>
                         <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.ndom}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[200px]" title={s.type_abon_code ? `Code T${s.type_abon_code}` : undefined}>{s.type_abon}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[180px]" title={s.etat_cpt_code ? `Code ${s.etat_cpt_code}` : undefined}>{s.etat_cpt}</td>
                         <td className="px-6 py-4 text-center text-xs font-mono font-bold text-[#101828]">{s.numser}</td>
                         <td className="px-6 py-4 text-center">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black border bg-blue-50 text-blue-600 border-blue-100">{s.tournee}</span>

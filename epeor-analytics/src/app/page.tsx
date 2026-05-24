@@ -4236,9 +4236,9 @@ function CreancesAbonnesView({ onBack }: any) {
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState('montant_creance');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [filterTypeAbon, setFilterTypeAbon] = useState('');
-  const [filterEtatCpt, setFilterEtatCpt] = useState('');
-  const [filterTourneeTable, setFilterTourneeTable] = useState('');
+  const [filterTypesAbon, setFilterTypesAbon] = useState<string[]>([]);
+  const [filterEtatsCpt, setFilterEtatsCpt] = useState<string[]>([]);
+  const [filterTourneesTable, setFilterTourneesTable] = useState<string[]>([]);
   const PAGE_SIZE = 20;
 
   const NUMERIC_SORT_KEYS = new Set(['montant_creance', 'nombre_creance']);
@@ -4334,9 +4334,9 @@ function CreancesAbonnesView({ onBack }: any) {
       }
     }
 
-    setFilterTypeAbon('');
-    setFilterEtatCpt('');
-    setFilterTourneeTable('');
+    setFilterTypesAbon([]);
+    setFilterEtatsCpt([]);
+    setFilterTourneesTable([]);
     setSortKey('montant_creance');
     setSortDir('desc');
     setResults(filtered);
@@ -4348,9 +4348,9 @@ function CreancesAbonnesView({ onBack }: any) {
     setMontantOp('>='); setMontantVal('');
     setNbCreanceOp('>='); setNbCreanceVal('');
     setDernierPaiementOp('>'); setDernierPaiementDays('');
-    setFilterTypeAbon('');
-    setFilterEtatCpt('');
-    setFilterTourneeTable('');
+    setFilterTypesAbon([]);
+    setFilterEtatsCpt([]);
+    setFilterTourneesTable([]);
     setSortKey('montant_creance');
     setSortDir('desc');
     setResults(null);
@@ -4425,12 +4425,34 @@ function CreancesAbonnesView({ onBack }: any) {
 
   const columnFiltered = useMemo(() => {
     return searchFiltered.filter((s: any) => {
-      if (filterTypeAbon && s.type_abon !== filterTypeAbon) return false;
-      if (filterEtatCpt && s.etat_cpt !== filterEtatCpt) return false;
-      if (filterTourneeTable && s.tournee !== filterTourneeTable) return false;
+      if (filterTypesAbon.length > 0 && !filterTypesAbon.includes(s.type_abon)) return false;
+      if (filterEtatsCpt.length > 0 && !filterEtatsCpt.includes(s.etat_cpt)) return false;
+      if (filterTourneesTable.length > 0 && !filterTourneesTable.includes(s.tournee)) return false;
       return true;
     });
-  }, [searchFiltered, filterTypeAbon, filterEtatCpt, filterTourneeTable]);
+  }, [searchFiltered, filterTypesAbon, filterEtatsCpt, filterTourneesTable]);
+
+  const hasTableColumnFilters =
+    filterTypesAbon.length > 0 || filterEtatsCpt.length > 0 || filterTourneesTable.length > 0;
+
+  const addTableFilter = (
+    value: string,
+    selected: string[],
+    setter: (next: string[]) => void
+  ) => {
+    if (!value || selected.includes(value)) return;
+    setter([...selected, value]);
+    setPage(1);
+  };
+
+  const removeTableFilter = (
+    value: string,
+    selected: string[],
+    setter: (next: string[]) => void
+  ) => {
+    setter(selected.filter(v => v !== value));
+    setPage(1);
+  };
 
   const sorted = useMemo(() => {
     const list = [...columnFiltered];
@@ -4550,9 +4572,9 @@ function CreancesAbonnesView({ onBack }: any) {
     }
 
     const filterParts: string[] = [];
-    if (filterTypeAbon) filterParts.push(`Type: ${filterTypeAbon}`);
-    if (filterEtatCpt) filterParts.push(`État: ${filterEtatCpt}`);
-    if (filterTourneeTable) filterParts.push(`Tournée: ${filterTourneeTable}`);
+    if (filterTypesAbon.length > 0) filterParts.push(`Types: ${filterTypesAbon.join(', ')}`);
+    if (filterEtatsCpt.length > 0) filterParts.push(`États: ${filterEtatsCpt.join(', ')}`);
+    if (filterTourneesTable.length > 0) filterParts.push(`Tournées: ${filterTourneesTable.join(', ')}`);
     if (search.trim()) filterParts.push(`Recherche: ${search.trim()}`);
     const filtersLine = filterParts.length > 0 ? filterParts.join(' · ') : 'Aucun filtre tableau actif';
 
@@ -5031,59 +5053,149 @@ function CreancesAbonnesView({ onBack }: any) {
             </div>
           </div>
 
-          {/* Filtres colonnes tableau */}
-          <div className="flex flex-wrap items-end gap-4 px-8 py-4 border-b border-[#F2F4F7] bg-violet-50/20">
-            <div className="min-w-[200px] flex-1">
+          {/* Filtres colonnes tableau (sélection multiple) */}
+          <div className="flex flex-wrap items-start gap-4 px-8 py-4 border-b border-[#F2F4F7] bg-violet-50/20">
+            <div className="min-w-[220px] flex-1">
               <label className={labelCls}>Type Abonné</label>
               <select
-                value={filterTypeAbon}
-                onChange={e => { setFilterTypeAbon(e.target.value); setPage(1); }}
+                value=""
+                onChange={e => addTableFilter(e.target.value, filterTypesAbon, setFilterTypesAbon)}
                 className={selectCls}
               >
-                <option value="">Tous les types</option>
-                {filterOptions.types.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                <option value="">Ajouter un type…</option>
+                {filterOptions.types
+                  .filter(t => !filterTypesAbon.includes(t))
+                  .map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
               </select>
+              {filterTypesAbon.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {filterTypesAbon.map(t => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-violet-100 text-violet-800 border border-violet-200"
+                    >
+                      {t}
+                      <button
+                        type="button"
+                        onClick={() => removeTableFilter(t, filterTypesAbon, setFilterTypesAbon)}
+                        className="text-violet-500 hover:text-violet-900 font-black leading-none"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => { setFilterTypesAbon([]); setPage(1); }}
+                    className="text-[10px] text-rose-500 font-bold hover:text-rose-700"
+                  >
+                    Tout effacer
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[10px] text-[#98A2B3] mt-1.5">Aucun — tous les types</p>
+              )}
             </div>
-            <div className="min-w-[200px] flex-1">
+            <div className="min-w-[220px] flex-1">
               <label className={labelCls}>État Cpt</label>
               <select
-                value={filterEtatCpt}
-                onChange={e => { setFilterEtatCpt(e.target.value); setPage(1); }}
+                value=""
+                onChange={e => addTableFilter(e.target.value, filterEtatsCpt, setFilterEtatsCpt)}
                 className={selectCls}
               >
-                <option value="">Tous les états</option>
-                {filterOptions.etats.map(e => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
+                <option value="">Ajouter un état…</option>
+                {filterOptions.etats
+                  .filter(e => !filterEtatsCpt.includes(e))
+                  .map(e => (
+                    <option key={e} value={e}>{e}</option>
+                  ))}
               </select>
+              {filterEtatsCpt.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {filterEtatsCpt.map(e => (
+                    <span
+                      key={e}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200"
+                    >
+                      {e}
+                      <button
+                        type="button"
+                        onClick={() => removeTableFilter(e, filterEtatsCpt, setFilterEtatsCpt)}
+                        className="text-teal-600 hover:text-teal-900 font-black leading-none"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => { setFilterEtatsCpt([]); setPage(1); }}
+                    className="text-[10px] text-rose-500 font-bold hover:text-rose-700"
+                  >
+                    Tout effacer
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[10px] text-[#98A2B3] mt-1.5">Aucun — tous les états</p>
+              )}
             </div>
-            <div className="min-w-[140px] flex-1">
+            <div className="min-w-[160px] flex-1">
               <label className={labelCls}>Tournée</label>
               <select
-                value={filterTourneeTable}
-                onChange={e => { setFilterTourneeTable(e.target.value); setPage(1); }}
+                value=""
+                onChange={e => addTableFilter(e.target.value, filterTourneesTable, setFilterTourneesTable)}
                 className={selectCls}
               >
-                <option value="">Toutes les tournées</option>
-                {filterOptions.tournees.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                <option value="">Ajouter une tournée…</option>
+                {filterOptions.tournees
+                  .filter(t => !filterTourneesTable.includes(t))
+                  .map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
               </select>
+              {filterTourneesTable.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {filterTourneesTable.map(t => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200"
+                    >
+                      {t}
+                      <button
+                        type="button"
+                        onClick={() => removeTableFilter(t, filterTourneesTable, setFilterTourneesTable)}
+                        className="text-blue-600 hover:text-blue-900 font-black leading-none"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => { setFilterTourneesTable([]); setPage(1); }}
+                    className="text-[10px] text-rose-500 font-bold hover:text-rose-700"
+                  >
+                    Tout effacer
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[10px] text-[#98A2B3] mt-1.5">Aucune — toutes les tournées</p>
+              )}
             </div>
-            {(filterTypeAbon || filterEtatCpt || filterTourneeTable) && (
+            {hasTableColumnFilters && (
               <button
                 type="button"
                 onClick={() => {
-                  setFilterTypeAbon('');
-                  setFilterEtatCpt('');
-                  setFilterTourneeTable('');
+                  setFilterTypesAbon([]);
+                  setFilterEtatsCpt([]);
+                  setFilterTourneesTable([]);
                   setPage(1);
                 }}
-                className="px-4 py-2.5 rounded-xl text-xs font-black text-violet-700 bg-white border border-violet-200 hover:bg-violet-50 transition-all"
+                className="px-4 py-2.5 rounded-xl text-xs font-black text-violet-700 bg-white border border-violet-200 hover:bg-violet-50 transition-all self-end"
               >
-                Effacer filtres tableau
+                Effacer tous les filtres
               </button>
             )}
           </div>
@@ -5190,7 +5302,7 @@ function CreancesAbonnesView({ onBack }: any) {
             <div className="flex items-center justify-between px-8 py-5 border-t border-[#F2F4F7] bg-[#F9FAFB]/50">
               <span className="text-xs text-[#667085] font-bold">
                 Page {safePage}/{totalPages} · {sorted.length} résultat{sorted.length !== 1 ? 's' : ''}
-                {(filterTypeAbon || filterEtatCpt || filterTourneeTable) && (
+                {hasTableColumnFilters && (
                   <span className="text-violet-600 ml-1">(filtres actifs)</span>
                 )}
               </span>

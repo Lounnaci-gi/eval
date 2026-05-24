@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Fragment, useRef, useMemo } from "react";
+import { useEffect, useState, Fragment, useRef, useMemo, type ReactNode } from "react";
 import {
   Users,
   UserX,
@@ -22,7 +22,8 @@ import {
   FileText,
   FileSpreadsheet,
   Percent,
-  MapPin
+  MapPin,
+  Building2
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -48,7 +49,31 @@ import {
   LabelList
 } from "recharts";
 
+/** Évite les avertissements Recharts quand le conteneur n'a pas encore de taille (flex / onglets). */
+function ChartContainer({ children, className = "h-[350px] w-full min-h-[200px]" }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
 
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setReady(el.clientWidth > 0 && el.clientHeight > 0);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} className={className} style={{ minWidth: 0, minHeight: 0 }}>
+      {ready ? (
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          {children}
+        </ResponsiveContainer>
+      ) : null}
+    </div>
+  );
+}
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "";
@@ -87,7 +112,7 @@ const FrenchDateInput = ({ value, onChange, className, label }: any) => {
 };
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes' | 'creances_institutions'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -100,7 +125,20 @@ export default function Dashboard() {
   const [creanceData, setCreanceData] = useState<any>(null);
   const [repartitionFilter, setRepartitionFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [calcDateRange, setCalcDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
+  const [reloadPending, setReloadPending] = useState(false);
   const itemsPerPage = 20;
+
+  const requestDataReload = async () => {
+    setReloadPending(true);
+    setStats({ status: 'loading', message: 'Rechargement des données en cours…', ready: false });
+    try {
+      await fetch('http://127.0.0.1:8000/api/reload_data', { method: 'POST' });
+    } catch {
+      setStats({ status: 'error', message: 'Impossible de joindre le backend pour le rechargement.', ready: false });
+    } finally {
+      setReloadPending(false);
+    }
+  };
 
   useEffect(() => {
     let intervalId: any;
@@ -208,33 +246,65 @@ export default function Dashboard() {
     );
   }
 
-  if (
+  const isInitBlocked =
     !stats ||
     stats.status === 'loading' ||
     stats.ready === false ||
-    (stats.ready === true && stats.total_subscribers === 0 && !stats.subscriber_types?.length)
-  ) {
+    (stats.ready === true && stats.total_subscribers === 0 && !stats.subscriber_types?.length);
+
+  if (isInitBlocked) {
+    const isLoadError =
+      stats?.status === 'error' ||
+      (typeof stats?.message === 'string' && stats.message.includes('Aucune donnée chargée'));
+
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
-        <div className="bg-white border border-[#E4E7EC] shadow-2xl rounded-[3rem] p-16 flex flex-col items-center gap-8 max-w-md w-full text-center">
-          <div className="relative">
-            <div className="animate-spin rounded-full h-24 w-24 border-4 border-violet-100 border-t-violet-600"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest animate-pulse">EPEOR</span>
+        <div className="bg-white border border-[#E4E7EC] shadow-2xl rounded-[3rem] p-16 flex flex-col items-center gap-8 max-w-lg w-full text-center">
+          {!isLoadError && (
+            <div className="relative">
+              <div className="animate-spin rounded-full h-24 w-24 border-4 border-violet-100 border-t-violet-600"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest animate-pulse">EPEOR</span>
+              </div>
             </div>
-          </div>
+          )}
+          {isLoadError && <Ban size={48} className="text-amber-500" />}
           <div className="space-y-4">
-            <h1 className="text-2xl font-black text-[#101828] tracking-tight">Initialisation du Système</h1>
-            <p className="text-sm text-[#475467] font-medium min-h-[40px] flex items-center justify-center">
-              {stats?.message || "Connexion au serveur backend..."}
+            <h1 className="text-2xl font-black text-[#101828] tracking-tight">
+              {isLoadError ? 'Chargement des données impossible' : 'Initialisation du Système'}
+            </h1>
+            <p className="text-sm text-[#475467] font-medium min-h-[40px] flex items-center justify-center text-left w-full">
+              {stats?.message || stats?.error || 'Connexion au serveur backend...'}
+            </p>
+            {stats?.data_dir && (
+              <p className="text-xs text-[#98A2B3] font-mono bg-[#F9FAFB] px-3 py-2 rounded-lg border border-[#E4E7EC]">
+                Dossier : {stats.data_dir}
+              </p>
+            )}
+          </div>
+          {!isLoadError && (
+            <>
+              <div className="w-full bg-[#F2F4F7] rounded-full h-1.5 overflow-hidden">
+                <div className="bg-violet-600 h-full animate-pulse w-full rounded-full"></div>
+              </div>
+              <p className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">
+                Reconstitution du cache (1 à 2 minutes la première fois, ~30 s ensuite)
+              </p>
+            </>
+          )}
+          <div className="flex flex-col gap-3 w-full">
+            <button
+              type="button"
+              onClick={requestDataReload}
+              disabled={reloadPending}
+              className="w-full px-6 py-3 bg-violet-600 text-white rounded-2xl text-sm font-black hover:bg-violet-700 disabled:opacity-50 transition-all"
+            >
+              {reloadPending ? 'Rechargement…' : 'Relancer le chargement des données'}
+            </button>
+            <p className="text-[10px] text-[#98A2B3]">
+              Ou fermez « EPEOR Backend » et relancez start.bat — dossier attendu : d:\epeor\*.DBF
             </p>
           </div>
-          <div className="w-full bg-[#F2F4F7] rounded-full h-1.5 overflow-hidden">
-            <div className="bg-violet-600 h-full animate-pulse w-full rounded-full"></div>
-          </div>
-          <p className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">
-            Reconstitution du cache de performance (cela peut prendre 1 à 2 minutes la première fois)
-          </p>
         </div>
       </div>
     );
@@ -328,6 +398,12 @@ export default function Dashboard() {
             label="Créances Abonnés"
             active={currentView === 'creances_abonnes'}
             onClick={() => setCurrentView('creances_abonnes')}
+          />
+          <NavItem
+            icon={<Building2 size={20} />}
+            label="Créance institutions"
+            active={currentView === 'creances_institutions'}
+            onClick={() => setCurrentView('creances_institutions')}
           />
           <NavItem
             icon={<Calendar size={20} />}
@@ -438,7 +514,8 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Charts & Analytics */}
+            {/* Charts & Analytics — rendus seulement quand les stats sont prêtes (évite width/height -1 Recharts) */}
+            {stats?.ready && (stats?.total_subscribers ?? 0) > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
               <div className="lg:col-span-4 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
                 <div className="flex justify-between items-center mb-8">
@@ -452,8 +529,7 @@ export default function Dashboard() {
                     </h3>
                   </div>
                 </div>
-                <div className="h-[350px]">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <ChartContainer className="h-[350px] w-full">
                     <BarChart data={stats?.subscriber_communes || []} margin={{ top: 30, right: 10, left: -20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
                       <XAxis
@@ -539,8 +615,7 @@ export default function Dashboard() {
                         )}
                       </Bar>
                     </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                </ChartContainer>
               </div>
 
               <div
@@ -548,8 +623,7 @@ export default function Dashboard() {
                 className="lg:col-span-3 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 text-obat-gray cursor-pointer hover:shadow-md hover:border-[#D0D5DD] transition-all group"
               >
                 <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">Types d'Abonnés</h3>
-                <div className="h-[350px]">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <ChartContainer className="h-[350px] w-full">
                     <PieChart>
                       <Pie
                         data={stats?.subscriber_types?.slice(0, 5) || []}
@@ -594,10 +668,15 @@ export default function Dashboard() {
                         wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '20px' }}
                       />
                     </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                </ChartContainer>
               </div>
             </div>
+            ) : (
+              <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-12 flex flex-col items-center justify-center gap-3 min-h-[200px]">
+                <div className="w-10 h-10 border-4 border-blue-100 border-t-[#0D83DE] rounded-full animate-spin" />
+                <p className="text-sm font-bold text-[#667085]">Chargement des graphiques du tableau de bord…</p>
+              </div>
+            )}
 
             {/* Search Results - Obat List Style */}
             {searchResults.length > 0 && (
@@ -707,6 +786,8 @@ export default function Dashboard() {
           <NoMeterDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'creances_abonnes' ? (
           <CreancesAbonnesView onBack={() => setCurrentView('dashboard')} />
+        ) : currentView === 'creances_institutions' ? (
+          <CreancesInstitutionsView onBack={() => setCurrentView('dashboard')} />
         ) : ['creance', 'repartition', 'commune'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
@@ -3358,8 +3439,8 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
           {/* Graphique de Recouvrement Interactif */}
           <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-6">
             <div className="flex flex-col lg:flex-row items-center gap-8">
-              <div className="w-full lg:w-[22%] aspect-square relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+              <div className="w-full lg:w-[22%] min-h-[220px] h-[220px] relative flex items-center justify-center">
+                <ChartContainer className="absolute inset-0 w-full h-full">
                   <RadialBarChart
                     innerRadius="75%"
                     outerRadius="100%"
@@ -3396,8 +3477,8 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                       }}
                     />
                   </RadialBarChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
+                </ChartContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pt-2 pointer-events-none">
                   <div className="flex items-baseline gap-0.5">
                     <span className="text-4xl font-black text-[#101828] tracking-tighter">
                       {recoveryRate.toFixed(1)}
@@ -3500,8 +3581,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
             </div>
 
             {data.history && data.history.length > 0 ? (
-              <div className="h-[380px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+              <ChartContainer className="h-[380px] w-full">
                   <LineChart
                     data={data.history}
                     margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
@@ -3582,8 +3662,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                       dot={false}
                     />
                   </LineChart>
-                </ResponsiveContainer>
-              </div>
+              </ChartContainer>
             ) : (
               <div className="flex flex-col items-center justify-center h-60 gap-2 border-2 border-dashed border-[#E4E7EC] rounded-3xl bg-[#F9FAFB]">
                 <p className="text-sm font-bold text-[#667085]">Aucune donnée historique disponible.</p>
@@ -5336,5 +5415,370 @@ function CreancesAbonnesView({ onBack }: any) {
   );
 }
 
+function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [meta, setMeta] = useState<{ total_links?: number; institutions_count?: number } | null>(null);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState('codinstit');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const PAGE_SIZE = 15;
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n).replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+
+  const loadData = async () => {
+    setDataLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('http://127.0.0.1:8000/creances_institutions');
+      if (res.status === 404) {
+        setError(
+          'Route API introuvable (404). Fermez la fenêtre « EPEOR Backend » et relancez start.bat pour charger la dernière version du serveur.'
+        );
+        setRows([]);
+        return;
+      }
+      const data = await res.json();
+      if (data.status === 'loading') {
+        setError(data.message || 'Chargement des données en cours… Réessayez dans quelques secondes.');
+        setRows([]);
+      } else if (data.error) {
+        setError(data.error);
+        setRows([]);
+      } else {
+        setRows(data.rows || []);
+        setMeta({
+          total_links: data.total_links,
+          institutions_count: data.institutions_count,
+        });
+      }
+    } catch {
+      setError('Impossible de contacter le serveur backend. Vérifiez qu\'il tourne sur le port 8000.');
+      setRows([]);
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r: any) =>
+      [r.codinstit, r.lib_instit, r.numab, r.raisoc, r.adresse, r.tournee]
+        .some((v: string) => String(v || '').toLowerCase().includes(q))
+    );
+  }, [rows, search]);
+
+  type InstitGroup = { codinstit: string; lib_instit: string; rows: any[] };
+
+  const compareRows = (a: any, b: any) => {
+    const av = a[sortKey];
+    const bv = b[sortKey];
+    if (sortKey === 'montant_creance' || sortKey === 'nombre_creance') {
+      const na = Number(av) || 0;
+      const nb = Number(bv) || 0;
+      return sortDir === 'asc' ? na - nb : nb - na;
+    }
+    const sa = String(av ?? '').toLowerCase();
+    const sb = String(bv ?? '').toLowerCase();
+    const cmp = sa.localeCompare(sb, 'fr');
+    return sortDir === 'asc' ? cmp : -cmp;
+  };
+
+  const groupTotals = (g: InstitGroup) => ({
+    montant: g.rows.reduce((a, r) => a + (r.montant_creance || 0), 0),
+    factures: g.rows.reduce((a, r) => a + (r.nombre_creance || 0), 0),
+  });
+
+  const groups = useMemo(() => {
+    const map = new Map<string, InstitGroup>();
+    for (const r of filtered) {
+      const key = String(r.codinstit || '—');
+      let g = map.get(key);
+      if (!g) {
+        g = { codinstit: key, lib_instit: r.lib_instit || '—', rows: [] };
+        map.set(key, g);
+      }
+      g.rows.push(r);
+    }
+    const list = Array.from(map.values());
+    for (const g of list) {
+      g.rows.sort(compareRows);
+    }
+    list.sort((a, b) => {
+      if (sortKey === 'codinstit') {
+        const cmp = a.codinstit.localeCompare(b.codinstit, 'fr');
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+      if (sortKey === 'lib_instit') {
+        const cmp = a.lib_instit.localeCompare(b.lib_instit, 'fr');
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+      if (sortKey === 'montant_creance' || sortKey === 'nombre_creance') {
+        const field = sortKey as 'montant_creance' | 'nombre_creance';
+        const ta = a.rows.reduce((s, r) => s + (Number(r[field]) || 0), 0);
+        const tb = b.rows.reduce((s, r) => s + (Number(r[field]) || 0), 0);
+        return sortDir === 'asc' ? ta - tb : tb - ta;
+      }
+      const ta = groupTotals(a).montant;
+      const tb = groupTotals(b).montant;
+      return sortDir === 'asc' ? ta - tb : tb - ta;
+    });
+    return list;
+  }, [filtered, sortKey, sortDir]);
+
+  const flatRows = useMemo(() => groups.flatMap(g => g.rows), [groups]);
+
+  const totalPages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedGroups = groups.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const tableTotals = useMemo(() => ({
+    institutions: groups.length,
+    count: flatRows.length,
+    montant: flatRows.reduce((a, r) => a + (r.montant_creance || 0), 0),
+    factures: flatRows.reduce((a, r) => a + (r.nombre_creance || 0), 0),
+  }), [groups, flatRows]);
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
+    setPage(1);
+  };
+
+  const SortTh = ({ label, col }: { label: string; col: string }) => (
+    <th
+      className="px-4 py-4 cursor-pointer hover:bg-[#F2F4F7] transition-colors select-none"
+      onClick={() => handleSort(col)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortKey === col && <span className="text-violet-600">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+      </span>
+    </th>
+  );
+
+  const exportCSV = () => {
+    const headers = [
+      'Code Institution', 'Libellé Institution', 'Code Abonné', 'Raison sociale',
+      'Adresse', 'Bloc', 'N° Dom', 'Type', 'État Cpt', 'N° Série', 'Tournée',
+      'Factures impayées', 'Montant créance', 'Dernier paiement',
+    ];
+    const lines = groups.flatMap((g: InstitGroup) =>
+      g.rows.map((r: any) =>
+        [
+          g.codinstit, g.lib_instit, r.numab, r.raisoc, r.adresse, r.bloc, r.ndom,
+          r.type_abon, r.etat_cpt, r.numser, r.tournee,
+          r.nombre_creance, r.montant_creance, r.derniere_date_paiement,
+        ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')
+      )
+    );
+    const blob = new Blob(['\ufeff' + [headers.join(';'), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `creances_institutions_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const inputCls = 'pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 transition-all w-72';
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+        >
+          <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
+        </button>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight text-[#101828]">Créance institutions</h2>
+            <p className="text-sm text-[#667085] mt-1 font-medium">
+              Liens ABINSTIT / INSTIT avec créances issues des factures impayées (jointure ABONNE, ABONMENT, RUE…)
+            </p>
+          </div>
+          {meta && !dataLoading && !error && (
+            <div className="flex flex-wrap gap-2 text-xs font-bold">
+              <span className="text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-100">
+                {rows.length} lien{rows.length !== 1 ? 's' : ''} avec créance
+              </span>
+              <span className="text-[#667085] bg-[#F9FAFB] px-3 py-1 rounded-full border border-[#E4E7EC]">
+                {meta.institutions_count} institutions · {meta.total_links} liens ABINSTIT
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-8 py-5 border-b border-[#F2F4F7] bg-slate-50/30">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-violet-50 text-violet-700 border border-violet-100">
+              {tableTotals.institutions} institution{tableTotals.institutions !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-100">
+              {tableTotals.count} abonné{tableTotals.count !== 1 ? 's' : ''}
+            </span>
+            {tableTotals.count > 0 && (
+              <span className="text-xs text-[#667085] font-bold">
+                Total : <span className="text-rose-600">{fmt(tableTotals.montant)}</span>
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
+              <input
+                type="text"
+                placeholder="Code inst., nom, abonné…"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
+                className={inputCls}
+              />
+            </div>
+            <button
+              onClick={exportCSV}
+              disabled={groups.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 disabled:opacity-50 transition-all"
+            >
+              <FileSpreadsheet size={13} /> CSV
+            </button>
+            <button
+              onClick={loadData}
+              className="px-4 py-2 bg-white border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] hover:bg-[#F9FAFB]"
+            >
+              Actualiser
+            </button>
+          </div>
+        </div>
+
+        {dataLoading ? (
+          <div className="flex items-center justify-center gap-3 py-20">
+            <div className="w-8 h-8 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
+            <p className="text-sm font-bold text-[#667085]">Calcul des créances institutions…</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center gap-3 py-16 px-8">
+            <p className="text-sm font-bold text-rose-600 text-center">{error}</p>
+            <button onClick={loadData} className="px-4 py-2 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl text-xs font-bold">
+              Réessayer
+            </button>
+          </div>
+        ) : groups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-2">
+            <Building2 size={32} className="text-[#D0D5DD]" />
+            <p className="text-sm font-black text-[#667085]">Aucune créance institutionnelle trouvée</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-bold border-b border-[#E4E7EC]">
+                    <SortTh label="Code Inst." col="codinstit" />
+                    <SortTh label="Institution" col="lib_instit" />
+                    <SortTh label="Code Abonné" col="numab" />
+                    <SortTh label="Raison sociale" col="raisoc" />
+                    <SortTh label="Adresse" col="adresse" />
+                    <SortTh label="Bloc" col="bloc" />
+                    <SortTh label="N° Dom" col="ndom" />
+                    <SortTh label="Type" col="type_abon" />
+                    <SortTh label="État Cpt" col="etat_cpt" />
+                    <SortTh label="N° Série" col="numser" />
+                    <SortTh label="Tournée" col="tournee" />
+                    <SortTh label="Fact." col="nombre_creance" />
+                    <SortTh label="Montant créance" col="montant_creance" />
+                    <SortTh label="Dernier paiement" col="derniere_date_paiement" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedGroups.map((g: InstitGroup) => {
+                    const gt = groupTotals(g);
+                    return (
+                      <Fragment key={g.codinstit}>
+                        <tr className="bg-violet-50 border-t-2 border-violet-200">
+                          <td className="px-4 py-3 font-mono font-black text-violet-900 whitespace-nowrap">
+                            {g.codinstit}
+                          </td>
+                          <td className="px-4 py-3 font-black text-violet-900 max-w-[220px]">
+                            {g.lib_instit}
+                            <span className="ml-2 text-[10px] font-bold text-violet-600">
+                              ({g.rows.length} abonné{g.rows.length !== 1 ? 's' : ''})
+                            </span>
+                          </td>
+                          <td className="px-4 py-3" colSpan={9} />
+                          <td className="px-4 py-3 text-center font-black text-violet-900">
+                            {gt.factures.toLocaleString('fr-FR')}
+                          </td>
+                          <td className="px-4 py-3 text-right font-black text-rose-600 whitespace-nowrap">
+                            {fmt(gt.montant)}
+                          </td>
+                          <td className="px-4 py-3" />
+                        </tr>
+                        {g.rows.map((r: any, i: number) => (
+                          <tr key={`${g.codinstit}-${r.numab}-${i}`} className="hover:bg-[#F9FAFB] border-b border-[#F2F4F7]">
+                            <td className="px-4 py-2" colSpan={2} />
+                            <td className="px-4 py-2 font-mono font-bold">{r.numab}</td>
+                            <td className="px-4 py-2 font-bold text-[#101828] max-w-[200px]">{r.raisoc}</td>
+                            <td className="px-4 py-2 text-[#475467] max-w-[160px]">{r.adresse}</td>
+                            <td className="px-4 py-2">{r.bloc}</td>
+                            <td className="px-4 py-2">{r.ndom}</td>
+                            <td className="px-4 py-2">{r.type_abon}</td>
+                            <td className="px-4 py-2">{r.etat_cpt}</td>
+                            <td className="px-4 py-2 font-mono text-[10px]">{r.numser}</td>
+                            <td className="px-4 py-2 font-bold text-blue-600">{r.tournee}</td>
+                            <td className="px-4 py-2 text-center font-bold">{r.nombre_creance}</td>
+                            <td className="px-4 py-2 text-right font-black text-rose-600 whitespace-nowrap">{fmt(r.montant_creance)}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{r.derniere_date_paiement}</td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-[#0F172A] text-white text-xs font-bold">
+                    <td colSpan={11} className="px-4 py-3 uppercase tracking-wide">
+                      Total — {tableTotals.institutions} institutions · {tableTotals.count} abonnés
+                    </td>
+                    <td className="px-4 py-3 text-center">{tableTotals.factures.toLocaleString('fr-FR')}</td>
+                    <td className="px-4 py-3 text-right text-rose-300 whitespace-nowrap">{fmt(tableTotals.montant)}</td>
+                    <td className="px-4 py-3" />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex justify-between items-center px-8 py-4 border-t border-[#F2F4F7] bg-[#F9FAFB]">
+                <p className="text-xs font-bold text-[#667085]">
+                  Page {safePage} / {totalPages} · {pagedGroups.length} institutions affichées
+                </p>
+                <div className="flex gap-2">
+                  <button disabled={safePage <= 1} onClick={() => setPage(p => p - 1)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-black border border-[#E4E7EC] bg-white disabled:opacity-40">
+                    ← Préc.
+                  </button>
+                  <button disabled={safePage >= totalPages} onClick={() => setPage(p => p + 1)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-black border border-[#E4E7EC] bg-white disabled:opacity-40">
+                    Suiv. →
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 

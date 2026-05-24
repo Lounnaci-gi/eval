@@ -17,7 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATA_DIR = os.environ.get("EPEOR_DATA_DIR", r"d:\epeor")
+def _normalize_data_dir(path: str) -> str:
+    return os.path.normpath(str(path or "").strip())
+
+
+DATA_DIR = _normalize_data_dir(os.environ.get("EPEOR_DATA_DIR", r"d:\epeor"))
 if not os.path.isdir(DATA_DIR):
     print(f"[WARNING] EPEOR data directory not found: {DATA_DIR}")
     print("          Set EPEOR_DATA_DIR to the folder containing *.DBF files.")
@@ -25,6 +29,39 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(BASE_DIR, "cache")
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
+
+_load_retry_count = 0
+_MAX_LOAD_RETRIES = 3
+
+
+def resolve_dbf_path(filename: str) -> str:
+    """Résout un fichier DBF (insensible à la casse sous Windows)."""
+    direct = os.path.join(DATA_DIR, filename)
+    if os.path.isfile(direct):
+        return direct
+    if os.path.isdir(DATA_DIR):
+        target = filename.lower()
+        for entry in os.listdir(DATA_DIR):
+            if entry.lower() == target:
+                return os.path.join(DATA_DIR, entry)
+    return direct
+
+
+def diagnose_data_dir() -> str:
+    """Message de diagnostic si ABONNE.DBF est introuvable ou vide."""
+    if not os.path.isdir(DATA_DIR):
+        return f"Le dossier {DATA_DIR} n'existe pas."
+    abonne_path = resolve_dbf_path("ABONNE.DBF")
+    if not os.path.isfile(abonne_path):
+        dbf_count = len([f for f in os.listdir(DATA_DIR) if f.lower().endswith(".dbf")])
+        return (
+            f"ABONNE.DBF introuvable dans {DATA_DIR} ({dbf_count} autres fichiers .DBF détectés). "
+            f"Vérifiez EPEOR_DATA_DIR."
+        )
+    size = os.path.getsize(abonne_path)
+    if size < 100:
+        return f"ABONNE.DBF présent mais vide ou corrompu ({size} octets) : {abonne_path}"
+    return f"ABONNE.DBF trouvé ({size:,} octets) : {abonne_path}"
 
 # -------------------------------------------------------------
 # CACHE AND IN-MEMORY DATABASE STRUCTURES
@@ -59,6 +96,8 @@ MEM_RUES = []
 MEM_CLASSES = []
 MEM_UNITES = []
 MEM_CAISSES = []
+MEM_ABINSTIT = []
+MEM_INSTIT = []
 
 # Mappings built for O(1) high-speed lookups
 abonnes_by_numab = {}       # NUMAB -> record dict
@@ -73,12 +112,14 @@ communes_by_code = {}       # CODCOM -> record dict
 quartier_to_commune = {}    # QUART -> CODCOM
 quartier_names = {}         # QUART -> LIBQUART
 classe_map = {}             # (CLASSE, S_CLASSE) -> DESIGN
+instit_by_codinstit = {}    # CODINSTIT (upper) -> INSTIT record
+instit_by_unite_cod = {}    # (UNITE, CODINSTIT upper) -> INSTIT record
 
 def load_table_cached(filename, encoding='cp1256'):
     """Checks cache validation and loads DBF or Pickle binary for maximum speed"""
     global db_loading_status
-    dbf_path = os.path.join(DATA_DIR, filename)
-    if not os.path.exists(dbf_path):
+    dbf_path = resolve_dbf_path(filename)
+    if not os.path.isfile(dbf_path):
         print(f"[WARNING] {filename} does not exist at {dbf_path}")
         return []
     
@@ -106,6 +147,10 @@ def load_table_cached(filename, encoding='cp1256'):
                     return data
             except Exception as e:
                 print(f"Error reading cache for {filename}: {e}. Rebuilding...")
+                try:
+                    os.unlink(pkl_path)
+                except OSError:
+                    pass
     
     # Missing or invalid cache -> Load from DBF
     try:
@@ -361,13 +406,18 @@ def load_all_data_to_memory():
     """Initializes and builds O(1) in-memory indexes on startup"""
     global MEM_ABONNES, MEM_FACTURES, MEM_AVOIRS, MEM_ABONMENTS, MEM_TABCODES
     global MEM_COMMUNES, MEM_QUARTIERS, MEM_RUES, MEM_CLASSES, MEM_UNITES, MEM_CAISSES
+    global MEM_ABINSTIT, MEM_INSTIT
     global abonnes_by_numab, rues_by_codrue, tabcodes_by_code, abonments_by_numab
+    global instit_by_codinstit, instit_by_unite_cod
     global factures_by_numab, avoirs_by_numab, unites_by_code, caisses_by_code
     global communes_by_code, quartier_to_commune, quartier_names, classe_map
     global is_db_ready, indexes_ready, db_loading_status, cached_dashboard_stats
+    global _load_retry_count
 
-    if not _data_load_lock.acquire(blocking=False):
-        print("[INFO] Data load already in progress, skipping duplicate request.")
+    acquired = _data_load_lock.acquire(blocking=True, timeout=900)
+    if not acquired:
+        print("[ERROR] Timeout en attente du verrou de chargement des données.")
+        db_loading_status = "Chargement déjà en cours (timeout). Réessayez dans quelques instants."
         return
 
     try:
@@ -389,15 +439,25 @@ def load_all_data_to_memory():
         MEM_CLASSES = load_table_cached("CLASSE.DBF", encoding='cp1256')
         MEM_UNITES = load_table_cached("UNITE.DBF", encoding='cp1256')
         MEM_CAISSES = load_table_cached("CAISSE.DBF", encoding='cp1256')
+        MEM_ABINSTIT = load_table_cached("ABINSTIT.DBF", encoding='cp1256')
+        MEM_INSTIT = load_table_cached("INSTIT.DBF", encoding='cp1256')
 
         if len(MEM_ABONNES) == 0:
+            detail = diagnose_data_dir()
             db_loading_status = (
                 f"Aucune donnée chargée depuis {DATA_DIR}. "
-                "Vérifiez EPEOR_DATA_DIR et la présence des fichiers *.DBF."
+                f"{detail}"
             )
             print(f"[ERROR] {db_loading_status}")
+            if _load_retry_count < _MAX_LOAD_RETRIES:
+                _load_retry_count += 1
+                wait_s = 3 * _load_retry_count
+                print(f"[INFO] Nouvelle tentative de chargement ({_load_retry_count}/{_MAX_LOAD_RETRIES}) dans {wait_s}s...")
+                db_loading_status = f"Échec du chargement — nouvelle tentative dans {wait_s}s… ({detail})"
+                threading.Timer(wait_s, load_all_data_to_memory).start()
             return
 
+        _load_retry_count = 0
         print("[INFO] Building indexes and hash mappings...")
 
         abonnes_by_numab = {}
@@ -458,6 +518,16 @@ def load_all_data_to_memory():
             sc = str(r.get('S_CLASSE', '')).strip()
             classe_map[(c, sc)] = str(r.get('DESIGN', '')).strip()
 
+        instit_by_codinstit = {}
+        instit_by_unite_cod = {}
+        for r in MEM_INSTIT:
+            cod = str(r.get('CODINSTIT', '')).strip().upper()
+            unite = str(r.get('UNITE', '')).strip()
+            if cod:
+                instit_by_codinstit[cod] = r
+            if unite and cod:
+                instit_by_unite_cod[(unite, cod)] = r
+
         print(f"[INFO] Computing dashboard statistics...")
         cached_dashboard_stats = compute_dashboard_stats()
         is_db_ready = True
@@ -467,6 +537,16 @@ def load_all_data_to_memory():
             f"{len(MEM_FACTURES)} factures)"
         )
         threading.Thread(target=build_invoice_indexes, daemon=True).start()
+    except Exception as e:
+        db_loading_status = f"Erreur lors du chargement : {e}"
+        print(f"[ERROR] {db_loading_status}")
+        import traceback
+        traceback.print_exc()
+        if _load_retry_count < _MAX_LOAD_RETRIES:
+            _load_retry_count += 1
+            wait_s = 5 * _load_retry_count
+            db_loading_status = f"Erreur : {e} — nouvelle tentative dans {wait_s}s…"
+            threading.Timer(wait_s, load_all_data_to_memory).start()
     finally:
         _data_load_lock.release()
 
@@ -535,6 +615,68 @@ def resolve_etatcpt_label(etat_code: str) -> str:
     return raw
 
 
+EMPTY_DATE_VALUES = frozenset({'', '        ', '19000101', '00000000', None})
+
+
+def _creance_date_arrete() -> str:
+    """Date d'arrêté pour le calcul des créances en cours (aujourd'hui)."""
+    return datetime.now().strftime('%Y%m%d')
+
+
+def is_unpaid_creance(r, is_avoir: bool, date_arrete: str | None = None) -> bool:
+    """
+    Créance impayée à la date d'arrêté — même règles que get_creance / creance_detaillee.
+    Facture : saisie avant arrêté et non réglée (DATREG vide ou après arrêté).
+    Avoir : validé après l'arrêté (DATANUL > arrêté) et non réglé — les anciens avoirs
+    déjà validés (DATANUL passé) ne sont pas des créances ouvertes.
+    """
+    if date_arrete is None:
+        date_arrete = _creance_date_arrete()
+    datsaisie = str(r.get('DATSAISIE') or '').strip()
+    datreg = str(r.get('DATREG') or '').strip()
+    if not datsaisie or datsaisie > date_arrete:
+        return False
+    if not is_avoir:
+        return datreg in EMPTY_DATE_VALUES or datreg > date_arrete
+    datanul = str(r.get('DATANUL') or '').strip()
+    if not datanul or datanul <= date_arrete:
+        return False
+    return datreg in EMPTY_DATE_VALUES or datreg > date_arrete
+
+
+def creance_monttc_delta(r, is_avoir: bool) -> float:
+    """Contribution signée au solde créance (factures +, avoirs -)."""
+    monttc = float(r.get('MONTTC') or 0)
+    return -monttc if is_avoir else monttc
+
+
+def resolve_instit_record(codinstit: str, unite: str = ""):
+    """INSTIT.DBF row from CODINSTIT, with optional UNITE fallback."""
+    cod = str(codinstit or '').strip().upper()
+    if not cod:
+        return None
+    inst = instit_by_codinstit.get(cod)
+    if inst:
+        return inst
+    u = str(unite or '').strip()
+    if u:
+        return instit_by_unite_cod.get((u, cod))
+    return None
+
+
+def resolve_unite_label(unite_code: str) -> str:
+    """DENOM from UNITE.DBF."""
+    raw = str(unite_code or '').strip()
+    if not raw or raw == '—':
+        return '—'
+    u_rec = unites_by_code.get(raw) or unites_by_code.get(raw.lstrip('0'))
+    if u_rec:
+        denom = str(u_rec.get('DENOM', '')).strip()
+        if denom:
+            return denom
+    return raw
+
+
 def resolve_rue_adresse(abonne_rec) -> str:
     """Street name from RUE.DBF NOUVNOM via CODRUE."""
     if not abonne_rec:
@@ -556,22 +698,62 @@ def resolve_rue_adresse(abonne_rec) -> str:
 @app.get("/stats")
 def get_stats():
     if not is_db_ready or cached_dashboard_stats is None:
-        return {"status": "loading", "message": db_loading_status, "ready": False}
+        msg = db_loading_status or "Chargement en cours..."
+        is_error = (
+            "Aucune donnée chargée" in msg
+            or "introuvable" in msg.lower()
+            or msg.startswith("Erreur")
+        ) and _load_retry_count >= _MAX_LOAD_RETRIES
+        return {
+            "status": "error" if is_error else "loading",
+            "message": msg,
+            "ready": False,
+            "data_dir": DATA_DIR,
+            "can_reload": True,
+        }
     if len(MEM_ABONNES) == 0 or cached_dashboard_stats.get("total_subscribers", 0) == 0:
         return {
             "status": "error",
             "ready": False,
             "error": db_loading_status or f"Aucune donnée dans {DATA_DIR}. Redémarrez le backend.",
+            "message": db_loading_status,
             "data_dir": DATA_DIR,
+            "can_reload": True,
         }
-    return {**cached_dashboard_stats, "ready": True}
+    return {**cached_dashboard_stats, "ready": True, "data_dir": DATA_DIR}
+
+
+@app.get("/api/status")
+def get_api_status():
+    """Diagnostic rapide du backend et du dossier données."""
+    abonne_path = resolve_dbf_path("ABONNE.DBF")
+    return {
+        "data_dir": DATA_DIR,
+        "data_dir_exists": os.path.isdir(DATA_DIR),
+        "abonne_dbf": abonne_path,
+        "abonne_exists": os.path.isfile(abonne_path),
+        "abonne_size": os.path.getsize(abonne_path) if os.path.isfile(abonne_path) else 0,
+        "is_db_ready": is_db_ready,
+        "indexes_ready": indexes_ready,
+        "abonnes_loaded": len(MEM_ABONNES),
+        "factures_loaded": len(MEM_FACTURES),
+        "db_loading_status": db_loading_status,
+        "load_retries": _load_retry_count,
+        "diagnostic": diagnose_data_dir(),
+    }
 
 
 @app.post("/api/reload_data")
 def reload_data_endpoint():
     """Force un rechargement des données en mémoire."""
+    global is_db_ready, cached_dashboard_stats, indexes_ready, _load_retry_count, db_loading_status
+    is_db_ready = False
+    cached_dashboard_stats = None
+    indexes_ready = False
+    _load_retry_count = 0
+    db_loading_status = "Rechargement demandé..."
     threading.Thread(target=load_all_data_to_memory, daemon=True).start()
-    return {"status": "started", "message": "Rechargement des données en cours..."}
+    return {"status": "started", "message": "Rechargement des données en cours...", "data_dir": DATA_DIR}
 
 @app.get("/search")
 def search_subscribers(query: str = None, q: str = None):
@@ -1543,7 +1725,7 @@ def get_abonne_api(numab: str):
 @app.get("/creances_abonnes")
 def get_creances_abonnes():
     try:
-        EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
+        date_arrete = _creance_date_arrete()
         debtors = {}
         tournees_set = set()
 
@@ -1556,20 +1738,8 @@ def get_creances_abonnes():
             numab = str(r.get('NUMAB', '') or '').strip()
             if not numab: continue
 
-            datsaisie = str(r.get('DATSAISIE') or '').strip()
             datreg = str(r.get('DATREG') or '').strip()
-            monttc = float(r.get('MONTTC') or 0)
-
-            is_creance = False
-            if not is_avoir:
-                if datsaisie:
-                    if datreg in EMPTY_DATE_VALUES:
-                        is_creance = True
-            else:
-                datanul = str(r.get('DATANUL') or '').strip()
-                if datsaisie:
-                    if datanul and datreg in EMPTY_DATE_VALUES:
-                        is_creance = True
+            is_creance = is_unpaid_creance(r, is_avoir, date_arrete)
 
             if numab not in debtors:
                 numab_key = numab.strip().upper()
@@ -1613,10 +1783,11 @@ def get_creances_abonnes():
 
             if is_creance:
                 debtors[numab]["nombre_creance"] += 1
-                debtors[numab]["montant_creance"] += monttc
+                debtors[numab]["montant_creance"] += creance_monttc_delta(r, is_avoir)
 
         debtor_list = []
         for d in debtors.values():
+            d["montant_creance"] = round(d["montant_creance"], 2)
             if d["montant_creance"] >= 0.01:
                 ld = d["raw_last_payment"]
                 if ld and len(ld) == 8:
@@ -1625,7 +1796,6 @@ def get_creances_abonnes():
                     d["derniere_date_paiement"] = "Aucun"
                     d["raw_last_payment"] = None
 
-                d["montant_creance"] = round(d["montant_creance"], 2)
                 debtor_list.append(d)
 
         debtor_list.sort(key=lambda x: x["montant_creance"], reverse=True)
@@ -1636,6 +1806,148 @@ def get_creances_abonnes():
 
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.get("/creances_institutions")
+def get_creances_institutions(only_with_creance: bool = True):
+    """
+    Créances liées aux institutions (ABINSTIT.DBF + INSTIT.DBF),
+    enrichies via ABONNE, ABONMENT, RUE, TABCODE et factures impayées.
+    """
+    if not is_db_ready:
+        return {"status": "loading", "message": db_loading_status, "ready": False}
+    try:
+        date_arrete = _creance_date_arrete()
+
+        abinstit_numabs = set()
+        for link in MEM_ABINSTIT:
+            numab = str(link.get('NUMAB', '') or '').strip().upper()
+            if numab:
+                abinstit_numabs.add(numab)
+
+        debtors = {}
+        records = itertools.chain(
+            ((r, False) for r in MEM_FACTURES),
+            ((r, True) for r in MEM_AVOIRS)
+        )
+
+        for r, is_avoir in records:
+            numab = str(r.get('NUMAB', '') or '').strip()
+            if not numab:
+                continue
+            numab_key = numab.upper()
+            if numab_key not in abinstit_numabs:
+                continue
+
+            datreg = str(r.get('DATREG') or '').strip()
+            is_creance = is_unpaid_creance(r, is_avoir, date_arrete)
+
+            if numab_key not in debtors:
+                debtors[numab_key] = {
+                    "raw_last_payment": None,
+                    "derniere_date_paiement": "Aucun",
+                    "nombre_creance": 0,
+                    "montant_creance": 0.0,
+                }
+
+            if datreg and datreg not in EMPTY_DATE_VALUES:
+                cur_last = debtors[numab_key]["raw_last_payment"]
+                if not cur_last or datreg > cur_last:
+                    debtors[numab_key]["raw_last_payment"] = datreg
+
+            if is_creance:
+                debtors[numab_key]["nombre_creance"] += 1
+                debtors[numab_key]["montant_creance"] += creance_monttc_delta(r, is_avoir)
+
+        rows = []
+        for link in MEM_ABINSTIT:
+            numab = str(link.get('NUMAB', '') or '').strip()
+            if not numab:
+                continue
+            numab_key = numab.upper()
+
+            codinstit = str(link.get('CODINSTIT', '') or '').strip()
+            unite_link = str(link.get('UNITE', '') or '').strip()
+            raisoc_link = str(link.get('RAISOC', '') or '').strip()
+            agent = str(link.get('AGENT', '') or '').strip() or '—'
+
+            inst_rec = resolve_instit_record(codinstit, unite_link)
+            lib_instit = str(inst_rec.get('LIBINSTIT', '') if inst_rec else '').strip() or '—'
+            adr_instit = str(inst_rec.get('ADR1', '') if inst_rec else '').strip()
+            if inst_rec and str(inst_rec.get('ADR2', '')).strip():
+                adr_instit = (adr_instit + ' — ' + str(inst_rec.get('ADR2', '')).strip()).strip(' —')
+
+            abonne_rec = abonnes_by_numab.get(numab_key)
+            abonment_rec = abonments_by_numab.get(numab_key)
+
+            if raisoc_link:
+                name = raisoc_link
+            elif abonne_rec:
+                name = str(abonne_rec.get('RAISOC', '') or abonne_rec.get('NOM', '') or '').strip()
+            else:
+                name = '—'
+            if not name:
+                name = '—'
+
+            raw_typabon = str(abonne_rec.get('TYPABON', '') if abonne_rec else '').strip()
+            bloc = str(abonne_rec.get('BLOC', '') if abonne_rec else '').strip() or '—'
+            ndom = str(abonne_rec.get('NDOM', '') if abonne_rec else '').strip() or '—'
+            tournee = str(abonne_rec.get('TOURNEE', '') if abonne_rec else '').strip() or '—'
+
+            numser = str(abonment_rec.get('NUMSER', '') if abonment_rec else '').strip() or '—'
+            raw_etat = str(abonment_rec.get('ETATCPT', '') if abonment_rec else '').strip()
+
+            debt = debtors.get(numab_key, {
+                "raw_last_payment": None,
+                "nombre_creance": 0,
+                "montant_creance": 0.0,
+            })
+            montant = round(float(debt.get("montant_creance") or 0), 2)
+            nb_creance = int(debt.get("nombre_creance") or 0)
+            if only_with_creance and (montant < 0.01 or nb_creance < 1):
+                continue
+
+            ld = debt.get("raw_last_payment")
+            if ld and len(ld) == 8:
+                derniere_date_paiement = f"{ld[6:8]}/{ld[4:6]}/{ld[:4]}"
+            else:
+                derniere_date_paiement = "Aucun"
+
+            unite_code = unite_link or (str(inst_rec.get('UNITE', '')).strip() if inst_rec else '')
+            rows.append({
+                "codinstit": codinstit or '—',
+                "lib_instit": lib_instit,
+                "adr_instit": adr_instit or '—',
+                "numab": numab,
+                "raisoc": name,
+                "adresse": resolve_rue_adresse(abonne_rec),
+                "bloc": bloc,
+                "ndom": ndom,
+                "type_abon": resolve_typabon_label(raw_typabon),
+                "etat_cpt": resolve_etatcpt_label(raw_etat),
+                "numser": numser,
+                "tournee": tournee,
+                "agent": agent,
+                "unite": resolve_unite_label(unite_code),
+                "unite_code": unite_code or '—',
+                "nombre_creance": nb_creance,
+                "montant_creance": montant,
+                "derniere_date_paiement": derniere_date_paiement,
+                "raw_last_payment": ld if ld and len(ld) == 8 else None,
+            })
+
+        rows.sort(key=lambda x: (-x["montant_creance"], x["lib_instit"], x["numab"]))
+
+        return {
+            "rows": rows,
+            "total_links": len(MEM_ABINSTIT),
+            "institutions_count": len(MEM_INSTIT),
+            "with_creance_count": len(rows) if only_with_creance else sum(1 for r in rows if r["montant_creance"] >= 0.01),
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
 
 @app.get("/creance_subscribers")
 def get_creance_subscribers(start_date: str = None, end_date: str = None, target_name: str = None, column: str = None):

@@ -4585,12 +4585,6 @@ function CreancesAbonnesView({ onBack }: any) {
       ? `${DAY_OP_OPTIONS.find(o => o.value === dernierPaiementOp)?.label ?? dernierPaiementOp} · ${dernierPaiementDays} jours`
       : 'Non défini (toutes anciennetés)';
 
-    const formatDaysSinceLabel = (raw: string | null) => {
-      const d = daysSince(raw);
-      if (d === null) return 'Jamais';
-      return `${d} j`;
-    };
-
     const montantFmt = (n: number) =>
       new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         .format(n)
@@ -4611,9 +4605,9 @@ function CreancesAbonnesView({ onBack }: any) {
           <td>${escapeHtml(s.numser)}</td>
           <td class="tournee-badge">${escapeHtml(s.tournee)}</td>
           <td>${escapeHtml(s.derniere_date_paiement)}</td>
-          <td style="text-align:center;font-weight:700;">${escapeHtml(formatDaysSinceLabel(s.raw_last_payment))}</td>
           <td style="text-align:center;font-weight:700;">${s.nombre_creance ?? 0}</td>
           <td style="text-align:right;font-weight:700;color:#E11D48;">${montantFmt(s.montant_creance || 0)}</td>
+          <td class="observation-cell"></td>
         </tr>`
       )
       .join('');
@@ -4689,6 +4683,11 @@ function CreancesAbonnesView({ onBack }: any) {
             }
             .font-bold-black { font-weight: 700; color: #101828; }
             .tournee-badge { font-weight: 700; color: #2563EB; }
+            .observation-cell {
+              min-width: 90px;
+              min-height: 1.4em;
+              background-color: #fff;
+            }
             tfoot td {
               background-color: #0F172A;
               color: #fff;
@@ -4742,17 +4741,18 @@ function CreancesAbonnesView({ onBack }: any) {
                 <th>N° Série</th>
                 <th>Tournée</th>
                 <th>Dernier Paiement</th>
-                <th style="text-align:center">Nb jours</th>
                 <th style="text-align:center">Factures</th>
                 <th style="text-align:right">Montant ciblé</th>
+                <th>Observation</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
             <tfoot>
               <tr>
-                <td colspan="12" style="text-transform:uppercase;letter-spacing:0.05em;">TOTAL GÉNÉRAL — ${tableTotals.count} abonné${tableTotals.count !== 1 ? 's' : ''}</td>
+                <td colspan="11" style="text-transform:uppercase;letter-spacing:0.05em;">TOTAL GÉNÉRAL — ${tableTotals.count} abonné${tableTotals.count !== 1 ? 's' : ''}</td>
                 <td style="text-align:center;">${tableTotals.factures.toLocaleString('fr-FR')}</td>
                 <td style="text-align:right;color:#FCA5A5;">${montantFmt(tableTotals.montant)}</td>
+                <td class="observation-cell"></td>
               </tr>
             </tfoot>
           </table>

@@ -1,1 +1,0 @@
-Placez le fichier ade.png dans ce dossier (public/ade.png) pour les exports PDF et l'impression.

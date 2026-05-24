@@ -1,0 +1,10 @@
+# Environnement local (hors epeor-analytics)
+.venv/
+venv/
+
+# Outils IDE / agents (config locale)
+.continue/
+.claude/
+
+# Scripts de debug ponctuels
+scratch/

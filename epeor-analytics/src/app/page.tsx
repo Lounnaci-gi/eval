@@ -113,12 +113,16 @@ export default function Dashboard() {
           return res.json();
         })
         .then((data) => {
-          setStats(data);
-          if (data && data.status === 'loading') {
+          if (data?.error) {
+            setStats({ error: data.error, ready: false });
+          } else {
+            setStats(data);
+          }
+          if (data && (data.status === 'loading' || data.ready === false)) {
             if (!intervalId) {
               intervalId = setInterval(checkStats, 2000);
             }
-          } else {
+          } else if (data?.ready !== false && !data?.error) {
             if (intervalId) {
               clearInterval(intervalId);
               intervalId = null;
@@ -138,17 +142,6 @@ export default function Dashboard() {
 
     return () => {
       if (intervalId) clearInterval(intervalId);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleUnload = () => {
-      // Clear backend database pickle caches dynamically when the user closes the site tab/window
-      navigator.sendBeacon("http://127.0.0.1:8000/api/clear_cache");
-    };
-    window.addEventListener("beforeunload", handleUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleUnload);
     };
   }, []);
 
@@ -200,7 +193,20 @@ export default function Dashboard() {
   const targetSubs = (stats?.stopped_subscribers || 0) + (stats?.no_meter_subscribers || 0);
   const pctCpt2030 = totalSubs > 0 ? (targetSubs / totalSubs) * 100 : 0;
 
-  if (!stats || stats.status === 'loading') {
+  if (stats?.error) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
+        <div className="bg-white border border-rose-100 shadow-2xl rounded-[3rem] p-16 flex flex-col items-center gap-6 max-w-md w-full text-center">
+          <Ban size={48} className="text-rose-500" />
+          <h1 className="text-2xl font-black text-[#101828]">Connexion impossible</h1>
+          <p className="text-sm text-[#475467] font-medium">{stats.error}</p>
+          <p className="text-xs text-[#98A2B3]">Démarrez le backend : port 8000 (voir start.bat ou README)</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats || stats.status === 'loading' || stats.ready === false) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
         <div className="bg-white border border-[#E4E7EC] shadow-2xl rounded-[3rem] p-16 flex flex-col items-center gap-8 max-w-md w-full text-center">
@@ -365,17 +371,6 @@ export default function Dashboard() {
         </header>
 
         {/* Main Content */}
-        {stats?.error && (
-          <div className="mb-8 p-6 bg-rose-50 border border-rose-100 rounded-3xl flex items-center gap-4 text-rose-600 animate-pulse">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-              <Ban size={24} />
-            </div>
-            <div>
-              <p className="font-black uppercase text-xs tracking-widest mb-1">Erreur de Connexion</p>
-              <p className="font-bold text-sm">{stats.error}</p>
-            </div>
-          </div>
-        )}
         {currentView === 'dashboard' ? (
           <div className="space-y-10">
             {/* KPI Cards */}
@@ -4213,14 +4208,13 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
 function CreancesAbonnesView({ onBack }: any) {
   // ─── Raw data from API ───────────────────────────────────────────
   const [allSubscribers, setAllSubscribers] = useState<any[]>([]);
-  const [availableTournees, setAvailableTournees] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ─── Filter state ────────────────────────────────────────────────
-  const [selectedTournees, setSelectedTournees] = useState<string[]>([]);
-  const [tourneeSearch, setTourneeSearch] = useState('');
+  const [customTournees, setCustomTournees] = useState<string[]>([]);
+  const [newTourneeInput, setNewTourneeInput] = useState('');
   const [montantOp, setMontantOp] = useState<'>='|'='|'<='>('>=');
   const [montantVal, setMontantVal] = useState('');
   const [nbCreanceOp, setNbCreanceOp] = useState<'>='|'='|'<='>('>=');
@@ -4249,7 +4243,6 @@ function CreancesAbonnesView({ onBack }: any) {
         setError(data.error);
       } else {
         setAllSubscribers(data.subscribers || []);
-        setAvailableTournees(data.tournees || []);
         setDataLoaded(true);
       }
     } catch {
@@ -4280,8 +4273,8 @@ function CreancesAbonnesView({ onBack }: any) {
     let filtered = [...allSubscribers];
 
     // 1. Tournées filter
-    if (selectedTournees.length > 0) {
-      filtered = filtered.filter(s => selectedTournees.includes(s.tournee));
+    if (customTournees.length > 0) {
+      filtered = filtered.filter(s => customTournees.includes(s.tournee));
     }
 
     // 2. Montant filter
@@ -4330,7 +4323,8 @@ function CreancesAbonnesView({ onBack }: any) {
   };
 
   const resetFilters = () => {
-    setSelectedTournees([]);
+    setCustomTournees([]);
+    setNewTourneeInput('');
     setMontantOp('>='); setMontantVal('');
     setNbCreanceOp('>='); setNbCreanceVal('');
     setDernierPaiementOp('>'); setDernierPaiementDays('');
@@ -4339,15 +4333,33 @@ function CreancesAbonnesView({ onBack }: any) {
     setPage(1);
   };
 
-  const toggleTournee = (t: string) => {
-    setSelectedTournees(prev =>
-      prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
-    );
+  const addTournee = () => {
+    const trimmed = newTourneeInput.trim().toUpperCase();
+    if (!trimmed) return;
+    
+    // Extract only digits from the input
+    const digits = trimmed.replace(/\D/g, '');
+    
+    // Validate: must have 1-3 digits
+    if (!digits || digits.length > 3) {
+      alert('Veuillez entrer un nombre entre 0 et 999');
+      return;
+    }
+    
+    // Format as xxx (e.g., 002, 015, 123)
+    const formatted = digits.padStart(3, '0');
+    
+    if (!customTournees.includes(formatted)) {
+      setCustomTournees(prev => [...prev, formatted]);
+      setNewTourneeInput('');
+    } else {
+      alert(`${formatted} est déjà ajoutée`);
+    }
   };
 
-  const displayedTournees = availableTournees.filter(t =>
-    !tourneeSearch || t.toLowerCase().includes(tourneeSearch.toLowerCase())
-  );
+  const removeTournee = (t: string) => {
+    setCustomTournees(prev => prev.filter(x => x !== t));
+  };
 
   // Post-filter text search
   const filtered = (results ?? []).filter(s =>
@@ -4360,8 +4372,21 @@ function CreancesAbonnesView({ onBack }: any) {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const exportCSV = () => {
-    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Tournée', 'Dernière Date de Paiement', 'Nombre de Créances', 'Montant Créance (DA)'];
-    const rows = filtered.map((s: any) => [s.numab, s.name, s.tournee, s.derniere_date_paiement, s.nombre_creance, s.montant_creance]);
+    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Type Abonné', 'État Cpt', 'Adresse (Code Rue)', 'Bloc', 'N° Dom', 'N° Série Compteur', 'Tournée', 'Dernière Date de Paiement', 'Nombre de Créances', 'Montant Créance (DA)'];
+    const rows = filtered.map((s: any) => [
+      s.numab,
+      s.name,
+      s.type_abon || '—',
+      s.etat_cpt || '—',
+      s.adresse || '—',
+      s.bloc || '—',
+      s.ndom || '—',
+      s.numser || '—',
+      s.tournee,
+      s.derniere_date_paiement,
+      s.nombre_creance,
+      s.montant_creance
+    ]);
     const csv = [header, ...rows].map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -4443,51 +4468,40 @@ function CreancesAbonnesView({ onBack }: any) {
                 <label className={labelCls}>
                   <span className="inline-flex items-center gap-1.5">
                     <span className="w-4 h-4 bg-blue-100 rounded-md flex items-center justify-center text-blue-600 text-[9px] font-black">1</span>
-                    Tournée(s) — Sélectionnez une ou plusieurs tournées
+                    Tournée(s) — Ajoutez les tournées pour votre recherche
                   </span>
                 </label>
-                <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden">
-                  {/* search inside tournees */}
-                  <div className="relative border-b border-[#F2F4F7] bg-[#F9FAFB]">
-                    <Search size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
+                <div className="space-y-3">
+                  <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="Filtrer les tournées..."
-                      value={tourneeSearch}
-                      onChange={e => setTourneeSearch(e.target.value)}
-                      className="w-full pl-8 pr-4 py-2.5 bg-transparent text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none"
+                      placeholder="ex: 1, 15, 2 → sera 001, 015, 002"
+                      value={newTourneeInput}
+                      onChange={e => setNewTourneeInput(e.target.value)}
+                      onKeyPress={e => e.key === 'Enter' && addTournee()}
+                      className={inputCls}
                     />
+                    <button
+                      onClick={addTournee}
+                      disabled={!newTourneeInput.trim()}
+                      className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      Ajouter
+                    </button>
                   </div>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 p-4 max-h-44 overflow-y-auto">
-                    {displayedTournees.length === 0 ? (
-                      <p className="col-span-full text-xs text-[#98A2B3] font-medium text-center py-4">Aucune tournée disponible</p>
-                    ) : (
-                      displayedTournees.map(t => (
-                        <button
-                          key={t}
-                          onClick={() => toggleTournee(t)}
-                          className={`px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 border ${
-                            selectedTournees.includes(t)
-                              ? 'bg-violet-600 text-white border-violet-700 shadow-sm shadow-violet-600/20'
-                              : 'bg-[#F9FAFB] text-[#475467] border-[#E4E7EC] hover:border-violet-300 hover:text-violet-600'
-                          }`}
-                        >
+                  {customTournees.length > 0 ? (
+                    <div className="flex items-center gap-2 flex-wrap p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Tournées :</span>
+                      {customTournees.map(t => (
+                        <span key={t} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 rounded-lg text-[11px] font-black border border-blue-200 shadow-sm">
                           {t}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                  {selectedTournees.length > 0 && (
-                    <div className="px-4 pb-3 flex items-center gap-2 flex-wrap border-t border-[#F2F4F7] pt-3">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[#667085]">Sélectionnées :</span>
-                      {selectedTournees.map(t => (
-                        <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-700 rounded-lg text-[11px] font-black border border-violet-200">
-                          {t}
-                          <button onClick={() => toggleTournee(t)} className="text-violet-400 hover:text-violet-700 ml-0.5">×</button>
+                          <button onClick={() => removeTournee(t)} className="text-blue-400 hover:text-blue-700 font-bold">×</button>
                         </span>
                       ))}
-                      <button onClick={() => setSelectedTournees([])} className="text-[10px] text-rose-500 font-bold hover:text-rose-700 ml-1">Tout effacer</button>
+                      <button onClick={() => setCustomTournees([])} className="text-[10px] text-rose-500 font-bold hover:text-rose-700 ml-auto">Tout effacer</button>
                     </div>
+                  ) : (
+                    <p className="text-xs text-[#98A2B3] font-medium px-4 py-3 bg-[#F9FAFB] rounded-xl border border-[#E4E7EC]">Aucune tournée. Laisser vide cherchera dans toutes les tournées.</p>
                   )}
                 </div>
               </div>
@@ -4672,6 +4686,12 @@ function CreancesAbonnesView({ onBack }: any) {
                     <th className="px-8 py-5 w-12">#</th>
                     <th className="px-6 py-5">Code Abonné</th>
                     <th className="px-6 py-5">Nom / Raison Sociale</th>
+                    <th className="px-6 py-5 text-center">Type Abonné</th>
+                    <th className="px-6 py-5 text-center">État Cpt</th>
+                    <th className="px-6 py-5 text-center">Adresse</th>
+                    <th className="px-6 py-5 text-center">Bloc</th>
+                    <th className="px-6 py-5 text-center">N° Dom</th>
+                    <th className="px-6 py-5 text-center">N° Série Compteur</th>
                     <th className="px-6 py-5 text-center">Tournée</th>
                     <th className="px-6 py-5 text-center">Dernier Paiement</th>
                     <th className="px-6 py-5 text-center">Factures Impayées</th>
@@ -4689,6 +4709,12 @@ function CreancesAbonnesView({ onBack }: any) {
                           <span className="font-mono text-xs font-black text-[#101828] bg-[#F9FAFB] px-2.5 py-1 rounded-lg border border-[#E4E7EC]">{s.numab}</span>
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-[#101828]">{s.name}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.type_abon}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.etat_cpt}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.adresse}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.bloc}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.ndom}</td>
+                        <td className="px-6 py-4 text-center text-xs font-mono font-bold text-[#101828]">{s.numser}</td>
                         <td className="px-6 py-4 text-center">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black border bg-blue-50 text-blue-600 border-blue-100">{s.tournee}</span>
                         </td>

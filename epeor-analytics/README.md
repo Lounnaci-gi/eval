@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EPEOR Analytics
 
-## Getting Started
+Tableau de bord d'analyse pour les données EPEOR (fichiers DBF). Stack : **Next.js** (frontend, port 3000) + **FastAPI** (backend, port 8000).
 
-First, run the development server:
+## Prérequis
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 20+
+- Python 3.11+ avec venv à la racine du dépôt : `d:\eval\.venv`
+- Dossier de données EPEOR (fichiers `*.DBF`), par défaut `d:\epeor`
+- Logo optionnel : placer `ade.png` dans `public/` pour les exports PDF
+
+## Installation
+
+```powershell
+# Racine du dépôt (d:\eval)
+python -m venv .venv
+.\.venv\Scripts\pip install -r epeor-analytics\requirements.txt
+
+cd epeor-analytics
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Démarrage rapide (Windows)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Double-cliquer sur `start.bat` ou :
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```powershell
+cd d:\eval\epeor-analytics
+.\start.bat
+```
 
-## Learn More
+Le script lance le backend puis le frontend et ouvre http://localhost:3000.
 
-To learn more about Next.js, take a look at the following resources:
+## Démarrage manuel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Terminal 1 — backend**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```powershell
+cd d:\eval\epeor-analytics\backend
+$env:EPEOR_DATA_DIR = "d:\epeor"   # optionnel si chemin par défaut OK
+d:\eval\.venv\Scripts\uvicorn.exe main:app --host 127.0.0.1 --port 8000
+```
 
-## Deploy on Vercel
+Ou : `d:\eval\.venv\Scripts\python.exe main.py`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Terminal 2 — frontend**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```powershell
+cd d:\eval\epeor-analytics
+npm run dev
+```
+
+## Configuration
+
+| Variable | Description | Défaut |
+|----------|-------------|--------|
+| `EPEOR_DATA_DIR` | Dossier des fichiers DBF | `d:\epeor` |
+
+Voir `epeor.env.example`. Le cache binaire (pickle) est créé dans `backend/cache/` au premier chargement ; le premier démarrage peut être long.
+
+## Commandes utiles
+
+```powershell
+npm run lint      # ESLint
+npm run build     # Build production Next.js
+npx tsc --noEmit  # Vérification TypeScript
+```
+
+## Structure
+
+```
+epeor-analytics/
+  backend/main.py    # API FastAPI
+  backend/cache/     # Cache .pkl (ignoré par git)
+  src/app/page.tsx   # Interface principale
+  public/ade.png     # Logo PDF (à fournir)
+  start.bat          # Lancement Windows
+```

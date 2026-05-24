@@ -17,7 +17,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATA_DIR = r"d:\epeor"
+DATA_DIR = os.environ.get("EPEOR_DATA_DIR", r"d:\epeor")
+if not os.path.isdir(DATA_DIR):
+    print(f"[WARNING] EPEOR data directory not found: {DATA_DIR}")
+    print("          Set EPEOR_DATA_DIR to the folder containing *.DBF files.")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(BASE_DIR, "cache")
 if not os.path.exists(CACHE_DIR):
@@ -39,7 +42,9 @@ def load_dbf(filename, load_all=False):
         return None
 
 is_db_ready = False
+indexes_ready = False
 db_loading_status = "Initialisation du serveur backend..."
+cached_dashboard_stats = None
 
 # Global caches of all database files
 MEM_ABONNES = []
@@ -93,8 +98,11 @@ def load_table_cached(filename, encoding='cp1256'):
                         data = pickle.load(f)
                 finally:
                     gc.enable()
-                print(f"[CACHE] Loaded {filename} in {time.time()-t0:.2f}s ({len(data)} records)")
-                return data
+                if len(data) == 0:
+                    print(f"[CACHE] Cache vide pour {filename}, reconstruction...")
+                else:
+                    print(f"[CACHE] Loaded {filename} in {time.time()-t0:.2f}s ({len(data)} records)")
+                    return data
             except Exception as e:
                 print(f"Error reading cache for {filename}: {e}. Rebuilding...")
     
@@ -120,6 +128,234 @@ def load_table_cached(filename, encoding='cp1256'):
         print(f"Error loading {filename} from DBF: {e}")
         return []
 
+def build_invoice_indexes():
+    """Builds per-subscriber invoice indexes (slow; runs after dashboard is ready)."""
+    global factures_by_numab, avoirs_by_numab, indexes_ready, db_loading_status
+
+    db_loading_status = "Indexation des factures par abonné..."
+    print("[INFO] Building invoice indexes...")
+    t0 = time.time()
+
+    factures_by_numab = {}
+    for r in MEM_FACTURES:
+        numab = str(r.get('NUMAB', '')).strip().upper()
+        if numab:
+            if numab not in factures_by_numab:
+                factures_by_numab[numab] = []
+            factures_by_numab[numab].append(r)
+
+    for numab in factures_by_numab:
+        factures_by_numab[numab].sort(key=lambda x: str(x.get('DATFACT', '')).strip(), reverse=True)
+
+    avoirs_by_numab = {}
+    for r in MEM_AVOIRS:
+        numab = str(r.get('NUMAB', '')).strip().upper()
+        if numab:
+            if numab not in avoirs_by_numab:
+                avoirs_by_numab[numab] = []
+            avoirs_by_numab[numab].append(r)
+
+    for numab in avoirs_by_numab:
+        avoirs_by_numab[numab].sort(key=lambda x: str(x.get('DATFACT', '')).strip(), reverse=True)
+
+    indexes_ready = True
+    db_loading_status = "Prêt"
+    print(f"[SUCCESS] Invoice indexes ready in {time.time()-t0:.2f}s")
+
+
+def compute_dashboard_stats():
+    """Precomputes dashboard KPIs (called once when core tables are loaded)."""
+    mapping = {}
+    for code_affec, r in tabcodes_by_code.items():
+        if code_affec.startswith('T'):
+            mapping[code_affec[1:]] = r.get('LIBELLE', '')
+
+    stats = {
+        "total_subscribers": 0,
+        "resigned_subscribers": 0,
+        "stopped_subscribers": 0,
+        "no_meter_subscribers": 0,
+        "total_revenue": 0,
+        "recovery_rate": 0,
+        "recent_invoices_count": 0,
+        "subscriber_types": []
+    }
+
+    abonment_state_map = {}
+    resigned = stopped = no_meter = 0
+    for record in MEM_ABONMENTS:
+        etat = str(record.get('ETATCPT', '')).strip()
+        numab = str(record.get('NUMAB', '')).strip()
+        abonment_state_map[numab] = etat
+        if etat == '40':
+            resigned += 1
+        elif etat == '20':
+            stopped += 1
+        elif etat == '30':
+            no_meter += 1
+
+    stats["resigned_subscribers"] = resigned
+    stats["stopped_subscribers"] = stopped
+    stats["no_meter_subscribers"] = no_meter
+
+    type_counts = {}
+    commune_counts = {}
+
+    commune_map = {}
+    for codcom, r in communes_by_code.items():
+        if str(r.get('SECTEUR', '')).strip().zfill(2) == '02':
+            commune_map[codcom] = r.get('LIBCOM', '')
+
+    for record in MEM_ABONNES:
+        t = str(record.get('TYPABON', '')).strip()
+        if t == '':
+            continue
+
+        stats["total_subscribers"] += 1
+        if t not in type_counts:
+            type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
+        type_counts[t]["total"] += 1
+
+        numab = str(record.get('NUMAB', '')).strip()
+        prefix = numab[:2]
+        codcom = quartier_to_commune.get(prefix, '02')
+
+        if codcom not in commune_counts:
+            commune_counts[codcom] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}}
+        commune_counts[codcom]["total"] += 1
+
+        state = abonment_state_map.get(numab)
+        is_resigned = (state == '40')
+        is_stopped = (state == '20')
+        is_no_meter = (state == '30')
+
+        if is_resigned:
+            commune_counts[codcom]["resigned"] += 1
+            type_counts[t]["resigned"] += 1
+        if is_stopped:
+            commune_counts[codcom]["stopped"] += 1
+            type_counts[t]["stopped"] += 1
+        if is_no_meter:
+            commune_counts[codcom]["no_meter"] += 1
+            type_counts[t]["no_meter"] += 1
+
+        if prefix not in commune_counts[codcom]["quartiers"]:
+            commune_counts[codcom]["quartiers"][prefix] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
+        commune_counts[codcom]["quartiers"][prefix]["total"] += 1
+        if is_resigned:
+            commune_counts[codcom]["quartiers"][prefix]["resigned"] += 1
+        if is_stopped:
+            commune_counts[codcom]["quartiers"][prefix]["stopped"] += 1
+        if is_no_meter:
+            commune_counts[codcom]["quartiers"][prefix]["no_meter"] += 1
+
+    total = stats["total_subscribers"]
+
+    for t_code, counts in type_counts.items():
+        if counts["total"] < 10:
+            continue
+        label = mapping.get(t_code, f"Autre ({t_code})" if t_code else "Inconnu")
+        stats["subscriber_types"].append({
+            "name": label,
+            "value": counts["total"],
+            "resigned": counts["resigned"],
+            "stopped": counts["stopped"],
+            "no_meter": counts["no_meter"],
+            "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0
+        })
+    stats["subscriber_types"].sort(key=lambda x: x['value'], reverse=True)
+
+    stats["subscriber_communes"] = []
+    for codcom, label in commune_map.items():
+        counts = commune_counts.get(codcom, {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}})
+        formatted_quartiers = []
+        for q_id, q_counts in counts.get("quartiers", {}).items():
+            q_label = quartier_names.get(q_id, f"Quartier {q_id}")
+            formatted_quartiers.append({
+                "id": q_id,
+                "name": q_label,
+                "value": q_counts["total"],
+                "resigned": q_counts["resigned"],
+                "stopped": q_counts["stopped"],
+                "no_meter": q_counts["no_meter"],
+                "percentage": round((q_counts["total"] / counts["total"]) * 100, 2) if counts["total"] > 0 else 0
+            })
+        formatted_quartiers.sort(key=lambda x: x['value'], reverse=True)
+        stats["subscriber_communes"].append({
+            "id": codcom,
+            "name": label,
+            "value": counts["total"],
+            "resigned": counts["resigned"],
+            "stopped": counts["stopped"],
+            "no_meter": counts["no_meter"],
+            "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0,
+            "quartiers": formatted_quartiers
+        })
+    stats["subscriber_communes"].sort(key=lambda x: x['value'], reverse=True)
+
+    months = {
+        "01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril",
+        "05": "Mai", "06": "Juin", "07": "Juillet", "08": "Août",
+        "09": "Septembre", "10": "Octobre", "11": "Novembre", "12": "Décembre"
+    }
+
+    def format_period(period_str):
+        if not period_str or len(period_str) < 6:
+            return "Période en cours"
+        year = period_str[:4]
+        month = period_str[4:6]
+        return f"{months.get(month, month)} {year}"
+
+    latest_period = ''
+    total_rev = 0
+    count = 0
+    paid_count = 0
+
+    for r in MEM_FACTURES:
+        tp = str(r.get('TYPE') or '').strip()
+        monttc = float(r.get('MONTTC') or 0)
+        df = str(r.get('DATFACT') or '').strip()
+        count += 1
+        if r.get('DATREG'):
+            paid_count += 1
+        if len(df) >= 6:
+            p = df[:6]
+            if p > latest_period:
+                latest_period = p
+
+    for r in MEM_AVOIRS:
+        tp = str(r.get('TYPE') or '').strip()
+        monttc = float(r.get('MONTTC') or 0)
+        df = str(r.get('DATFACT') or '').strip()
+        count += 1
+        if r.get('DATREG'):
+            paid_count += 1
+        if len(df) >= 6:
+            p = df[:6]
+            if p > latest_period:
+                latest_period = p
+
+    for r in MEM_FACTURES:
+        tp = str(r.get('TYPE') or '').strip()
+        monttc = float(r.get('MONTTC') or 0)
+        df = str(r.get('DATFACT') or '').strip()
+        if latest_period and df.startswith(latest_period) and tp in ['E', 'C', '6']:
+            total_rev += monttc
+
+    for r in MEM_AVOIRS:
+        tp = str(r.get('TYPE') or '').strip()
+        monttc = float(r.get('MONTTC') or 0)
+        df = str(r.get('DATFACT') or '').strip()
+        if latest_period and df.startswith(latest_period) and tp in ['E', 'C', '6']:
+            total_rev += monttc
+
+    stats["total_revenue"] = round(total_rev, 2)
+    stats["revenue_period"] = format_period(latest_period) if latest_period else "Période en cours"
+    stats["recent_invoices_count"] = count
+    stats["recovery_rate"] = round((paid_count / count) * 100, 2) if count > 0 else 0
+    return stats
+
+
 def load_all_data_to_memory():
     """Initializes and builds O(1) in-memory indexes on startup"""
     global MEM_ABONNES, MEM_FACTURES, MEM_AVOIRS, MEM_ABONMENTS, MEM_TABCODES
@@ -127,9 +363,11 @@ def load_all_data_to_memory():
     global abonnes_by_numab, rues_by_codrue, tabcodes_by_code, abonments_by_numab
     global factures_by_numab, avoirs_by_numab, unites_by_code, caisses_by_code
     global communes_by_code, quartier_to_commune, quartier_names, classe_map
-    global is_db_ready, db_loading_status
+    global is_db_ready, indexes_ready, db_loading_status, cached_dashboard_stats
 
     is_db_ready = False
+    indexes_ready = False
+    cached_dashboard_stats = None
     db_loading_status = "Initialisation de la base de données..."
     print("[INFO] Initializing EPEOR in-memory database cache...")
     t_start = time.time()
@@ -177,31 +415,8 @@ def load_all_data_to_memory():
         if numab:
             abonments_by_numab[numab] = r
             
-    # 5. Invoices Map (NUMAB -> Facture records list)
-    factures_by_numab = {}
-    for r in MEM_FACTURES:
-        numab = str(r.get('NUMAB', '')).strip().upper()
-        if numab:
-            if numab not in factures_by_numab:
-                factures_by_numab[numab] = []
-            factures_by_numab[numab].append(r)
-            
-    # Sort invoices for each subscriber by DATFACT descending
-    for numab in factures_by_numab:
-        factures_by_numab[numab].sort(key=lambda x: str(x.get('DATFACT', '')).strip(), reverse=True)
-        
-    # 6. Avoirs Map
-    avoirs_by_numab = {}
-    for r in MEM_AVOIRS:
-        numab = str(r.get('NUMAB', '')).strip().upper()
-        if numab:
-            if numab not in avoirs_by_numab:
-                avoirs_by_numab[numab] = []
-            avoirs_by_numab[numab].append(r)
-            
-    for numab in avoirs_by_numab:
-        avoirs_by_numab[numab].sort(key=lambda x: str(x.get('DATFACT', '')).strip(), reverse=True)
-        
+    # 5–6. Invoice indexes built in background (see build_invoice_indexes)
+
     # 7. Unites Map
     unites_by_code = {}
     for r in MEM_UNITES:
@@ -240,9 +455,11 @@ def load_all_data_to_memory():
         sc = str(r.get('S_CLASSE', '')).strip()
         classe_map[(c, sc)] = str(r.get('DESIGN', '')).strip()
 
-    print(f"[SUCCESS] In-memory database cache fully ready in {time.time()-t_start:.2f}s!")
+    print(f"[INFO] Computing dashboard statistics...")
+    cached_dashboard_stats = compute_dashboard_stats()
     is_db_ready = True
-    db_loading_status = "Prêt"
+    print(f"[SUCCESS] Dashboard ready in {time.time()-t_start:.2f}s ({cached_dashboard_stats['total_subscribers']} abonnés)")
+    threading.Thread(target=build_invoice_indexes, daemon=True).start()
 
 def clear_cache_directory():
     if os.path.exists(CACHE_DIR):
@@ -274,198 +491,9 @@ def clear_cache_endpoint():
 # -------------------------------------------------------------
 @app.get("/stats")
 def get_stats():
-    if not is_db_ready:
-        return {"status": "loading", "message": db_loading_status}
-    try:
-        # Load type labels mapping
-        mapping = {}
-        for code_affec, r in tabcodes_by_code.items():
-            if code_affec.startswith('T'):
-                mapping[code_affec[1:]] = r.get('LIBELLE', '')
-
-        stats = {
-            "total_subscribers": 0,
-            "resigned_subscribers": 0,
-            "stopped_subscribers": 0,
-            "no_meter_subscribers": 0,
-            "total_revenue": 0,
-            "recovery_rate": 0,
-            "recent_invoices_count": 0,
-            "subscriber_types": []
-        }
-
-        abonment_state_map = {}
-        resigned = 0
-        stopped = 0
-        no_meter = 0
-        for record in MEM_ABONMENTS:
-            etat = str(record.get('ETATCPT', '')).strip()
-            numab = str(record.get('NUMAB', '')).strip()
-            abonment_state_map[numab] = etat
-            if etat == '40':
-                resigned += 1
-            elif etat == '20':
-                stopped += 1
-            elif etat == '30':
-                no_meter += 1
-                
-        stats["resigned_subscribers"] = resigned
-        stats["stopped_subscribers"] = stopped
-        stats["no_meter_subscribers"] = no_meter
-
-        stats["total_subscribers"] = 0
-        type_counts = {}
-        commune_counts = {}
-        
-        # Communes map
-        commune_map = {}
-        for codcom, r in communes_by_code.items():
-            if r.get('SECTEUR') == '02': # Only keep communes for the active sector
-                commune_map[codcom] = r.get('LIBCOM', '')
-
-        for record in MEM_ABONNES:
-            t = str(record.get('TYPABON', '')).strip()
-            if t == '':
-                continue # Exclude empty TYPABON
-            
-            stats["total_subscribers"] += 1
-            if t not in type_counts:
-                type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
-            
-            type_counts[t]["total"] += 1
-            
-            numab = str(record.get('NUMAB', '')).strip()
-            prefix = numab[:2]
-            codcom = quartier_to_commune.get(prefix, '02') # Default to 02 if mapping missing
-            
-            if codcom not in commune_counts:
-                commune_counts[codcom] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}}
-            
-            commune_counts[codcom]["total"] += 1
-            
-            state = abonment_state_map.get(numab)
-            is_resigned = (state == '40')
-            is_stopped = (state == '20')
-            is_no_meter = (state == '30')
-            
-            if is_resigned:
-                commune_counts[codcom]["resigned"] += 1
-                type_counts[t]["resigned"] += 1
-            if is_stopped:
-                commune_counts[codcom]["stopped"] += 1
-                type_counts[t]["stopped"] += 1
-            if is_no_meter:
-                commune_counts[codcom]["no_meter"] += 1
-                type_counts[t]["no_meter"] += 1
-            
-            if prefix not in commune_counts[codcom]["quartiers"]:
-                commune_counts[codcom]["quartiers"][prefix] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
-            
-            commune_counts[codcom]["quartiers"][prefix]["total"] += 1
-            if is_resigned:
-                commune_counts[codcom]["quartiers"][prefix]["resigned"] += 1
-            if is_stopped:
-                commune_counts[codcom]["quartiers"][prefix]["stopped"] += 1
-            if is_no_meter:
-                commune_counts[codcom]["quartiers"][prefix]["no_meter"] += 1
-        
-        total = stats["total_subscribers"]
-        
-        # Format types with labels and percentage
-        for t_code, counts in type_counts.items():
-            if counts["total"] < 10: continue
-            label = mapping.get(t_code, f"Autre ({t_code})" if t_code else "Inconnu")
-            stats["subscriber_types"].append({
-                "name": label,
-                "value": counts["total"],
-                "resigned": counts["resigned"],
-                "stopped": counts["stopped"],
-                "no_meter": counts["no_meter"],
-                "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0
-            })
-        
-        stats["subscriber_types"].sort(key=lambda x: x['value'], reverse=True)
-
-        stats["subscriber_communes"] = []
-        for codcom, label in commune_map.items():
-            counts = commune_counts.get(codcom, {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}})
-            
-            formatted_quartiers = []
-            for q_id, q_counts in counts.get("quartiers", {}).items():
-                q_label = quartier_names.get(q_id, f"Quartier {q_id}")
-                formatted_quartiers.append({
-                    "id": q_id,
-                    "name": q_label,
-                    "value": q_counts["total"],
-                    "resigned": q_counts["resigned"],
-                    "stopped": q_counts["stopped"],
-                    "no_meter": q_counts["no_meter"],
-                    "percentage": round((q_counts["total"] / counts["total"]) * 100, 2) if counts["total"] > 0 else 0
-                })
-            formatted_quartiers.sort(key=lambda x: x['value'], reverse=True)
-
-            stats["subscriber_communes"].append({
-                "id": codcom,
-                "name": label,
-                "value": counts["total"],
-                "resigned": counts["resigned"],
-                "stopped": counts["stopped"],
-                "no_meter": counts["no_meter"],
-                "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0,
-                "quartiers": formatted_quartiers
-            })
-        stats["subscriber_communes"].sort(key=lambda x: x['value'], reverse=True)
-
-        # Identify the current system month (mois système en cours)
-        latest_period = datetime.now().strftime('%Y%m')
-
-        def format_period(period_str):
-            if not period_str or len(period_str) < 6:
-                return "Période en cours"
-            year = period_str[:4]
-            month = period_str[4:6]
-            months = {
-                "01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril",
-                "05": "Mai", "06": "Juin", "07": "Juillet", "08": "Août",
-                "09": "Septembre", "10": "Octobre", "11": "Novembre", "12": "Décembre"
-            }
-            return f"{months.get(month, month)} {year}"
-
-        total_rev = 0
-        count = 0
-        paid_count = 0
-        
-        # Sum revenue for the latest active billing period in memory
-        for r in MEM_FACTURES:
-            tp = str(r.get('TYPE') or '').strip()
-            monttc = float(r.get('MONTTC') or 0)
-            df = str(r.get('DATFACT') or '').strip()
-            count += 1
-            if r.get('DATREG'):
-                paid_count += 1
-            if latest_period and df.startswith(latest_period):
-                if tp in ['E', 'C', '6']:
-                    total_rev += monttc
-                
-        for r in MEM_AVOIRS:
-            tp = str(r.get('TYPE') or '').strip()
-            monttc = float(r.get('MONTTC') or 0)
-            df = str(r.get('DATFACT') or '').strip()
-            count += 1
-            if r.get('DATREG'):
-                paid_count += 1
-            if latest_period and df.startswith(latest_period):
-                if tp in ['E', 'C', '6']:
-                    total_rev += monttc
-        
-        stats["total_revenue"] = round(total_rev, 2)
-        stats["revenue_period"] = format_period(latest_period) if latest_period else "Période en cours"
-        stats["recent_invoices_count"] = count
-        stats["recovery_rate"] = round((paid_count / count) * 100, 2) if count > 0 else 0
-
-        return stats
-    except Exception as e:
-        return {"error": str(e)}
+    if not is_db_ready or cached_dashboard_stats is None:
+        return {"status": "loading", "message": db_loading_status, "ready": False}
+    return {**cached_dashboard_stats, "ready": True}
 
 @app.get("/search")
 def search_subscribers(query: str = None, q: str = None):
@@ -1170,6 +1198,8 @@ def get_creance_detaillee(date_arrete: str):
 def get_abonne_factures(numab: str = None):
     if not numab:
         return {"error": "numab parameter is required"}
+    if not indexes_ready:
+        return {"status": "loading", "message": "Indexation des factures en cours..."}
     try:
         numab_upper = numab.strip().upper()
         abonne_info = abonnes_by_numab.get(numab_upper)
@@ -1197,6 +1227,8 @@ def get_abonne_factures(numab: str = None):
 # -------------------------------------------------------------
 @app.get("/api/abonne/{numab}")
 def get_abonne_api(numab: str):
+    if not indexes_ready:
+        return {"status": "loading", "message": "Indexation des factures en cours..."}
     numab_upper = numab.strip().upper()
     abonne_rec = abonnes_by_numab.get(numab_upper)
     if not abonne_rec:
@@ -1468,11 +1500,28 @@ def get_creances_abonnes():
                 tournee = str(abonne_rec.get('TOURNEE', '') if abonne_rec else '').strip()
                 if tournee:
                     tournees_set.add(tournee)
+                
+                # Get additional fields from abonne record
+                type_abon = str(abonne_rec.get('TYPABON', '') if abonne_rec else '').strip() or '—'
+                codrue = str(abonne_rec.get('CODRUE', '') if abonne_rec else '').strip() or '—'
+                bloc = str(abonne_rec.get('BLOC', '') if abonne_rec else '').strip() or '—'
+                ndom = str(abonne_rec.get('NDOM', '') if abonne_rec else '').strip() or '—'
+                
+                # Get ABONMENT record for meter number and account status
+                abonment_rec = abonments_by_numab.get(numab)
+                numser = str(abonment_rec.get('NUMSER', '') if abonment_rec else '').strip() or '—'
+                etat_cpt = str(abonment_rec.get('ETATCPT', '') if abonment_rec else '').strip() or '—'
 
                 debtors[numab] = {
                     "numab": numab,
                     "name": name,
                     "tournee": tournee if tournee else "—",
+                    "type_abon": type_abon,
+                    "etat_cpt": etat_cpt,
+                    "adresse": codrue,
+                    "bloc": bloc,
+                    "ndom": ndom,
+                    "numser": numser,
                     "raw_last_payment": None,   # YYYYMMDD string for day arithmetic
                     "derniere_date_paiement": "Aucun",
                     "nombre_creance": 0,

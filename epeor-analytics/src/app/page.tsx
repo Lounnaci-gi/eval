@@ -113,8 +113,11 @@ export default function Dashboard() {
           return res.json();
         })
         .then((data) => {
-          if (data?.error) {
-            setStats({ error: data.error, ready: false });
+          if (data?.error || data?.status === 'error') {
+            setStats({
+              error: data.error || data.message || "Données indisponibles",
+              ready: false,
+            });
           } else {
             setStats(data);
           }
@@ -206,7 +209,12 @@ export default function Dashboard() {
     );
   }
 
-  if (!stats || stats.status === 'loading' || stats.ready === false) {
+  if (
+    !stats ||
+    stats.status === 'loading' ||
+    stats.ready === false ||
+    (stats.ready === true && stats.total_subscribers === 0 && !stats.subscriber_types?.length)
+  ) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
         <div className="bg-white border border-[#E4E7EC] shadow-2xl rounded-[3rem] p-16 flex flex-col items-center gap-8 max-w-md w-full text-center">
@@ -4365,19 +4373,24 @@ function CreancesAbonnesView({ onBack }: any) {
   const filtered = (results ?? []).filter(s =>
     !search ||
     s.numab?.toLowerCase().includes(search.toLowerCase()) ||
-    s.name?.toLowerCase().includes(search.toLowerCase())
+    s.name?.toLowerCase().includes(search.toLowerCase()) ||
+    s.type_abon?.toLowerCase().includes(search.toLowerCase()) ||
+    s.etat_cpt?.toLowerCase().includes(search.toLowerCase()) ||
+    s.adresse?.toLowerCase().includes(search.toLowerCase())
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const exportCSV = () => {
-    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Type Abonné', 'État Cpt', 'Adresse (Code Rue)', 'Bloc', 'N° Dom', 'N° Série Compteur', 'Tournée', 'Dernière Date de Paiement', 'Nombre de Créances', 'Montant Créance (DA)'];
+    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Type Abonné', 'Code Type', 'État Cpt', 'Code État', 'Adresse (Rue)', 'Bloc', 'N° Dom', 'N° Série Compteur', 'Tournée', 'Dernière Date de Paiement', 'Nombre de Créances', 'Montant Créance (DA)'];
     const rows = filtered.map((s: any) => [
       s.numab,
       s.name,
       s.type_abon || '—',
+      s.type_abon_code || '—',
       s.etat_cpt || '—',
+      s.etat_cpt_code || '—',
       s.adresse || '—',
       s.bloc || '—',
       s.ndom || '—',
@@ -4709,9 +4722,9 @@ function CreancesAbonnesView({ onBack }: any) {
                           <span className="font-mono text-xs font-black text-[#101828] bg-[#F9FAFB] px-2.5 py-1 rounded-lg border border-[#E4E7EC]">{s.numab}</span>
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-[#101828]">{s.name}</td>
-                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.type_abon}</td>
-                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.etat_cpt}</td>
-                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.adresse}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[200px]" title={s.type_abon_code ? `Code T${s.type_abon_code}` : undefined}>{s.type_abon}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[180px]" title={s.etat_cpt_code ? `Code ${s.etat_cpt_code}` : undefined}>{s.etat_cpt}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[220px]">{s.adresse}</td>
                         <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.bloc}</td>
                         <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium">{s.ndom}</td>
                         <td className="px-6 py-4 text-center text-xs font-mono font-bold text-[#101828]">{s.numser}</td>

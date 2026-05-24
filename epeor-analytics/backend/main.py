@@ -45,6 +45,7 @@ is_db_ready = False
 indexes_ready = False
 db_loading_status = "Initialisation du serveur backend..."
 cached_dashboard_stats = None
+_data_load_lock = threading.Lock()
 
 # Global caches of all database files
 MEM_ABONNES = []
@@ -365,101 +366,109 @@ def load_all_data_to_memory():
     global communes_by_code, quartier_to_commune, quartier_names, classe_map
     global is_db_ready, indexes_ready, db_loading_status, cached_dashboard_stats
 
-    is_db_ready = False
-    indexes_ready = False
-    cached_dashboard_stats = None
-    db_loading_status = "Initialisation de la base de données..."
-    print("[INFO] Initializing EPEOR in-memory database cache...")
-    t_start = time.time()
-    
-    MEM_ABONNES = load_table_cached("ABONNE.DBF", encoding='cp1256')
-    MEM_FACTURES = load_table_cached("FACTURES.DBF", encoding='cp1256')
-    MEM_AVOIRS = load_table_cached("AVOIR.DBF", encoding='cp1256')
-    MEM_ABONMENTS = load_table_cached("ABONMENT.DBF", encoding='cp1256')
-    MEM_TABCODES = load_table_cached("TABCODE.DBF", encoding='cp1256')
-    MEM_COMMUNES = load_table_cached("COMMUNE.DBF", encoding='cp1256')
-    MEM_QUARTIERS = load_table_cached("QUARTIER.DBF", encoding='cp1256')
-    MEM_RUES = load_table_cached("RUE.DBF", encoding='cp1256')
-    MEM_CLASSES = load_table_cached("CLASSE.DBF", encoding='cp1256')
-    MEM_UNITES = load_table_cached("UNITE.DBF", encoding='cp1256')
-    MEM_CAISSES = load_table_cached("CAISSE.DBF", encoding='cp1256')
+    if not _data_load_lock.acquire(blocking=False):
+        print("[INFO] Data load already in progress, skipping duplicate request.")
+        return
 
-    print("[INFO] Building indexes and hash mappings...")
-    
-    # 1. Subscribers Map
-    abonnes_by_numab = {}
-    for r in MEM_ABONNES:
-        numab = str(r.get('NUMAB', '')).strip().upper()
-        if numab:
-            abonnes_by_numab[numab] = r
-            
-    # 2. Streets Map (Support raw and zero-padded lookups)
-    rues_by_codrue = {}
-    for r in MEM_RUES:
-        codrue = str(r.get('CODRUE', '')).strip()
-        if codrue:
-            rues_by_codrue[codrue] = r
-            rues_by_codrue[codrue.lstrip('0')] = r
-            
-    # 3. Tabcodes Map
-    tabcodes_by_code = {}
-    for r in MEM_TABCODES:
-        code_affec = str(r.get('CODE_AFFEC', '')).strip().upper()
-        if code_affec:
-            tabcodes_by_code[code_affec] = r
-            
-    # 4. Abonments Map
-    abonments_by_numab = {}
-    for r in MEM_ABONMENTS:
-        numab = str(r.get('NUMAB', '')).strip().upper()
-        if numab:
-            abonments_by_numab[numab] = r
-            
-    # 5–6. Invoice indexes built in background (see build_invoice_indexes)
+    try:
+        is_db_ready = False
+        indexes_ready = False
+        cached_dashboard_stats = None
+        db_loading_status = "Initialisation de la base de données..."
+        print(f"[INFO] Initializing EPEOR database from {DATA_DIR}")
+        t_start = time.time()
 
-    # 7. Unites Map
-    unites_by_code = {}
-    for r in MEM_UNITES:
-        code_unite = str(r.get('UNITE', '')).strip()
-        if code_unite:
-            unites_by_code[code_unite] = r
-            unites_by_code[code_unite.lstrip('0')] = r
-            
-    # 8. Caisses Map
-    caisses_by_code = {}
-    for r in MEM_CAISSES:
-        code_caisse = str(r.get('CODCAIS', '')).strip()
-        if code_caisse:
-            caisses_by_code[code_caisse] = r
-            
-    # 9. Communes Map
-    communes_by_code = {}
-    for r in MEM_COMMUNES:
-        codcom = str(r.get('CODCOM', '')).strip()
-        if codcom:
-            communes_by_code[codcom.zfill(2)] = r
-            
-    # 10. Quartiers Maps
-    quartier_to_commune = {}
-    quartier_names = {}
-    for r in MEM_QUARTIERS:
-        q_id = str(r.get('QUART', '')).strip()
-        if q_id:
-            quartier_to_commune[q_id] = str(r.get('COMMUNE', '')).strip().zfill(2)
-            quartier_names[q_id] = str(r.get('LIBQUART', '')).strip()
-            
-    # 11. Classes Map
-    classe_map = {}
-    for r in MEM_CLASSES:
-        c = str(r.get('CLASSE', '')).strip()
-        sc = str(r.get('S_CLASSE', '')).strip()
-        classe_map[(c, sc)] = str(r.get('DESIGN', '')).strip()
+        MEM_ABONNES = load_table_cached("ABONNE.DBF", encoding='cp1256')
+        MEM_FACTURES = load_table_cached("FACTURES.DBF", encoding='cp1256')
+        MEM_AVOIRS = load_table_cached("AVOIR.DBF", encoding='cp1256')
+        MEM_ABONMENTS = load_table_cached("ABONMENT.DBF", encoding='cp1256')
+        MEM_TABCODES = load_table_cached("TABCODE.DBF", encoding='cp1256')
+        MEM_COMMUNES = load_table_cached("COMMUNE.DBF", encoding='cp1256')
+        MEM_QUARTIERS = load_table_cached("QUARTIER.DBF", encoding='cp1256')
+        MEM_RUES = load_table_cached("RUE.DBF", encoding='cp1256')
+        MEM_CLASSES = load_table_cached("CLASSE.DBF", encoding='cp1256')
+        MEM_UNITES = load_table_cached("UNITE.DBF", encoding='cp1256')
+        MEM_CAISSES = load_table_cached("CAISSE.DBF", encoding='cp1256')
 
-    print(f"[INFO] Computing dashboard statistics...")
-    cached_dashboard_stats = compute_dashboard_stats()
-    is_db_ready = True
-    print(f"[SUCCESS] Dashboard ready in {time.time()-t_start:.2f}s ({cached_dashboard_stats['total_subscribers']} abonnés)")
-    threading.Thread(target=build_invoice_indexes, daemon=True).start()
+        if len(MEM_ABONNES) == 0:
+            db_loading_status = (
+                f"Aucune donnée chargée depuis {DATA_DIR}. "
+                "Vérifiez EPEOR_DATA_DIR et la présence des fichiers *.DBF."
+            )
+            print(f"[ERROR] {db_loading_status}")
+            return
+
+        print("[INFO] Building indexes and hash mappings...")
+
+        abonnes_by_numab = {}
+        for r in MEM_ABONNES:
+            numab = str(r.get('NUMAB', '')).strip().upper()
+            if numab:
+                abonnes_by_numab[numab] = r
+
+        rues_by_codrue = {}
+        for r in MEM_RUES:
+            codrue = str(r.get('CODRUE', '')).strip()
+            if codrue:
+                rues_by_codrue[codrue] = r
+                rues_by_codrue[codrue.lstrip('0')] = r
+
+        tabcodes_by_code = {}
+        for r in MEM_TABCODES:
+            code_affec = str(r.get('CODE_AFFEC', '')).strip().upper()
+            if code_affec:
+                tabcodes_by_code[code_affec] = r
+
+        abonments_by_numab = {}
+        for r in MEM_ABONMENTS:
+            numab = str(r.get('NUMAB', '')).strip().upper()
+            if numab:
+                abonments_by_numab[numab] = r
+
+        unites_by_code = {}
+        for r in MEM_UNITES:
+            code_unite = str(r.get('UNITE', '')).strip()
+            if code_unite:
+                unites_by_code[code_unite] = r
+                unites_by_code[code_unite.lstrip('0')] = r
+
+        caisses_by_code = {}
+        for r in MEM_CAISSES:
+            code_caisse = str(r.get('CODCAIS', '')).strip()
+            if code_caisse:
+                caisses_by_code[code_caisse] = r
+
+        communes_by_code = {}
+        for r in MEM_COMMUNES:
+            codcom = str(r.get('CODCOM', '')).strip()
+            if codcom:
+                communes_by_code[codcom.zfill(2)] = r
+
+        quartier_to_commune = {}
+        quartier_names = {}
+        for r in MEM_QUARTIERS:
+            q_id = str(r.get('QUART', '')).strip()
+            if q_id:
+                quartier_to_commune[q_id] = str(r.get('COMMUNE', '')).strip().zfill(2)
+                quartier_names[q_id] = str(r.get('LIBQUART', '')).strip()
+
+        classe_map = {}
+        for r in MEM_CLASSES:
+            c = str(r.get('CLASSE', '')).strip()
+            sc = str(r.get('S_CLASSE', '')).strip()
+            classe_map[(c, sc)] = str(r.get('DESIGN', '')).strip()
+
+        print(f"[INFO] Computing dashboard statistics...")
+        cached_dashboard_stats = compute_dashboard_stats()
+        is_db_ready = True
+        print(
+            f"[SUCCESS] Dashboard ready in {time.time()-t_start:.2f}s "
+            f"({cached_dashboard_stats['total_subscribers']} abonnés, "
+            f"{len(MEM_FACTURES)} factures)"
+        )
+        threading.Thread(target=build_invoice_indexes, daemon=True).start()
+    finally:
+        _data_load_lock.release()
 
 def clear_cache_directory():
     if os.path.exists(CACHE_DIR):
@@ -482,9 +491,64 @@ def shutdown_event():
 
 @app.get("/api/clear_cache")
 def clear_cache_endpoint():
-    print("[INFO] Clearing cache requested by frontend...")
+    print("[INFO] Clearing cache requested...")
     clear_cache_directory()
-    return {"status": "success", "message": "Cache cleared successfully"}
+    global is_db_ready, cached_dashboard_stats, indexes_ready
+    is_db_ready = False
+    cached_dashboard_stats = None
+    indexes_ready = False
+    threading.Thread(target=load_all_data_to_memory, daemon=True).start()
+    return {"status": "success", "message": "Cache vidé, rechargement en cours..."}
+
+# -------------------------------------------------------------
+# TABCODE / RUE lookup helpers
+# -------------------------------------------------------------
+def resolve_typabon_label(typabon_code: str) -> str:
+    """LIBELLE from TABCODE (CODE_AFFEC = T + TYPABON)."""
+    raw = str(typabon_code or '').strip()
+    if not raw or raw == '—':
+        return '—'
+    lookup = raw.upper()
+    if not lookup.startswith('T'):
+        lookup = 'T' + lookup
+    t_rec = tabcodes_by_code.get(lookup)
+    if t_rec:
+        lib = str(t_rec.get('LIBELLE', '')).strip()
+        if lib:
+            return lib
+    return f"Autre ({raw})"
+
+
+def resolve_etatcpt_label(etat_code: str) -> str:
+    """LIBELLE from TABCODE (CODE_AFFEC = E + ETATCPT)."""
+    raw = str(etat_code or '').strip()
+    if not raw or raw == '—':
+        return '—'
+    lookup = raw.upper()
+    if not lookup.startswith('E'):
+        lookup = 'E' + lookup
+    t_rec = tabcodes_by_code.get(lookup)
+    if t_rec:
+        lib = str(t_rec.get('LIBELLE', '')).strip()
+        if lib:
+            return lib
+    return raw
+
+
+def resolve_rue_adresse(abonne_rec) -> str:
+    """Street name from RUE.DBF NOUVNOM via CODRUE."""
+    if not abonne_rec:
+        return '—'
+    codrue = str(abonne_rec.get('CODRUE', '')).strip()
+    if not codrue:
+        return '—'
+    street_rec = rues_by_codrue.get(codrue) or rues_by_codrue.get(codrue.lstrip('0'))
+    if street_rec:
+        nom = str(street_rec.get('NOUVNOM', '')).strip()
+        if nom:
+            return nom
+    return f"Code rue: {codrue}"
+
 
 # -------------------------------------------------------------
 # API HANDLERS (Blazing Fast In-Memory Processing)
@@ -493,7 +557,21 @@ def clear_cache_endpoint():
 def get_stats():
     if not is_db_ready or cached_dashboard_stats is None:
         return {"status": "loading", "message": db_loading_status, "ready": False}
+    if len(MEM_ABONNES) == 0 or cached_dashboard_stats.get("total_subscribers", 0) == 0:
+        return {
+            "status": "error",
+            "ready": False,
+            "error": db_loading_status or f"Aucune donnée dans {DATA_DIR}. Redémarrez le backend.",
+            "data_dir": DATA_DIR,
+        }
     return {**cached_dashboard_stats, "ready": True}
+
+
+@app.post("/api/reload_data")
+def reload_data_endpoint():
+    """Force un rechargement des données en mémoire."""
+    threading.Thread(target=load_all_data_to_memory, daemon=True).start()
+    return {"status": "started", "message": "Rechargement des données en cours..."}
 
 @app.get("/search")
 def search_subscribers(query: str = None, q: str = None):
@@ -1494,31 +1572,31 @@ def get_creances_abonnes():
                         is_creance = True
 
             if numab not in debtors:
-                abonne_rec = abonnes_by_numab.get(numab)
+                numab_key = numab.strip().upper()
+                abonne_rec = abonnes_by_numab.get(numab_key)
                 name = abonne_rec.get('RAISOC', '') or abonne_rec.get('NOM', '') if abonne_rec else 'Nom inconnu'
                 if not name: name = 'Nom inconnu'
                 tournee = str(abonne_rec.get('TOURNEE', '') if abonne_rec else '').strip()
                 if tournee:
                     tournees_set.add(tournee)
-                
-                # Get additional fields from abonne record
-                type_abon = str(abonne_rec.get('TYPABON', '') if abonne_rec else '').strip() or '—'
-                codrue = str(abonne_rec.get('CODRUE', '') if abonne_rec else '').strip() or '—'
+
+                raw_typabon = str(abonne_rec.get('TYPABON', '') if abonne_rec else '').strip()
                 bloc = str(abonne_rec.get('BLOC', '') if abonne_rec else '').strip() or '—'
                 ndom = str(abonne_rec.get('NDOM', '') if abonne_rec else '').strip() or '—'
-                
-                # Get ABONMENT record for meter number and account status
-                abonment_rec = abonments_by_numab.get(numab)
+
+                abonment_rec = abonments_by_numab.get(numab_key)
                 numser = str(abonment_rec.get('NUMSER', '') if abonment_rec else '').strip() or '—'
-                etat_cpt = str(abonment_rec.get('ETATCPT', '') if abonment_rec else '').strip() or '—'
+                raw_etat = str(abonment_rec.get('ETATCPT', '') if abonment_rec else '').strip()
 
                 debtors[numab] = {
                     "numab": numab,
                     "name": name,
                     "tournee": tournee if tournee else "—",
-                    "type_abon": type_abon,
-                    "etat_cpt": etat_cpt,
-                    "adresse": codrue,
+                    "type_abon": resolve_typabon_label(raw_typabon),
+                    "type_abon_code": raw_typabon or '—',
+                    "etat_cpt": resolve_etatcpt_label(raw_etat),
+                    "etat_cpt_code": raw_etat or '—',
+                    "adresse": resolve_rue_adresse(abonne_rec),
                     "bloc": bloc,
                     "ndom": ndom,
                     "numser": numser,

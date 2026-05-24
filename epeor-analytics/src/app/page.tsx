@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Fragment, useRef } from "react";
+import { useEffect, useState, Fragment, useRef, useMemo } from "react";
 import {
   Users,
   UserX,
@@ -4234,7 +4234,14 @@ function CreancesAbonnesView({ onBack }: any) {
   const [results, setResults] = useState<any[] | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState('montant_creance');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [filterTypeAbon, setFilterTypeAbon] = useState('');
+  const [filterEtatCpt, setFilterEtatCpt] = useState('');
+  const [filterTourneeTable, setFilterTourneeTable] = useState('');
   const PAGE_SIZE = 20;
+
+  const NUMERIC_SORT_KEYS = new Set(['montant_creance', 'nombre_creance']);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -4327,6 +4334,11 @@ function CreancesAbonnesView({ onBack }: any) {
       }
     }
 
+    setFilterTypeAbon('');
+    setFilterEtatCpt('');
+    setFilterTourneeTable('');
+    setSortKey('montant_creance');
+    setSortDir('desc');
     setResults(filtered);
   };
 
@@ -4336,8 +4348,23 @@ function CreancesAbonnesView({ onBack }: any) {
     setMontantOp('>='); setMontantVal('');
     setNbCreanceOp('>='); setNbCreanceVal('');
     setDernierPaiementOp('>'); setDernierPaiementDays('');
+    setFilterTypeAbon('');
+    setFilterEtatCpt('');
+    setFilterTourneeTable('');
+    setSortKey('montant_creance');
+    setSortDir('desc');
     setResults(null);
     setSearch('');
+    setPage(1);
+  };
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
     setPage(1);
   };
 
@@ -4369,22 +4396,119 @@ function CreancesAbonnesView({ onBack }: any) {
     setCustomTournees(prev => prev.filter(x => x !== t));
   };
 
-  // Post-filter text search
-  const filtered = (results ?? []).filter(s =>
-    !search ||
-    s.numab?.toLowerCase().includes(search.toLowerCase()) ||
-    s.name?.toLowerCase().includes(search.toLowerCase()) ||
-    s.type_abon?.toLowerCase().includes(search.toLowerCase()) ||
-    s.etat_cpt?.toLowerCase().includes(search.toLowerCase()) ||
-    s.adresse?.toLowerCase().includes(search.toLowerCase())
+  const filterOptions = useMemo(() => {
+    const base = results ?? [];
+    const types = [...new Set(base.map((s: any) => s.type_abon).filter((v: string) => v && v !== '—'))].sort((a, b) =>
+      a.localeCompare(b, 'fr')
+    );
+    const etats = [...new Set(base.map((s: any) => s.etat_cpt).filter((v: string) => v && v !== '—'))].sort((a, b) =>
+      a.localeCompare(b, 'fr')
+    );
+    const tournees = [...new Set(base.map((s: any) => s.tournee).filter((v: string) => v && v !== '—'))].sort((a, b) =>
+      a.localeCompare(b, 'fr', { numeric: true })
+    );
+    return { types, etats, tournees };
+  }, [results]);
+
+  const searchFiltered = useMemo(() => {
+    const q = search.toLowerCase();
+    return (results ?? []).filter(
+      (s: any) =>
+        !q ||
+        s.numab?.toLowerCase().includes(q) ||
+        s.name?.toLowerCase().includes(q) ||
+        s.type_abon?.toLowerCase().includes(q) ||
+        s.etat_cpt?.toLowerCase().includes(q) ||
+        s.adresse?.toLowerCase().includes(q)
+    );
+  }, [results, search]);
+
+  const columnFiltered = useMemo(() => {
+    return searchFiltered.filter((s: any) => {
+      if (filterTypeAbon && s.type_abon !== filterTypeAbon) return false;
+      if (filterEtatCpt && s.etat_cpt !== filterEtatCpt) return false;
+      if (filterTourneeTable && s.tournee !== filterTourneeTable) return false;
+      return true;
+    });
+  }, [searchFiltered, filterTypeAbon, filterEtatCpt, filterTourneeTable]);
+
+  const sorted = useMemo(() => {
+    const list = [...columnFiltered];
+    list.sort((a: any, b: any) => {
+      let cmp = 0;
+      if (sortKey === 'raw_last_payment') {
+        const va = a.raw_last_payment || '';
+        const vb = b.raw_last_payment || '';
+        if (!va && !vb) cmp = 0;
+        else if (!va) cmp = 1;
+        else if (!vb) cmp = -1;
+        else cmp = va.localeCompare(vb);
+      } else if (NUMERIC_SORT_KEYS.has(sortKey)) {
+        cmp = (Number(a[sortKey]) || 0) - (Number(b[sortKey]) || 0);
+      } else {
+        const va = (a[sortKey] ?? '').toString().toLowerCase();
+        const vb = (b[sortKey] ?? '').toString().toLowerCase();
+        cmp = va.localeCompare(vb, 'fr', { numeric: true });
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [columnFiltered, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const tableTotals = useMemo(
+    () => ({
+      count: sorted.length,
+      factures: sorted.reduce((a: number, s: any) => a + (s.nombre_creance || 0), 0),
+      montant: sorted.reduce((a: number, s: any) => a + (s.montant_creance || 0), 0),
+    }),
+    [sorted]
   );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const Th = ({
+    label,
+    field,
+    align = 'left',
+    px = 'px-6',
+  }: {
+    label: string;
+    field: string;
+    align?: 'left' | 'center' | 'right';
+    px?: string;
+  }) => {
+    const active = sortKey === field;
+    const alignCls =
+      align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : '';
+    return (
+      <th
+        className={`${px} py-5 ${alignCls} cursor-pointer select-none group`}
+        onClick={() => handleSort(field)}
+      >
+        <span
+          className={`inline-flex items-center gap-1.5 ${align === 'center' ? 'justify-center w-full' : ''} ${align === 'right' ? 'justify-end w-full' : ''}`}
+        >
+          {align === 'right' && (
+            <span className={`text-[10px] ${active ? 'text-violet-600' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+              {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+            </span>
+          )}
+          <span className={active ? 'text-violet-600' : 'group-hover:text-[#101828]'}>{label}</span>
+          {align !== 'right' && (
+            <span className={`text-[10px] ${active ? 'text-violet-600' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+              {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+            </span>
+          )}
+        </span>
+      </th>
+    );
+  };
 
   const exportCSV = () => {
     const header = ['Code Abonné', 'Nom / Raison Sociale', 'Adresse', 'Bloc', 'N° Dom', 'Type Abonné', 'Code Type', 'État Cpt', 'Code État', 'N° Série Compteur', 'Tournée', 'Dernier Paiement', 'Factures Impayées', 'Montant Créance (DA)'];
-    const rows = filtered.map((s: any) => [
+    const rows = sorted.map((s: any) => [
       s.numab,
       s.name,
       s.adresse || '—',
@@ -4407,6 +4531,224 @@ function CreancesAbonnesView({ onBack }: any) {
     link.download = `liste_creanciers_filtree.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
+  };
+
+  const escapeHtml = (v: unknown) =>
+    String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+  const printCreanciersList = () => {
+    if (sorted.length === 0) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.');
+      return;
+    }
+
+    const filterParts: string[] = [];
+    if (filterTypeAbon) filterParts.push(`Type: ${filterTypeAbon}`);
+    if (filterEtatCpt) filterParts.push(`État: ${filterEtatCpt}`);
+    if (filterTourneeTable) filterParts.push(`Tournée: ${filterTourneeTable}`);
+    if (search.trim()) filterParts.push(`Recherche: ${search.trim()}`);
+    const filtersLine = filterParts.length > 0 ? filterParts.join(' · ') : 'Aucun filtre tableau actif';
+
+    const montantCibleLabel = montantVal.trim()
+      ? `${OP_OPTIONS.find(o => o.value === montantOp)?.label ?? montantOp} ${montantVal} DA`
+      : 'Non défini (tous les montants)';
+
+    const joursCibleLabel = dernierPaiementDays.trim()
+      ? `${DAY_OP_OPTIONS.find(o => o.value === dernierPaiementOp)?.label ?? dernierPaiementOp} · ${dernierPaiementDays} jours`
+      : 'Non défini (toutes anciennetés)';
+
+    const formatDaysSinceLabel = (raw: string | null) => {
+      const d = daysSince(raw);
+      if (d === null) return 'Jamais';
+      return `${d} j`;
+    };
+
+    const montantFmt = (n: number) =>
+      new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        .format(n)
+        .replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+
+    const rowsHtml = sorted
+      .map(
+        (s: any, i: number) => `
+        <tr>
+          <td style="text-align:center;color:#98A2B3;font-weight:700;">${i + 1}</td>
+          <td class="font-bold-black">${escapeHtml(s.numab)}</td>
+          <td class="font-bold-black">${escapeHtml(s.name)}</td>
+          <td>${escapeHtml(s.adresse)}</td>
+          <td>${escapeHtml(s.bloc)}</td>
+          <td>${escapeHtml(s.ndom)}</td>
+          <td>${escapeHtml(s.type_abon)}</td>
+          <td>${escapeHtml(s.etat_cpt)}</td>
+          <td>${escapeHtml(s.numser)}</td>
+          <td class="tournee-badge">${escapeHtml(s.tournee)}</td>
+          <td>${escapeHtml(s.derniere_date_paiement)}</td>
+          <td style="text-align:center;font-weight:700;">${escapeHtml(formatDaysSinceLabel(s.raw_last_payment))}</td>
+          <td style="text-align:center;font-weight:700;">${s.nombre_creance ?? 0}</td>
+          <td style="text-align:right;font-weight:700;color:#E11D48;">${montantFmt(s.montant_creance || 0)}</td>
+        </tr>`
+      )
+      .join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Liste des abonnés créanciers</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 40px;
+              font-size: 10px;
+              line-height: 1.4;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 20px;
+              margin-bottom: 25px;
+            }
+            .logo-section { display: flex; align-items: center; gap: 12px; }
+            .logo-text { font-size: 14px; font-weight: 900; color: #0D83DE; }
+            .company-name { font-size: 9px; font-weight: 700; color: #667085; text-transform: uppercase; }
+            .title-section { text-align: right; }
+            .title { font-size: 18px; font-weight: 900; margin: 0; }
+            .subtitle { font-size: 11px; color: #667085; margin: 4px 0 0 0; }
+            .filters { font-size: 10px; color: #667085; margin-bottom: 20px; font-style: italic; }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 12px;
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 12px;
+              padding: 12px 20px;
+              margin-bottom: 25px;
+            }
+            .meta-grid-criteria {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 12px;
+              background-color: #F5F3FF;
+              border: 1px solid #DDD6FE;
+              border-radius: 12px;
+              padding: 12px 20px;
+              margin-bottom: 25px;
+            }
+            .meta-label { font-size: 9px; font-weight: 700; color: #98A2B3; text-transform: uppercase; }
+            .meta-value { font-size: 11px; font-weight: 700; color: #344054; }
+            table { width: 100%; border-collapse: collapse; }
+            thead { display: table-header-group; }
+            tr { page-break-inside: avoid; }
+            th {
+              background-color: #F9FAFB;
+              color: #475467;
+              font-size: 8px;
+              text-transform: uppercase;
+              font-weight: 700;
+              border-bottom: 2px solid #EAECF0;
+              padding: 8px 6px;
+              text-align: left;
+            }
+            td {
+              border-bottom: 1px solid #EAECF0;
+              padding: 7px 6px;
+              color: #475467;
+            }
+            .font-bold-black { font-weight: 700; color: #101828; }
+            .tournee-badge { font-weight: 700; color: #2563EB; }
+            tfoot td {
+              background-color: #0F172A;
+              color: #fff;
+              font-weight: 700;
+              border: none;
+              padding: 12px 6px;
+            }
+            @page {
+              size: A4 landscape;
+              margin: 12mm;
+            }
+            @media print {
+              body { margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE" style="height: 40px; width: auto;" onerror="this.style.display='none'" />
+              <div>
+                <div class="logo-text">EPEOR Analytics</div>
+                <div class="company-name">Algérienne Des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1 class="title">Liste des abonnés créanciers</h1>
+              <p class="subtitle">Liste nominative des créances en cours</p>
+            </div>
+          </div>
+          <p class="filters">${escapeHtml(filtersLine)}</p>
+          <div class="meta-grid">
+            <div><div class="meta-label">Date d'édition</div><div class="meta-value">${new Date().toLocaleDateString('fr-FR')}</div></div>
+            <div><div class="meta-label">Nombre d'abonnés</div><div class="meta-value">${tableTotals.count}</div></div>
+            <div><div class="meta-label">Total créances</div><div class="meta-value" style="color:#E11D48;">${montantFmt(tableTotals.montant)}</div></div>
+            <div><div class="meta-label">Total factures impayées</div><div class="meta-value">${tableTotals.factures.toLocaleString('fr-FR')}</div></div>
+            <div><div class="meta-label">Montant ciblé (critère)</div><div class="meta-value">${escapeHtml(montantCibleLabel)}</div></div>
+            <div><div class="meta-label">Ancienneté ciblée (critère)</div><div class="meta-value">${escapeHtml(joursCibleLabel)}</div></div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Code Abonné</th>
+                <th>Nom / Raison Sociale</th>
+                <th>Adresse</th>
+                <th>Bloc</th>
+                <th>N° Dom</th>
+                <th>Type Abonné</th>
+                <th>État Cpt</th>
+                <th>N° Série</th>
+                <th>Tournée</th>
+                <th>Dernier Paiement</th>
+                <th style="text-align:center">Nb jours</th>
+                <th style="text-align:center">Factures</th>
+                <th style="text-align:right">Montant ciblé</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+            <tfoot>
+              <tr>
+                <td colspan="12" style="text-transform:uppercase;letter-spacing:0.05em;">TOTAL GÉNÉRAL — ${tableTotals.count} abonné${tableTotals.count !== 1 ? 's' : ''}</td>
+                <td style="text-align:center;">${tableTotals.factures.toLocaleString('fr-FR')}</td>
+                <td style="text-align:right;color:#FCA5A5;">${montantFmt(tableTotals.montant)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   const OP_OPTIONS = [
@@ -4673,8 +5015,15 @@ function CreancesAbonnesView({ onBack }: any) {
                 />
               </div>
               <button
+                onClick={printCreanciersList}
+                disabled={sorted.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#E4E7EC] text-[#344054] rounded-xl text-xs font-black hover:bg-[#F9FAFB] hover:border-[#D0D5DD] active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Printer size={13} /> Imprimer
+              </button>
+              <button
                 onClick={exportCSV}
-                disabled={filtered.length === 0}
+                disabled={sorted.length === 0}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FileSpreadsheet size={13} /> Exporter CSV
@@ -4682,33 +5031,94 @@ function CreancesAbonnesView({ onBack }: any) {
             </div>
           </div>
 
+          {/* Filtres colonnes tableau */}
+          <div className="flex flex-wrap items-end gap-4 px-8 py-4 border-b border-[#F2F4F7] bg-violet-50/20">
+            <div className="min-w-[200px] flex-1">
+              <label className={labelCls}>Type Abonné</label>
+              <select
+                value={filterTypeAbon}
+                onChange={e => { setFilterTypeAbon(e.target.value); setPage(1); }}
+                className={selectCls}
+              >
+                <option value="">Tous les types</option>
+                {filterOptions.types.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-[200px] flex-1">
+              <label className={labelCls}>État Cpt</label>
+              <select
+                value={filterEtatCpt}
+                onChange={e => { setFilterEtatCpt(e.target.value); setPage(1); }}
+                className={selectCls}
+              >
+                <option value="">Tous les états</option>
+                {filterOptions.etats.map(e => (
+                  <option key={e} value={e}>{e}</option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-[140px] flex-1">
+              <label className={labelCls}>Tournée</label>
+              <select
+                value={filterTourneeTable}
+                onChange={e => { setFilterTourneeTable(e.target.value); setPage(1); }}
+                className={selectCls}
+              >
+                <option value="">Toutes les tournées</option>
+                {filterOptions.tournees.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            {(filterTypeAbon || filterEtatCpt || filterTourneeTable) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterTypeAbon('');
+                  setFilterEtatCpt('');
+                  setFilterTourneeTable('');
+                  setPage(1);
+                }}
+                className="px-4 py-2.5 rounded-xl text-xs font-black text-violet-700 bg-white border border-violet-200 hover:bg-violet-50 transition-all"
+              >
+                Effacer filtres tableau
+              </button>
+            )}
+          </div>
+
           {/* Table */}
           <div className="overflow-x-auto">
-            {results.length === 0 ? (
+            {sorted.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 gap-3">
                 <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
                   <Users size={26} className="text-[#D0D5DD]" />
                 </div>
-                <p className="text-sm font-bold text-[#667085]">Aucun abonné ne correspond à ces critères.</p>
-                <p className="text-xs text-[#98A2B3]">Essayez d'assouplir vos conditions de filtrage.</p>
+                <p className="text-sm font-bold text-[#667085]">
+                  {results.length === 0
+                    ? 'Aucun abonné ne correspond à ces critères.'
+                    : 'Aucun résultat avec les filtres du tableau.'}
+                </p>
+                <p className="text-xs text-[#98A2B3]">Essayez d\'assouplir vos conditions de filtrage.</p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
                     <th className="px-8 py-5 w-12">#</th>
-                    <th className="px-6 py-5">Code Abonné</th>
-                    <th className="px-6 py-5">Nom / Raison Sociale</th>
-                    <th className="px-6 py-5 text-center">Adresse</th>
-                    <th className="px-6 py-5 text-center">Bloc</th>
-                    <th className="px-6 py-5 text-center">N° Dom</th>
-                    <th className="px-6 py-5 text-center">Type Abonné</th>
-                    <th className="px-6 py-5 text-center">État Cpt</th>
-                    <th className="px-6 py-5 text-center">N° Série Compteur</th>
-                    <th className="px-6 py-5 text-center">Tournée</th>
-                    <th className="px-6 py-5 text-center">Dernier Paiement</th>
-                    <th className="px-6 py-5 text-center">Factures Impayées</th>
-                    <th className="px-8 py-5 text-right text-rose-600">Montant Créance</th>
+                    <Th label="Code Abonné" field="numab" />
+                    <Th label="Nom / Raison Sociale" field="name" />
+                    <Th label="Adresse" field="adresse" align="center" />
+                    <Th label="Bloc" field="bloc" align="center" />
+                    <Th label="N° Dom" field="ndom" align="center" />
+                    <Th label="Type Abonné" field="type_abon" align="center" />
+                    <Th label="État Cpt" field="etat_cpt" align="center" />
+                    <Th label="N° Série Compteur" field="numser" align="center" />
+                    <Th label="Tournée" field="tournee" align="center" />
+                    <Th label="Dernier Paiement" field="raw_last_payment" align="center" />
+                    <Th label="Factures Impayées" field="nombre_creance" align="center" />
+                    <Th label="Montant Créance" field="montant_creance" align="right" px="px-8" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F2F4F7]">
@@ -4717,7 +5127,7 @@ function CreancesAbonnesView({ onBack }: any) {
                     const isAlarmant = days === null || days > 90;
                     return (
                       <tr key={s.numab} className="hover:bg-violet-50/10 transition-colors group">
-                        <td className="px-8 py-4 text-xs text-[#98A2B3] font-mono font-bold">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                        <td className="px-8 py-4 text-xs text-[#98A2B3] font-mono font-bold">{(safePage - 1) * PAGE_SIZE + i + 1}</td>
                         <td className="px-6 py-4">
                           <span className="font-mono text-xs font-black text-[#101828] bg-[#F9FAFB] px-2.5 py-1 rounded-lg border border-[#E4E7EC]">{s.numab}</span>
                         </td>
@@ -4758,35 +5168,51 @@ function CreancesAbonnesView({ onBack }: any) {
                     );
                   })}
                 </tbody>
+                <tfoot className="sticky bottom-0 z-10">
+                  <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                    <td colSpan={11} className="px-8 py-5 text-sm uppercase tracking-widest">
+                      TOTAL GÉNÉRAL — {tableTotals.count.toLocaleString('fr-FR')} abonné{tableTotals.count !== 1 ? 's' : ''}
+                    </td>
+                    <td className="px-6 py-5 text-center text-amber-300 font-mono text-sm">
+                      {tableTotals.factures.toLocaleString('fr-FR')}
+                    </td>
+                    <td className="px-8 py-5 text-right text-rose-400 font-mono text-sm">
+                      {fmt(tableTotals.montant)}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             )}
           </div>
 
           {/* Pagination */}
-          {!error && totalPages > 1 && (
+          {!error && sorted.length > 0 && (
             <div className="flex items-center justify-between px-8 py-5 border-t border-[#F2F4F7] bg-[#F9FAFB]/50">
               <span className="text-xs text-[#667085] font-bold">
-                Page {page}/{totalPages} · {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}
+                Page {safePage}/{totalPages} · {sorted.length} résultat{sorted.length !== 1 ? 's' : ''}
+                {(filterTypeAbon || filterEtatCpt || filterTourneeTable) && (
+                  <span className="text-violet-600 ml-1">(filtres actifs)</span>
+                )}
               </span>
               <div className="flex items-center gap-1.5">
-                <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}
+                <button disabled={safePage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}
                   className="px-3.5 py-2 rounded-xl text-xs font-black text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all">
                   ← Préc.
                 </button>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, idx) => {
                   let p: number;
                   if (totalPages <= 5) p = idx + 1;
-                  else if (page <= 3) p = idx + 1;
-                  else if (page >= totalPages - 2) p = totalPages - 4 + idx;
-                  else p = page - 2 + idx;
+                  else if (safePage <= 3) p = idx + 1;
+                  else if (safePage >= totalPages - 2) p = totalPages - 4 + idx;
+                  else p = safePage - 2 + idx;
                   return (
                     <button key={p} onClick={() => setPage(p)}
                       className={`w-9 h-9 rounded-xl text-xs font-black transition-all active:scale-95 ${
-                        page === p ? 'bg-violet-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
+                        safePage === p ? 'bg-violet-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
                       }`}>{p}</button>
                   );
                 })}
-                <button disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                <button disabled={safePage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   className="px-3.5 py-2 rounded-xl text-xs font-black text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all">
                   Suiv. →
                 </button>

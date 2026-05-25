@@ -1848,6 +1848,7 @@ def get_creances_institutions(only_with_creance: bool = True):
                     "derniere_date_paiement": "Aucun",
                     "nombre_creance": 0,
                     "montant_creance": 0.0,
+                    "factures": [],
                 }
 
             if datreg and datreg not in EMPTY_DATE_VALUES:
@@ -1858,6 +1859,10 @@ def get_creances_institutions(only_with_creance: bool = True):
             if is_creance:
                 debtors[numab_key]["nombre_creance"] += 1
                 debtors[numab_key]["montant_creance"] += creance_monttc_delta(r, is_avoir)
+                debtors[numab_key]["factures"].append({
+                    "date_fact": str(r.get('DATFACT', '') or '').strip(),
+                    "montant": creance_monttc_delta(r, is_avoir),
+                })
 
         rows = []
         for link in MEM_ABINSTIT:
@@ -1901,6 +1906,7 @@ def get_creances_institutions(only_with_creance: bool = True):
                 "raw_last_payment": None,
                 "nombre_creance": 0,
                 "montant_creance": 0.0,
+                "factures": [],
             })
             montant = round(float(debt.get("montant_creance") or 0), 2)
             nb_creance = int(debt.get("nombre_creance") or 0)
@@ -1934,6 +1940,7 @@ def get_creances_institutions(only_with_creance: bool = True):
                 "montant_creance": montant,
                 "derniere_date_paiement": derniere_date_paiement,
                 "raw_last_payment": ld if ld and len(ld) == 8 else None,
+                "factures": debt.get("factures", []),
             })
 
         rows.sort(key=lambda x: (-x["montant_creance"], x["lib_instit"], x["numab"]))

@@ -5967,6 +5967,446 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     printWindow.document.close();
   };
 
+  const handlePrintQuarterlyCreances = () => {
+    if (flatRows.length === 0) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    // 1. Find the latest bill date to establish the reference year
+    let maxDateStr = "";
+    for (const r of flatRows) {
+      if (r.factures && Array.isArray(r.factures)) {
+        for (const f of r.factures) {
+          const df = String(f.date_fact || "").trim();
+          if (df && df.length === 8) {
+            if (!maxDateStr || df > maxDateStr) {
+              maxDateStr = df;
+            }
+          }
+        }
+      }
+    }
+
+    // If no date found or date is invalid, default to current local time's year (2026)
+    let refYear = 2026;
+    if (maxDateStr && maxDateStr.length >= 4) {
+      const parsedYear = parseInt(maxDateStr.substring(0, 4), 10);
+      if (!isNaN(parsedYear)) {
+        refYear = parsedYear;
+      }
+    }
+
+    // 2. Generate the 11 years (from refYear - 10 to refYear)
+    const startYear = refYear - 10;
+    const endYear = refYear;
+    const years: number[] = [];
+    for (let y = startYear; y <= endYear; y++) {
+      years.push(y);
+    }
+
+    // 3. Prepare filters text
+    const filterTexts = [];
+    if (filterCodInstit.length > 0) filterTexts.push(`Code inst. : ${filterCodInstit.join(', ')}`);
+    if (filterInstitution.length > 0) filterTexts.push(`Institution : ${filterInstitution.join(', ')}`);
+    if (filterTypeAbonInst.length > 0) filterTexts.push(`Type : ${filterTypeAbonInst.join(', ')}`);
+    if (filterEtatCptInst.length > 0) filterTexts.push(`État Cpt : ${filterEtatCptInst.join(', ')}`);
+    if (filterTourneeInst.length > 0) filterTexts.push(`Tournée : ${filterTourneeInst.join(', ')}`);
+    if (search.trim()) filterTexts.push(`Recherche : ${search}`);
+
+    // Helpers
+    const getQuarter = (monthStr: string): number => {
+      const m = parseInt(monthStr, 10);
+      if (isNaN(m)) return 1;
+      if (m >= 1 && m <= 3) return 1;
+      if (m >= 4 && m <= 6) return 2;
+      if (m >= 7 && m <= 9) return 3;
+      if (m >= 10 && m <= 12) return 4;
+      return 1;
+    };
+
+    // Calculate quarterly amounts for each row
+    const matrixRows = flatRows.map((r: any) => {
+      const cellAmounts: { [key: string]: number } = {};
+      let subscriberTotal = 0;
+
+      if (r.factures && Array.isArray(r.factures)) {
+        for (const f of r.factures) {
+          const df = String(f.date_fact || "").trim();
+          if (df.length === 8) {
+            const y = parseInt(df.substring(0, 4), 10);
+            const mStr = df.substring(4, 6);
+            const q = getQuarter(mStr);
+            const amt = Number(f.montant) || 0;
+
+            if (y >= startYear && y <= endYear) {
+              const key = `${y}-Q${q}`;
+              cellAmounts[key] = (cellAmounts[key] || 0) + amt;
+              subscriberTotal += amt;
+            }
+          }
+        }
+      }
+
+      return {
+        ...r,
+        cellAmounts,
+        subscriberTotal
+      };
+    });
+
+    // Calculate column totals (total per year and grand total)
+    const columnTotals: { [key: number]: number } = {};
+    let grandTotal = 0;
+    for (const y of years) {
+      columnTotals[y] = 0;
+      for (const mr of matrixRows) {
+        const yearSumForSubscriber = [1, 2, 3, 4].reduce((sumQ, q) => sumQ + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
+        columnTotals[y] += yearSumForSubscriber;
+      }
+      grandTotal += columnTotals[y];
+    }
+
+    const fmtClean = (n: number) => {
+      if (n === 0) return "—";
+      return new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        .format(n).replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+    };
+
+    const fmtCleanTotal = (n: number) => {
+      return new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        .format(n).replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+    };
+
+    // Construct print html content
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Détails des Créances par Facture et Trimestre (10 ans)</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @page {
+              size: landscape;
+              margin: 6mm 6mm;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 10px;
+              font-size: 8px;
+              line-height: 1.2;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 8px;
+              margin-bottom: 10px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .logo-text {
+              font-size: 11px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin-bottom: 1px;
+            }
+            .company-name {
+              font-size: 7px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 13px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+              letter-spacing: -0.5px;
+            }
+            .subtitle {
+              font-size: 8px;
+              color: #667085;
+              margin: 2px 0 0 0;
+              font-weight: 500;
+            }
+            .filters {
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 6px;
+              padding: 6px 12px;
+              margin-bottom: 8px;
+              font-size: 7px;
+            }
+            .filter-item {
+              margin-bottom: 2px;
+            }
+            .filter-label {
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+            }
+            .filter-value {
+              color: #344054;
+              margin-left: 4px;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 10px;
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 6px;
+              padding: 6px 12px;
+              margin-bottom: 10px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 7px;
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+              margin-bottom: 1px;
+            }
+            .meta-value {
+              font-size: 9px;
+              font-weight: 700;
+              color: #344054;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 5px;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            th {
+              background-color: #F9FAFB;
+              color: #475467;
+              font-size: 7.5px;
+              text-transform: uppercase;
+              font-weight: 700;
+              border: 1px solid #EAECF0;
+              padding: 4px 6px;
+              text-align: center;
+            }
+            td {
+              border: 1px solid #EAECF0;
+              padding: 4px 6px;
+              text-align: center;
+              color: #475467;
+              font-size: 7.5px;
+            }
+            .year-col {
+              background-color: #F8F9FC;
+              font-weight: 700;
+              width: 6.5%;
+            }
+            .info-cell {
+              text-align: left;
+              line-height: 1.3;
+              min-width: 190px;
+              font-size: 7.5px;
+              background-color: #FFFFFF;
+              font-weight: 500;
+              vertical-align: top;
+              padding: 6px 8px;
+            }
+            .info-cell strong {
+              color: #101828;
+            }
+            .q-label-cell {
+              font-weight: 700;
+              text-align: left;
+              background-color: #F9FAFB;
+              font-size: 7.5px;
+              color: #344054;
+            }
+            .amount-val {
+              font-family: monospace;
+              font-size: 7px;
+              text-align: right;
+              white-space: nowrap;
+            }
+            .has-value {
+              background-color: #FEF3C7; /* amber-100 light highlights for quarterly unpaid bills */
+              font-weight: 700;
+              color: #B45309;
+            }
+            .has-value-subtotal {
+              background-color: #E0F2FE; /* sky-100 for year subtotals */
+              color: #0369A1;
+            }
+            .total-cell {
+              font-weight: 900;
+              font-family: monospace;
+              font-size: 7px;
+              text-align: right;
+            }
+            .subtotal-row {
+              background-color: #F3F4F6;
+              font-weight: 900;
+            }
+            .footer-row {
+              background-color: #111827 !important;
+              color: white !important;
+              font-weight: 900;
+            }
+            .footer-row td {
+              border-color: #374151;
+              color: white !important;
+              padding: 6px 8px;
+            }
+            .footer-row .total-sum {
+              color: #FCD34D !important; /* amber-300 */
+              font-family: monospace;
+              font-size: 7.5px;
+              text-align: right;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 25px; width: auto;" />
+              <div style="display: flex; flex-direction: column;">
+                <span class="logo-text">EPEOR Analytics</span>
+                <span class="company-name">Algérienne Des Eaux</span>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1 class="title">Créance Institutions — Impression par Facture (Trimestres)</h1>
+              <p class="subtitle">Détails des factures impayées découpées par trimestre et par ligne sur 10 ans (${startYear} - ${endYear})</p>
+            </div>
+          </div>
+
+          ${filterTexts.length > 0 ? `<div class="filters">${filterTexts.map(t => `<div class="filter-item"><span class="filter-label">Filtres appliqués :</span> ${t}</div>`).join('')}</div>` : ''}
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Total Abonnés</span>
+              <span class="meta-value">${tableTotals.count}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Période d'Analyse</span>
+              <span class="meta-value">10 ans (${startYear} à ${endYear})</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Montant Total Créance Table</span>
+              <span class="meta-value">${fmtCleanTotal(grandTotal)}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 18%; text-align: left;">Informations de l'Abonné</th>
+                <th style="width: 8%; text-align: left;">Trimestre</th>
+                ${years.map(y => `<th class="year-col">${y}</th>`).join('')}
+                <th style="width: 10%">Total Trimestre</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${matrixRows.map(mr => {
+                const qLabels = ["1er Trim", "2ème Trim", "3ème Trim", "4ème Trim"];
+                const qTotals = [1, 2, 3, 4].map(q => {
+                  return years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
+                });
+
+                // Generate quarterly rows
+                const qRowsHtml = [1, 2, 3, 4].map((q, idx) => {
+                  const label = qLabels[idx];
+                  const qTotal = qTotals[idx];
+
+                  // Rowspan=5 on the first column for the subscriber details block
+                  const infoCellHtml = idx === 0 ? `
+                    <td rowspan="5" class="info-cell">
+                      <strong>Code:</strong> ${mr.numab || '—'}<br/>
+                      <strong>Nom:</strong> ${mr.raisoc || '—'}<br/>
+                      <strong>Adresse:</strong> ${mr.adresse || '—'}<br/>
+                      <strong>N° Série:</strong> ${mr.numser || '—'}<br/>
+                      <strong>État:</strong> ${mr.etat_cpt || '—'}
+                    </td>
+                  ` : '';
+
+                  const yearCellsHtml = years.map(y => {
+                    const val = mr.cellAmounts[`${y}-Q${q}`] || 0;
+                    const hasVal = val >= 0.01;
+                    return `<td class="amount-val ${hasVal ? 'has-value' : ''}">${fmtClean(val)}</td>`;
+                  }).join('');
+
+                  return `
+                    <tr>
+                      ${infoCellHtml}
+                      <td class="q-label-cell">${label}</td>
+                      ${yearCellsHtml}
+                      <td class="total-cell" style="background-color: #F9FAFB;">${fmtClean(qTotal)}</td>
+                    </tr>
+                  `;
+                }).join('');
+
+                // Generate the TOTAL row (5th row of the block)
+                const subTotalYearCellsHtml = years.map(y => {
+                  const val = [1, 2, 3, 4].reduce((sum, q) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
+                  const hasVal = val >= 0.01;
+                  return `<td class="amount-val ${hasVal ? 'has-value-subtotal' : ''}" style="font-weight: 900;">${fmtClean(val)}</td>`;
+                }).join('');
+
+                const totalRowHtml = `
+                  <tr class="subtotal-row">
+                    <td class="q-label-cell" style="background-color: #EAECF0;">TOTAL</td>
+                    ${subTotalYearCellsHtml}
+                    <td class="total-cell" style="background-color: #EAECF0; font-weight: 900;">${fmtCleanTotal(mr.subscriberTotal)}</td>
+                  </tr>
+                `;
+
+                return qRowsHtml + totalRowHtml;
+              }).join('')}
+
+              <tr class="footer-row">
+                <td colspan="2" style="text-align: left;">TOTAL GÉNÉRAL</td>
+                ${years.map(y => `<td class="total-sum">${fmtCleanTotal(columnTotals[y] || 0)}</td>`).join('')}
+                <td class="total-sum" style="background-color: #1F2937 !important; color: #F59E0B !important;">${fmtCleanTotal(grandTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const inputCls = 'pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 transition-all w-72';
   const selectCls = 'py-2 pl-4 pr-8 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] outline-none focus:border-violet-300 transition-all min-w-[180px]';
  
@@ -6040,6 +6480,14 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               title="Imprimer avec les filtres appliqués"
             >
               <Printer size={13} /> Imprimer
+            </button>
+            <button
+              onClick={handlePrintQuarterlyCreances}
+              disabled={flatRows.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-violet-50 text-violet-700 border border-violet-100 rounded-xl text-xs font-black hover:bg-violet-100 disabled:opacity-50 transition-all"
+              title="Imprimer le tableau comparatif trimestriel sur 10 ans"
+            >
+              <Printer size={13} /> Imprimer par Facture (Trimestres)
             </button>
             <button
               onClick={loadData}

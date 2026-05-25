@@ -5723,6 +5723,250 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     URL.revokeObjectURL(url);
   };
 
+  const handlePrintCreances = () => {
+    if (flatRows.length === 0) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const filterTexts = [];
+    if (filterCodInstit.length > 0) filterTexts.push(`Code inst. : ${filterCodInstit.join(', ')}`);
+    if (filterInstitution.length > 0) filterTexts.push(`Institution : ${filterInstitution.join(', ')}`);
+    if (filterTypeAbonInst.length > 0) filterTexts.push(`Type : ${filterTypeAbonInst.join(', ')}`);
+    if (filterEtatCptInst.length > 0) filterTexts.push(`État Cpt : ${filterEtatCptInst.join(', ')}`);
+    if (filterTourneeInst.length > 0) filterTexts.push(`Tournée : ${filterTourneeInst.join(', ')}`);
+    if (search.trim()) filterTexts.push(`Recherche : ${search}`);
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Créance Institutions</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 40px;
+              font-size: 10px;
+              line-height: 1.5;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 20px;
+              margin-bottom: 25px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin-bottom: 2px;
+            }
+            .company-name {
+              font-size: 9px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 18px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+              letter-spacing: -0.5px;
+            }
+            .subtitle {
+              font-size: 10px;
+              color: #667085;
+              margin: 4px 0 0 0;
+              font-weight: 500;
+            }
+            .filters {
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 12px;
+              padding: 12px 20px;
+              margin-bottom: 20px;
+              font-size: 9px;
+            }
+            .filter-item {
+              margin-bottom: 6px;
+            }
+            .filter-label {
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .filter-value {
+              color: #344054;
+              margin-left: 8px;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 15px;
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 12px;
+              padding: 12px 20px;
+              margin-bottom: 30px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 8px;
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 3px;
+            }
+            .meta-value {
+              font-size: 11px;
+              font-weight: 700;
+              color: #344054;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            th {
+              background-color: #F9FAFB;
+              color: #475467;
+              font-size: 8px;
+              text-transform: uppercase;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #EAECF0;
+              padding: 8px 10px;
+              text-align: left;
+            }
+            td {
+              border-bottom: 1px solid #EAECF0;
+              padding: 8px 10px;
+              text-align: left;
+              color: #475467;
+            }
+            .font-bold-black {
+              font-weight: 700;
+              color: #101828;
+            }
+            .amount-right {
+              text-align: right;
+              font-weight: 700;
+            }
+            @media print {
+              body {
+                margin: 20px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
+              <div style="display: flex; flex-direction: column;">
+                <span class="logo-text">EPEOR Analytics</span>
+                <span class="company-name">Algérienne Des Eaux</span>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1 class="title">Créance Institutions</h1>
+              <p class="subtitle">Liens ABINSTIT / INSTIT avec créances issues des factures impayées</p>
+            </div>
+          </div>
+
+          ${filterTexts.length > 0 ? `<div class="filters">${filterTexts.map(t => `<div class="filter-item"><span class="filter-label">Filtres appliqués :</span> ${t}</div>`).join('')}</div>` : ''}
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Total Institutions</span>
+              <span class="meta-value">${tableTotals.institutions}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Total Abonnés</span>
+              <span class="meta-value">${tableTotals.count}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Montant Total</span>
+              <span class="meta-value">${fmt(tableTotals.montant)}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 8%">Code Inst.</th>
+                <th style="width: 15%">Institution</th>
+                <th style="width: 10%">Code Abonn.</th>
+                <th style="width: 15%">Raison Sociale</th>
+                <th style="width: 12%">Type</th>
+                <th style="width: 8%">État Cpt</th>
+                <th style="width: 8%">Tournée</th>
+                <th style="width: 6%; text-align: center;">Fact.</th>
+                <th style="width: 12%; text-align: right;">Montant Créance</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${flatRows.map(r => `
+                <tr>
+                  <td class="font-bold-black">${r.codinstit || '—'}</td>
+                  <td>${r.lib_instit || '—'}</td>
+                  <td class="font-bold-black">${r.numab || '—'}</td>
+                  <td>${r.raisoc || '—'}</td>
+                  <td>${r.type_abon || '—'}</td>
+                  <td>${r.etat_cpt || '—'}</td>
+                  <td>${r.tournee ? `T-${r.tournee}` : '—'}</td>
+                  <td style="text-align: center;">${r.nombre_creance || 0}</td>
+                  <td class="amount-right">${fmt(r.montant_creance || 0)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const inputCls = 'pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 transition-all w-72';
   const selectCls = 'py-2 pl-4 pr-8 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] outline-none focus:border-violet-300 transition-all min-w-[180px]';
  
@@ -5788,6 +6032,14 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 disabled:opacity-50 transition-all"
             >
               <FileSpreadsheet size={13} /> CSV
+            </button>
+            <button
+              onClick={handlePrintCreances}
+              disabled={flatRows.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 disabled:opacity-50 transition-all"
+              title="Imprimer avec les filtres appliqués"
+            >
+              <Printer size={13} /> Imprimer
             </button>
             <button
               onClick={loadData}

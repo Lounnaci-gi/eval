@@ -6003,12 +6003,31 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     // 2. Generate the 11 years (from refYear - 10 to refYear)
     const startYear = refYear - 10;
     const endYear = refYear;
+    const antecedentYear = startYear - 1;
     const years: number[] = [];
     for (let y = startYear; y <= endYear; y++) {
       years.push(y);
     }
 
-    // 3. Prepare filters text
+    // 3. Detect if any subscriber has older debts prior to startYear
+    let hasAntecedents = false;
+    for (const r of flatRows) {
+      if (r.factures && Array.isArray(r.factures)) {
+        for (const f of r.factures) {
+          const df = String(f.date_fact || "").trim();
+          if (df.length === 8) {
+            const y = parseInt(df.substring(0, 4), 10);
+            if (y < startYear) {
+              hasAntecedents = true;
+              break;
+            }
+          }
+        }
+      }
+      if (hasAntecedents) break;
+    }
+
+    // 4. Prepare filters text
     const filterTexts = [];
     if (filterCodInstit.length > 0) filterTexts.push(`Code inst. : ${filterCodInstit.join(', ')}`);
     if (filterInstitution.length > 0) filterTexts.push(`Institution : ${filterInstitution.join(', ')}`);
@@ -6046,6 +6065,10 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               const key = `${y}-Q${q}`;
               cellAmounts[key] = (cellAmounts[key] || 0) + amt;
               subscriberTotal += amt;
+            } else if (y < startYear) {
+              const key = `Ant-Q${q}`;
+              cellAmounts[key] = (cellAmounts[key] || 0) + amt;
+              subscriberTotal += amt;
             }
           }
         }
@@ -6060,7 +6083,9 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
 
     // Calculate column totals (total per year and grand total)
     const columnTotals: { [key: number]: number } = {};
+    let antecedentColumnTotal = 0;
     let grandTotal = 0;
+
     for (const y of years) {
       columnTotals[y] = 0;
       for (const mr of matrixRows) {
@@ -6068,6 +6093,14 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
         columnTotals[y] += yearSumForSubscriber;
       }
       grandTotal += columnTotals[y];
+    }
+
+    if (hasAntecedents) {
+      for (const mr of matrixRows) {
+        const antSumForSubscriber = [1, 2, 3, 4].reduce((sumQ, q) => sumQ + (mr.cellAmounts[`Ant-Q${q}`] || 0), 0);
+        antecedentColumnTotal += antSumForSubscriber;
+      }
+      grandTotal += antecedentColumnTotal;
     }
 
     const fmtClean = (n: number) => {
@@ -6253,6 +6286,15 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               font-weight: 700;
               color: #B45309;
             }
+            .has-value-ant {
+              background-color: #FFF5F5; /* light red highlight for antecedents */
+              font-weight: 700;
+              color: #B91C1C;
+            }
+            .has-value-ant-subtotal {
+              background-color: #FEE2E2; /* sky-100 style red for year subtotals */
+              color: #991B1B;
+            }
             .has-value-subtotal {
               background-color: #E0F2FE; /* sky-100 for year subtotals */
               color: #0369A1;
@@ -6322,6 +6364,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               <tr>
                 <th style="width: 18%; text-align: left;">Informations de l'Abonné</th>
                 <th style="width: 8%; text-align: left;">Trimestre</th>
+                ${hasAntecedents ? `<th class="year-col" style="background-color: #FEE2E2; color: #991B1B;">Ant. ${antecedentYear}</th>` : ''}
                 ${years.map(y => `<th class="year-col">${y}</th>`).join('')}
                 <th style="width: 10%">Total Trimestre</th>
               </tr>
@@ -6330,7 +6373,11 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               ${matrixRows.map(mr => {
                 const qLabels = ["1er Trim", "2ème Trim", "3ème Trim", "4ème Trim"];
                 const qTotals = [1, 2, 3, 4].map(q => {
-                  return years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
+                  let total = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
+                  if (hasAntecedents) {
+                    total += (mr.cellAmounts[`Ant-Q${q}`] || 0);
+                  }
+                  return total;
                 });
 
                 // Generate quarterly rows
@@ -6349,6 +6396,12 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                     </td>
                   ` : '';
 
+                  const antCellHtml = hasAntecedents ? (() => {
+                    const val = mr.cellAmounts[`Ant-Q${q}`] || 0;
+                    const hasVal = val >= 0.01;
+                    return `<td class="amount-val ${hasVal ? 'has-value-ant' : ''}" style="background-color: #FFF5F5;">${fmtClean(val)}</td>`;
+                  })() : '';
+
                   const yearCellsHtml = years.map(y => {
                     const val = mr.cellAmounts[`${y}-Q${q}`] || 0;
                     const hasVal = val >= 0.01;
@@ -6359,6 +6412,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                     <tr>
                       ${infoCellHtml}
                       <td class="q-label-cell">${label}</td>
+                      ${antCellHtml}
                       ${yearCellsHtml}
                       <td class="total-cell" style="background-color: #F9FAFB;">${fmtClean(qTotal)}</td>
                     </tr>
@@ -6366,6 +6420,12 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 }).join('');
 
                 // Generate the TOTAL row (5th row of the block)
+                const antTotalCellHtml = hasAntecedents ? (() => {
+                  const val = [1, 2, 3, 4].reduce((sum, q) => sum + (mr.cellAmounts[`Ant-Q${q}`] || 0), 0);
+                  const hasVal = val >= 0.01;
+                  return `<td class="amount-val ${hasVal ? 'has-value-ant-subtotal' : ''}" style="font-weight: 900; background-color: #FEE2E2;">${fmtClean(val)}</td>`;
+                })() : '';
+
                 const subTotalYearCellsHtml = years.map(y => {
                   const val = [1, 2, 3, 4].reduce((sum, q) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
                   const hasVal = val >= 0.01;
@@ -6375,6 +6435,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 const totalRowHtml = `
                   <tr class="subtotal-row">
                     <td class="q-label-cell" style="background-color: #EAECF0;">TOTAL</td>
+                    ${antTotalCellHtml}
                     ${subTotalYearCellsHtml}
                     <td class="total-cell" style="background-color: #EAECF0; font-weight: 900;">${fmtCleanTotal(mr.subscriberTotal)}</td>
                   </tr>
@@ -6385,6 +6446,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
 
               <tr class="footer-row">
                 <td colspan="2" style="text-align: left;">TOTAL GÉNÉRAL</td>
+                ${hasAntecedents ? `<td class="total-sum" style="background-color: #7F1D1D !important; color: #FCA5A5 !important; text-align: right;">${fmtCleanTotal(antecedentColumnTotal)}</td>` : ''}
                 ${years.map(y => `<td class="total-sum">${fmtCleanTotal(columnTotals[y] || 0)}</td>`).join('')}
                 <td class="total-sum" style="background-color: #1F2937 !important; color: #F59E0B !important;">${fmtCleanTotal(grandTotal)}</td>
               </tr>

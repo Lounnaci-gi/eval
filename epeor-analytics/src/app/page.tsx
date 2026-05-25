@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, Fragment, useRef, useMemo, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   Users,
   UserX,
@@ -16,6 +17,7 @@ import {
   BarChart3,
   Calendar,
   ChevronRight,
+  ChevronDown,
   Bell,
   HelpCircle,
   Printer,
@@ -23,7 +25,7 @@ import {
   FileSpreadsheet,
   Percent,
   MapPin,
-  Building2
+  Building2,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -46,7 +48,7 @@ import {
   RadialBarChart,
   RadialBar,
   PolarAngleAxis,
-  LabelList
+  LabelList,
 } from "recharts";
 
 /** Évite les avertissements Recharts quand le conteneur n'a pas encore de taille (flex / onglets). */
@@ -77,39 +79,153 @@ function ChartContainer({ children, className = "h-[350px] w-full min-h-[200px]"
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "";
-  const parts = dateStr.split('-');
+  const parts = dateStr.split("-");
   if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
   return dateStr;
 };
 
-const FrenchDateInput = ({ value, onChange, className, label }: any) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  return (
-    <div className="space-y-2 relative">
-      {label && <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">{label}</label>}
-      <div className="relative">
-        <input
-          type="text"
-          readOnly
-          value={formatDate(value)}
-          onClick={() => inputRef.current?.showPicker()}
-          className={`${className} cursor-pointer`}
-        />
-        <input
-          type="date"
-          ref={inputRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 opacity-0 pointer-events-none"
-          tabIndex={-1}
-        />
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#98A2B3]">
-          <Calendar size={14} />
+function MultiSelectDropdown({
+    label,
+    options,
+    selected,
+    onChange,
+    placeholder,
+  }: {
+    label: string;
+    options: string[];
+    selected: string[];
+    onChange: (next: string[]) => void;
+    placeholder?: string;
+  }) {
+    const [open, setOpen] = useState(false);
+    const buttonRef = useRef<HTMLButtonElement | null>(null);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+    const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+    const updatePos = () => {
+      const btn = buttonRef.current;
+      if (!btn) return setPos(null);
+      const rect = btn.getBoundingClientRect();
+      setPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    };
+
+    useEffect(() => {
+      if (!open) return;
+      updatePos();
+      const onPointer = (e: PointerEvent) => {
+        const menu = menuRef.current;
+        const btn = buttonRef.current;
+        if (menu && btn && !menu.contains(e.target as Node) && !btn.contains(e.target as Node)) setOpen(false);
+      };
+      const onScroll = () => updatePos();
+      window.addEventListener('pointerdown', onPointer);
+      window.addEventListener('resize', onScroll);
+      window.addEventListener('scroll', onScroll, true);
+      return () => {
+        window.removeEventListener('pointerdown', onPointer);
+        window.removeEventListener('resize', onScroll);
+        window.removeEventListener('scroll', onScroll, true);
+      };
+    }, [open]);
+
+    useEffect(() => {
+      if (!open) return;
+      const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+      document.addEventListener('keydown', onKey);
+      return () => document.removeEventListener('keydown', onKey);
+    }, [open]);
+
+    const toggle = (v: string) => {
+      if (selected.includes(v)) onChange(selected.filter(x => x !== v));
+      else onChange([...selected, v]);
+    };
+
+    const labelText = selected.length === 0 ? (placeholder || 'Toutes') : selected.length === 1 ? selected[0] : `${selected.length} sélectionnés`;
+
+    const menu = pos ? (
+      <div
+        ref={menuRef}
+        style={{ position: 'absolute', top: pos.top - 4, left: pos.left, width: pos.width, zIndex: 9999 }}
+      >
+        <div className="max-h-44 overflow-y-auto rounded-2xl border border-[#E4E7EC] bg-white p-3 shadow-lg">
+          {options.map(o => (
+            <label key={o} className="flex items-center gap-2 text-xs text-[#101828] py-1" onClick={e => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={selected.includes(o)}
+                onChange={(e) => { e.stopPropagation(); toggle(o); }}
+                className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600 focus:ring-violet-500"
+              />
+              <span>{o}</span>
+            </label>
+          ))}
+          <div className="mt-2 flex gap-2 justify-end">
+            <button onClick={() => { onChange([]); }} className="text-[10px] font-bold text-violet-600 hover:text-violet-800" type="button">Effacer</button>
+            <button onClick={() => setOpen(false)} className="text-[10px] text-[#475467]" type="button">Fermer</button>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    ) : null;
+
+    return (
+      <div className="relative">
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => { setOpen(o => !o); if (!open) setTimeout(updatePos, 0); }}
+          onFocus={() => { setOpen(true); setTimeout(updatePos, 0); }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); setTimeout(updatePos, 0); }
+          }}
+          className="w-full flex justify-between items-center py-2 px-4 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold"
+        >
+          <span className="text-left">
+            <span className="font-black">{label}</span>
+            <span className="ml-2 font-normal text-[#475467]">{labelText}</span>
+          </span>
+          <ChevronDown size={14} className="text-[#98A2B3]" />
+        </button>
+        {open && pos && createPortal(menu, document.body)}
+      </div>
+    );
+  }
+
+  function FrenchDateInput({ label, value, onChange, className }: { label?: string; value: string; onChange: (v: string) => void; className?: string }) {
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const formatDisplay = (raw: string) => {
+      if (!raw) return '—';
+      // raw is YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        return raw.replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
+      }
+      return raw;
+    };
+
+    return (
+      <div>
+        {label && <div className="text-[11px] font-black text-[#475467] mb-1">{label}</div>}
+        <div className="relative">
+          <div
+            onClick={() => inputRef.current?.showPicker && inputRef.current.showPicker()}
+            className={`${className ?? ''} cursor-pointer`}
+          >
+            {formatDisplay(value)}
+          </div>
+          <input
+            type="date"
+            ref={inputRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 opacity-0 pointer-events-auto"
+            tabIndex={-1}
+          />
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#98A2B3]">
+            <Calendar size={14} />
+          </div>
+        </div>
+      </div>
+    );
+}
 
 export default function Dashboard() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes' | 'creances_institutions'>('dashboard');
@@ -5421,6 +5537,10 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [filterCodInstit, setFilterCodInstit] = useState<string[]>([]);
+  const [filterTypeAbonInst, setFilterTypeAbonInst] = useState<string[]>([]);
+  const [filterEtatCptInst, setFilterEtatCptInst] = useState<string[]>([]);
+  const [filterTourneeInst, setFilterTourneeInst] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState('codinstit');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -5468,12 +5588,24 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r: any) =>
-      [r.codinstit, r.lib_instit, r.numab, r.raisoc, r.adresse, r.tournee]
-        .some((v: string) => String(v || '').toLowerCase().includes(q))
-    );
-  }, [rows, search]);
+    return rows.filter((r: any) => {
+      if (filterCodInstit.length > 0 && !filterCodInstit.includes(String(r.codinstit || ''))) return false;
+      if (filterTypeAbonInst.length > 0 && !filterTypeAbonInst.includes(String(r.type_abon || ''))) return false;
+      if (filterEtatCptInst.length > 0 && !filterEtatCptInst.includes(String(r.etat_cpt || ''))) return false;
+      if (filterTourneeInst.length > 0 && !filterTourneeInst.includes(String(r.tournee || ''))) return false;
+      if (!q) return true;
+      return [r.codinstit, r.lib_instit, r.numab, r.raisoc, r.adresse, r.tournee]
+        .some((v: string) => String(v || '').toLowerCase().includes(q));
+    });
+  }, [rows, search, filterCodInstit, filterTypeAbonInst, filterEtatCptInst, filterTourneeInst]);
+
+  const filterOptions = useMemo(() => {
+    const codinstit = [...new Set(rows.map(r => String(r.codinstit || '')).filter(v => v))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+    const types = [...new Set(rows.map(r => String(r.type_abon || '')).filter(v => v))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+    const etats = [...new Set(rows.map(r => String(r.etat_cpt || '')).filter(v => v))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+    const tournees = [...new Set(rows.map(r => String(r.tournee || '')).filter(v => v))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+    return { codinstit, types, etats, tournees };
+  }, [rows]);
 
   type InstitGroup = { codinstit: string; lib_instit: string; rows: any[] };
 
@@ -5589,6 +5721,100 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   };
 
   const inputCls = 'pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 transition-all w-72';
+  const selectCls = 'py-2 pl-4 pr-8 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] outline-none focus:border-violet-300 transition-all min-w-[180px]';
+
+  function MultiSelectDropdown({
+    label,
+    options,
+    selected,
+    onChange,
+    placeholder,
+  }: {
+    label: string;
+    options: string[];
+    selected: string[];
+    onChange: (next: string[]) => void;
+    placeholder?: string;
+  }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+      if (!open) return;
+      const onDoc = (e: PointerEvent) => {
+        if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      };
+      document.addEventListener('pointerdown', onDoc);
+      return () => document.removeEventListener('pointerdown', onDoc);
+    }, [open]);
+
+    const toggle = (v: string) => {
+      if (selected.includes(v)) onChange(selected.filter(x => x !== v));
+      else onChange([...selected, v]);
+    };
+
+    const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+    useEffect(() => {
+      if (!open) return;
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setOpen(false);
+      };
+      document.addEventListener('keydown', onKey);
+      return () => document.removeEventListener('keydown', onKey);
+    }, [open]);
+
+    const labelText =
+      selected.length === 0 ? (placeholder || 'Toutes') : selected.length === 1 ? selected[0] : `${selected.length} sélectionnés`;
+
+    return (
+      <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setOpen(true);
+            }
+          }}
+          className="w-full flex justify-between items-center py-2 px-4 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold"
+        >
+          <span className="text-left">
+            <span className="font-black">{label}</span>
+            <span className="ml-2 font-normal text-[#475467]">{labelText}</span>
+          </span>
+          <ChevronDown size={14} className="text-[#98A2B3]" />
+        </button>
+        {open && (
+          <div className="absolute z-50 top-full left-0 -mt-0.5 w-full max-h-44 overflow-y-auto rounded-2xl border border-[#E4E7EC] bg-white p-3 shadow-lg" onClick={e => e.stopPropagation()}>
+            {options.map(o => (
+              <label key={o} className="flex items-center gap-2 text-xs text-[#101828] py-1" onClick={e => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(o)}
+                  onChange={(e) => { e.stopPropagation(); toggle(o); }}
+                  className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600 focus:ring-violet-500"
+                />
+                <span>{o}</span>
+              </label>
+            ))}
+            <div className="mt-2 flex gap-2 justify-end">
+              <button
+                onClick={() => { onChange([]); }}
+                className="text-[10px] font-bold text-violet-600 hover:text-violet-800"
+                type="button"
+              >
+                Effacer
+              </button>
+              <button onClick={() => setOpen(false)} className="text-[10px] text-[#475467]" type="button">Fermer</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -5659,6 +5885,32 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               Actualiser
             </button>
           </div>
+        </div>
+        <div className="px-8 py-4 border-b border-[#F2F4F7] bg-[#FAFBFC] grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MultiSelectDropdown
+            label="Code inst."
+            options={filterOptions.codinstit}
+            selected={filterCodInstit}
+            onChange={vals => { setFilterCodInstit(vals); setPage(1); }}
+          />
+          <MultiSelectDropdown
+            label="Type"
+            options={filterOptions.types}
+            selected={filterTypeAbonInst}
+            onChange={vals => { setFilterTypeAbonInst(vals); setPage(1); }}
+          />
+          <MultiSelectDropdown
+            label="État Cpt"
+            options={filterOptions.etats}
+            selected={filterEtatCptInst}
+            onChange={vals => { setFilterEtatCptInst(vals); setPage(1); }}
+          />
+          <MultiSelectDropdown
+            label="Tournée"
+            options={filterOptions.tournees}
+            selected={filterTourneeInst}
+            onChange={vals => { setFilterTourneeInst(vals); setPage(1); }}
+          />
         </div>
 
         {dataLoading ? (

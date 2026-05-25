@@ -6366,7 +6366,8 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 <th style="width: 8%; text-align: left;">Trimestre</th>
                 ${hasAntecedents ? `<th class="year-col" style="background-color: #FEE2E2; color: #991B1B;">Ant. ${antecedentYear}</th>` : ''}
                 ${years.map(y => `<th class="year-col">${y}</th>`).join('')}
-                <th style="width: 10%">Total Trimestre</th>
+                <th style="width: 8%">Total Trimestre</th>
+                <th style="width: 10%; background-color: #111827; color: #F59E0B;">Total Créance</th>
               </tr>
             </thead>
             <tbody>
@@ -6408,6 +6409,21 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                     return `<td class="amount-val ${hasVal ? 'has-value' : ''}">${fmtClean(val)}</td>`;
                   }).join('');
 
+                  // Grand total cell: only on first quarter row, spans all 5 rows
+                  const grandTotalCellHtml = idx === 0 ? `
+                    <td rowspan="5" class="total-cell" style="
+                      background-color: #111827;
+                      color: #F59E0B;
+                      font-size: 9px;
+                      font-weight: 900;
+                      text-align: center;
+                      vertical-align: middle;
+                      font-family: monospace;
+                      white-space: nowrap;
+                      border: 2px solid #374151;
+                    ">${fmtCleanTotal(mr.subscriberTotal)}</td>
+                  ` : '';
+
                   return `
                     <tr>
                       ${infoCellHtml}
@@ -6415,6 +6431,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                       ${antCellHtml}
                       ${yearCellsHtml}
                       <td class="total-cell" style="background-color: #F9FAFB;">${fmtClean(qTotal)}</td>
+                      ${grandTotalCellHtml}
                     </tr>
                   `;
                 }).join('');
@@ -6449,6 +6466,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 ${hasAntecedents ? `<td class="total-sum" style="background-color: #7F1D1D !important; color: #FCA5A5 !important; text-align: right;">${fmtCleanTotal(antecedentColumnTotal)}</td>` : ''}
                 ${years.map(y => `<td class="total-sum">${fmtCleanTotal(columnTotals[y] || 0)}</td>`).join('')}
                 <td class="total-sum" style="background-color: #1F2937 !important; color: #F59E0B !important;">${fmtCleanTotal(grandTotal)}</td>
+                <td class="total-sum" style="background-color: #0C4A6E !important; color: #38BDF8 !important; font-size: 9px;">${fmtCleanTotal(grandTotal)}</td>
               </tr>
             </tbody>
           </table>

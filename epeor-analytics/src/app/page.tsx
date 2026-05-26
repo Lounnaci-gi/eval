@@ -6256,7 +6256,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               width: 6.5%;
             }
             .info-cell {
-              text-align: left;
+              text-align: center;
               line-height: 1.3;
               width: 14%;
               min-width: 140px;
@@ -6266,11 +6266,11 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               vertical-align: middle;
               padding: 6px 8px;
             }
-            .info-cell.ressilie {
+            .info-cell.resilie {
               color: #B91C1C;
               font-weight: 900;
             }
-            .info-cell.ressilie strong {
+            .info-cell.resilie strong {
               color: #B91C1C;
             }
             .q-label-cell {
@@ -6319,7 +6319,9 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               font-weight: 900;
               font-family: monospace;
               font-size: 7px;
-              text-align: right;
+              text-align: center;
+              background-color: #E5E7EB !important;
+              color: #111827 !important;
             }
             .subtotal-row {
               background-color: #F3F4F6;
@@ -6336,7 +6338,8 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               padding: 6px 8px;
             }
             .footer-row .total-sum {
-              color: #FCD34D !important; /* amber-300 */
+              background-color: #E5E7EB !important;
+              color: #111827 !important;
               font-family: monospace;
               font-size: 7.5px;
               text-align: right;

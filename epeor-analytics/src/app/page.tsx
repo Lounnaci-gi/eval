@@ -4982,6 +4982,582 @@ function CreancesAbonnesView({ onBack }: any) {
     printWindow.document.close();
   };
 
+  const handlePrintQuarterlyCreanciers = () => {
+    if (sorted.length === 0 && selectedRows.length === 0) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.');
+      return;
+    }
+
+    const sourceRows = selectedRows.length > 0 ? selectedRows : sorted;
+
+    // 1. Find latest bill date
+    let maxDateStr = '';
+    for (const r of sourceRows) {
+      if (r.factures && Array.isArray(r.factures)) {
+        for (const f of r.factures) {
+          const df = String(f.date_fact || '').trim();
+          if (df && df.length === 8) {
+            if (!maxDateStr || df > maxDateStr) maxDateStr = df;
+          }
+        }
+      }
+    }
+
+    let refYear = new Date().getFullYear();
+    if (maxDateStr && maxDateStr.length >= 4) {
+      const parsedYear = parseInt(maxDateStr.substring(0,4), 10);
+      if (!isNaN(parsedYear)) refYear = parsedYear;
+    }
+
+    const startYear = refYear - 10;
+    const endYear = refYear;
+    const antecedentYear = startYear - 1;
+    const years: number[] = [];
+    for (let y = startYear; y <= endYear; y++) years.push(y);
+
+    let hasAntecedents = false;
+    for (const r of sourceRows) {
+      if (r.factures && Array.isArray(r.factures)) {
+        for (const f of r.factures) {
+          const df = String(f.date_fact || '').trim();
+          if (df.length === 8) {
+            const y = parseInt(df.substring(0,4), 10);
+            if (y < startYear) { hasAntecedents = true; break; }
+          }
+        }
+      }
+      if (hasAntecedents) break;
+    }
+
+    const filterTexts: string[] = [];
+    if (filterTypesAbon.length > 0) filterTexts.push(`Type: ${filterTypesAbon.join(', ')}`);
+    if (filterEtatsCpt.length > 0) filterTexts.push(`États: ${filterEtatsCpt.join(', ')}`);
+    if (filterTourneesTable.length > 0) filterTexts.push(`Tournées: ${filterTourneesTable.join(', ')}`);
+    if (search.trim()) filterTexts.push(`Recherche: ${search.trim()}`);
+
+    const getQuarter = (monthStr: string) => {
+      const m = parseInt(monthStr, 10);
+      if (isNaN(m)) return 1;
+      if (m<=3) return 1; if (m<=6) return 2; if (m<=9) return 3; return 4;
+    };
+
+    const matrixRows = sourceRows.map((r: any) => {
+      const cellAmounts: Record<string, number> = {};
+      let subscriberTotal = 0;
+      let hasMonthly = false; let hasQuarterly = false;
+      if (r.factures && Array.isArray(r.factures)) {
+        for (const f of r.factures) {
+          const df = String(f.date_fact || '').trim();
+          if (df.length === 8) {
+            const y = parseInt(df.substring(0,4), 10);
+            const mStr = df.substring(4,6);
+            const amt = Number(f.montant) || 0;
+            const periode = Number(f.periode) || 3;
+            if (periode===1) hasMonthly = true; if (periode===3) hasQuarterly = true;
+            if (y>=startYear && y<=endYear) {
+              if (periode===1) { const key = `${y}-M${mStr}`; cellAmounts[key] = (cellAmounts[key]||0) + amt; }
+              else { const q = getQuarter(mStr); const key = `${y}-Q${q}`; cellAmounts[key] = (cellAmounts[key]||0) + amt; }
+              subscriberTotal += amt;
+            } else if (y < startYear) {
+              if (periode===1) { const key = `Ant-M${mStr}`; cellAmounts[key] = (cellAmounts[key]||0) + amt; }
+              else { const q = getQuarter(mStr); const key = `Ant-Q${q}`; cellAmounts[key] = (cellAmounts[key]||0) + amt; }
+              subscriberTotal += amt;
+            }
+          }
+        }
+      }
+      let finalCellAmounts = cellAmounts;
+      if (hasMonthly && hasQuarterly) {
+        finalCellAmounts = {};
+        for (const [key, value] of Object.entries(cellAmounts)) {
+          if (key.includes('-M')) {
+            const [yearPart, monthPart] = key.split('-');
+            const monthNum = monthPart.substring(1);
+            const q = getQuarter(monthNum);
+            const newKey = `${yearPart}-Q${q}`;
+            finalCellAmounts[newKey] = (finalCellAmounts[newKey]||0) + (value as number);
+          } else finalCellAmounts[key] = value;
+        }
+      }
+      return { ...r, cellAmounts: finalCellAmounts, subscriberTotal };
+    });
+
+    const columnTotals: Record<number, number> = {};
+    let antecedentColumnTotal = 0; let grandTotal = 0;
+    for (const y of years) {
+      columnTotals[y] = 0;
+      for (const mr of matrixRows) {
+        let yearSum = 0;
+        for (let q=1;q<=4;q++) yearSum += mr.cellAmounts[`${y}-Q${q}`]||0;
+        for (let m=1;m<=12;m++) yearSum += mr.cellAmounts[`${y}-M${String(m).padStart(2,'0')}`]||0;
+        columnTotals[y] += yearSum;
+      }
+      grandTotal += columnTotals[y];
+    }
+    if (hasAntecedents) {
+      for (const mr of matrixRows) {
+        let ant=0; for (let q=1;q<=4;q++) ant += mr.cellAmounts[`Ant-Q${q}`]||0; for (let m=1;m<=12;m++) ant += mr.cellAmounts[`Ant-M${String(m).padStart(2,'0')}`]||0; antecedentColumnTotal += ant;
+      }
+      grandTotal += antecedentColumnTotal;
+    }
+
+    const fmtClean = (n: number) => n===0? '—' : new Intl.NumberFormat('fr-DZ',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n).replace(/[\u202F\u00A0]/g,' ') + ' DA';
+    const fmtCleanTotal = (n: number) => new Intl.NumberFormat('fr-DZ',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n).replace(/[\u202F\u00A0]/g,' ') + ' DA';
+
+    // Construct print html content
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Détails des Créances par Facture et Trimestre (10 ans) - Abonnés</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @page {
+              size: landscape;
+              margin: 6mm 6mm;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 10px;
+              font-size: 8px;
+              line-height: 1.2;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 8px;
+              margin-bottom: 10px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .logo-text {
+              font-size: 11px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin-bottom: 1px;
+            }
+            .company-name {
+              font-size: 7px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 13px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+              letter-spacing: -0.5px;
+            }
+            .subtitle {
+              font-size: 8px;
+              color: #667085;
+              margin: 2px 0 0 0;
+              font-weight: 500;
+            }
+            .filters {
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 6px;
+              padding: 6px 12px;
+              margin-bottom: 8px;
+              font-size: 7px;
+            }
+            .filter-item {
+              margin-bottom: 2px;
+            }
+            .filter-label {
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+            }
+            .filter-value {
+              color: #344054;
+              margin-left: 4px;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 10px;
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 6px;
+              padding: 6px 12px;
+              margin-bottom: 10px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 7px;
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+              margin-bottom: 1px;
+            }
+            .meta-value {
+              font-size: 9px;
+              font-weight: 700;
+              color: #344054;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 5px;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            th {
+              background-color: #F9FAFB;
+              color: #475467;
+              font-size: 7.5px;
+              text-transform: uppercase;
+              font-weight: 700;
+              border: 1px solid #EAECF0;
+              padding: 4px 6px;
+              text-align: center;
+            }
+            td {
+              border: 1px solid #EAECF0;
+              padding: 4px 6px;
+              text-align: center;
+              color: #475467;
+              font-size: 7.5px;
+            }
+            .year-col {
+              background-color: #F8F9FC;
+              font-weight: 700;
+              width: 6.5%;
+            }
+            .info-cell {
+              text-align: left;
+              line-height: 1.3;
+              width: 15%;
+              min-width: 150px;
+              font-size: 7.5px;
+              background-color: #FFFFFF;
+              font-weight: 500;
+              vertical-align: middle;
+              padding: 4px 6px;
+            }
+            .info-cell.resilie {
+              color: #B91C1C;
+              font-weight: 900;
+            }
+            .info-cell.resilie strong {
+              color: #B91C1C;
+            }
+            .q-label-cell {
+              font-weight: 700;
+              text-align: left;
+              background-color: #F9FAFB;
+              font-size: 7.5px;
+              color: #344054;
+            }
+            .order-cell {
+              text-align: center;
+              vertical-align: middle;
+              font-weight: 700;
+              width: 4%;
+              font-size: 7.5px;
+              background-color: #FFFFFF;
+            }
+            .amount-val {
+              font-family: monospace;
+              font-size: 7px;
+              text-align: center;
+              white-space: nowrap;
+            }
+            .total-cell {
+              font-weight: 900;
+              font-family: monospace;
+              font-size: 7px;
+              text-align: center;
+            }
+            .resilie-row td,
+            .resilie-row .total-cell {
+              color: #B91C1C !important;
+              font-weight: 900;
+            }
+            .has-value {
+              background-color: #FEF3C7;
+              font-weight: 700;
+              color: #B45309;
+            }
+            .has-value-ant {
+              background-color: #FFF5F5;
+              font-weight: 700;
+              color: #B91C1C;
+            }
+            .has-value-ant-subtotal {
+              background-color: #FEE2E2;
+              color: #991B1B;
+            }
+            .has-value-subtotal {
+              background-color: #E0F2FE;
+              color: #0369A1;
+            }
+            .total-cell {
+              font-weight: 900;
+              font-family: monospace;
+              font-size: 7px;
+              text-align: center;
+              background-color: #E5E7EB !important;
+              color: #111827 !important;
+            }
+            .subtotal-row {
+              background-color: #F3F4F6;
+              font-weight: 900;
+            }
+            .footer-row {
+              background-color: #E5E7EB !important;
+              color: #111827 !important;
+              font-weight: 900;
+            }
+            .footer-row td {
+              border-color: #D1D5DB;
+              color: #111827 !important;
+              padding: 6px 8px;
+            }
+            .footer-row .total-sum {
+              background-color: #E5E7EB !important;
+              color: #111827 !important;
+              font-family: monospace;
+              font-size: 7.5px;
+              text-align: right;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 25px; width: auto;" />
+              <div style="display: flex; flex-direction: column;">
+                <span class="logo-text">EPEOR Analytics</span>
+                <span class="company-name">Algérienne Des Eaux</span>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1 class="title">Créance Abonnés — Impression par Facture</h1>
+              <p class="subtitle">Détails des factures impayées (mensuelles et/ou trimestrielles) sur 10 ans (${startYear} - ${endYear})</p>
+            </div>
+          </div>
+
+          ${filterTexts.length > 0 ? `<div class="filters">${filterTexts.map(t => `<div class="filter-item"><span class="filter-label">Filtres appliqués :</span> ${t}</div>`).join('')}</div>` : ''}
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Total Abonnés</span>
+              <span class="meta-value">${sourceRows.length}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Période d'Analyse</span>
+              <span class="meta-value">10 ans (${startYear} à ${endYear})</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Montant Total Créance Table</span>
+              <span class="meta-value">${fmtCleanTotal(grandTotal)}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 4%">N° Ordre</th>
+                <th style="width: 14%; text-align: left;">Informations</th>
+                <th style="width: 8%; text-align: left;">Période</th>
+                ${hasAntecedents ? `<th class="year-col" style="background-color: #FEE2E2; color: #991B1B;">Ant. ${antecedentYear}</th>` : ''}
+                ${years.map(y => `<th class="year-col">${y}</th>`).join('')}
+                <th style="width: 10%; background-color: #E5E7EB; color: #111827;">Total Créance</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${matrixRows.map((mr, mi) => {
+                const monthLabels = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+                const qLabels = ["1° Trim", "2° Trim", "3° Trim", "4° Trim"];
+                const resilieClass = mr.etat_cpt === 'RESILIE' ? 'resilie-row' : '';
+                const infoCellClass = mr.etat_cpt === 'RESILIE' ? 'info-cell resilie' : 'info-cell';
+                const orderNumber = String(mi + 1).padStart(2, '0');
+
+                let periodsToShow: { label: string; keys: string[] }[] = [];
+                let rowSpan = 5;
+
+                if (mr.isMonthlySolo) {
+                  periodsToShow = monthLabels.map((label, idx) => ({
+                    label,
+                    keys: [String(idx + 1).padStart(2, '0')]
+                  }));
+                  rowSpan = 13;
+                } else {
+                  periodsToShow = [
+                    { label: "1° Trim", keys: ["01", "02", "03"] },
+                    { label: "2° Trim", keys: ["04", "05", "06"] },
+                    { label: "3° Trim", keys: ["07", "08", "09"] },
+                    { label: "4° Trim", keys: ["10", "11", "12"] }
+                  ];
+                  rowSpan = 5;
+                }
+
+                const periodsHtml = periodsToShow.map((period, idx) => {
+                  const orderCellHtml = idx === 0 ? `
+                    <td rowspan="${rowSpan}" class="order-cell">${orderNumber}</td>
+                  ` : '';
+
+                  const infoCellHtml = idx === 0 ? `
+                    <td rowspan="${rowSpan}" class="${infoCellClass}">
+                      <strong>Code:</strong> ${mr.numab || '—'}<br/>
+                      <strong>Nom:</strong> ${mr.name || mr.raisoc || '—'}<br/>
+                      <strong>Adresse:</strong> ${mr.adresse || '—'}<br/>
+                      ${mr.bloc && mr.bloc !== '—' ? `<strong>Bloc:</strong> ${mr.bloc}<br/>` : ''}
+                      ${mr.ndom && mr.ndom !== '—' ? `<strong>N° Dom:</strong> ${mr.ndom}<br/>` : ''}
+                      <strong>N° Série:</strong> ${mr.numser || '—'}<br/>
+                      <strong>État:</strong> ${mr.etat_cpt || '—'}<br/>
+                      <strong>Tournée:</strong> ${mr.tournee ? `T-${mr.tournee}` : '—'}
+                    </td>
+                  ` : '';
+
+                  let periodTotal = 0;
+                  if (mr.isMonthlySolo) {
+                    const monthKey = period.keys[0];
+                    periodTotal = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-M${monthKey}`] || 0), 0);
+                    if (hasAntecedents) {
+                      periodTotal += (mr.cellAmounts[`Ant-M${monthKey}`] || 0);
+                    }
+                  } else {
+                    const q = parseInt(period.label.charAt(0));
+                    periodTotal = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
+                    if (hasAntecedents) {
+                      periodTotal += (mr.cellAmounts[`Ant-Q${q}`] || 0);
+                    }
+                  }
+
+                  const antCellHtml = hasAntecedents ? (() => {
+                    let antVal = 0;
+                    if (mr.isMonthlySolo) {
+                      antVal = mr.cellAmounts[`Ant-M${period.keys[0]}`] || 0;
+                    } else {
+                      const q = parseInt(period.label.charAt(0));
+                      antVal = mr.cellAmounts[`Ant-Q${q}`] || 0;
+                    }
+                    const hasVal = antVal >= 0.01;
+                    return `<td class="amount-val ${hasVal ? 'has-value-ant' : ''} ${resilieClass}" style="background-color: #FFF5F5;">${fmtClean(antVal)}</td>`;
+                  })() : '';
+
+                  const yearCellsHtml = years.map(y => {
+                    let val = 0;
+                    if (mr.isMonthlySolo) {
+                      val = mr.cellAmounts[`${y}-M${period.keys[0]}`] || 0;
+                    } else {
+                      const q = parseInt(period.label.charAt(0));
+                      val = mr.cellAmounts[`${y}-Q${q}`] || 0;
+                    }
+                    const hasVal = val >= 0.01;
+                    return `<td class="amount-val ${hasVal ? 'has-value' : ''} ${resilieClass}">${fmtClean(val)}</td>`;
+                  }).join('');
+
+                  const grandTotalCellHtml = idx === 0 ? `
+                    <td rowspan="${rowSpan}" class="total-cell ${resilieClass}">
+                      ${fmtCleanTotal(mr.subscriberTotal)}
+                    </td>
+                  ` : '';
+
+                  return `
+                    <tr class="${resilieClass}">
+                      ${orderCellHtml}
+                      ${infoCellHtml}
+                      <td class="q-label-cell">${period.label}</td>
+                      ${antCellHtml}
+                      ${yearCellsHtml}
+                      ${grandTotalCellHtml}
+                    </tr>
+                  `;
+                }).join('');
+
+                const antTotalCellHtml = hasAntecedents ? (() => {
+                  let antTotal = 0;
+                  if (mr.isMonthlySolo) {
+                    for (let m = 1; m <= 12; m++) {
+                      antTotal += mr.cellAmounts[`Ant-M${String(m).padStart(2, '0')}`] || 0;
+                    }
+                  } else {
+                    for (let q = 1; q <= 4; q++) {
+                      antTotal += mr.cellAmounts[`Ant-Q${q}`] || 0;
+                    }
+                  }
+                  const hasVal = antTotal >= 0.01;
+                  return `<td class="amount-val ${hasVal ? 'has-value-ant-subtotal' : ''}" style="font-weight: 900; background-color: #FEE2E2;">${fmtClean(antTotal)}</td>`;
+                })() : '';
+
+                const subTotalYearCellsHtml = years.map(y => {
+                  let yearTotal = 0;
+                  if (mr.isMonthlySolo) {
+                    for (let m = 1; m <= 12; m++) {
+                      yearTotal += mr.cellAmounts[`${y}-M${String(m).padStart(2, '0')}`] || 0;
+                    }
+                  } else {
+                    for (let q = 1; q <= 4; q++) {
+                      yearTotal += mr.cellAmounts[`${y}-Q${q}`] || 0;
+                    }
+                  }
+                  const hasVal = yearTotal >= 0.01;
+                  return `<td class="amount-val ${hasVal ? 'has-value-subtotal' : ''}" style="font-weight: 900;">${fmtClean(yearTotal)}</td>`;
+                }).join('');
+
+                const totalRowHtml = `
+                  <tr class="subtotal-row ${resilieClass}">
+                    <td class="q-label-cell" style="background-color: #EAECF0;">TOTAL</td>
+                    ${antTotalCellHtml}
+                    ${subTotalYearCellsHtml}
+                  </tr>
+                `;
+
+                return periodsHtml + totalRowHtml;
+              }).join('')}
+
+              <tr class="footer-row">
+                <td colspan="3" style="text-align: left;">TOTAL GÉNÉRAL</td>
+                ${hasAntecedents ? `<td class="total-sum" style="background-color: #E5E7EB !important; color: #111827 !important; text-align: right;">${fmtCleanTotal(antecedentColumnTotal)}</td>` : ''}
+                ${years.map(y => `<td class="total-sum">${fmtCleanTotal(columnTotals[y] || 0)}</td>`).join('')}
+                <td class="total-sum" style="background-color: #E5E7EB !important; color: #111827 !important;">${fmtCleanTotal(grandTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const OP_OPTIONS = [
     { value: '>=', label: '≥ (Supérieur ou égal)' },
     { value: '=',  label: '= (Égal à)' },
@@ -5269,6 +5845,13 @@ function CreancesAbonnesView({ onBack }: any) {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#E4E7EC] text-[#344054] rounded-xl text-xs font-black hover:bg-[#F9FAFB] hover:border-[#D0D5DD] active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Printer size={13} /> {selectedCount > 0 ? 'Imprimer la sélection' : 'Imprimer tout'}
+              </button>
+              <button
+                onClick={handlePrintQuarterlyCreanciers}
+                disabled={sorted.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-violet-50 text-violet-700 border border-violet-100 rounded-xl text-xs font-black hover:bg-violet-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Printer size={13} /> Détails des factures impayées
               </button>
               <button
                 onClick={exportCSV}

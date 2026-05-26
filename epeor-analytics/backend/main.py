@@ -1773,7 +1773,8 @@ def get_creances_abonnes():
                     "raw_last_payment": None,   # YYYYMMDD string for day arithmetic
                     "derniere_date_paiement": "Aucun",
                     "nombre_creance": 0,
-                    "montant_creance": 0.0
+                    "montant_creance": 0.0,
+                    "factures": []
                 }
 
             if datreg and datreg not in EMPTY_DATE_VALUES:
@@ -1784,6 +1785,16 @@ def get_creances_abonnes():
             if is_creance:
                 debtors[numab]["nombre_creance"] += 1
                 debtors[numab]["montant_creance"] += creance_monttc_delta(r, is_avoir)
+                periode_val = r.get('PERIODE')
+                try:
+                    periode = int(periode_val) if periode_val else 3
+                except (ValueError, TypeError):
+                    periode = 3
+                debtors[numab]["factures"].append({
+                    "date_fact": str(r.get('DATFACT', '') or '').strip(),
+                    "montant": creance_monttc_delta(r, is_avoir),
+                    "periode": periode,
+                })
 
         debtor_list = []
         for d in debtors.values():

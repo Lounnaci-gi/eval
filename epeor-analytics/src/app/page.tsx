@@ -6258,15 +6258,20 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             .info-cell {
               text-align: left;
               line-height: 1.3;
-              min-width: 190px;
+              width: 14%;
+              min-width: 140px;
               font-size: 7.5px;
               background-color: #FFFFFF;
               font-weight: 500;
-              vertical-align: top;
+              vertical-align: middle;
               padding: 6px 8px;
             }
-            .info-cell strong {
-              color: #101828;
+            .info-cell.ressilie {
+              color: #B91C1C;
+              font-weight: 900;
+            }
+            .info-cell.ressilie strong {
+              color: #B91C1C;
             }
             .q-label-cell {
               font-weight: 700;
@@ -6278,8 +6283,19 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             .amount-val {
               font-family: monospace;
               font-size: 7px;
-              text-align: right;
+              text-align: center;
               white-space: nowrap;
+            }
+            .total-cell {
+              font-weight: 900;
+              font-family: monospace;
+              font-size: 7px;
+              text-align: center;
+            }
+            .resilie-row td,
+            .resilie-row .total-cell {
+              color: #B91C1C !important;
+              font-weight: 900;
             }
             .has-value {
               background-color: #FEF3C7; /* amber-100 light highlights for quarterly unpaid bills */
@@ -6382,13 +6398,16 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 });
 
                 // Generate quarterly rows
+                const resilieClass = mr.etat_cpt === 'RESILIE' ? 'resilie-row' : '';
+                const infoCellClass = mr.etat_cpt === 'RESILIE' ? 'info-cell resilie' : 'info-cell';
+
                 const qRowsHtml = [1, 2, 3, 4].map((q, idx) => {
                   const label = qLabels[idx];
                   const qTotal = qTotals[idx];
 
                   // Rowspan=5 on the first column for the subscriber details block
                   const infoCellHtml = idx === 0 ? `
-                    <td rowspan="5" class="info-cell">
+                    <td rowspan="5" class="${infoCellClass}">
                       <strong>Code:</strong> ${mr.numab || '—'}<br/>
                       <strong>Nom:</strong> ${mr.raisoc || '—'}<br/>
                       <strong>Adresse:</strong> ${mr.adresse || '—'}<br/>
@@ -6400,18 +6419,18 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                   const antCellHtml = hasAntecedents ? (() => {
                     const val = mr.cellAmounts[`Ant-Q${q}`] || 0;
                     const hasVal = val >= 0.01;
-                    return `<td class="amount-val ${hasVal ? 'has-value-ant' : ''}" style="background-color: #FFF5F5;">${fmtClean(val)}</td>`;
+                    return `<td class="amount-val ${hasVal ? 'has-value-ant' : ''} ${resilieClass}" style="background-color: #FFF5F5;">${fmtClean(val)}</td>`;
                   })() : '';
 
                   const yearCellsHtml = years.map(y => {
                     const val = mr.cellAmounts[`${y}-Q${q}`] || 0;
                     const hasVal = val >= 0.01;
-                    return `<td class="amount-val ${hasVal ? 'has-value' : ''}">${fmtClean(val)}</td>`;
+                    return `<td class="amount-val ${hasVal ? 'has-value' : ''} ${resilieClass}">${fmtClean(val)}</td>`;
                   }).join('');
 
                   // Grand total cell: only on first quarter row, spans all 5 rows
                   const grandTotalCellHtml = idx === 0 ? `
-                    <td rowspan="5" class="total-cell" style="
+                    <td rowspan="5" class="total-cell ${resilieClass}" style="
                       background-color: #111827;
                       color: #F59E0B;
                       font-size: 9px;
@@ -6425,12 +6444,12 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                   ` : '';
 
                   return `
-                    <tr>
+                    <tr class="${resilieClass}">
                       ${infoCellHtml}
                       <td class="q-label-cell">${label}</td>
                       ${antCellHtml}
                       ${yearCellsHtml}
-                      <td class="total-cell" style="background-color: #F9FAFB;">${fmtClean(qTotal)}</td>
+                      <td class="total-cell ${resilieClass}" style="background-color: #F9FAFB;">${fmtClean(qTotal)}</td>
                       ${grandTotalCellHtml}
                     </tr>
                   `;
@@ -6450,11 +6469,11 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 }).join('');
 
                 const totalRowHtml = `
-                  <tr class="subtotal-row">
+                  <tr class="subtotal-row ${resilieClass}">
                     <td class="q-label-cell" style="background-color: #EAECF0;">TOTAL</td>
                     ${antTotalCellHtml}
                     ${subTotalYearCellsHtml}
-                    <td class="total-cell" style="background-color: #EAECF0; font-weight: 900;">${fmtCleanTotal(mr.subscriberTotal)}</td>
+                    <td class="total-cell ${resilieClass}" style="background-color: #EAECF0; font-weight: 900;">${fmtCleanTotal(mr.subscriberTotal)}</td>
                   </tr>
                 `;
 

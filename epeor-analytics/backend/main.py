@@ -1859,9 +1859,15 @@ def get_creances_institutions(only_with_creance: bool = True):
             if is_creance:
                 debtors[numab_key]["nombre_creance"] += 1
                 debtors[numab_key]["montant_creance"] += creance_monttc_delta(r, is_avoir)
+                periode_val = r.get('PERIODE')
+                try:
+                    periode = int(periode_val) if periode_val else 3
+                except (ValueError, TypeError):
+                    periode = 3
                 debtors[numab_key]["factures"].append({
                     "date_fact": str(r.get('DATFACT', '') or '').strip(),
                     "montant": creance_monttc_delta(r, is_avoir),
+                    "periode": periode,
                 })
 
         rows = []

@@ -6049,10 +6049,12 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
       return 1;
     };
 
-    // Calculate quarterly amounts for each row
+    // Calculate amounts for each row, handling both monthly (PERIODE=1) and quarterly (PERIODE=3) invoices
     const matrixRows = flatRows.map((r: any) => {
       const cellAmounts: { [key: string]: number } = {};
       let subscriberTotal = 0;
+      let hasMonthly = false;
+      let hasQuarterly = false;
 
       if (r.factures && Array.isArray(r.factures)) {
         for (const f of r.factures) {
@@ -6060,26 +6062,67 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
           if (df.length === 8) {
             const y = parseInt(df.substring(0, 4), 10);
             const mStr = df.substring(4, 6);
-            const q = getQuarter(mStr);
             const amt = Number(f.montant) || 0;
+            const periode = Number(f.periode) || 3; // Default to quarterly
 
+            // Detect invoice type
+            if (periode === 1) hasMonthly = true;
+            if (periode === 3) hasQuarterly = true;
+
+            // Store amount based on period type
             if (y >= startYear && y <= endYear) {
-              const key = `${y}-Q${q}`;
-              cellAmounts[key] = (cellAmounts[key] || 0) + amt;
+              if (periode === 1) {
+                // Monthly invoice
+                const key = `${y}-M${mStr}`;
+                cellAmounts[key] = (cellAmounts[key] || 0) + amt;
+              } else {
+                // Quarterly invoice
+                const q = getQuarter(mStr);
+                const key = `${y}-Q${q}`;
+                cellAmounts[key] = (cellAmounts[key] || 0) + amt;
+              }
               subscriberTotal += amt;
             } else if (y < startYear) {
-              const key = `Ant-Q${q}`;
-              cellAmounts[key] = (cellAmounts[key] || 0) + amt;
+              if (periode === 1) {
+                const key = `Ant-M${mStr}`;
+                cellAmounts[key] = (cellAmounts[key] || 0) + amt;
+              } else {
+                const q = getQuarter(mStr);
+                const key = `Ant-Q${q}`;
+                cellAmounts[key] = (cellAmounts[key] || 0) + amt;
+              }
               subscriberTotal += amt;
             }
           }
         }
       }
 
+      // If subscriber has both monthly and quarterly, convert monthly to quarterly
+      let finalCellAmounts = cellAmounts;
+      if (hasMonthly && hasQuarterly) {
+        finalCellAmounts = {};
+        for (const [key, value] of Object.entries(cellAmounts)) {
+          if (key.includes('-M')) {
+            // Convert monthly key to quarterly
+            const [yearPart, monthPart] = key.split('-');
+            const monthNum = monthPart.substring(1);
+            const q = getQuarter(monthNum);
+            const newKey = `${yearPart}-Q${q}`;
+            finalCellAmounts[newKey] = (finalCellAmounts[newKey] || 0) + (value as number);
+          } else {
+            // Keep quarterly as-is
+            finalCellAmounts[key] = value;
+          }
+        }
+      }
+
       return {
         ...r,
-        cellAmounts,
-        subscriberTotal
+        cellAmounts: finalCellAmounts,
+        subscriberTotal,
+        hasMonthly,
+        hasQuarterly,
+        isMonthlySolo: hasMonthly && !hasQuarterly
       };
     });
 
@@ -6091,16 +6134,29 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     for (const y of years) {
       columnTotals[y] = 0;
       for (const mr of matrixRows) {
-        const yearSumForSubscriber = [1, 2, 3, 4].reduce((sumQ, q) => sumQ + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
-        columnTotals[y] += yearSumForSubscriber;
+        // Sum both quarterly and monthly amounts
+        let yearSum = 0;
+        for (let q = 1; q <= 4; q++) {
+          yearSum += mr.cellAmounts[`${y}-Q${q}`] || 0;
+        }
+        for (let m = 1; m <= 12; m++) {
+          yearSum += mr.cellAmounts[`${y}-M${String(m).padStart(2, '0')}`] || 0;
+        }
+        columnTotals[y] += yearSum;
       }
       grandTotal += columnTotals[y];
     }
 
     if (hasAntecedents) {
       for (const mr of matrixRows) {
-        const antSumForSubscriber = [1, 2, 3, 4].reduce((sumQ, q) => sumQ + (mr.cellAmounts[`Ant-Q${q}`] || 0), 0);
-        antecedentColumnTotal += antSumForSubscriber;
+        let antSum = 0;
+        for (let q = 1; q <= 4; q++) {
+          antSum += mr.cellAmounts[`Ant-Q${q}`] || 0;
+        }
+        for (let m = 1; m <= 12; m++) {
+          antSum += mr.cellAmounts[`Ant-M${String(m).padStart(2, '0')}`] || 0;
+        }
+        antecedentColumnTotal += antSum;
       }
       grandTotal += antecedentColumnTotal;
     }
@@ -6260,13 +6316,13 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             .info-cell {
               text-align: center;
               line-height: 1.3;
-              width: 14%;
-              min-width: 140px;
+              width: 10%;
+              min-width: 100px;
               font-size: 7.5px;
               background-color: #FFFFFF;
               font-weight: 500;
               vertical-align: middle;
-              padding: 6px 8px;
+              padding: 4px 6px;
             }
             .info-cell.resilie {
               color: #B91C1C;
@@ -6366,8 +6422,8 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               </div>
             </div>
             <div class="title-section">
-              <h1 class="title">Créance Institutions — Impression par Facture (Trimestres)</h1>
-              <p class="subtitle">Détails des factures impayées découpées par trimestre et par ligne sur 10 ans (${startYear} - ${endYear})</p>
+              <h1 class="title">Créance Institutions — Impression par Facture</h1>
+              <p class="subtitle">Détails des factures impayées (mensuelles et/ou trimestrielles) sur 10 ans (${startYear} - ${endYear})</p>
             </div>
           </div>
 
@@ -6401,31 +6457,40 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             </thead>
             <tbody>
               ${matrixRows.map((mr, mi) => {
+                const monthLabels = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
                 const qLabels = ["1° Trim", "2° Trim", "3° Trim", "4° Trim"];
-                const qTotals = [1, 2, 3, 4].map(q => {
-                  let total = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
-                  if (hasAntecedents) {
-                    total += (mr.cellAmounts[`Ant-Q${q}`] || 0);
-                  }
-                  return total;
-                });
-
-                // Generate quarterly rows
                 const resilieClass = mr.etat_cpt === 'RESILIE' ? 'resilie-row' : '';
                 const infoCellClass = mr.etat_cpt === 'RESILIE' ? 'info-cell resilie' : 'info-cell';
+                const orderNumber = String(mi + 1).padStart(2, '0');
 
-                const qRowsHtml = [1, 2, 3, 4].map((q, idx) => {
-                  const label = qLabels[idx];
-                  const qTotal = qTotals[idx];
+                let periodsToShow: { label: string; keys: string[] }[] = [];
+                let rowSpan = 5;
 
-                  // Rowspan=5 on the first column for the subscriber details block
-                  const orderNumber = String(mi + 1).padStart(2, '0');
+                if (mr.isMonthlySolo) {
+                  // Show 12 months
+                  periodsToShow = monthLabels.map((label, idx) => ({
+                    label,
+                    keys: [String(idx + 1).padStart(2, '0')]
+                  }));
+                  rowSpan = 13; // 12 months + 1 total row
+                } else {
+                  // Show 4 quarters
+                  periodsToShow = [
+                    { label: "1° Trim", keys: ["01", "02", "03"] },
+                    { label: "2° Trim", keys: ["04", "05", "06"] },
+                    { label: "3° Trim", keys: ["07", "08", "09"] },
+                    { label: "4° Trim", keys: ["10", "11", "12"] }
+                  ];
+                  rowSpan = 5;
+                }
+
+                const periodsHtml = periodsToShow.map((period, idx) => {
                   const orderCellHtml = idx === 0 ? `
-                    <td rowspan="5" class="order-cell">${orderNumber}</td>
+                    <td rowspan="${rowSpan}" class="order-cell">${orderNumber}</td>
                   ` : '';
 
                   const infoCellHtml = idx === 0 ? `
-                    <td rowspan="5" class="${infoCellClass}">
+                    <td rowspan="${rowSpan}" class="${infoCellClass}">
                       <strong>Code:</strong> ${mr.numab || '—'}<br/>
                       <strong>Nom:</strong> ${mr.raisoc || '—'}<br/>
                       <strong>Adresse:</strong> ${mr.adresse || '—'}<br/>
@@ -6434,21 +6499,51 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                     </td>
                   ` : '';
 
+                  // For monthly: sum the month, for quarterly: sum by quarter
+                  let periodTotal = 0;
+                  if (mr.isMonthlySolo) {
+                    const monthKey = period.keys[0];
+                    periodTotal = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-M${monthKey}`] || 0), 0);
+                    if (hasAntecedents) {
+                      periodTotal += (mr.cellAmounts[`Ant-M${monthKey}`] || 0);
+                    }
+                  } else {
+                    const q = parseInt(period.label.charAt(0));
+                    periodTotal = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
+                    if (hasAntecedents) {
+                      periodTotal += (mr.cellAmounts[`Ant-Q${q}`] || 0);
+                    }
+                  }
+
+                  // Antecedent cell
                   const antCellHtml = hasAntecedents ? (() => {
-                    const val = mr.cellAmounts[`Ant-Q${q}`] || 0;
-                    const hasVal = val >= 0.01;
-                    return `<td class="amount-val ${hasVal ? 'has-value-ant' : ''} ${resilieClass}" style="background-color: #FFF5F5;">${fmtClean(val)}</td>`;
+                    let antVal = 0;
+                    if (mr.isMonthlySolo) {
+                      antVal = mr.cellAmounts[`Ant-M${period.keys[0]}`] || 0;
+                    } else {
+                      const q = parseInt(period.label.charAt(0));
+                      antVal = mr.cellAmounts[`Ant-Q${q}`] || 0;
+                    }
+                    const hasVal = antVal >= 0.01;
+                    return `<td class="amount-val ${hasVal ? 'has-value-ant' : ''} ${resilieClass}" style="background-color: #FFF5F5;">${fmtClean(antVal)}</td>`;
                   })() : '';
 
+                  // Year cells
                   const yearCellsHtml = years.map(y => {
-                    const val = mr.cellAmounts[`${y}-Q${q}`] || 0;
+                    let val = 0;
+                    if (mr.isMonthlySolo) {
+                      val = mr.cellAmounts[`${y}-M${period.keys[0]}`] || 0;
+                    } else {
+                      const q = parseInt(period.label.charAt(0));
+                      val = mr.cellAmounts[`${y}-Q${q}`] || 0;
+                    }
                     const hasVal = val >= 0.01;
                     return `<td class="amount-val ${hasVal ? 'has-value' : ''} ${resilieClass}">${fmtClean(val)}</td>`;
                   }).join('');
 
-                  // Grand total cell: only on first quarter row, spans all 5 rows
+                  // Grand total cell: only on first row, spans all period rows
                   const grandTotalCellHtml = idx === 0 ? `
-                    <td rowspan="5" class="total-cell ${resilieClass}" style="
+                    <td rowspan="${rowSpan}" class="total-cell ${resilieClass}" style="
                       background-color: #E5E7EB;
                       color: #111827;
                       font-size: 9px;
@@ -6465,7 +6560,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                     <tr class="${resilieClass}">
                       ${orderCellHtml}
                       ${infoCellHtml}
-                      <td class="q-label-cell">${label}</td>
+                      <td class="q-label-cell">${period.label}</td>
                       ${antCellHtml}
                       ${yearCellsHtml}
                       ${grandTotalCellHtml}
@@ -6473,17 +6568,35 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                   `;
                 }).join('');
 
-                // Generate the TOTAL row (5th row of the block)
+                // Generate the TOTAL row
                 const antTotalCellHtml = hasAntecedents ? (() => {
-                  const val = [1, 2, 3, 4].reduce((sum, q) => sum + (mr.cellAmounts[`Ant-Q${q}`] || 0), 0);
-                  const hasVal = val >= 0.01;
-                  return `<td class="amount-val ${hasVal ? 'has-value-ant-subtotal' : ''}" style="font-weight: 900; background-color: #FEE2E2;">${fmtClean(val)}</td>`;
+                  let antTotal = 0;
+                  if (mr.isMonthlySolo) {
+                    for (let m = 1; m <= 12; m++) {
+                      antTotal += mr.cellAmounts[`Ant-M${String(m).padStart(2, '0')}`] || 0;
+                    }
+                  } else {
+                    for (let q = 1; q <= 4; q++) {
+                      antTotal += mr.cellAmounts[`Ant-Q${q}`] || 0;
+                    }
+                  }
+                  const hasVal = antTotal >= 0.01;
+                  return `<td class="amount-val ${hasVal ? 'has-value-ant-subtotal' : ''}" style="font-weight: 900; background-color: #FEE2E2;">${fmtClean(antTotal)}</td>`;
                 })() : '';
 
                 const subTotalYearCellsHtml = years.map(y => {
-                  const val = [1, 2, 3, 4].reduce((sum, q) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
-                  const hasVal = val >= 0.01;
-                  return `<td class="amount-val ${hasVal ? 'has-value-subtotal' : ''}" style="font-weight: 900;">${fmtClean(val)}</td>`;
+                  let yearTotal = 0;
+                  if (mr.isMonthlySolo) {
+                    for (let m = 1; m <= 12; m++) {
+                      yearTotal += mr.cellAmounts[`${y}-M${String(m).padStart(2, '0')}`] || 0;
+                    }
+                  } else {
+                    for (let q = 1; q <= 4; q++) {
+                      yearTotal += mr.cellAmounts[`${y}-Q${q}`] || 0;
+                    }
+                  }
+                  const hasVal = yearTotal >= 0.01;
+                  return `<td class="amount-val ${hasVal ? 'has-value-subtotal' : ''}" style="font-weight: 900;">${fmtClean(yearTotal)}</td>`;
                 }).join('');
 
                 const totalRowHtml = `
@@ -6494,7 +6607,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                   </tr>
                 `;
 
-                return qRowsHtml + totalRowHtml;
+                return periodsHtml + totalRowHtml;
               }).join('')}
 
               <tr class="footer-row">

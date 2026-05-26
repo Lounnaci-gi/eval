@@ -4433,6 +4433,7 @@ function CreancesAbonnesView({ onBack }: any) {
   const [filterTypesAbon, setFilterTypesAbon] = useState<string[]>([]);
   const [filterEtatsCpt, setFilterEtatsCpt] = useState<string[]>([]);
   const [filterTourneesTable, setFilterTourneesTable] = useState<string[]>([]);
+  const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
   const PAGE_SIZE = 20;
 
   const NUMERIC_SORT_KEYS = new Set(['montant_creance', 'nombre_creance']);
@@ -4675,6 +4676,14 @@ function CreancesAbonnesView({ onBack }: any) {
   const safePage = Math.min(page, totalPages);
   const paged = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+  const visibleNumabs = paged.map((s: any) => s.numab).filter(Boolean);
+  const allVisibleSelected = visibleNumabs.length > 0 && visibleNumabs.every(id => selectedNumabs.includes(id));
+  const selectedCount = selectedNumabs.length;
+  const selectedRows = useMemo(
+    () => selectedCount > 0 ? sorted.filter((s: any) => selectedNumabs.includes(s.numab)) : sorted,
+    [selectedCount, selectedNumabs, sorted]
+  );
+
   const tableTotals = useMemo(
     () => ({
       count: sorted.length,
@@ -4724,7 +4733,7 @@ function CreancesAbonnesView({ onBack }: any) {
 
   const exportCSV = () => {
     const header = ['Code Abonné', 'Nom / Raison Sociale', 'Adresse', 'Bloc', 'N° Dom', 'Type Abonné', 'Code Type', 'État Cpt', 'Code État', 'N° Série Compteur', 'Tournée', 'Dernier Paiement', 'Factures Impayées', 'Montant Créance (DA)'];
-    const rows = sorted.map((s: any) => [
+    const rows = selectedRows.map((s: any) => [
       s.numab,
       s.name,
       s.adresse || '—',
@@ -4785,7 +4794,13 @@ function CreancesAbonnesView({ onBack }: any) {
         .format(n)
         .replace(/[\u202F\u00A0]/g, ' ') + ' DA';
 
-    const rowsHtml = sorted
+    const printTotals = {
+      count: selectedRows.length,
+      factures: selectedRows.reduce((a: number, s: any) => a + (s.nombre_creance || 0), 0),
+      montant: selectedRows.reduce((a: number, s: any) => a + (s.montant_creance || 0), 0),
+    };
+
+    const rowsHtml = selectedRows
       .map(
         (s: any, i: number) => `
         <tr>
@@ -4916,9 +4931,9 @@ function CreancesAbonnesView({ onBack }: any) {
           <p class="filters">${escapeHtml(filtersLine)}</p>
           <div class="meta-grid">
             <div><div class="meta-label">Date d'édition</div><div class="meta-value">${new Date().toLocaleDateString('fr-FR')}</div></div>
-            <div><div class="meta-label">Nombre d'abonnés</div><div class="meta-value">${tableTotals.count}</div></div>
-            <div><div class="meta-label">Total créances</div><div class="meta-value" style="color:#E11D48;">${montantFmt(tableTotals.montant)}</div></div>
-            <div><div class="meta-label">Total factures impayées</div><div class="meta-value">${tableTotals.factures.toLocaleString('fr-FR')}</div></div>
+            <div><div class="meta-label">Nombre d'abonnés</div><div class="meta-value">${printTotals.count}</div></div>
+            <div><div class="meta-label">Total créances</div><div class="meta-value" style="color:#E11D48;">${montantFmt(printTotals.montant)}</div></div>
+            <div><div class="meta-label">Total factures impayées</div><div class="meta-value">${printTotals.factures.toLocaleString('fr-FR')}</div></div>
             <div><div class="meta-label">Montant ciblé (critère)</div><div class="meta-value">${escapeHtml(montantCibleLabel)}</div></div>
             <div><div class="meta-label">Ancienneté ciblée (critère)</div><div class="meta-value">${escapeHtml(joursCibleLabel)}</div></div>
           </div>
@@ -4944,9 +4959,9 @@ function CreancesAbonnesView({ onBack }: any) {
             <tbody>${rowsHtml}</tbody>
             <tfoot>
               <tr>
-                <td colspan="11" style="text-transform:uppercase;letter-spacing:0.05em;">TOTAL GÉNÉRAL — ${tableTotals.count} abonné${tableTotals.count !== 1 ? 's' : ''}</td>
-                <td style="text-align:center;">${tableTotals.factures.toLocaleString('fr-FR')}</td>
-                <td style="text-align:right;color:#FCA5A5;">${montantFmt(tableTotals.montant)}</td>
+                <td colspan="11" style="text-transform:uppercase;letter-spacing:0.05em;">TOTAL GÉNÉRAL — ${printTotals.count} abonné${printTotals.count !== 1 ? 's' : ''}</td>
+                <td style="text-align:center;">${printTotals.factures.toLocaleString('fr-FR')}</td>
+                <td style="text-align:right;color:#FCA5A5;">${montantFmt(printTotals.montant)}</td>
                 <td class="observation-cell"></td>
               </tr>
             </tfoot>
@@ -5219,7 +5234,7 @@ function CreancesAbonnesView({ onBack }: any) {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="relative">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
                 <input
@@ -5230,12 +5245,30 @@ function CreancesAbonnesView({ onBack }: any) {
                   className="pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 transition-all w-60"
                 />
               </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[#667085]">
+                {selectedCount > 0 ? (
+                  <>
+                    <span className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
+                      <strong>{selectedCount}</strong> abonné{selectedCount !== 1 ? 's' : ''} sélectionné{selectedCount !== 1 ? 's' : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedNumabs([])}
+                      className="px-3 py-2 rounded-xl bg-white border border-[#E4E7EC] text-[#344054] hover:bg-[#F9FAFB] text-[10px] font-black"
+                    >
+                      Effacer la sélection
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-[10px] text-[#98A2B3]">Sélectionnez les lignes pour imprimer uniquement celles-ci.</span>
+                )}
+              </div>
               <button
                 onClick={printCreanciersList}
-                disabled={sorted.length === 0}
+                disabled={selectedRows.length === 0}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#E4E7EC] text-[#344054] rounded-xl text-xs font-black hover:bg-[#F9FAFB] hover:border-[#D0D5DD] active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Printer size={13} /> Imprimer
+                <Printer size={13} /> {selectedCount > 0 ? 'Imprimer la sélection' : 'Imprimer tout'}
               </button>
               <button
                 onClick={exportCSV}
@@ -5412,6 +5445,20 @@ function CreancesAbonnesView({ onBack }: any) {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                    <th className="px-4 py-5 w-12">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600 focus:ring-violet-500"
+                        checked={allVisibleSelected}
+                        onChange={() => {
+                          if (allVisibleSelected) {
+                            setSelectedNumabs(prev => prev.filter(id => !visibleNumabs.includes(id)));
+                          } else {
+                            setSelectedNumabs(prev => Array.from(new Set([...prev, ...visibleNumabs])));
+                          }
+                        }}
+                      />
+                    </th>
                     <th className="px-8 py-5 w-12">#</th>
                     <Th label="Code Abonné" field="numab" />
                     <Th label="Nom / Raison Sociale" field="name" />
@@ -5433,6 +5480,20 @@ function CreancesAbonnesView({ onBack }: any) {
                     const isAlarmant = days === null || days > 90;
                     return (
                       <tr key={s.numab} className="hover:bg-violet-50/10 transition-colors group">
+                        <td className="px-4 py-4 text-center">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600 focus:ring-violet-500"
+                            checked={selectedNumabs.includes(s.numab)}
+                            onChange={() => {
+                              setSelectedNumabs(prev =>
+                                prev.includes(s.numab)
+                                  ? prev.filter(id => id !== s.numab)
+                                  : [...prev, s.numab]
+                              );
+                            }}
+                          />
+                        </td>
                         <td className="px-8 py-4 text-xs text-[#98A2B3] font-mono font-bold">{(safePage - 1) * PAGE_SIZE + i + 1}</td>
                         <td className="px-6 py-4">
                           <span className="font-mono text-xs font-black text-[#101828] bg-[#F9FAFB] px-2.5 py-1 rounded-lg border border-[#E4E7EC]">{s.numab}</span>
@@ -5545,6 +5606,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState('codinstit');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [selectedNumabsInst, setSelectedNumabsInst] = useState<string[]>([]);
   const PAGE_SIZE = 15;
 
   const fmt = (n: number) =>
@@ -5674,6 +5736,11 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   const safePage = Math.min(page, totalPages);
   const pagedGroups = groups.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+  const visibleNumabsInst = pagedGroups.flatMap(g => g.rows).map(r => r.numab).filter(Boolean as any);
+  const allVisibleSelectedInst = visibleNumabsInst.length > 0 && visibleNumabsInst.every((id: any) => selectedNumabsInst.includes(id));
+  const selectedCountInst = selectedNumabsInst.length;
+  const selectedRowsInst = useMemo(() => selectedCountInst > 0 ? flatRows.filter((r: any) => selectedNumabsInst.includes(r.numab)) : flatRows, [selectedCountInst, selectedNumabsInst, flatRows]);
+
   const tableTotals = useMemo(() => ({
     institutions: groups.length,
     count: flatRows.length,
@@ -5705,14 +5772,12 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
       'Adresse', 'Bloc', 'N° Dom', 'Type', 'État Cpt', 'N° Série', 'Tournée',
       'Factures impayées', 'Montant créance', 'Dernier paiement',
     ];
-    const lines = groups.flatMap((g: InstitGroup) =>
-      g.rows.map((r: any) =>
-        [
-          g.codinstit, g.lib_instit, r.numab, r.raisoc, r.adresse, r.bloc, r.ndom,
-          r.type_abon, r.etat_cpt, r.numser, r.tournee,
-          r.nombre_creance, r.montant_creance, r.derniere_date_paiement,
-        ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')
-      )
+    const lines = selectedRowsInst.flatMap((r: any) =>
+      [
+        r.codinstit, r.lib_instit, r.numab, r.raisoc, r.adresse, r.bloc, r.ndom,
+        r.type_abon, r.etat_cpt, r.numser, r.tournee,
+        r.nombre_creance, r.montant_creance, r.derniere_date_paiement,
+      ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')
     );
     const blob = new Blob(['\ufeff' + [headers.join(';'), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -5724,7 +5789,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   };
 
   const handlePrintCreances = () => {
-    if (flatRows.length === 0) return;
+    if (selectedRowsInst.length === 0 && flatRows.length === 0) return;
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -5739,6 +5804,15 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     if (filterEtatCptInst.length > 0) filterTexts.push(`État Cpt : ${filterEtatCptInst.join(', ')}`);
     if (filterTourneeInst.length > 0) filterTexts.push(`Tournée : ${filterTourneeInst.join(', ')}`);
     if (search.trim()) filterTexts.push(`Recherche : ${search}`);
+
+    const sourceRows = selectedRowsInst.length > 0 ? selectedRowsInst : flatRows;
+
+    const printTotals = {
+      institutions: new Set(sourceRows.map((r: any) => String(r.codinstit || ''))).size,
+      count: sourceRows.length,
+      montant: sourceRows.reduce((a: number, r: any) => a + (r.montant_creance || 0), 0),
+      factures: sourceRows.reduce((a: number, r: any) => a + (r.nombre_creance || 0), 0),
+    };
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -5910,15 +5984,15 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
           <div class="meta-grid">
             <div class="meta-item">
               <span class="meta-label">Total Institutions</span>
-              <span class="meta-value">${tableTotals.institutions}</span>
+              <span class="meta-value">${printTotals.institutions}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Total Abonnés</span>
-              <span class="meta-value">${tableTotals.count}</span>
+              <span class="meta-value">${printTotals.count}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Montant Total</span>
-              <span class="meta-value">${fmt(tableTotals.montant)}</span>
+              <span class="meta-value">${fmt(printTotals.montant)}</span>
             </div>
           </div>
 
@@ -5937,7 +6011,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               </tr>
             </thead>
             <tbody>
-              ${flatRows.map(r => `
+              ${sourceRows.map(r => `
                 <tr>
                   <td class="font-bold-black">${r.codinstit || '—'}</td>
                   <td>${r.lib_instit || '—'}</td>
@@ -5970,7 +6044,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   };
 
   const handlePrintQuarterlyCreances = () => {
-    if (flatRows.length === 0) return;
+    if (selectedRowsInst.length === 0 && flatRows.length === 0) return;
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -5978,9 +6052,12 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
       return;
     }
 
+    // determine source rows (selected or all)
+    const sourceRows = selectedRowsInst.length > 0 ? selectedRowsInst : flatRows;
+
     // 1. Find the latest bill date to establish the reference year
     let maxDateStr = "";
-    for (const r of flatRows) {
+    for (const r of sourceRows) {
       if (r.factures && Array.isArray(r.factures)) {
         for (const f of r.factures) {
           const df = String(f.date_fact || "").trim();
@@ -6013,7 +6090,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
 
     // 3. Detect if any subscriber has older debts prior to startYear
     let hasAntecedents = false;
-    for (const r of flatRows) {
+    for (const r of sourceRows) {
       if (r.factures && Array.isArray(r.factures)) {
         for (const f of r.factures) {
           const df = String(f.date_fact || "").trim();
@@ -6050,7 +6127,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     };
 
     // Calculate amounts for each row, handling both monthly (PERIODE=1) and quarterly (PERIODE=3) invoices
-    const matrixRows = flatRows.map((r: any) => {
+    const matrixRows = sourceRows.map((r: any) => {
       const cellAmounts: { [key: string]: number } = {};
       let subscriberTotal = 0;
       let hasMonthly = false;
@@ -6696,14 +6773,14 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             </div>
             <button
               onClick={exportCSV}
-              disabled={groups.length === 0}
+              disabled={selectedRowsInst.length === 0 && flatRows.length === 0}
               className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 disabled:opacity-50 transition-all"
             >
               <FileSpreadsheet size={13} /> CSV
             </button>
             <button
               onClick={handlePrintCreances}
-              disabled={flatRows.length === 0}
+              disabled={selectedRowsInst.length === 0 && flatRows.length === 0}
               className="inline-flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 disabled:opacity-50 transition-all"
               title="Imprimer avec les filtres appliqués"
             >
@@ -6711,7 +6788,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             </button>
             <button
               onClick={handlePrintQuarterlyCreances}
-              disabled={flatRows.length === 0}
+              disabled={selectedRowsInst.length === 0 && flatRows.length === 0}
               className="inline-flex items-center gap-2 px-4 py-2 bg-violet-50 text-violet-700 border border-violet-100 rounded-xl text-xs font-black hover:bg-violet-100 disabled:opacity-50 transition-all"
               title="Imprimer le tableau comparatif trimestriel sur 10 ans"
             >
@@ -6791,6 +6868,20 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-bold border-b border-[#E4E7EC]">
+                    <th className="px-4 py-4 w-10">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600"
+                        checked={allVisibleSelectedInst}
+                        onChange={() => {
+                          if (allVisibleSelectedInst) {
+                            setSelectedNumabsInst(prev => prev.filter(id => !visibleNumabsInst.includes(id)));
+                          } else {
+                            setSelectedNumabsInst(prev => Array.from(new Set([...prev, ...visibleNumabsInst])));
+                          }
+                        }}
+                      />
+                    </th>
                     <SortTh label="Code Inst." col="codinstit" />
                     <SortTh label="Institution" col="lib_instit" />
                     <SortTh label="Code Abonné" col="numab" />
@@ -6813,6 +6904,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                     return (
                       <Fragment key={g.codinstit}>
                         <tr className="bg-violet-50 border-t-2 border-violet-200">
+                          <td className="px-4 py-3" />
                           <td className="px-4 py-3 font-mono font-black text-violet-900 whitespace-nowrap">
                             {g.codinstit}
                           </td>
@@ -6822,7 +6914,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                               ({g.rows.length} abonné{g.rows.length !== 1 ? 's' : ''})
                             </span>
                           </td>
-                          <td className="px-4 py-3" colSpan={9} />
+                          <td className="px-4 py-3" colSpan={10} />
                           <td className="px-4 py-3 text-center font-black text-violet-900">
                             {gt.factures.toLocaleString('fr-FR')}
                           </td>
@@ -6833,6 +6925,14 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                         </tr>
                         {g.rows.map((r: any, i: number) => (
                           <tr key={`${g.codinstit}-${r.numab}-${i}`} className="hover:bg-[#F9FAFB] border-b border-[#F2F4F7]">
+                            <td className="px-4 py-2 text-center">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600"
+                                checked={selectedNumabsInst.includes(r.numab)}
+                                onChange={() => setSelectedNumabsInst(prev => prev.includes(r.numab) ? prev.filter(id => id !== r.numab) : [...prev, r.numab])}
+                              />
+                            </td>
                             <td className="px-4 py-2" colSpan={2} />
                             <td className="px-4 py-2 font-mono font-bold">{r.numab}</td>
                             <td className="px-4 py-2 font-bold text-[#101828] max-w-[200px]">{r.raisoc}</td>

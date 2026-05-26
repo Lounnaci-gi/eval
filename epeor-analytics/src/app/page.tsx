@@ -6615,7 +6615,6 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 ${hasAntecedents ? `<td class="total-sum" style="background-color: #E5E7EB !important; color: #111827 !important; text-align: right;">${fmtCleanTotal(antecedentColumnTotal)}</td>` : ''}
                 ${years.map(y => `<td class="total-sum">${fmtCleanTotal(columnTotals[y] || 0)}</td>`).join('')}
                 <td class="total-sum" style="background-color: #E5E7EB !important; color: #111827 !important;">${fmtCleanTotal(grandTotal)}</td>
-                <td class="total-sum" style="background-color: #E5E7EB !important; color: #111827 !important; font-size: 9px;">${fmtCleanTotal(grandTotal)}</td>
               </tr>
             </tbody>
           </table>

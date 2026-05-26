@@ -5753,6 +5753,8 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               margin: 40px;
               font-size: 10px;
               line-height: 1.5;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             .header {
               display: flex;
@@ -6280,6 +6282,14 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               font-size: 7.5px;
               color: #344054;
             }
+            .order-cell {
+              text-align: center;
+              vertical-align: middle;
+              font-weight: 700;
+              width: 4%;
+              font-size: 7.5px;
+              background-color: #FFFFFF;
+            }
             .amount-val {
               font-family: monospace;
               font-size: 7px;
@@ -6328,13 +6338,13 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               font-weight: 900;
             }
             .footer-row {
-              background-color: #111827 !important;
-              color: white !important;
+              background-color: #E5E7EB !important;
+              color: #111827 !important;
               font-weight: 900;
             }
             .footer-row td {
-              border-color: #374151;
-              color: white !important;
+              border-color: #D1D5DB;
+              color: #111827 !important;
               padding: 6px 8px;
             }
             .footer-row .total-sum {
@@ -6381,17 +6391,17 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
           <table>
             <thead>
               <tr>
-                <th style="width: 18%; text-align: left;">Informations de l'Abonné</th>
-                <th style="width: 8%; text-align: left;">Trimestre</th>
+                <th style="width: 4%">N° Ordre</th>
+                <th style="width: 14%; text-align: left;">Informations</th>
+                <th style="width: 8%; text-align: left;">Période</th>
                 ${hasAntecedents ? `<th class="year-col" style="background-color: #FEE2E2; color: #991B1B;">Ant. ${antecedentYear}</th>` : ''}
                 ${years.map(y => `<th class="year-col">${y}</th>`).join('')}
-                <th style="width: 8%">Total Trimestre</th>
-                <th style="width: 10%; background-color: #111827; color: #F59E0B;">Total Créance</th>
+                <th style="width: 10%; background-color: #E5E7EB; color: #111827;">Total Créance</th>
               </tr>
             </thead>
             <tbody>
-              ${matrixRows.map(mr => {
-                const qLabels = ["1er Trim", "2ème Trim", "3ème Trim", "4ème Trim"];
+              ${matrixRows.map((mr, mi) => {
+                const qLabels = ["1° Trim", "2° Trim", "3° Trim", "4° Trim"];
                 const qTotals = [1, 2, 3, 4].map(q => {
                   let total = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
                   if (hasAntecedents) {
@@ -6409,6 +6419,11 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                   const qTotal = qTotals[idx];
 
                   // Rowspan=5 on the first column for the subscriber details block
+                  const orderNumber = String(mi + 1).padStart(2, '0');
+                  const orderCellHtml = idx === 0 ? `
+                    <td rowspan="5" class="order-cell">${orderNumber}</td>
+                  ` : '';
+
                   const infoCellHtml = idx === 0 ? `
                     <td rowspan="5" class="${infoCellClass}">
                       <strong>Code:</strong> ${mr.numab || '—'}<br/>
@@ -6434,25 +6449,25 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                   // Grand total cell: only on first quarter row, spans all 5 rows
                   const grandTotalCellHtml = idx === 0 ? `
                     <td rowspan="5" class="total-cell ${resilieClass}" style="
-                      background-color: #111827;
-                      color: #F59E0B;
+                      background-color: #E5E7EB;
+                      color: #111827;
                       font-size: 9px;
                       font-weight: 900;
                       text-align: center;
                       vertical-align: middle;
                       font-family: monospace;
                       white-space: nowrap;
-                      border: 2px solid #374151;
+                      border: 2px solid #D1D5DB;
                     ">${fmtCleanTotal(mr.subscriberTotal)}</td>
                   ` : '';
 
                   return `
                     <tr class="${resilieClass}">
+                      ${orderCellHtml}
                       ${infoCellHtml}
                       <td class="q-label-cell">${label}</td>
                       ${antCellHtml}
                       ${yearCellsHtml}
-                      <td class="total-cell ${resilieClass}" style="background-color: #F9FAFB;">${fmtClean(qTotal)}</td>
                       ${grandTotalCellHtml}
                     </tr>
                   `;
@@ -6476,7 +6491,6 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                     <td class="q-label-cell" style="background-color: #EAECF0;">TOTAL</td>
                     ${antTotalCellHtml}
                     ${subTotalYearCellsHtml}
-                    <td class="total-cell ${resilieClass}" style="background-color: #EAECF0; font-weight: 900;">${fmtCleanTotal(mr.subscriberTotal)}</td>
                   </tr>
                 `;
 
@@ -6484,11 +6498,11 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               }).join('')}
 
               <tr class="footer-row">
-                <td colspan="2" style="text-align: left;">TOTAL GÉNÉRAL</td>
-                ${hasAntecedents ? `<td class="total-sum" style="background-color: #7F1D1D !important; color: #FCA5A5 !important; text-align: right;">${fmtCleanTotal(antecedentColumnTotal)}</td>` : ''}
+                <td colspan="3" style="text-align: left;">TOTAL GÉNÉRAL</td>
+                ${hasAntecedents ? `<td class="total-sum" style="background-color: #E5E7EB !important; color: #111827 !important; text-align: right;">${fmtCleanTotal(antecedentColumnTotal)}</td>` : ''}
                 ${years.map(y => `<td class="total-sum">${fmtCleanTotal(columnTotals[y] || 0)}</td>`).join('')}
-                <td class="total-sum" style="background-color: #1F2937 !important; color: #F59E0B !important;">${fmtCleanTotal(grandTotal)}</td>
-                <td class="total-sum" style="background-color: #0C4A6E !important; color: #38BDF8 !important; font-size: 9px;">${fmtCleanTotal(grandTotal)}</td>
+                <td class="total-sum" style="background-color: #E5E7EB !important; color: #111827 !important;">${fmtCleanTotal(grandTotal)}</td>
+                <td class="total-sum" style="background-color: #E5E7EB !important; color: #111827 !important; font-size: 9px;">${fmtCleanTotal(grandTotal)}</td>
               </tr>
             </tbody>
           </table>

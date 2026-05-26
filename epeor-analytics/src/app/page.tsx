@@ -2364,12 +2364,18 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       return map[mod] || mod;
     };
 
-    const filteredInvoices = invoices.filter((inv: any) => {
-      const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
-      if (invoiceFilter === 'PAID') return isPaid;
-      if (invoiceFilter === 'UNPAID') return !isPaid;
-      return true;
-    });
+    const filteredInvoices = invoices
+      .filter((inv: any) => {
+        const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
+        if (invoiceFilter === 'PAID') return isPaid;
+        if (invoiceFilter === 'UNPAID') return !isPaid;
+        return true;
+      })
+      .sort((a: any, b: any) => {
+        const da = a.DATFACT || '';
+        const db = b.DATFACT || '';
+        return da.localeCompare(db);
+      });
 
     const totals = filteredInvoices.reduce((acc: any, inv: any) => {
       const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
@@ -2499,18 +2505,26 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
         alternateRowStyles: { fillColor: [249, 250, 251] },
       });
 
-      // FOOTER
-      const pageCount = (doc as any).internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(152, 162, 179);
-        const printDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        doc.text(`Imprimé le ${printDate} - EPEOR Analytics`, 40, doc.internal.pageSize.height - 20);
-        doc.text(`Page ${i} / ${pageCount}`, pageWidth - 40, doc.internal.pageSize.height - 20, { align: 'right' });
-      }
-
-      doc.save(`Historique_Factures_${selectedSubForInvoices.numab}.pdf`);
+      doc.autoPrint();
+      const blob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.src = blobUrl;
+      document.body.appendChild(iframe);
+      iframe.onload = () => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          URL.revokeObjectURL(blobUrl);
+        }, 2000);
+      };
     };
 
     return (
@@ -4414,6 +4428,9 @@ function CreancesAbonnesView({ onBack }: any) {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ─── Filter UI state ──────────────────────────────────────────────
+  const [filterExpanded, setFilterExpanded] = useState(false);
+
   // ─── Filter state ────────────────────────────────────────────────
   const [customTournees, setCustomTournees] = useState<string[]>([]);
   const [newTourneeInput, setNewTourneeInput] = useState('');
@@ -5079,10 +5096,17 @@ function CreancesAbonnesView({ onBack }: any) {
             const q = getQuarter(monthNum);
             const newKey = `${yearPart}-Q${q}`;
             finalCellAmounts[newKey] = (finalCellAmounts[newKey]||0) + (value as number);
-          } else finalCellAmounts[key] = value;
+          } else finalCellAmounts[key] = (finalCellAmounts[key]||0) + (value as number);
         }
       }
-      return { ...r, cellAmounts: finalCellAmounts, subscriberTotal };
+      return {
+        ...r,
+        cellAmounts: finalCellAmounts,
+        subscriberTotal,
+        hasMonthly,
+        hasQuarterly,
+        isMonthlySolo: hasMonthly && !hasQuarterly
+      };
     });
 
     const columnTotals: Record<number, number> = {};
@@ -5599,16 +5623,28 @@ function CreancesAbonnesView({ onBack }: any) {
 
       {/* ── Filter Panel ─────────────────────────────────────────────── */}
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="px-8 py-5 border-b border-[#F2F4F7] bg-gradient-to-r from-violet-50/60 to-white flex items-center gap-3">
+        <button
+          onClick={() => setFilterExpanded(!filterExpanded)}
+          className="w-full px-8 py-5 border-b border-[#F2F4F7] bg-gradient-to-r from-violet-50/60 to-white flex items-center gap-3 hover:bg-gradient-to-r hover:from-violet-100/40 hover:to-white/80 transition-all"
+        >
           <div className="w-8 h-8 bg-violet-100 rounded-xl flex items-center justify-center">
             <Search size={14} className="text-violet-600" />
           </div>
-          <div>
+          <div className="flex-1 text-left">
             <h3 className="text-sm font-black text-[#101828]">Critères de Filtrage</h3>
             <p className="text-xs text-[#667085] font-medium">Définissez vos critères puis cliquez sur Rechercher</p>
           </div>
-        </div>
+          <div className="text-[#98A2B3]">
+            {filterExpanded ? (
+              <ChevronDown size={18} className="transition-transform" />
+            ) : (
+              <ChevronRight size={18} className="transition-transform" />
+            )}
+          </div>
+        </button>
 
+        {filterExpanded && (
+          <>
         <div className="p-8">
           {dataLoading ? (
             <div className="flex items-center justify-center gap-3 py-10">
@@ -5623,21 +5659,21 @@ function CreancesAbonnesView({ onBack }: any) {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
 
-              {/* 1. Tournées */}
-              <div className="lg:col-span-2">
-                <label className={labelCls}>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-4 h-4 bg-blue-100 rounded-md flex items-center justify-center text-blue-600 text-[9px] font-black">1</span>
-                    Tournée(s) — Ajoutez les tournées pour votre recherche
-                  </span>
-                </label>
-                <div className="space-y-3">
+                {/* 1. Tournées */}
+                <div>
+                  <label className={labelCls}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-blue-100 rounded-md flex items-center justify-center text-blue-600 text-[9px] font-black">1</span>
+                      Tournée(s)
+                    </span>
+                  </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="ex: 1, 15, 2 → sera 001, 015, 002"
+                      placeholder="ex: 1, 15, 2"
                       value={newTourneeInput}
                       onChange={e => setNewTourneeInput(e.target.value)}
                       onKeyPress={e => e.key === 'Enter' && addTournee()}
@@ -5646,123 +5682,124 @@ function CreancesAbonnesView({ onBack }: any) {
                     <button
                       onClick={addTournee}
                       disabled={!newTourneeInput.trim()}
-                      className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                      className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                     >
                       Ajouter
                     </button>
                   </div>
-                  {customTournees.length > 0 ? (
-                    <div className="flex items-center gap-2 flex-wrap p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Tournées :</span>
-                      {customTournees.map(t => (
-                        <span key={t} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 rounded-lg text-[11px] font-black border border-blue-200 shadow-sm">
-                          {t}
-                          <button onClick={() => removeTournee(t)} className="text-blue-400 hover:text-blue-700 font-bold">×</button>
-                        </span>
-                      ))}
-                      <button onClick={() => setCustomTournees([])} className="text-[10px] text-rose-500 font-bold hover:text-rose-700 ml-auto">Tout effacer</button>
+                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Vide = toutes les tournées</p>
+                </div>
+
+                {/* 2. Montant de créance */}
+                <div>
+                  <label className={labelCls}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-rose-100 rounded-md flex items-center justify-center text-rose-600 text-[9px] font-black">2</span>
+                      Montant de Créance (DA)
+                    </span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative w-20 flex-shrink-0">
+                      <select
+                        value={montantOp}
+                        onChange={e => setMontantOp(e.target.value as any)}
+                        className={selectCls}
+                      >
+                        {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label.split(' ')[0]}</option>)}
+                      </select>
                     </div>
-                  ) : (
-                    <p className="text-xs text-[#98A2B3] font-medium px-4 py-3 bg-[#F9FAFB] rounded-xl border border-[#E4E7EC]">Aucune tournée. Laisser vide cherchera dans toutes les tournées.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* 2. Montant de créance */}
-              <div>
-                <label className={labelCls}>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-4 h-4 bg-rose-100 rounded-md flex items-center justify-center text-rose-600 text-[9px] font-black">2</span>
-                    Montant de Créance (DA)
-                  </span>
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative w-44 flex-shrink-0">
-                    <select
-                      value={montantOp}
-                      onChange={e => setMontantOp(e.target.value as any)}
-                      className={selectCls}
-                    >
-                      {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <input
-                    type="number"
-                    placeholder="ex: 2000"
-                    value={montantVal}
-                    onChange={e => setMontantVal(e.target.value)}
-                    className={inputCls}
-                    min="0"
-                  />
-                </div>
-                <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer ce critère</p>
-              </div>
-
-              {/* 3. Nombre de créances */}
-              <div>
-                <label className={labelCls}>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-4 h-4 bg-amber-100 rounded-md flex items-center justify-center text-amber-600 text-[9px] font-black">3</span>
-                    Nombre de Factures Impayées
-                  </span>
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative w-44 flex-shrink-0">
-                    <select
-                      value={nbCreanceOp}
-                      onChange={e => setNbCreanceOp(e.target.value as any)}
-                      className={selectCls}
-                    >
-                      {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <input
-                    type="number"
-                    placeholder="ex: 5"
-                    value={nbCreanceVal}
-                    onChange={e => setNbCreanceVal(e.target.value)}
-                    className={inputCls}
-                    min="0"
-                    step="1"
-                  />
-                </div>
-                <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer ce critère</p>
-              </div>
-
-              {/* 4. Dernier paiement */}
-              <div className="lg:col-span-2">
-                <label className={labelCls}>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-4 h-4 bg-teal-100 rounded-md flex items-center justify-center text-teal-600 text-[9px] font-black">4</span>
-                    Dernier Paiement — Ancienneté en jours
-                  </span>
-                </label>
-                <div className="flex gap-2 max-w-xl">
-                  <div className="relative w-56 flex-shrink-0">
-                    <select
-                      value={dernierPaiementOp}
-                      onChange={e => setDernierPaiementOp(e.target.value as any)}
-                      className={selectCls}
-                    >
-                      {DAY_OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <div className="relative flex-1">
                     <input
                       type="number"
-                      placeholder="ex: 30"
-                      value={dernierPaiementDays}
-                      onChange={e => setDernierPaiementDays(e.target.value)}
+                      placeholder="ex: 2000"
+                      value={montantVal}
+                      onChange={e => setMontantVal(e.target.value)}
+                      className={inputCls}
+                      min="0"
+                    />
+                  </div>
+                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer</p>
+                </div>
+
+                {/* 3. Nombre de créances */}
+                <div>
+                  <label className={labelCls}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-amber-100 rounded-md flex items-center justify-center text-amber-600 text-[9px] font-black">3</span>
+                      Factures Impayées
+                    </span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative w-20 flex-shrink-0">
+                      <select
+                        value={nbCreanceOp}
+                        onChange={e => setNbCreanceOp(e.target.value as any)}
+                        className={selectCls}
+                      >
+                        {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label.split(' ')[0]}</option>)}
+                      </select>
+                    </div>
+                    <input
+                      type="number"
+                      placeholder="ex: 5"
+                      value={nbCreanceVal}
+                      onChange={e => setNbCreanceVal(e.target.value)}
                       className={inputCls}
                       min="0"
                       step="1"
                     />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-[#98A2B3]">jours</span>
                   </div>
+                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer</p>
                 </div>
-                <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Les abonnés sans aucun paiement seront toujours inclus avec &gt; N jours</p>
+
+                {/* 4. Dernier paiement */}
+                <div>
+                  <label className={labelCls}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-teal-100 rounded-md flex items-center justify-center text-teal-600 text-[9px] font-black">4</span>
+                      Ancienneté Paiement
+                    </span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative w-20 flex-shrink-0">
+                      <select
+                        value={dernierPaiementOp}
+                        onChange={e => setDernierPaiementOp(e.target.value as any)}
+                        className={selectCls}
+                      >
+                        {DAY_OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label.split(' ')[0]}</option>)}
+                      </select>
+                    </div>
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        placeholder="ex: 30"
+                        value={dernierPaiementDays}
+                        onChange={e => setDernierPaiementDays(e.target.value)}
+                        className={inputCls}
+                        min="0"
+                        step="1"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#98A2B3]">j</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Sans paiement = inclus</p>
+                </div>
+
               </div>
-            </div>
+
+              {customTournees.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap p-4 bg-blue-50 border border-blue-100 rounded-xl mt-6">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Tournées ajoutées :</span>
+                  {customTournees.map(t => (
+                    <span key={t} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 rounded-lg text-[11px] font-black border border-blue-200 shadow-sm">
+                      {t}
+                      <button onClick={() => removeTournee(t)} className="text-blue-400 hover:text-blue-700 font-bold">×</button>
+                    </span>
+                  ))}
+                  <button onClick={() => setCustomTournees([])} className="text-[10px] text-rose-500 font-bold hover:text-rose-700 ml-auto">Tout effacer</button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -5784,6 +5821,8 @@ function CreancesAbonnesView({ onBack }: any) {
               Rechercher les Créanciers
             </button>
           </div>
+        )}
+        </>
         )}
       </div>
 
@@ -6770,8 +6809,8 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             const newKey = `${yearPart}-Q${q}`;
             finalCellAmounts[newKey] = (finalCellAmounts[newKey] || 0) + (value as number);
           } else {
-            // Keep quarterly as-is
-            finalCellAmounts[key] = value;
+            // Keep quarterly as-is, summing if key already exists
+            finalCellAmounts[key] = (finalCellAmounts[key] || 0) + (value as number);
           }
         }
       }

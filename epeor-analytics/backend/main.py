@@ -907,7 +907,13 @@ def get_official_ca(period_name: str):
     return None
 
 @app.get("/creance")
-def get_creance(start_date: str = None, end_date: str = None):
+def get_creance(
+    start_date: str = None,
+    end_date: str = None,
+    hist_type: str = "monthly_12",
+    hist_start: str = None,
+    hist_end: str = None
+):
     try:
         # Build period name for PROV lookup
         months_fr = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -1194,7 +1200,7 @@ def get_creance(start_date: str = None, end_date: str = None):
             })
         raw_types_list.sort(key=lambda x: x["creance"], reverse=True)
 
-        # 12-Month Historical Data Calculation (Eau & Prestations)
+        # Historical Data Calculation (Eau & Prestations) - Support custom intervals
         history_list = []
         try:
             hist_target = target_date
@@ -1205,81 +1211,147 @@ def get_creance(start_date: str = None, end_date: str = None):
                     if ds and ds > latest_ds and len(ds) == 8 and ds < '9999':
                         latest_ds = ds
                 hist_target = latest_ds
-            
-            y_end = int(hist_target[:4])
-            m_end = int(hist_target[4:6])
-            d_end = int(hist_target[6:8])
-            
-            # Generate 12 months backwards
-            months_list = []
-            cur_y, cur_m = y_end, m_end
-            for _ in range(12):
-                months_list.append((cur_y, cur_m))
-                cur_m -= 1
-                if cur_m == 0:
-                    cur_m = 12
-                    cur_y -= 1
-            months_list.reverse()
-            
+
             import calendar
             intervals = []
-            for y, m in months_list:
-                last_day = calendar.monthrange(y, m)[1]
-                intervals.append({
-                    "year": y,
-                    "month": m,
-                    "start": f"{y}{m:02d}01",
-                    "end": f"{y}{m:02d}{last_day:02d}",
-                    "label": f"{months_fr[m-1]} {y}",
-                    "short_label": f"{m:02d}/{y}",
-                    "ca_eau": 0.0,
-                    "ca_prest": 0.0,
-                    "recouvre_eau": 0.0,
-                    "recouvre_prest": 0.0,
-                    "ca_recouvre_eau": 0.0,
-                    "ca_recouvre_prest": 0.0,
-                    "creance_eau": 0.0,
-                    "creance_prest": 0.0
-                })
-                
+
+            if hist_type == "years":
+                # Year interval, e.g. 2001 to 2015
+                y_start = int(hist_start) if hist_start else 2015
+                y_end = int(hist_end) if hist_end else datetime.now().year
+                if y_start > y_end:
+                    y_start, y_end = y_end, y_start
+
+                for y in range(y_start, y_end + 1):
+                    intervals.append({
+                        "year": y,
+                        "month": 12,
+                        "start": f"{y}0101",
+                        "end": f"{y}1231",
+                        "label": f"{y}",
+                        "short_label": f"{y}",
+                        "ca_eau": 0.0,
+                        "ca_prest": 0.0,
+                        "recouvre_eau": 0.0,
+                        "recouvre_prest": 0.0,
+                        "ca_recouvre_eau": 0.0,
+                        "ca_recouvre_prest": 0.0,
+                        "creance_eau": 0.0,
+                        "creance_prest": 0.0
+                    })
+            elif hist_type == "months":
+                # Month interval, e.g. Mars 2015 (201503) to Avril 2020 (202004)
+                if hist_start and len(hist_start) == 6:
+                    y_start = int(hist_start[:4])
+                    m_start = int(hist_start[4:6])
+                else:
+                    y_start = 2015
+                    m_start = 1
+
+                if hist_end and len(hist_end) == 6:
+                    y_end = int(hist_end[:4])
+                    m_end = int(hist_end[4:6])
+                else:
+                    y_end = int(hist_target[:4])
+                    m_end = int(hist_target[4:6])
+
+                start_val = y_start * 12 + (m_start - 1)
+                end_val = y_end * 12 + (m_end - 1)
+                if start_val > end_val:
+                    start_val, end_val = end_val, start_val
+
+                for val in range(start_val, end_val + 1):
+                    y = val // 12
+                    m = (val % 12) + 1
+                    last_day = calendar.monthrange(y, m)[1]
+                    intervals.append({
+                        "year": y,
+                        "month": m,
+                        "start": f"{y}{m:02d}01",
+                        "end": f"{y}{m:02d}{last_day:02d}",
+                        "label": f"{months_fr[m-1]} {y}",
+                        "short_label": f"{m:02d}/{y}",
+                        "ca_eau": 0.0,
+                        "ca_prest": 0.0,
+                        "recouvre_eau": 0.0,
+                        "recouvre_prest": 0.0,
+                        "ca_recouvre_eau": 0.0,
+                        "ca_recouvre_prest": 0.0,
+                        "creance_eau": 0.0,
+                        "creance_prest": 0.0
+                    })
+            else: # Default: monthly_12 (last 12 months)
+                y_end = int(hist_target[:4])
+                m_end = int(hist_target[4:6])
+
+                # Generate 12 months backwards
+                months_list = []
+                cur_y, cur_m = y_end, m_end
+                for _ in range(12):
+                    months_list.append((cur_y, cur_m))
+                    cur_m -= 1
+                    if cur_m == 0:
+                        cur_m = 12
+                        cur_y -= 1
+                months_list.reverse()
+
+                for y, m in months_list:
+                    last_day = calendar.monthrange(y, m)[1]
+                    intervals.append({
+                        "year": y,
+                        "month": m,
+                        "start": f"{y}{m:02d}01",
+                        "end": f"{y}{m:02d}{last_day:02d}",
+                        "label": f"{months_fr[m-1]} {y}",
+                        "short_label": f"{m:02d}/{y}",
+                        "ca_eau": 0.0,
+                        "ca_prest": 0.0,
+                        "recouvre_eau": 0.0,
+                        "recouvre_prest": 0.0,
+                        "ca_recouvre_eau": 0.0,
+                        "ca_recouvre_prest": 0.0,
+                        "creance_eau": 0.0,
+                        "creance_prest": 0.0
+                    })
+
             records_hist = itertools.chain(
                 ((r, False) for r in MEM_FACTURES),
                 ((r, True) for r in MEM_AVOIRS)
             )
-            
+
             for r, is_avoir in records_hist:
                 datsaisie = str(r.get('DATSAISIE') or '').strip()
                 datreg = str(r.get('DATREG') or '').strip()
                 tp = str(r.get('TYPE') or '').strip()
                 monttc = float(r.get('MONTTC') or 0)
                 timbre = float(r.get('TIMBRE') or 0)
-                
+
                 is_eau = tp in ['E', 'C', '6']
                 m_rec = monttc + timbre
-                
+
                 for interval in intervals:
                     start_str = interval["start"]
                     end_str = interval["end"]
-                    
+
                     if start_str <= datsaisie <= end_str:
                         if is_eau:
                             interval["ca_eau"] += monttc
                         else:
                             interval["ca_prest"] += monttc
-                            
+
                     if not is_avoir and datreg not in EMPTY_DATE_VALUES and start_str <= datreg <= end_str:
                         if is_eau:
                             interval["recouvre_eau"] += m_rec
                         else:
                             interval["recouvre_prest"] += m_rec
-                            
+
                     if not is_avoir and start_str <= datsaisie <= end_str:
                         if datreg not in EMPTY_DATE_VALUES and datreg <= hist_target:
                             if is_eau:
                                 interval["ca_recouvre_eau"] += monttc
                             else:
                                 interval["ca_recouvre_prest"] += monttc
-                                
+
                     is_creance_arretee = False
                     if not is_avoir:
                         if datsaisie and datsaisie <= end_str:
@@ -1291,19 +1363,19 @@ def get_creance(start_date: str = None, end_date: str = None):
                             if datanul and datanul > end_str:
                                 if datreg in EMPTY_DATE_VALUES or datreg > end_str:
                                     is_creance_arretee = True
-                                    
+
                     if is_creance_arretee:
                         if is_eau:
                             interval["creance_eau"] += monttc
                         else:
                             interval["creance_prest"] += monttc
-                            
+
             for interval in intervals:
                 ca_total = interval["ca_eau"] + interval["ca_prest"]
                 recouvre_total = interval["recouvre_eau"] + interval["recouvre_prest"]
                 ca_recouvre_total = interval["ca_recouvre_eau"] + interval["ca_recouvre_prest"]
                 creance_total = interval["creance_eau"] + interval["creance_prest"]
-                
+
                 history_list.append({
                     "month": interval["short_label"],
                     "label": interval["label"],

@@ -479,7 +479,7 @@ export default function Dashboard() {
         </div>
       )}
       {/* Sidebar - Obat Style */}
-      <aside className="w-72 bg-white border-r border-[#E4E7EC] p-6 flex flex-col gap-10 hidden md:flex no-print">
+      <aside className="w-72 bg-white border-r border-[#E4E7EC] p-6 flex flex-col gap-10 hidden md:flex no-print no-print-charts-only">
         <div className="flex items-center gap-3 px-2">
           <div className="w-10 h-10 bg-[#0D83DE] rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
             <Database className="text-white" size={24} />
@@ -545,7 +545,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="flex-1 p-10 overflow-y-auto print:p-0">
-        <header className="flex justify-between items-start mb-12 no-print">
+        <header className="flex justify-between items-start mb-12 no-print no-print-charts-only">
           <div>
             <h1 className="text-4xl font-black text-[#101828] tracking-tight">Bonjour, Admin !</h1>
             <p className="text-[#475467] mt-1 text-lg">Retrouvez la situation globale de votre réseau aujourd'hui.</p>
@@ -907,7 +907,7 @@ export default function Dashboard() {
         ) : ['creance', 'repartition', 'commune'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
-            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print no-print-charts-only">
               <button
                 onClick={() => setCurrentView('dashboard')}
                 className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors animate-in fade-in duration-200"
@@ -2856,6 +2856,21 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
   const [lastVentDate, setLastVentDate] = useState("");
   const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre'>('creance');
 
+  const [histType, setHistType] = useState<'monthly_12' | 'years' | 'months'>('monthly_12');
+  const [histStartYear, setHistStartYear] = useState('2015');
+  const [histEndYear, setHistEndYear] = useState(new Date().getFullYear().toString());
+  const [histStartMonth, setHistStartMonth] = useState('01');
+  const [histEndMonth, setHistEndMonth] = useState('12');
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const formatMonthFr = (m: string) => {
+    const months: Record<string, string> = {
+      '01': 'Janvier', '02': 'Février', '03': 'Mars', '04': 'Avril', '05': 'Mai', '06': 'Juin',
+      '07': 'Juillet', '08': 'Août', '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
+    };
+    return months[m] || m;
+  };
+
   const recoveryRate = data ? (data.total_ca > 0 ? ((data.total_ca_recouvre || 0) / data.total_ca) * 100 : 0) : 0;
 
 
@@ -3156,6 +3171,14 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
       const url = new URL("http://127.0.0.1:8000/creance");
       if (start) url.searchParams.append("start_date", start.replace(/-/g, ''));
       if (end) url.searchParams.append("end_date", end.replace(/-/g, ''));
+      url.searchParams.append("hist_type", histType);
+      if (histType === 'years') {
+        url.searchParams.append("hist_start", histStartYear);
+        url.searchParams.append("hist_end", histEndYear);
+      } else if (histType === 'months') {
+        url.searchParams.append("hist_start", `${histStartYear}${histStartMonth}`);
+        url.searchParams.append("hist_end", `${histEndYear}${histEndMonth}`);
+      }
 
       // We run them in sequence to show "real" progress as requested
       // though parallel is faster, the user wants to see the steps
@@ -3190,6 +3213,59 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
     setLoading(false);
   };
 
+
+  const handleUpdateHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      let start = '';
+      let end = '';
+
+      if (filterYear !== 'all') {
+        const year = parseInt(filterYear);
+        if (filterPeriod === 'all') {
+          start = `${year}0101`;
+          end = `${year}1231`;
+        } else if (filterPeriod.startsWith('q')) {
+          const q = parseInt(filterPeriod[1]);
+          const startMonth = (q - 1) * 3 + 1;
+          const endMonth = q * 3;
+          const lastDay = new Date(year, endMonth, 0).getDate();
+          start = `${year}${startMonth.toString().padStart(2, '0')}01`;
+          end = `${year}${endMonth.toString().padStart(2, '0')}${lastDay}`;
+        } else {
+          const month = parseInt(filterPeriod);
+          const lastDay = new Date(year, month, 0).getDate();
+          start = `${year}${month.toString().padStart(2, '0')}01`;
+          end = `${year}${month.toString().padStart(2, '0')}${lastDay}`;
+        }
+      } else {
+        start = dateRange.start.replace(/-/g, '');
+        end = dateRange.end.replace(/-/g, '');
+      }
+
+      const url = new URL("http://127.0.0.1:8000/creance");
+      if (start) url.searchParams.append("start_date", start);
+      if (end) url.searchParams.append("end_date", end);
+      
+      url.searchParams.append("hist_type", histType);
+      if (histType === 'years') {
+        url.searchParams.append("hist_start", histStartYear);
+        url.searchParams.append("hist_end", histEndYear);
+      } else if (histType === 'months') {
+        url.searchParams.append("hist_start", `${histStartYear}${histStartMonth}`);
+        url.searchParams.append("hist_end", `${histEndYear}${histEndMonth}`);
+      }
+
+      const res = await fetch(url.toString());
+      const d = await res.json();
+      if (d.history) {
+        setData((prev: any) => ({ ...prev, history: d.history }));
+      }
+    } catch (e) {
+      console.error("Error updating history:", e);
+    }
+    setLoadingHistory(false);
+  };
 
   useEffect(() => {
     // Initial fetch removed as requested. 
@@ -3240,6 +3316,152 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
     new Intl.NumberFormat("fr-DZ", { maximumFractionDigits: 0 })
       .format(n)
       .replace(/[\u202F\u00A0]/g, ' ');
+
+  const handlePrintAllCharts = () => {
+    if (!data?.history || data.history.length === 0) {
+      alert("Aucune donnée historique disponible. Veuillez d'abord lancer un calcul.");
+      return;
+    }
+
+    const history = data.history;
+
+    const fmtV = (n: number) => {
+      if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + ' Mrd';
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + ' M';
+      if (n >= 1_000) return (n / 1_000).toFixed(0) + ' K';
+      return n.toFixed(0);
+    };
+
+    const buildSvgChart = (
+      title: string,
+      colorPrest: string,
+      keyEau: string,
+      keyPrest: string,
+      keyTotal: string
+    ) => {
+      const W = 490, H = 230;
+      const PAD = { top: 24, right: 18, bottom: 46, left: 68 };
+      const chartW = W - PAD.left - PAD.right;
+      const chartH = H - PAD.top - PAD.bottom;
+      const n = history.length;
+
+      const vals: number[] = history.flatMap((d: any) => [
+        Number(d[keyEau] ?? 0), Number(d[keyPrest] ?? 0), Number(d[keyTotal] ?? 0)
+      ]);
+      const maxV = Math.max(...vals, 1);
+
+      const xOf = (i: number) => PAD.left + (n <= 1 ? chartW / 2 : (i / (n - 1)) * chartW);
+      const yOf = (v: number) => PAD.top + chartH - (v / maxV) * chartH;
+
+      const mkPolyline = (key: string, stroke: string, dash = '') => {
+        const pts = history.map((d: any, i: number) =>
+          `${xOf(i).toFixed(1)},${yOf(Number(d[key] ?? 0)).toFixed(1)}`
+        ).join(' ');
+        return `<polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"${dash ? ` stroke-dasharray="${dash}"` : ''} />`;
+      };
+
+      const mkDots = (key: string, stroke: string) =>
+        history.map((d: any, i: number) => {
+          const cx = xOf(i).toFixed(1);
+          const cy = yOf(Number(d[key] ?? 0)).toFixed(1);
+          return `<circle cx="${cx}" cy="${cy}" r="3.2" fill="white" stroke="${stroke}" stroke-width="2" />`;
+        }).join('');
+
+      // Y-axis: 5 evenly spaced ticks
+      const yTicksSvg = Array.from({ length: 5 }, (_, i) => {
+        const v = (maxV / 4) * i;
+        const y = yOf(v).toFixed(1);
+        return `
+          <line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" stroke="#F2F4F7" stroke-width="1"/>
+          <text x="${PAD.left - 6}" y="${Number(y) + 3.5}" text-anchor="end" font-size="8" fill="#98A2B3" font-family="Inter,sans-serif">${fmtV(v)}</text>`;
+      }).join('');
+
+      // X-axis: show labels every step ticks
+      const step = n <= 14 ? 1 : n <= 30 ? 2 : n <= 60 ? 4 : Math.ceil(n / 14);
+      const xTicksSvg = history.map((d: any, i: number) => {
+        if (i % step !== 0 && i !== n - 1) return '';
+        return `<text x="${xOf(i).toFixed(1)}" y="${H - PAD.bottom + 12}" text-anchor="middle" font-size="8" fill="#667085" font-family="Inter,sans-serif" font-weight="600">${d.month}</text>`;
+      }).join('');
+
+      return `
+        <div style="background:#fff;border:1.2px solid #E4E7EC;border-radius:14px;padding:14px 18px 10px;break-inside:avoid;">
+          <div style="font-family:Inter,sans-serif;font-size:10.5px;font-weight:900;color:#101828;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span>${title}</span>
+            <span style="display:flex;gap:10px;font-size:8.5px;font-weight:700;color:#667085;align-items:center;">
+              <span style="display:flex;align-items:center;gap:3px;"><span style="display:inline-block;width:16px;height:2.5px;background:#0D83DE;border-radius:2px;"></span>Eau</span>
+              <span style="display:flex;align-items:center;gap:3px;"><span style="display:inline-block;width:16px;height:2.5px;background:${colorPrest};border-radius:2px;"></span>Prestations</span>
+              <span style="display:flex;align-items:center;gap:3px;"><span style="display:inline-block;width:16px;height:0;border-top:2.5px dashed #10B981;"></span>Total</span>
+            </span>
+          </div>
+          <svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible;display:block;">
+            ${yTicksSvg}
+            ${xTicksSvg}
+            <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + chartH}" stroke="#E4E7EC" stroke-width="1"/>
+            ${mkPolyline(keyEau, '#0D83DE')}
+            ${mkPolyline(keyPrest, colorPrest)}
+            ${mkPolyline(keyTotal, '#10B981', '5 4')}
+            ${mkDots(keyEau, '#0D83DE')}
+            ${mkDots(keyPrest, colorPrest)}
+          </svg>
+        </div>`;
+    };
+
+    const periodLabel = histType === 'monthly_12'
+      ? `12 derniers mois (arrêtés au ${lastVentDate ? lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1') : '...'})`
+      : histType === 'years'
+        ? `${histStartYear} → ${histEndYear}`
+        : `${formatMonthFr(histStartMonth)} ${histStartYear} → ${formatMonthFr(histEndMonth)} ${histEndYear}`;
+
+    const today = new Date();
+    const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+
+    const chartCA      = buildSvgChart("Chiffre d'Affaires", '#F59E0B', 'ca_eau', 'ca_prest', 'ca_total');
+    const chartCreance = buildSvgChart("Créances", '#E11D48', 'creance_eau', 'creance_prest', 'creance_total');
+    const chartEnc     = buildSvgChart("Encaissements", '#10B981', 'encaissement_eau', 'encaissement_prest', 'encaissement_total');
+    const chartCARec   = buildSvgChart("CA Recouvré", '#8B5CF6', 'ca_recouvre_eau', 'ca_recouvre_prest', 'ca_recouvre_total');
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) { alert("Veuillez autoriser les fenêtres pop-up pour imprimer."); return; }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Analyse Rétrospective — ${periodLabel}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    @page{size:A4 landscape;margin:1cm;}
+    body{font-family:'Inter',sans-serif;background:white;color:#101828;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .page-header{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:10px;border-bottom:2px solid #F2F4F7;margin-bottom:14px;}
+    .page-title{font-size:14px;font-weight:900;color:#101828;letter-spacing:-0.02em;}
+    .page-subtitle{font-size:9.5px;color:#667085;font-weight:600;margin-top:3px;}
+    .page-meta{text-align:right;font-size:8.5px;color:#98A2B3;font-weight:600;line-height:1.6;}
+    .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div>
+      <div class="page-title">Analyse Rétrospective des Indicateurs Financiers</div>
+      <div class="page-subtitle">Période : ${periodLabel}</div>
+    </div>
+    <div class="page-meta">
+      <div>Édité le : ${dateStr}</div>
+      <div>Unité : 26 — MEDEA &nbsp;|&nbsp; EPEOR Analytics</div>
+    </div>
+  </div>
+  <div class="charts-grid">
+    ${chartCA}
+    ${chartCreance}
+    ${chartEnc}
+    ${chartCARec}
+  </div>
+  <script>window.onload=function(){setTimeout(function(){window.print();},700);};<\/script>
+</body>
+</html>`);
+    printWindow.document.close();
+  };
 
   return (
     <div className="space-y-10">
@@ -3678,12 +3900,18 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
           </div>
 
           {/* Graphique d'Analyse Rétrospective des 12 Derniers Mois */}
-          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 mt-8">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 mt-8 animate-in fade-in duration-500">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6">
               <div>
-                <h4 className="text-xl font-black tracking-tight text-[#101828]">Analyse Rétrospective des 12 Derniers Mois</h4>
+                <h4 className="text-xl font-black tracking-tight text-[#101828]">
+                  {histType === 'monthly_12' ? "Analyse Rétrospective des 12 Derniers Mois" : 
+                   histType === 'years' ? `Analyse Rétrospective (${histStartYear} → ${histEndYear})` : 
+                   `Analyse Rétrospective (${formatMonthFr(histStartMonth)} ${histStartYear} → ${formatMonthFr(histEndMonth)} ${histEndYear})`}
+                </h4>
                 <p className="text-xs text-[#667085] mt-0.5 font-medium">
-                  Évolution mensuelle des indicateurs sur les 12 mois précédant la date d'arrêt ({lastVentDate ? formatDate(lastVentDate) : '...'})
+                  {histType === 'monthly_12' 
+                    ? `Évolution mensuelle des indicateurs sur les 12 mois précédant la date d'arrêt (${lastVentDate ? formatDate(lastVentDate) : '...'})`
+                    : `Évolution des indicateurs financiers sur la période sélectionnée.`}
                 </p>
               </div>
 
@@ -3710,8 +3938,127 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
               </div>
             </div>
 
-            {data.history && data.history.length > 0 ? (
-              <ChartContainer className="h-[380px] w-full">
+            {/* Filtres d'Intervalle Historique */}
+            <div className="flex flex-wrap items-end gap-4 p-4 mb-6 bg-[#F9FAFB] rounded-2xl border border-[#F2F4F7] border-dashed">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-[#98A2B3] uppercase px-1">Type d'Évolution</label>
+                <select
+                  value={histType}
+                  onChange={(e) => setHistType(e.target.value as any)}
+                  className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-48 shadow-sm cursor-pointer"
+                >
+                  <option value="monthly_12">12 Derniers Mois</option>
+                  <option value="years">Par Intervalle d'Années</option>
+                  <option value="months">Par Intervalle de Mois</option>
+                </select>
+              </div>
+
+              {histType !== 'monthly_12' && (
+                <div className="flex items-center gap-2">
+                  {/* Début */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-[#98A2B3] uppercase px-1">Du</label>
+                    <div className="flex gap-2">
+                      {histType === 'months' && (
+                        <select
+                          value={histStartMonth}
+                          onChange={(e) => setHistStartMonth(e.target.value)}
+                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-28 shadow-sm cursor-pointer"
+                        >
+                          {[
+                            {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
+                            {v: '04', l: 'Avril'}, {v: '05', l: 'Mai'}, {v: '06', l: 'Juin'},
+                            {v: '07', l: 'Juillet'}, {v: '08', l: 'Août'}, {v: '09', l: 'Septembre'},
+                            {v: '10', l: 'Octobre'}, {v: '11', l: 'Novembre'}, {v: '12', l: 'Décembre'}
+                          ].map(m => (
+                            <option key={m.v} value={m.v}>{m.l}</option>
+                          ))}
+                        </select>
+                      )}
+                      <select
+                        value={histStartYear}
+                        onChange={(e) => setHistStartYear(e.target.value)}
+                        className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-24 shadow-sm cursor-pointer"
+                      >
+                        {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-bold text-[#98A2B3] pt-4">→</span>
+
+                  {/* Fin */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-[#98A2B3] uppercase px-1">Au</label>
+                    <div className="flex gap-2">
+                      {histType === 'months' && (
+                        <select
+                          value={histEndMonth}
+                          onChange={(e) => setHistEndMonth(e.target.value)}
+                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-28 shadow-sm cursor-pointer"
+                        >
+                          {[
+                            {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
+                            {v: '04', l: 'Avril'}, {v: '05', l: 'Mai'}, {v: '06', l: 'Juin'},
+                            {v: '07', l: 'Juillet'}, {v: '08', l: 'Août'}, {v: '09', l: 'Septembre'},
+                            {v: '10', l: 'Octobre'}, {v: '11', l: 'Novembre'}, {v: '12', l: 'Décembre'}
+                          ].map(m => (
+                            <option key={m.v} value={m.v}>{m.l}</option>
+                          ))}
+                        </select>
+                      )}
+                      <select
+                        value={histEndYear}
+                        onChange={(e) => setHistEndYear(e.target.value)}
+                        className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-24 shadow-sm cursor-pointer"
+                      >
+                        {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleUpdateHistory}
+                disabled={loadingHistory}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 rounded-xl text-xs font-black transition-all shadow-sm h-[38px] active:scale-95 cursor-pointer"
+              >
+                {loadingHistory ? (
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Search size={12} />
+                )}
+                Actualiser
+              </button>
+
+              <button
+                onClick={handlePrintAllCharts}
+                disabled={!data?.history || data.history.length === 0}
+                title="Imprimer les 4 graphiques en une seule page A4 paysage"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-black transition-all shadow-sm h-[38px] active:scale-95 cursor-pointer border border-slate-700"
+              >
+                <Printer size={12} />
+                Imprimer tout
+              </button>
+            </div>
+
+            <div className="relative">
+              {loadingHistory && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[2px] rounded-3xl transition-all">
+                  <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-200">
+                    <div className="w-8 h-8 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
+                    <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Calcul de l'Évolution...</p>
+                  </div>
+                </div>
+              )}
+
+              {data.history && data.history.length > 0 ? (
+                <ChartContainer className="h-[380px] w-full">
                   <LineChart
                     data={data.history}
                     margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
@@ -3792,13 +4139,14 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                       dot={false}
                     />
                   </LineChart>
-              </ChartContainer>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-60 gap-2 border-2 border-dashed border-[#E4E7EC] rounded-3xl bg-[#F9FAFB]">
-                <p className="text-sm font-bold text-[#667085]">Aucune donnée historique disponible.</p>
-                <p className="text-xs text-[#98A2B3]">Veuillez relancer le calcul pour charger l'historique.</p>
-              </div>
-            )}
+                </ChartContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-60 gap-2 border-2 border-dashed border-[#E4E7EC] rounded-3xl bg-[#F9FAFB]">
+                  <p className="text-sm font-bold text-[#667085]">Aucune donnée historique disponible.</p>
+                  <p className="text-xs text-[#98A2B3]">Veuillez relancer le calcul pour charger l'historique.</p>
+                </div>
+              )}
+            </div>
           </div>
 
         </>

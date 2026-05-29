@@ -50,9 +50,21 @@ table thead th {
   font-variant-numeric: tabular-nums;
 }
 
+.print-charts-only-block {
+  display: none;
+}
+
 @media print {
   .no-print {
     display: none !important;
+  }
+
+  body.print-charts-only .no-print-charts-only {
+    display: none !important;
+  }
+
+  body.print-charts-only .print-charts-only-block {
+    display: block !important;
   }
 
   @page {

@@ -1580,12 +1580,13 @@ function StoppedDetailView({ stats, onBack }: any) {
             <thead>
               <tr>
                 <th style="width: 12%">N° Abonné</th>
-                <th style="width: 26%">Nom / Raison Sociale</th>
-                <th style="width: 26%">Adresse</th>
+                <th style="width: 24%">Nom / Raison Sociale</th>
+                <th style="width: 24%">Adresse</th>
                 <th style="width: 8%">Tournée</th>
                 <th style="width: 10%">N° Série</th>
                 <th style="width: 10%; text-align: right;">Nouvel Index</th>
                 <th style="width: 8%">Type</th>
+                <th style="width: 6%; text-align: right;">Factures à l'arrêt</th>
               </tr>
             </thead>
             <tbody>
@@ -1598,6 +1599,7 @@ function StoppedDetailView({ stats, onBack }: any) {
                   <td>${sub.numser || '—'}</td>
                   <td style="font-weight: 700; text-align: right; color: #101828;">${sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
                   <td>${sub.type || '—'}</td>
+                  <td style="font-weight: 700; text-align: right; color: #D97706;">${sub.consecutive_etat20 ?? 0}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -1647,7 +1649,12 @@ function StoppedDetailView({ stats, onBack }: any) {
             </button>
           )}
         </div>
-        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="amber" />
+        <NominativeTable
+          subscribers={quartierSubscribers}
+          loading={loadingSubscribers}
+          accentColor="amber"
+          consecutiveEtatColumn={{ field: 'consecutive_etat20', label: "Factures à l'arrêt", activeClass: 'bg-amber-50 text-amber-700 border-amber-100', hoverClass: 'text-amber-700' }}
+        />
       </div>
     );
   }
@@ -1983,12 +1990,13 @@ function NoMeterDetailView({ stats, onBack }: any) {
             <thead>
               <tr>
                 <th style="width: 12%">N° Abonné</th>
-                <th style="width: 26%">Nom / Raison Sociale</th>
-                <th style="width: 26%">Adresse</th>
+                <th style="width: 24%">Nom / Raison Sociale</th>
+                <th style="width: 24%">Adresse</th>
                 <th style="width: 8%">Tournée</th>
                 <th style="width: 10%">N° Série</th>
                 <th style="width: 10%; text-align: right;">Nouvel Index</th>
                 <th style="width: 8%">Type</th>
+                <th style="width: 6%; text-align: right;">Factures sans compteur</th>
               </tr>
             </thead>
             <tbody>
@@ -2001,6 +2009,7 @@ function NoMeterDetailView({ stats, onBack }: any) {
                   <td>${sub.numser || '—'}</td>
                   <td style="font-weight: 700; text-align: right; color: #101828;">${sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
                   <td>${sub.type || '—'}</td>
+                  <td style="font-weight: 700; text-align: right; color: #0d9488;">${sub.consecutive_etat30 ?? 0}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -2050,7 +2059,12 @@ function NoMeterDetailView({ stats, onBack }: any) {
             </button>
           )}
         </div>
-        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="cyan" />
+        <NominativeTable
+          subscribers={quartierSubscribers}
+          loading={loadingSubscribers}
+          accentColor="cyan"
+          consecutiveEtatColumn={{ field: 'consecutive_etat30', label: 'Factures sans compteur', activeClass: 'bg-cyan-50 text-cyan-700 border-cyan-100', hoverClass: 'text-cyan-700' }}
+        />
       </div>
     );
   }
@@ -2206,7 +2220,7 @@ function etatBadge(etatcpt: string, etatLabel?: string) {
   }
 }
 
-function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
+function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string } }) {
   const [hoveredSub, setHoveredSub] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -2271,6 +2285,12 @@ function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">État</span>
                 <span className="text-[12px]">{etatBadge(hoveredSub.etatcpt, hoveredSub.etat_label)}</span>
               </div>
+              {consecutiveEtatColumn && (
+                <div className="flex justify-between items-center gap-3">
+                  <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">{consecutiveEtatColumn.label}</span>
+                  <span className={`text-[12px] font-black ${consecutiveEtatColumn.hoverClass}`}>{hoveredSub[consecutiveEtatColumn.field] ?? 0}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center gap-3">
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">N° Ordre</span>
                 <span className="text-[12px] font-medium text-[#475467]">{hoveredSub.numordre || '—'}</span>
@@ -2285,13 +2305,13 @@ function NominativeTable({ subscribers, loading, accentColor = "blue" }: any) {
           <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${style.spinner}`}></div>
         </div>
       ) : (
-        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} />
+        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} />
       )}
     </div>
   );
 }
 
-function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos }: any) {
+function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn }: any) {
   const ITEMS_PER_PAGE = 20;
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<string>('numab');
@@ -2698,6 +2718,12 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
 
   // Sort subscribers
   const sorted = [...filtered].sort((a: any, b: any) => {
+    if (consecutiveEtatColumn && sortKey === consecutiveEtatColumn.field) {
+      const na = Number(a[consecutiveEtatColumn.field]) || 0;
+      const nb = Number(b[consecutiveEtatColumn.field]) || 0;
+      const cmp = na - nb;
+      return sortDir === 'asc' ? cmp : -cmp;
+    }
     const va = (a[sortKey] ?? '').toString().toLowerCase();
     const vb = (b[sortKey] ?? '').toString().toLowerCase();
     const cmp = va.localeCompare(vb, 'fr', { numeric: true });
@@ -2770,6 +2796,9 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             <Th label="Nouvel Index" field="nouvelx" align="right" />
             <Th label="Type d'Abonnement" field="type" />
             <Th label="État" field="etat_label" />
+            {consecutiveEtatColumn && (
+              <Th label={consecutiveEtatColumn.label} field={consecutiveEtatColumn.field} align="right" />
+            )}
             <Th label="N° Ordre" field="numordre" align="right" />
           </tr>
         </thead>
@@ -2793,11 +2822,22 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
               <td className="px-6 py-4 font-bold text-[13px] text-[#101828] text-right">{sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{sub.type}</td>
               <td className="px-6 py-4">{etatBadge(sub.etatcpt, sub.etat_label)}</td>
+              {consecutiveEtatColumn && (
+                <td className="px-6 py-4 text-right">
+                  <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-lg text-[12px] font-black border ${
+                    (sub[consecutiveEtatColumn.field] ?? 0) > 0
+                      ? consecutiveEtatColumn.activeClass
+                      : 'text-[#98A2B3] border-transparent'
+                  }`}>
+                    {sub[consecutiveEtatColumn.field] ?? 0}
+                  </span>
+                </td>
+              )}
               <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467]">{sub.numordre}</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={11} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
+              <td colSpan={consecutiveEtatColumn ? 12 : 11} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
             </tr>
           )}
         </tbody>

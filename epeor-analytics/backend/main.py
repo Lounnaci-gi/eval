@@ -615,6 +615,56 @@ def resolve_etatcpt_label(etat_code: str) -> str:
     return raw
 
 
+def _normalize_etatcpt_code(val) -> str:
+    s = str(val or '').strip()
+    if not s:
+        return ''
+    try:
+        return str(int(float(s)))
+    except (ValueError, TypeError):
+        return s
+
+
+def _invoice_period_key(r) -> tuple:
+    """Clé (année, mois) extraite de DATFACT pour tri chronologique par période."""
+    d = str(r.get('DATFACT', '')).strip()
+    if len(d) >= 6 and d[:4].isdigit() and d[4:6].isdigit():
+        return (int(d[:4]), int(d[4:6]))
+    return (0, 0)
+
+
+def _invoices_newest_first(invoices: list) -> list:
+    """Une facture par période (année-mois), la plus récente en premier."""
+    by_period: dict[tuple, dict] = {}
+    for inv in invoices:
+        key = _invoice_period_key(inv)
+        if key == (0, 0):
+            continue
+        prev = by_period.get(key)
+        if prev is None or str(inv.get('DATFACT', '')).strip() >= str(prev.get('DATFACT', '')).strip():
+            by_period[key] = inv
+    return sorted(by_period.values(), key=_invoice_period_key, reverse=True)
+
+
+def count_consecutive_etatcpt(invoices: list, target_etat: str = '20') -> int:
+    """
+    Nombre de périodes de facturation consécutives (les plus récentes) avec ETATCPT = target_etat.
+    Parcourt de la dernière facture vers les plus anciennes et s'arrête dès qu'une période
+    n'a pas cet état (ex. T1–T3 2025=20, T4 2025≠20, T1 2026=20 → 1, pas 4).
+    """
+    target = _normalize_etatcpt_code(target_etat)
+    if not target:
+        return 0
+    ordered = _invoices_newest_first(invoices)
+    count = 0
+    for inv in ordered:
+        if _normalize_etatcpt_code(inv.get('ETATCPT')) == target:
+            count += 1
+        else:
+            break
+    return count
+
+
 EMPTY_DATE_VALUES = frozenset({'', '        ', '19000101', '00000000', None})
 
 
@@ -857,11 +907,14 @@ def get_subscribers(quartier: str = None, etat: str = None):
             etat_label = etat_map.get(etatcpt, etatcpt if etatcpt else '—')
             
             sub_invoices = factures_by_numab.get(numab, [])
-            raw_nouvelx = sub_invoices[0].get('NOUVELX') if sub_invoices else None
+            raw_nouvelx = sub_invoices[0].get('NOUVELX') if sub_invoices else 0
             try:
                 nouvelx = float(raw_nouvelx) if raw_nouvelx is not None else 0
             except:
                 nouvelx = 0
+
+            consecutive_etat20 = count_consecutive_etatcpt(sub_invoices, '20')
+            consecutive_etat30 = count_consecutive_etatcpt(sub_invoices, '30')
                 
             results.append({
                 "numab":      numab,
@@ -875,7 +928,9 @@ def get_subscribers(quartier: str = None, etat: str = None):
                 "ndom":       ndom,
                 "tournee":    tournee,
                 "numordre":   numordre,
-                "nouvelx":    nouvelx
+                "nouvelx":    nouvelx,
+                "consecutive_etat20": consecutive_etat20,
+                "consecutive_etat30": consecutive_etat30,
             })
             
         return results

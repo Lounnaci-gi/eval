@@ -24,7 +24,7 @@ def _normalize_data_dir(path: str) -> str:
 DATA_DIR = _normalize_data_dir(os.environ.get("EPEOR_DATA_DIR", r"d:\epeor"))
 if not os.path.isdir(DATA_DIR):
     print(f"[WARNING] EPEOR data directory not found: {DATA_DIR}")
-    print("          Set EPEOR_DATA_DIR to the folder containing *.DBF files.")
+    print("          Set EPEOR_DATA_DIR to the EPEOR data folder.")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(BASE_DIR, "cache")
 if not os.path.exists(CACHE_DIR):
@@ -32,6 +32,32 @@ if not os.path.exists(CACHE_DIR):
 
 _load_retry_count = 0
 _MAX_LOAD_RETRIES = 3
+
+# Libellés affichés à l'utilisateur (jamais les noms de fichiers sources)
+_DATASET_LABELS = {
+    "ABONNE.DBF": "référentiel abonnés",
+    "FACTURES.DBF": "historique de facturation",
+    "AVOIR.DBF": "avoirs et régularisations",
+    "ABONMENT.DBF": "contrats et compteurs",
+    "TABCODE.DBF": "codes et libellés",
+    "COMMUNE.DBF": "communes",
+    "QUARTIER.DBF": "quartiers",
+    "RUE.DBF": "voies",
+    "CLASSE.DBF": "classes tarifaires",
+    "UNITE.DBF": "unités",
+    "CAISSE.DBF": "caisses",
+    "ABINSTIT.DBF": "liens institutionnels",
+    "INSTIT.DBF": "organismes payeurs",
+}
+
+
+def _dataset_label(filename: str) -> str:
+    return _DATASET_LABELS.get(str(filename or "").upper(), "jeu de données")
+
+
+def _set_loading_status(message: str) -> None:
+    global db_loading_status
+    db_loading_status = message
 
 
 def resolve_dbf_path(filename: str) -> str:
@@ -48,20 +74,20 @@ def resolve_dbf_path(filename: str) -> str:
 
 
 def diagnose_data_dir() -> str:
-    """Message de diagnostic si ABONNE.DBF est introuvable ou vide."""
+    """Message de diagnostic utilisateur (sans noms de tables)."""
     if not os.path.isdir(DATA_DIR):
-        return f"Le dossier {DATA_DIR} n'existe pas."
+        return f"Le dossier de données configuré est introuvable ({DATA_DIR})."
     abonne_path = resolve_dbf_path("ABONNE.DBF")
     if not os.path.isfile(abonne_path):
-        dbf_count = len([f for f in os.listdir(DATA_DIR) if f.lower().endswith(".dbf")])
+        data_files = len([f for f in os.listdir(DATA_DIR) if f.lower().endswith(".dbf")])
         return (
-            f"ABONNE.DBF introuvable dans {DATA_DIR} ({dbf_count} autres fichiers .DBF détectés). "
-            f"Vérifiez EPEOR_DATA_DIR."
+            f"Le référentiel abonnés est absent dans {DATA_DIR} "
+            f"({data_files} fichier(s) de données détecté(s)). Vérifiez EPEOR_DATA_DIR."
         )
     size = os.path.getsize(abonne_path)
     if size < 100:
-        return f"ABONNE.DBF présent mais vide ou corrompu ({size} octets) : {abonne_path}"
-    return f"ABONNE.DBF trouvé ({size:,} octets) : {abonne_path}"
+        return f"Le référentiel abonnés est vide ou illisible ({size} octets)."
+    return f"Référentiel abonnés détecté ({size:,} octets)."
 
 # -------------------------------------------------------------
 # CACHE AND IN-MEMORY DATABASE STRUCTURES
@@ -131,7 +157,7 @@ def load_table_cached(filename, encoding='cp1256'):
         pkl_mtime = os.path.getmtime(pkl_path)
         if pkl_mtime >= dbf_mtime:
             try:
-                db_loading_status = f"Chargement rapide de {filename} depuis le cache..."
+                _set_loading_status(f"Chargement ({_dataset_label(filename)}) depuis le cache…")
                 t0 = time.time()
                 import gc
                 gc.disable()
@@ -154,7 +180,7 @@ def load_table_cached(filename, encoding='cp1256'):
     
     # Missing or invalid cache -> Load from DBF
     try:
-        db_loading_status = f"Extraction de {filename} de la base de données (Création du cache .pkl)..."
+        _set_loading_status(f"Import ({_dataset_label(filename)}) — préparation du cache…")
         t0 = time.time()
         print(f"[DISK] Parsing {filename} from DBF file (this runs once)...")
         dbf = DBF(dbf_path, load=True, encoding=encoding, char_decode_errors='ignore')
@@ -178,7 +204,7 @@ def build_invoice_indexes():
     """Builds per-subscriber invoice indexes (slow; runs after dashboard is ready)."""
     global factures_by_numab, avoirs_by_numab, indexes_ready, db_loading_status
 
-    db_loading_status = "Indexation des factures par abonné..."
+    _set_loading_status("Indexation de l'historique de facturation par abonné…")
     print("[INFO] Building invoice indexes...")
     t0 = time.time()
 
@@ -205,7 +231,7 @@ def build_invoice_indexes():
         avoirs_by_numab[numab].sort(key=lambda x: str(x.get('DATFACT', '')).strip(), reverse=True)
 
     indexes_ready = True
-    db_loading_status = "Prêt"
+    _set_loading_status("Prêt")
     print(f"[SUCCESS] Invoice indexes ready in {time.time()-t0:.2f}s")
 
 
@@ -780,14 +806,12 @@ def get_api_status():
     return {
         "data_dir": DATA_DIR,
         "data_dir_exists": os.path.isdir(DATA_DIR),
-        "abonne_dbf": abonne_path,
-        "abonne_exists": os.path.isfile(abonne_path),
-        "abonne_size": os.path.getsize(abonne_path) if os.path.isfile(abonne_path) else 0,
+        "primary_source_ready": os.path.isfile(abonne_path) and os.path.getsize(abonne_path) >= 100,
         "is_db_ready": is_db_ready,
         "indexes_ready": indexes_ready,
-        "abonnes_loaded": len(MEM_ABONNES),
-        "factures_loaded": len(MEM_FACTURES),
-        "db_loading_status": db_loading_status,
+        "subscribers_loaded": len(MEM_ABONNES),
+        "billing_records_loaded": len(MEM_FACTURES),
+        "loading_status": db_loading_status,
         "load_retries": _load_retry_count,
         "diagnostic": diagnose_data_dir(),
     }
@@ -1586,7 +1610,7 @@ def get_abonne_factures(numab: str = None):
     if not numab:
         return {"error": "numab parameter is required"}
     if not indexes_ready:
-        return {"status": "loading", "message": "Indexation des factures en cours..."}
+        return {"status": "loading", "message": "Indexation de l'historique de facturation en cours…"}
     try:
         numab_upper = numab.strip().upper()
         abonne_info = abonnes_by_numab.get(numab_upper)
@@ -1615,7 +1639,7 @@ def get_abonne_factures(numab: str = None):
 @app.get("/api/abonne/{numab}")
 def get_abonne_api(numab: str):
     if not indexes_ready:
-        return {"status": "loading", "message": "Indexation des factures en cours..."}
+        return {"status": "loading", "message": "Indexation de l'historique de facturation en cours…"}
     numab_upper = numab.strip().upper()
     abonne_rec = abonnes_by_numab.get(numab_upper)
     if not abonne_rec:
@@ -1949,8 +1973,8 @@ def get_creances_abonnes():
 @app.get("/creances_institutions")
 def get_creances_institutions(only_with_creance: bool = True):
     """
-    Créances liées aux institutions (ABINSTIT.DBF + INSTIT.DBF),
-    enrichies via ABONNE, ABONMENT, RUE, TABCODE et factures impayées.
+    Créances liées aux institutions (liens institutionnels + organismes payeurs),
+    enrichies via abonnés, contrats, adresses et factures impayées.
     """
     if not is_db_ready:
         return {"status": "loading", "message": db_loading_status, "ready": False}

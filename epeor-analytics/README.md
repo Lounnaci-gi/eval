@@ -1,12 +1,12 @@
 # EPEOR Analytics
 
-Tableau de bord d'analyse pour les données EPEOR (fichiers DBF). Stack : **Next.js** (frontend, port 3000) + **FastAPI** (backend, port 8000).
+Tableau de bord d'analyse pour les données EPEOR. Stack : **Next.js** (frontend, port 3000) + **FastAPI** (backend, port 8000).
 
 ## Prérequis
 
 - Node.js 20+
 - Python 3.11+ avec venv à la racine du dépôt : `d:\eval\.venv`
-- Dossier de données EPEOR (fichiers `*.DBF`), par défaut `d:\epeor`
+- Dossier de données EPEOR (export base locale), par défaut `d:\epeor`
 - Logo optionnel : placer `ade.png` dans `public/` pour les exports PDF
 
 ## Installation
@@ -54,7 +54,7 @@ npm run dev
 
 | Variable | Description | Défaut |
 |----------|-------------|--------|
-| `EPEOR_DATA_DIR` | Dossier des fichiers DBF | `d:\epeor` |
+| `EPEOR_DATA_DIR` | Dossier des données EPEOR | `d:\epeor` |
 
 Voir `epeor.env.example`. Le cache binaire (pickle) est créé dans `backend/cache/` au premier chargement ; le premier démarrage peut être long.
 

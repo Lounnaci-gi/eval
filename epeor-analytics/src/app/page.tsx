@@ -51,6 +51,15 @@ import {
   LabelList,
 } from "recharts";
 
+/** Masque les noms de fichiers / tables techniques dans les messages UI. */
+function sanitizeUserFacingMessage(message: string | undefined): string {
+  if (!message) return "";
+  return message
+    .replace(/\b[A-Z][A-Z0-9_]*\.DBF\b/gi, "données")
+    .replace(/\.dbf\b/gi, "")
+    .trim();
+}
+
 /** Évite les avertissements Recharts quand le conteneur n'a pas encore de taille (flex / onglets). */
 function ChartContainer({ children, className = "h-[350px] w-full min-h-[200px]" }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -154,13 +163,13 @@ function MultiSelectDropdown({
                 type="checkbox"
                 checked={selected.includes(o)}
                 onChange={(e) => { e.stopPropagation(); toggle(o); }}
-                className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600 focus:ring-violet-500"
+                className="h-4 w-4 rounded border-[#D0D5DD] text-brand-600 focus:ring-brand-500"
               />
               <span>{o}</span>
             </label>
           ))}
           <div className="mt-2 flex gap-2 justify-end">
-            <button onClick={() => { onChange([]); }} className="text-[10px] font-bold text-violet-600 hover:text-violet-800" type="button">Effacer</button>
+            <button onClick={() => { onChange([]); }} className="text-[10px] font-bold text-brand-600 hover:text-brand-800" type="button">Effacer</button>
             <button onClick={() => setOpen(false)} className="text-[10px] text-[#475467]" type="button">Fermer</button>
           </div>
         </div>
@@ -305,7 +314,7 @@ export default function Dashboard() {
     switch (etat) {
       case '10': return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">En marche</span>;
       case '20': return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-100">À l'arrêt</span>;
-      case '30': return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-600 border border-purple-100">Sans compteur</span>;
+      case '30': return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-50 text-cyan-600 border border-cyan-100">Sans compteur</span>;
       case '40': return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100">Résilié</span>;
       default: return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-100">Code: {etat}</span>;
     }
@@ -378,9 +387,9 @@ export default function Dashboard() {
         <div className="bg-white border border-[#E4E7EC] shadow-2xl rounded-[3rem] p-16 flex flex-col items-center gap-8 max-w-lg w-full text-center">
           {!isLoadError && (
             <div className="relative">
-              <div className="animate-spin rounded-full h-24 w-24 border-4 border-violet-100 border-t-violet-600"></div>
+              <div className="animate-spin rounded-full h-24 w-24 border-4 border-brand-100 border-t-brand-600"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest animate-pulse">EPEOR</span>
+                <span className="text-[10px] font-black text-brand-600 uppercase tracking-widest animate-pulse">EPEOR</span>
               </div>
             </div>
           )}
@@ -390,7 +399,7 @@ export default function Dashboard() {
               {isLoadError ? 'Chargement des données impossible' : 'Initialisation du Système'}
             </h1>
             <p className="text-sm text-[#475467] font-medium min-h-[40px] flex items-center justify-center text-left w-full">
-              {stats?.message || stats?.error || 'Connexion au serveur backend...'}
+              {sanitizeUserFacingMessage(stats?.message || stats?.error) || 'Connexion au serveur backend...'}
             </p>
             {stats?.data_dir && (
               <p className="text-xs text-[#98A2B3] font-mono bg-[#F9FAFB] px-3 py-2 rounded-lg border border-[#E4E7EC]">
@@ -401,7 +410,7 @@ export default function Dashboard() {
           {!isLoadError && (
             <>
               <div className="w-full bg-[#F2F4F7] rounded-full h-1.5 overflow-hidden">
-                <div className="bg-violet-600 h-full animate-pulse w-full rounded-full"></div>
+                <div className="bg-brand-600 h-full animate-pulse w-full rounded-full"></div>
               </div>
               <p className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">
                 Reconstitution du cache (1 à 2 minutes la première fois, ~30 s ensuite)
@@ -413,12 +422,12 @@ export default function Dashboard() {
               type="button"
               onClick={requestDataReload}
               disabled={reloadPending}
-              className="w-full px-6 py-3 bg-violet-600 text-white rounded-2xl text-sm font-black hover:bg-violet-700 disabled:opacity-50 transition-all"
+              className="w-full px-6 py-3 bg-brand-600 text-white rounded-2xl text-sm font-black hover:bg-brand-700 disabled:opacity-50 transition-all"
             >
               {reloadPending ? 'Rechargement…' : 'Relancer le chargement des données'}
             </button>
             <p className="text-[10px] text-[#98A2B3]">
-              Ou fermez « EPEOR Backend » et relancez start.bat — dossier attendu : d:\epeor\*.DBF
+              Ou fermez « EPEOR Backend » et relancez start.bat — vérifiez le dossier de données (variable EPEOR_DATA_DIR)
             </p>
           </div>
         </div>
@@ -609,16 +618,16 @@ export default function Dashboard() {
               <StatsCard
                 title="Taux Forfait"
                 value={`${pctCpt2030.toFixed(2)}%`}
-                icon={<Percent className="text-indigo-500" size={24} />}
+                icon={<Percent className="text-slate-500" size={24} />}
                 trend={`${targetSubs.toLocaleString()} abonnés`}
-                color="indigo"
+                color="slate"
               />
               <StatsCard
                 title="Chiffre d'Affaire"
                 value={`${stats?.total_revenue?.toLocaleString() || "..."} DA`}
-                icon={<CreditCard className="text-violet-500" size={24} />}
+                icon={<CreditCard className="text-brand-500" size={24} />}
                 trend={stats?.revenue_period || "Période en cours"}
-                color="violet"
+                color="brand"
                 onClick={() => setCurrentView('creance')}
               />
               <StatsCard
@@ -756,7 +765,7 @@ export default function Dashboard() {
                           <Cell key={`cell-${index}`} fill={[
                             '#0D83DE', // Blue
                             '#00D1FF', // Cyan
-                            '#7C3AED', // Violet
+                            '#0891B2', // Teal
                             '#10B981', // Emerald
                             '#F59E0B', // Amber
                             '#E11D48', // Rose
@@ -933,7 +942,7 @@ export default function Dashboard() {
                       onClick={() => setCurrentView(tab.id as any)}
                       className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 active:scale-95 border ${
                         currentView === tab.id
-                          ? 'bg-white text-violet-600 shadow-sm border-[#E4E7EC]/40'
+                          ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
                           : 'text-[#667085] border-transparent hover:text-[#101828]'
                       }`}
                     >
@@ -983,9 +992,9 @@ function StatsCard({ title, value, icon, trend, color, onClick }: any) {
     rose: "bg-rose-50 text-rose-600",
     amber: "bg-amber-50 text-amber-600",
     cyan: "bg-cyan-50 text-cyan-600",
-    violet: "bg-violet-50 text-violet-600",
+    brand: "bg-brand-50 text-brand-600",
     emerald: "bg-emerald-50 text-emerald-600",
-    indigo: "bg-indigo-50 text-indigo-600",
+    indigo: "bg-slate-50 text-slate-600",
   };
 
   return (
@@ -2212,7 +2221,7 @@ function etatBadge(etatcpt: string, etatLabel?: string) {
     case '2': // 20-29: stopped states
       return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">{label}</span>;
     case '3': // 30-39: no meter
-      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">{label}</span>;
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 whitespace-nowrap">{label}</span>;
     case '4': // 40-49: cancelled
       return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">{label}</span>;
     default:
@@ -3552,7 +3561,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
 
             <button
               onClick={handleApplyFilter}
-              className="px-6 py-2.5 bg-violet-600 text-white rounded-xl text-xs font-black shadow-lg shadow-violet-100 hover:bg-violet-700 transition-all flex items-center gap-2 h-[42px]"
+              className="px-6 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black shadow-lg shadow-brand-100 hover:bg-brand-700 transition-all flex items-center gap-2 h-[42px]"
             >
               <Search size={14} />
               Calculer
@@ -3565,18 +3574,18 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
               label="Du"
               value={dateRange.start}
               onChange={(val: string) => setDateRange({ ...dateRange, start: val })}
-              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-32"
+              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-32"
             />
             <FrenchDateInput
               label="Au"
               value={dateRange.end}
               onChange={(val: string) => setDateRange({ ...dateRange, end: val })}
-              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-32"
+              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-32"
             />
             <div className="pb-1">
               <button
                 onClick={handleCustomFilter}
-                className="p-3 bg-white border border-[#E4E7EC] rounded-xl text-violet-600 hover:bg-violet-50 transition-colors shadow-sm"
+                className="p-3 bg-white border border-[#E4E7EC] rounded-xl text-brand-600 hover:bg-brand-50 transition-colors shadow-sm"
               >
                 <Search size={14} />
               </button>
@@ -3588,9 +3597,9 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
       {loading && (
         <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-300">
           <div className="relative">
-            <div className="animate-spin rounded-full h-20 w-20 border-b-2 border-violet-500"></div>
+            <div className="animate-spin rounded-full h-20 w-20 border-b-2 border-brand-500"></div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[10px] font-black text-violet-600">{Math.round(calcProgress)}%</span>
+              <span className="text-[10px] font-black text-brand-600">{Math.round(calcProgress)}%</span>
             </div>
           </div>
 
@@ -3603,13 +3612,13 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
             <div className="space-y-2">
               <div className="w-full bg-[#F2F4F7] rounded-full h-2 overflow-hidden p-0.5">
                 <div
-                  className="h-full bg-violet-600 rounded-full transition-all duration-300 shadow-sm shadow-violet-200"
+                  className="h-full bg-brand-600 rounded-full transition-all duration-300 shadow-sm shadow-brand-200"
                   style={{ width: `${calcProgress}%` }}
                 ></div>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-[9px] font-black text-[#98A2B3] uppercase tracking-widest">Traitement Big Data</span>
-                <span className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Calcul Optimisé</span>
+                <span className="text-[9px] font-black text-brand-600 uppercase tracking-widest">Calcul Optimisé</span>
               </div>
             </div>
           </div>
@@ -3623,11 +3632,11 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
       {!data && !loading && !error && (
         <div className="bg-[#F9FAFB] border-2 border-dashed border-[#E4E7EC] rounded-[2rem] p-16 flex flex-col items-center text-center gap-6">
           <div className="p-5 bg-white rounded-full shadow-sm">
-            <Search className="text-violet-500" size={32} />
+            <Search className="text-brand-500" size={32} />
           </div>
           <div>
             <p className="text-lg font-black text-[#101828]">Prêt pour l'analyse</p>
-            <p className="text-sm text-[#667085] mt-1 max-w-md">Sélectionnez une année et une période ci-dessus, puis cliquez sur le bouton <span className="text-violet-600 font-bold text-xs uppercase">Calculer</span> pour traiter les données de facturation.</p>
+            <p className="text-sm text-[#667085] mt-1 max-w-md">Sélectionnez une année et une période ci-dessus, puis cliquez sur le bouton <span className="text-brand-600 font-bold text-xs uppercase">Calculer</span> pour traiter les données de facturation.</p>
           </div>
         </div>
       )}
@@ -3656,7 +3665,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
             {[
               { label: "CA Eau", value: fmt(data.total_ca_eau), color: "bg-blue-50 text-blue-600", dot: "bg-blue-500" },
               { label: "CA Prestation", value: fmt(data.total_ca_prestation), color: "bg-cyan-50 text-cyan-600", dot: "bg-cyan-500" },
-              { label: "CA Total", value: fmt(data.total_ca), color: "bg-violet-50 text-violet-600", dot: "bg-violet-500" },
+              { label: "CA Total", value: fmt(data.total_ca), color: "bg-brand-50 text-brand-600", dot: "bg-brand-500" },
               { label: "CA Recouvré", value: fmt(data.total_ca_recouvre || 0), color: "bg-teal-50 text-teal-600", dot: "bg-teal-500" },
               { label: "Encaissement", value: fmt(data.total_recouvre), color: "bg-emerald-50 text-emerald-600", dot: "bg-emerald-500" },
               { label: "Créance", value: fmt(data.total_creance), color: "bg-rose-50 text-rose-600", dot: "bg-rose-500" },
@@ -3673,7 +3682,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                       else if (kpi.label === "CA Total") onNavigateToRepartition('ALL');
                     }
                   }}
-                  className={`bg-white border border-[#E4E7EC] rounded-[2.5rem] p-5 shadow-sm hover:shadow-md transition-all ${isClickable ? "cursor-pointer hover:border-violet-300 hover:bg-slate-50/30" : ""}`}
+                  className={`bg-white border border-[#E4E7EC] rounded-[2.5rem] p-5 shadow-sm hover:shadow-md transition-all ${isClickable ? "cursor-pointer hover:border-brand-300 hover:bg-brand-50/20" : ""}`}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <div className={`w-2 h-2 rounded-full ${kpi.dot}`}></div>
@@ -3738,14 +3747,14 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                               {/* Group Header Toggle */}
                               <tr
                                 onClick={() => toggleSection(section)}
-                                className={`${section === 'EAU' ? 'bg-blue-50/10' : 'bg-purple-50/10'} cursor-pointer hover:bg-slate-50 transition-colors border-y border-[#F2F4F7]`}
+                                className={`${section === 'EAU' ? 'bg-blue-50/10' : 'bg-teal-50/10'} cursor-pointer hover:bg-slate-50 transition-colors border-y border-[#F2F4F7]`}
                               >
                                 <td colSpan={5} className="px-8 py-3">
                                   <div className="flex items-center gap-3">
                                     <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
                                       <ChevronRight size={16} className="text-[#98A2B3]" />
                                     </div>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${section === 'EAU' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${section === 'EAU' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
                                       {section}
                                     </span>
                                     <span className="text-[11px] font-bold text-[#667085]">
@@ -3758,9 +3767,9 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                               {isExpanded && rows.map((row, i) => (
                                 <tr key={i} className="hover:bg-blue-50/20 transition-colors group">
                                   {i === 0 ? (
-                                    <td rowSpan={rows.length} className={`px-5 py-8 text-center border-r border-[#F2F4F7] ${section === 'EAU' ? 'bg-blue-50/10' : 'bg-purple-50/10'}`}>
+                                    <td rowSpan={rows.length} className={`px-5 py-8 text-center border-r border-[#F2F4F7] ${section === 'EAU' ? 'bg-blue-50/10' : 'bg-teal-50/10'}`}>
                                       <div className="flex flex-col items-center justify-center h-full">
-                                        <span className={`[writing-mode:vertical-lr] rotate-180 text-[13px] font-black uppercase tracking-[0.4em] ${section === 'EAU' ? 'text-blue-500' : 'text-purple-500'}`}>
+                                        <span className={`[writing-mode:vertical-lr] rotate-180 text-[13px] font-black uppercase tracking-[0.4em] ${section === 'EAU' ? 'text-blue-500' : 'text-teal-500'}`}>
                                           {section}
                                         </span>
                                       </div>
@@ -3783,10 +3792,10 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                                   </td>
                                 </tr>
                               ))}
-                              <tr className={`${section === 'EAU' ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y border-[#F2F4F7]/50`}>
+                              <tr className={`${section === 'EAU' ? 'bg-blue-50/40' : 'bg-teal-50/40'} border-y border-[#F2F4F7]/50`}>
                                 <td colSpan={3} className="px-8 py-4">
                                   <div className="flex items-center gap-2">
-                                    <div className={`w-1 h-4 rounded-full ${section === 'EAU' ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
+                                    <div className={`w-1 h-4 rounded-full ${section === 'EAU' ? 'bg-blue-400' : 'bg-teal-400'} opacity-50`}></div>
                                     <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
                                   </div>
                                 </td>
@@ -3794,7 +3803,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                                   <span className="font-black text-[13px] text-[#475467] font-mono">{fmtNum(rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0))}</span>
                                 </td>
                                 <td className="px-8 py-4 text-right">
-                                  <span className={`font-black text-[15px] ${section === 'EAU' ? 'text-blue-700' : 'text-purple-700'} font-mono tracking-tighter`}>{fmt(subTotal)}</span>
+                                  <span className={`font-black text-[15px] ${section === 'EAU' ? 'text-blue-700' : 'text-teal-700'} font-mono tracking-tighter`}>{fmt(subTotal)}</span>
                                 </td>
                               </tr>
                             </Fragment>
@@ -3893,9 +3902,9 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-4 bg-[#F9FAFB] rounded-[2rem] border border-[#F2F4F7] group hover:border-violet-200 transition-colors">
+                  <div className="p-4 bg-[#F9FAFB] rounded-[2rem] border border-[#F2F4F7] group hover:border-brand-200 transition-colors">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand-500"></div>
                       <p className="text-[10px] font-black text-[#98A2B3] uppercase tracking-widest">CA Total Émis</p>
                     </div>
                     <p className="text-lg font-black text-[#101828] font-mono tracking-tighter">{fmt(data.total_ca)}</p>
@@ -3968,7 +3977,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                     onClick={() => setActiveHistoryMetric(tab.id as any)}
                     className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 border ${
                       activeHistoryMetric === tab.id
-                        ? 'bg-white text-violet-600 shadow-sm border-[#E4E7EC]/40'
+                        ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
                         : 'text-[#667085] border-transparent hover:text-[#101828]'
                     }`}
                   >
@@ -3985,7 +3994,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                 <select
                   value={histType}
                   onChange={(e) => setHistType(e.target.value as any)}
-                  className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-48 shadow-sm cursor-pointer"
+                  className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-48 shadow-sm cursor-pointer"
                 >
                   <option value="monthly_12">12 Derniers Mois</option>
                   <option value="years">Par Intervalle d'Années</option>
@@ -4003,7 +4012,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                         <select
                           value={histStartMonth}
                           onChange={(e) => setHistStartMonth(e.target.value)}
-                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-28 shadow-sm cursor-pointer"
+                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-28 shadow-sm cursor-pointer"
                         >
                           {[
                             {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
@@ -4018,7 +4027,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                       <select
                         value={histStartYear}
                         onChange={(e) => setHistStartYear(e.target.value)}
-                        className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-24 shadow-sm cursor-pointer"
+                        className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-24 shadow-sm cursor-pointer"
                       >
                         {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
                           <option key={year} value={year}>{year}</option>
@@ -4037,7 +4046,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                         <select
                           value={histEndMonth}
                           onChange={(e) => setHistEndMonth(e.target.value)}
-                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-28 shadow-sm cursor-pointer"
+                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-28 shadow-sm cursor-pointer"
                         >
                           {[
                             {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
@@ -4052,7 +4061,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                       <select
                         value={histEndYear}
                         onChange={(e) => setHistEndYear(e.target.value)}
-                        className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-violet-500 outline-none w-24 shadow-sm cursor-pointer"
+                        className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-24 shadow-sm cursor-pointer"
                       >
                         {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
                           <option key={year} value={year}>{year}</option>
@@ -4066,7 +4075,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
               <button
                 onClick={handleUpdateHistory}
                 disabled={loadingHistory}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 rounded-xl text-xs font-black transition-all shadow-sm h-[38px] active:scale-95 cursor-pointer"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50 rounded-xl text-xs font-black transition-all shadow-sm h-[38px] active:scale-95 cursor-pointer"
               >
                 {loadingHistory ? (
                   <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -4091,8 +4100,8 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
               {loadingHistory && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[2px] rounded-3xl transition-all">
                   <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-200">
-                    <div className="w-8 h-8 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
-                    <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Calcul de l'Évolution...</p>
+                    <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+                    <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest">Calcul de l'Évolution...</p>
                   </div>
                 </div>
               )}
@@ -4261,7 +4270,7 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
   return (
     <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-violet-50/60 to-white flex-shrink-0">
+      <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
         <div>
           <button
             onClick={onClose}
@@ -4270,7 +4279,7 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
             <ChevronRight className="rotate-180" size={16} /> Retour à la répartition
           </button>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-violet-50 text-violet-600 border-violet-100">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-brand-50 text-brand-600 border-brand-100">
               Détail Abonnés
             </span>
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-blue-50 text-blue-600 border-blue-100">
@@ -4297,7 +4306,7 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
             placeholder="Rechercher par code abonné, nom ou commune..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-medium text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100/50 transition-all"
+            className="w-full pl-9 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-medium text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100/50 transition-all"
           />
         </div>
         <button
@@ -4314,7 +4323,7 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-56 gap-4">
-            <div className="w-10 h-10 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
+            <div className="w-10 h-10 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
             <p className="text-sm font-medium text-[#667085]">Chargement des abonnés...</p>
           </div>
         ) : error ? (
@@ -4340,13 +4349,13 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
                 <th className="px-4 py-4">Nom / Raison Sociale</th>
                 <th className="px-4 py-4">Commune</th>
                 <th className="px-4 py-4">Type</th>
-                <th className="px-4 py-4 text-right text-violet-600">{columnLabel}</th>
+                <th className="px-4 py-4 text-right text-brand-600">{columnLabel}</th>
                 <th className="px-6 py-4 text-right">Opérations</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
               {paged.map((s: any, i: number) => (
-                <tr key={s.numab} className="hover:bg-violet-50/20 transition-colors">
+                <tr key={s.numab} className="hover:bg-brand-50/20 transition-colors">
                   <td className="px-6 py-3.5 text-xs text-[#98A2B3] font-mono">{(page - 1) * PAGE_SIZE + i + 1}</td>
                   <td className="px-4 py-3.5">
                     <span className="font-mono text-[11px] font-bold text-[#101828] bg-[#F9FAFB] px-2 py-0.5 rounded border border-[#E4E7EC]">{s.numab}</span>
@@ -4354,7 +4363,7 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
                   <td className="px-4 py-3.5 text-sm font-semibold text-[#101828]">{s.name}</td>
                   <td className="px-4 py-3.5 text-xs text-[#475467] font-medium">{s.commune}</td>
                   <td className="px-4 py-3.5 text-[11px] text-[#667085]">{s.type_abonne}</td>
-                  <td className="px-4 py-3.5 text-right font-black text-sm text-violet-600 whitespace-nowrap">{fmt(s.amount)}</td>
+                  <td className="px-4 py-3.5 text-right font-black text-sm text-brand-600 whitespace-nowrap">{fmt(s.amount)}</td>
                   <td className="px-6 py-3.5 text-right text-xs font-bold text-[#475467]">{s.count}</td>
                 </tr>
               ))}
@@ -4386,7 +4395,7 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
                   key={p}
                   onClick={() => setPage(p)}
                   className={`w-8 h-8 rounded-lg text-xs font-bold transition-all active:scale-95 ${
-                    page === p ? 'bg-violet-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
+                    page === p ? 'bg-brand-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
                   }`}
                 >{p}</button>
               );
@@ -4426,8 +4435,8 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
   if (!data || !data.by_type) {
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-12 text-center max-w-2xl mx-auto my-12 animate-in fade-in duration-300">
-        <div className="w-20 h-20 bg-violet-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-violet-100 shadow-inner">
-          <BarChart3 className="text-violet-600" size={36} />
+        <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-brand-100 shadow-inner">
+          <BarChart3 className="text-brand-600" size={36} />
         </div>
         <h3 className="text-2xl font-black text-[#101828] mb-3">Aucune donnée disponible</h3>
         <p className="text-sm text-[#667085] leading-relaxed max-w-md mx-auto mb-8 font-medium">
@@ -4435,7 +4444,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
         </p>
         <button
           onClick={onGoToCalculation}
-          className="inline-flex items-center justify-center px-6 py-3.5 bg-violet-600 text-white rounded-2xl text-sm font-black hover:bg-violet-700 active:scale-95 transition-all shadow-lg shadow-violet-600/25 border border-violet-500/10"
+          className="inline-flex items-center justify-center px-6 py-3.5 bg-brand-600 text-white rounded-2xl text-sm font-black hover:bg-brand-700 active:scale-95 transition-all shadow-lg shadow-brand-600/25 border border-brand-500/10"
         >
           Aller à la Synthèse Globale
         </button>
@@ -4476,7 +4485,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
               onClick={() => setTypeSectionFilter(tab.id as any)}
               className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
                 typeSectionFilter === tab.id
-                  ? 'bg-white text-violet-600 shadow-sm border-[#E4E7EC]/40'
+                  ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
                   : 'text-[#667085] border-transparent hover:text-[#101828]'
               }`}
             >
@@ -4525,14 +4534,14 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                     {/* Group Header Toggle */}
                     <tr
                       onClick={() => toggleTypeSection(section)}
-                      className={`${isEau ? 'bg-blue-50/10' : 'bg-purple-50/10'} cursor-pointer hover:bg-slate-50/50 transition-colors border-y border-[#F2F4F7]`}
+                      className={`${isEau ? 'bg-blue-50/10' : 'bg-teal-50/10'} cursor-pointer hover:bg-slate-50/50 transition-colors border-y border-[#F2F4F7]`}
                     >
                       <td colSpan={10} className="px-8 py-4">
                         <div className="flex items-center gap-3">
                           <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
                             <ChevronRight size={16} className="text-[#98A2B3]" />
                           </div>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border ${isEau ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border ${isEau ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
                             {section}
                           </span>
                           <span className="text-[11px] font-bold text-[#667085]">
@@ -4549,7 +4558,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                             rowSpan={sectionRows.length}
                             className="px-8 py-4 align-middle border-r border-[#F2F4F7]"
                           >
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-purple-50 text-purple-600 border border-purple-100/50'}`}>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-teal-50 text-teal-600 border border-teal-100/50'}`}>
                               {t.section}
                             </span>
                           </td>
@@ -4566,8 +4575,8 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 whitespace-nowrap">
                           <span className="cursor-pointer hover:bg-cyan-50/60 hover:text-cyan-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_prestation' })} title="Voir les abonnés concernés">{fmt(t.ca_prestation)}</span>
                         </td>
-                        <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-violet-50/60 hover:text-violet-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca' })} title="Voir les abonnés concernés">{fmt(t.ca)}</span>
+                        <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 whitespace-nowrap">
+                          <span className="cursor-pointer hover:bg-brand-50/60 hover:text-brand-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca' })} title="Voir les abonnés concernés">{fmt(t.ca)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/5 whitespace-nowrap">
                           <span className="cursor-pointer hover:bg-teal-50/60 hover:text-teal-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_recouvre' })} title="Voir les abonnés concernés">{fmt(t.ca_recouvre || 0)}</span>
@@ -4583,16 +4592,16 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                     ))}
 
                     {/* Section Subtotal Row */}
-                    <tr className={`${isEau ? 'bg-blue-50/40' : 'bg-purple-50/40'} border-y border-[#F2F4F7]/50`}>
+                    <tr className={`${isEau ? 'bg-blue-50/40' : 'bg-teal-50/40'} border-y border-[#F2F4F7]/50`}>
                       <td colSpan={3} className="px-8 py-4">
                         <div className="flex items-center gap-2">
-                          <div className={`w-1 h-4 rounded-full ${isEau ? 'bg-blue-400' : 'bg-purple-400'} opacity-50`}></div>
+                          <div className={`w-1 h-4 rounded-full ${isEau ? 'bg-blue-400' : 'bg-teal-400'} opacity-50`}></div>
                           <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-blue-600 font-mono whitespace-nowrap">{fmt(subTotalCaEau)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-cyan-600 font-mono whitespace-nowrap">{fmt(subTotalCaPrest)}</td>
-                      <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600 font-mono whitespace-nowrap">{fmt(subTotalCa)}</td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 font-mono whitespace-nowrap">{fmt(subTotalCa)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-teal-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalCaRecouvre)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-emerald-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalRecouvre)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 font-mono bg-white/5 whitespace-nowrap">{fmt(subTotalCreance)}</td>
@@ -4608,7 +4617,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                   <td colSpan={3} className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
                   <td className="px-6 py-5 text-right text-blue-400 font-mono whitespace-nowrap">{fmt(data.total_ca_eau)}</td>
                   <td className="px-6 py-5 text-right text-cyan-400 font-mono whitespace-nowrap">{fmt(data.total_ca_prestation)}</td>
-                  <td className="px-6 py-5 text-right text-violet-400 font-mono whitespace-nowrap">{fmt(data.total_ca)}</td>
+                  <td className="px-6 py-5 text-right text-brand-400 font-mono whitespace-nowrap">{fmt(data.total_ca)}</td>
                   <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_ca_recouvre || 0)}</td>
                   <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_recouvre)}</td>
                   <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono whitespace-nowrap">{fmt(data.total_creance)}</td>
@@ -4652,8 +4661,8 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
   if (!data || !data.by_commune) {
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-12 text-center max-w-2xl mx-auto my-12 animate-in fade-in duration-300">
-        <div className="w-20 h-20 bg-violet-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-violet-100 shadow-inner">
-          <MapPin className="text-violet-600" size={36} />
+        <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-brand-100 shadow-inner">
+          <MapPin className="text-brand-600" size={36} />
         </div>
         <h3 className="text-2xl font-black text-[#101828] mb-3">Aucune donnée disponible</h3>
         <p className="text-sm text-[#667085] leading-relaxed max-w-md mx-auto mb-8 font-medium">
@@ -4661,7 +4670,7 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
         </p>
         <button
           onClick={onGoToCalculation}
-          className="inline-flex items-center justify-center px-6 py-3.5 bg-violet-600 text-white rounded-2xl text-sm font-black hover:bg-violet-700 active:scale-95 transition-all shadow-lg shadow-violet-600/25 border border-violet-500/10"
+          className="inline-flex items-center justify-center px-6 py-3.5 bg-brand-600 text-white rounded-2xl text-sm font-black hover:bg-brand-700 active:scale-95 transition-all shadow-lg shadow-brand-600/25 border border-brand-500/10"
         >
           Aller à la Synthèse Globale
         </button>
@@ -4683,7 +4692,7 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
             onClick={() => setIsTableCollapsed(!isTableCollapsed)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm active:scale-95 cursor-pointer border ${
               isTableCollapsed 
-                ? 'bg-violet-600 text-white border-violet-700 hover:bg-violet-700' 
+                ? 'bg-brand-600 text-white border-brand-700 hover:bg-brand-700' 
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
             }`}
           >
@@ -4695,7 +4704,7 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
               <div className="w-[1px] h-6 bg-[#E4E7EC] mx-1 hidden sm:block"></div>
               <button
                 onClick={expandAllCommunes}
-                className="flex items-center gap-2 px-4 py-2.5 bg-violet-50 text-violet-600 border border-violet-100 rounded-xl text-xs font-black hover:bg-violet-100 hover:text-violet-700 transition-all shadow-sm active:scale-95 cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2.5 bg-brand-50 text-brand-600 border border-brand-100 rounded-xl text-xs font-black hover:bg-brand-100 hover:text-brand-700 transition-all shadow-sm active:scale-95 cursor-pointer"
               >
                 Déplier Tout
               </button>
@@ -4736,7 +4745,7 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
                       <tr className="hover:bg-[#F9FAFB] transition-colors group">
                         <td className="px-8 py-4 font-black text-sm text-[#101828]">
                           <div
-                            className="flex items-center gap-2 cursor-pointer select-none group-hover:text-violet-600 transition-colors"
+                            className="flex items-center gap-2 cursor-pointer select-none group-hover:text-brand-600 transition-colors"
                             onClick={() => toggleCommune(c.id)}
                           >
                             <div className={`transition-transform duration-200 ${!isCollapsed ? 'rotate-90' : ''}`}>
@@ -4747,7 +4756,7 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
-                        <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600">{fmt(c.ca)}</td>
+                        <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600">{fmt(c.ca)}</td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(c.ca_recouvre || 0)}</td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(c.recouvre)}</td>
                         <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(c.creance)}</td>
@@ -4794,7 +4803,7 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
                   <td className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
                   <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
                   <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
-                  <td className="px-6 py-5 text-right text-violet-400 font-mono">{fmt(data.total_ca)}</td>
+                  <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(data.total_ca)}</td>
                   <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5">{fmt(data.total_ca_recouvre || 0)}</td>
                   <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5">{fmt(data.total_recouvre)}</td>
                   <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(data.total_creance)}</td>
@@ -5121,13 +5130,13 @@ function CreancesAbonnesView({ onBack }: any) {
           className={`inline-flex items-center gap-1.5 ${align === 'center' ? 'justify-center w-full' : ''} ${align === 'right' ? 'justify-end w-full' : ''}`}
         >
           {align === 'right' && (
-            <span className={`text-[10px] ${active ? 'text-violet-600' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+            <span className={`text-[10px] ${active ? 'text-brand-600' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
               {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
             </span>
           )}
-          <span className={active ? 'text-violet-600' : 'group-hover:text-[#101828]'}>{label}</span>
+          <span className={active ? 'text-brand-600' : 'group-hover:text-[#101828]'}>{label}</span>
           {align !== 'right' && (
-            <span className={`text-[10px] ${active ? 'text-violet-600' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+            <span className={`text-[10px] ${active ? 'text-brand-600' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
               {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
             </span>
           )}
@@ -5981,8 +5990,8 @@ function CreancesAbonnesView({ onBack }: any) {
     { value: '<', label: '< Moins de N jours' },
   ];
 
-  const inputCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100/60 transition-all";
-  const selectCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100/60 transition-all appearance-none cursor-pointer";
+  const inputCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100/60 transition-all";
+  const selectCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100/60 transition-all appearance-none cursor-pointer";
   const labelCls = "block text-[10px] font-black uppercase tracking-widest text-[#667085] mb-2";
 
   return (
@@ -6013,10 +6022,10 @@ function CreancesAbonnesView({ onBack }: any) {
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
         <button
           onClick={() => setFilterExpanded(!filterExpanded)}
-          className="w-full px-8 py-5 border-b border-[#F2F4F7] bg-gradient-to-r from-violet-50/60 to-white flex items-center gap-3 hover:bg-gradient-to-r hover:from-violet-100/40 hover:to-white/80 transition-all"
+          className="w-full px-8 py-5 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex items-center gap-3 hover:bg-gradient-to-r hover:from-brand-100/40 hover:to-white/80 transition-all"
         >
-          <div className="w-8 h-8 bg-violet-100 rounded-xl flex items-center justify-center">
-            <Search size={14} className="text-violet-600" />
+          <div className="w-8 h-8 bg-brand-100 rounded-xl flex items-center justify-center">
+            <Search size={14} className="text-brand-600" />
           </div>
           <div className="flex-1 text-left">
             <h3 className="text-sm font-black text-[#101828]">Critères de Filtrage</h3>
@@ -6036,7 +6045,7 @@ function CreancesAbonnesView({ onBack }: any) {
         <div className="p-8">
           {dataLoading ? (
             <div className="flex items-center justify-center gap-3 py-10">
-              <div className="w-8 h-8 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
+              <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
               <p className="text-sm font-bold text-[#667085]">Chargement des données...</p>
             </div>
           ) : error ? (
@@ -6203,7 +6212,7 @@ function CreancesAbonnesView({ onBack }: any) {
             <button
               onClick={applyFilters}
               disabled={!dataLoaded}
-              className="inline-flex items-center gap-2 px-7 py-3 bg-violet-600 text-white rounded-xl text-sm font-black hover:bg-violet-700 active:scale-95 transition-all shadow-lg shadow-violet-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-7 py-3 bg-brand-600 text-white rounded-xl text-sm font-black hover:bg-brand-700 active:scale-95 transition-all shadow-lg shadow-brand-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Search size={15} />
               Rechercher les Créanciers
@@ -6217,8 +6226,8 @@ function CreancesAbonnesView({ onBack }: any) {
       {/* ── Results ───────────────────────────────────────────────────── */}
       {results === null ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4 bg-white border border-dashed border-[#D0D5DD] rounded-[2rem]">
-          <div className="w-16 h-16 bg-violet-50 rounded-full flex items-center justify-center border border-violet-100">
-            <Search size={24} className="text-violet-400" />
+          <div className="w-16 h-16 bg-brand-50 rounded-full flex items-center justify-center border border-brand-100">
+            <Search size={24} className="text-brand-400" />
           </div>
           <p className="text-base font-black text-[#344054]">Configurez vos critères puis cliquez sur Rechercher</p>
           <p className="text-xs text-[#98A2B3] font-medium">Les résultats apparaîtront ici</p>
@@ -6245,13 +6254,13 @@ function CreancesAbonnesView({ onBack }: any) {
                   placeholder="Affiner par code ou nom..."
                   value={search}
                   onChange={e => { setSearch(e.target.value); setPage(1); }}
-                  className="pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 transition-all w-60"
+                  className="pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 transition-all w-60"
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-[#667085]">
                 {selectedCount > 0 ? (
                   <>
-                    <span className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
+                    <span className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-brand-50 text-brand-700 border border-brand-100">
                       <strong>{selectedCount}</strong> abonné{selectedCount !== 1 ? 's' : ''} sélectionné{selectedCount !== 1 ? 's' : ''}
                     </span>
                     <button
@@ -6276,7 +6285,7 @@ function CreancesAbonnesView({ onBack }: any) {
               <button
                 onClick={handlePrintQuarterlyCreanciers}
                 disabled={sorted.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-violet-50 text-violet-700 border border-violet-100 rounded-xl text-xs font-black hover:bg-violet-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-brand-50 text-brand-700 border border-brand-100 rounded-xl text-xs font-black hover:bg-brand-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Printer size={13} /> Détails des factures impayées
               </button>
@@ -6291,7 +6300,7 @@ function CreancesAbonnesView({ onBack }: any) {
           </div>
 
           {/* Filtres colonnes tableau (sélection multiple) */}
-          <div className="flex flex-wrap items-start gap-4 px-8 py-4 border-b border-[#F2F4F7] bg-violet-50/20">
+          <div className="flex flex-wrap items-start gap-4 px-8 py-4 border-b border-[#F2F4F7] bg-brand-50/20">
             <div className="min-w-[220px] flex-1">
               <label className={labelCls}>Type Abonné</label>
               <select
@@ -6311,13 +6320,13 @@ function CreancesAbonnesView({ onBack }: any) {
                   {filterTypesAbon.map(t => (
                     <span
                       key={t}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-violet-100 text-violet-800 border border-violet-200"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-brand-100 text-brand-800 border border-brand-200"
                     >
                       {t}
                       <button
                         type="button"
                         onClick={() => removeTableFilter(t, filterTypesAbon, setFilterTypesAbon)}
-                        className="text-violet-500 hover:text-violet-900 font-black leading-none"
+                        className="text-brand-500 hover:text-brand-900 font-black leading-none"
                       >
                         ×
                       </button>
@@ -6430,7 +6439,7 @@ function CreancesAbonnesView({ onBack }: any) {
                   setFilterTourneesTable([]);
                   setPage(1);
                 }}
-                className="px-4 py-2.5 rounded-xl text-xs font-black text-violet-700 bg-white border border-violet-200 hover:bg-violet-50 transition-all self-end"
+                className="px-4 py-2.5 rounded-xl text-xs font-black text-brand-700 bg-white border border-brand-200 hover:bg-brand-50 transition-all self-end"
               >
                 Effacer tous les filtres
               </button>
@@ -6458,7 +6467,7 @@ function CreancesAbonnesView({ onBack }: any) {
                     <th className="px-4 py-5 w-12">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600 focus:ring-violet-500"
+                        className="h-4 w-4 rounded border-[#D0D5DD] text-brand-600 focus:ring-brand-500"
                         checked={allVisibleSelected}
                         onChange={() => {
                           if (allVisibleSelected) {
@@ -6489,11 +6498,11 @@ function CreancesAbonnesView({ onBack }: any) {
                     const days = daysSince(s.raw_last_payment);
                     const isAlarmant = days === null || days > 90;
                     return (
-                      <tr key={s.numab} className="hover:bg-violet-50/10 transition-colors group">
+                      <tr key={s.numab} className="hover:bg-brand-50/10 transition-colors group">
                         <td className="px-4 py-4 text-center">
                           <input
                             type="checkbox"
-                            className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600 focus:ring-violet-500"
+                            className="h-4 w-4 rounded border-[#D0D5DD] text-brand-600 focus:ring-brand-500"
                             checked={selectedNumabs.includes(s.numab)}
                             onChange={() => {
                               setSelectedNumabs(prev =>
@@ -6568,7 +6577,7 @@ function CreancesAbonnesView({ onBack }: any) {
               <span className="text-xs text-[#667085] font-bold">
                 Page {safePage}/{totalPages} · {sorted.length} résultat{sorted.length !== 1 ? 's' : ''}
                 {hasTableColumnFilters && (
-                  <span className="text-violet-600 ml-1">(filtres actifs)</span>
+                  <span className="text-brand-600 ml-1">(filtres actifs)</span>
                 )}
               </span>
               <div className="flex items-center gap-1.5">
@@ -6585,7 +6594,7 @@ function CreancesAbonnesView({ onBack }: any) {
                   return (
                     <button key={p} onClick={() => setPage(p)}
                       className={`w-9 h-9 rounded-xl text-xs font-black transition-all active:scale-95 ${
-                        safePage === p ? 'bg-violet-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
+                        safePage === p ? 'bg-brand-600 text-white shadow-sm' : 'text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD]'
                       }`}>{p}</button>
                   );
                 })}
@@ -6771,7 +6780,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     >
       <span className="inline-flex items-center gap-1">
         {label}
-        {sortKey === col && <span className="text-violet-600">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+        {sortKey === col && <span className="text-brand-600">{sortDir === 'asc' ? '↑' : '↓'}</span>}
       </span>
     </th>
   );
@@ -6985,7 +6994,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             </div>
             <div class="title-section">
               <h1 class="title">Créance Institutions</h1>
-              <p class="subtitle">Liens ABINSTIT / INSTIT avec créances issues des factures impayées</p>
+              <p class="subtitle">Créances des organismes payeurs — liens institutionnels</p>
             </div>
           </div>
 
@@ -7722,8 +7731,8 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     printWindow.document.close();
   };
 
-  const inputCls = 'pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-violet-300 transition-all w-72';
-  const selectCls = 'py-2 pl-4 pr-8 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] outline-none focus:border-violet-300 transition-all min-w-[180px]';
+  const inputCls = 'pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 transition-all w-72';
+  const selectCls = 'py-2 pl-4 pr-8 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] outline-none focus:border-brand-300 transition-all min-w-[180px]';
  
 
   return (
@@ -7739,16 +7748,16 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
           <div>
             <h2 className="text-3xl font-black tracking-tight text-[#101828]">Créance institutions</h2>
             <p className="text-sm text-[#667085] mt-1 font-medium">
-              Liens ABINSTIT / INSTIT avec créances issues des factures impayées (jointure ABONNE, ABONMENT, RUE…)
+              Créances des organismes payeurs liées aux abonnés institutionnels (factures impayées)
             </p>
           </div>
           {meta && !dataLoading && !error && (
             <div className="flex flex-wrap gap-2 text-xs font-bold">
-              <span className="text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-100">
+              <span className="text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-100">
                 {rows.length} lien{rows.length !== 1 ? 's' : ''} avec créance
               </span>
               <span className="text-[#667085] bg-[#F9FAFB] px-3 py-1 rounded-full border border-[#E4E7EC]">
-                {meta.institutions_count} institutions · {meta.total_links} liens ABINSTIT
+                {meta.institutions_count} organismes · {meta.total_links} liens institutionnels
               </span>
             </div>
           )}
@@ -7758,7 +7767,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-8 py-5 border-b border-[#F2F4F7] bg-slate-50/30">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-violet-50 text-violet-700 border border-violet-100">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-brand-50 text-brand-700 border border-brand-100">
               {tableTotals.institutions} institution{tableTotals.institutions !== 1 ? 's' : ''}
             </span>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-100">
@@ -7799,7 +7808,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             <button
               onClick={handlePrintQuarterlyCreances}
               disabled={selectedRowsInst.length === 0 && flatRows.length === 0}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-violet-50 text-violet-700 border border-violet-100 rounded-xl text-xs font-black hover:bg-violet-100 disabled:opacity-50 transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-brand-50 text-brand-700 border border-brand-100 rounded-xl text-xs font-black hover:bg-brand-100 disabled:opacity-50 transition-all"
               title="Imprimer le tableau comparatif trimestriel sur 10 ans"
             >
               <Printer size={13} /> Imprimer par Facture (Trimestres)
@@ -7857,7 +7866,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
 
         {dataLoading ? (
           <div className="flex items-center justify-center gap-3 py-20">
-            <div className="w-8 h-8 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
             <p className="text-sm font-bold text-[#667085]">Calcul des créances institutions…</p>
           </div>
         ) : error ? (
@@ -7881,7 +7890,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                     <th className="px-4 py-4 w-10">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600"
+                        className="h-4 w-4 rounded border-[#D0D5DD] text-brand-600"
                         checked={allVisibleSelectedInst}
                         onChange={() => {
                           if (allVisibleSelectedInst) {
@@ -7913,19 +7922,19 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                     const gt = groupTotals(g);
                     return (
                       <Fragment key={g.codinstit}>
-                        <tr className="bg-violet-50 border-t-2 border-violet-200">
+                        <tr className="bg-brand-50 border-t-2 border-brand-200">
                           <td className="px-4 py-3" />
-                          <td className="px-4 py-3 font-mono font-black text-violet-900 whitespace-nowrap">
+                          <td className="px-4 py-3 font-mono font-black text-brand-900 whitespace-nowrap">
                             {g.codinstit}
                           </td>
-                          <td className="px-4 py-3 font-black text-violet-900 max-w-[220px]">
+                          <td className="px-4 py-3 font-black text-brand-900 max-w-[220px]">
                             {g.lib_instit}
-                            <span className="ml-2 text-[10px] font-bold text-violet-600">
+                            <span className="ml-2 text-[10px] font-bold text-brand-600">
                               ({g.rows.length} abonné{g.rows.length !== 1 ? 's' : ''})
                             </span>
                           </td>
                           <td className="px-4 py-3" colSpan={10} />
-                          <td className="px-4 py-3 text-center font-black text-violet-900">
+                          <td className="px-4 py-3 text-center font-black text-brand-900">
                             {gt.factures.toLocaleString('fr-FR')}
                           </td>
                           <td className="px-4 py-3 text-right font-black text-rose-600 whitespace-nowrap">
@@ -7938,7 +7947,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                             <td className="px-4 py-2 text-center">
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 rounded border-[#D0D5DD] text-violet-600"
+                                className="h-4 w-4 rounded border-[#D0D5DD] text-brand-600"
                                 checked={selectedNumabsInst.includes(r.numab)}
                                 onChange={() => setSelectedNumabsInst(prev => prev.includes(r.numab) ? prev.filter(id => id !== r.numab) : [...prev, r.numab])}
                               />

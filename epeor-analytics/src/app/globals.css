@@ -7,6 +7,15 @@
   --color-obat-dark: #101828;
   --color-obat-gray: #475467;
   --color-obat-light: #F9FAFB;
+  --color-brand-50: #e8f4fc;
+  --color-brand-100: #d0e9f9;
+  --color-brand-200: #a1d3f3;
+  --color-brand-300: #5baee8;
+  --color-brand-400: #3d9ee3;
+  --color-brand-500: #0D83DE;
+  --color-brand-600: #0c75c8;
+  --color-brand-700: #0a619f;
+  --color-brand-800: #084d7d;
 }
 
 :root {
@@ -132,7 +141,7 @@ table thead th {
 
   /* Premium subtotal and total adjustments */
   tr.bg-blue-50\/40,
-  tr.bg-purple-50\/40 {
+  tr.bg-teal-50\/40 {
     background-color: #f1f5f9 !important;
   }
 

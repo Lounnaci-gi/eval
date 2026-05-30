@@ -1,5 +1,19 @@
 "use client";
 
+if (typeof window !== "undefined") {
+  const originalWarn = console.warn;
+  console.warn = (...args: any[]) => {
+    if (
+      args[0] &&
+      typeof args[0] === "string" &&
+      args[0].includes("width(-1) and height(-1) of chart should be greater than 0")
+    ) {
+      return;
+    }
+    originalWarn(...args);
+  };
+}
+
 import { useEffect, useState, Fragment, useRef, useMemo, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -6726,7 +6740,7 @@ type QuarterPick = {
   itemIndex: number;
 };
 
-type CombinationPriority = 1 | 2 | 3;
+type CombinationPriority = 1 | 2 | 3 | 4;
 
 const PRIORITY_SECTIONS: Record<
   CombinationPriority,
@@ -6745,10 +6759,16 @@ const PRIORITY_SECTIONS: Record<
     borderClass: 'border-violet-200',
   },
   3: {
-    title: 'Priorité 3 — Combinaisons mixtes (inter-années)',
-    description: 'Combinaisons hybrides mélangeant plusieurs années et trimestres.',
+    title: 'Priorité 3 — Recherche mixte et inter-années progressive par nombre d\'années',
+    description: 'Recherche progressive par nombre d\'années explorant ordonnément : Cas A (Même trimestre sur années distinctes), Cas C (Blocs complets de trimestres), Cas B (Mélange libre), et Cas D (Grand mix éloigné).',
     headerClass: 'bg-amber-50 text-amber-900 border-amber-200',
     borderClass: 'border-amber-200',
+  },
+  4: {
+    title: 'Priorité 4 — Recherche élargie (purement aléatoire)',
+    description: 'Recherche élargie sans contrainte de structure annuelle comme fallback final.',
+    headerClass: 'bg-rose-50 text-rose-900 border-rose-200',
+    borderClass: 'border-rose-200',
   },
 };
 
@@ -6939,9 +6959,14 @@ async function findAllCombinationIndicesAsync(
   seenGlobal?: Set<string>,
   acceptCombination?: (picks: QuarterPick[]) => boolean
 ): Promise<{ truncated: boolean; effectiveTarget: number | null; totalFound: number }> {
-  if (items.length === 0 || targetCents <= 0) {
+  // 1. Pré-filtrage par rapport au montant cible
+  const filteredItems = items.filter(it => it.amountCents > 0 && it.amountCents <= targetCents);
+  if (filteredItems.length === 0 || targetCents <= 0) {
     return { truncated: false, effectiveTarget: null, totalFound: 0 };
   }
+
+  // 2. Tri par ordre décroissant pour le backtracking efficace
+  const sortedItems = [...filteredItems].sort((a, b) => b.amountCents - a.amountCents);
 
   let effectiveTarget: number | null = null;
   for (const tryTarget of [targetCents, targetCents - 1, targetCents + 1]) {
@@ -6949,7 +6974,7 @@ async function findAllCombinationIndicesAsync(
       return { truncated: false, effectiveTarget: null, totalFound: 0 };
     }
     if (tryTarget <= 0) continue;
-    const bitset = runBitsetSubsetSum(items, tryTarget);
+    const bitset = runBitsetSubsetSum(sortedItems, tryTarget);
     if (bitset && isSumReachable(bitset.reachable, tryTarget)) {
       effectiveTarget = tryTarget;
       break;
@@ -6957,6 +6982,14 @@ async function findAllCombinationIndicesAsync(
   }
   if (effectiveTarget === null) {
     return { truncated: false, effectiveTarget: null, totalFound: 0 };
+  }
+
+  // 3. Pré-calcul des sommes de suffixes pour l'élagage (pruning)
+  const suffixSums = new Float64Array(sortedItems.length + 1);
+  let runningSum = 0;
+  for (let i = sortedItems.length - 1; i >= 0; i--) {
+    runningSum += sortedItems[i].amountCents;
+    suffixSums[i] = runningSum;
   }
 
   const results: number[][] = [];
@@ -6967,7 +7000,7 @@ async function findAllCombinationIndicesAsync(
     if (callbacks?.isAborted?.()) return;
     if (results.length >= maxResults) return;
     if (remaining === 0) {
-      const picks = path.map(i => items[i]);
+      const picks = path.map(i => sortedItems[i]);
       if (acceptCombination && !acceptCombination(picks)) return;
       const key = combinationKeyFromPicks(picks);
       if (seen.has(key)) return;
@@ -6978,15 +7011,36 @@ async function findAllCombinationIndicesAsync(
       await new Promise<void>(resolve => setTimeout(resolve, 0));
       return;
     }
+
+    if (start >= sortedItems.length || remaining < 0) return;
+
+    // Élagage 1 : La somme cumulée maximale possible restante est insuffisante
+    if (suffixSums[start] < remaining) return;
+
+    // Élagage 2 : Le plus petit élément restant (global) est supérieur au reste cible
+    const minVal = sortedItems[sortedItems.length - 1].amountCents;
+    if (minVal > remaining) return;
+
     steps++;
     if (steps % 2500 === 0) {
-      callbacks?.onProgress?.(Math.min(0.98, steps / (items.length * 500 + 1)));
+      callbacks?.onProgress?.(Math.min(0.98, steps / (sortedItems.length * 500 + 1)));
       await new Promise<void>(resolve => setTimeout(resolve, 0));
     }
-    for (let i = start; i < items.length; i++) {
+
+    let lastAmt = -1; // Élagage 3 : Sauter les doublons de montant au même niveau
+    for (let i = start; i < sortedItems.length; i++) {
       if (callbacks?.isAborted?.()) return;
-      const amt = items[i].amountCents;
-      if (amt <= 0 || amt > remaining) continue;
+      const amt = sortedItems[i].amountCents;
+
+      // Élagage 3 : Si le montant courant est identique au précédent au même niveau,
+      // la branche est équivalente → on la saute pour éviter les combinaisons dupliquées
+      if (amt === lastAmt) continue;
+      lastAmt = amt;
+
+      // Le tableau est trié décroissant : si l'élément courant dépasse le reste cible,
+      // les suivants (plus petits) peuvent encore correspondre → on continue
+      if (amt > remaining) continue;
+
       path.push(i);
       await dfs(i + 1, remaining - amt, path);
       path.pop();
@@ -7092,6 +7146,42 @@ function picksToLines(picks: QuarterPick[]) {
     });
 }
 
+function classifyP3SubCase(picks: QuarterPick[]): 'A' | 'B' | 'C' | 'D' | undefined {
+  const years = [...new Set(picks.map(p => p.year).filter(Boolean))].sort((a, b) => a - b);
+  if (years.length < 2) return undefined;
+
+  const quarters = picks.map(p => p.quarter);
+  const distinctQuarters = new Set(quarters);
+
+  // Cas A : Même trimestre sur des années distinctes (ex. tous les picks sont de Q1)
+  if (distinctQuarters.size === 1) {
+    return 'A';
+  }
+
+  // Cas D : Grand mix multi-années éloignées (ex. >= 4 années distinctes, ou écart >= 5 ans)
+  const minYear = years[0];
+  const maxYear = years[years.length - 1];
+  if (years.length >= 4 || (maxYear - minYear) >= 5) {
+    return 'D';
+  }
+
+  // Cas C : Blocs complets de trimestres (ex. au moins une année a ses 4 trimestres représentés)
+  let hasCompleteYear = false;
+  for (const year of years) {
+    const quartersInYear = new Set(picks.filter(p => p.year === year).map(p => p.quarter));
+    if (quartersInYear.size === 4) {
+      hasCompleteYear = true;
+      break;
+    }
+  }
+  if (hasCompleteYear) {
+    return 'C';
+  }
+
+  // Cas B : Mélange libre de trimestres et d'années (par défaut)
+  return 'B';
+}
+
 function buildCombinationResult(
   picks: QuarterPick[],
   id: number,
@@ -7102,19 +7192,41 @@ function buildCombinationResult(
   const sum = Math.round(lines.reduce((a, l) => a + l.amount, 0) * 100) / 100;
   const quarterKeys = [...new Set(picks.map(p => p.quarterKey))];
   const years = [...new Set(picks.map(p => p.year))].sort((a, b) => a - b);
+  
   let label: string;
+  let p3SubCase: 'A' | 'B' | 'C' | 'D' | undefined;
+
   if (priority === 1) {
     label = formatQuarterLabel(picks[0].year, picks[0].quarter);
   } else if (priority === 2) {
     label = `Année ${years[0]} (${quarterKeys.length} trimestre${quarterKeys.length !== 1 ? 's' : ''})`;
+  } else if (priority === 3) {
+    p3SubCase = classifyP3SubCase(picks);
+    const subLabels: Record<'A' | 'B' | 'C' | 'D', string> = {
+      A: 'Même trimestre / années distinctes',
+      B: 'Mélange libre de trimestres et d\'années',
+      C: 'Blocs complets de trimestres',
+      D: 'Grand mix multi-années éloignées',
+    };
+    const subText = p3SubCase ? ` [Cas ${p3SubCase} — ${subLabels[p3SubCase]}]` : '';
+    label = `${years.join(' · ')} (${years.length} ans)${subText}`;
   } else {
-    label = years.map(y => String(y)).join(' · ');
+    label = `${years.join(' · ')} (Recherche aléatoire)`;
   }
+
   const mode =
-    priority === 1 ? 'same_quarter' : priority === 2 ? 'same_year' : 'multi_quarter';
+    priority === 1
+      ? 'same_quarter'
+      : priority === 2
+      ? 'same_year'
+      : priority === 3
+      ? 'multi_quarter'
+      : 'random';
+
   return {
     id,
     priority,
+    p3SubCase,
     mode,
     label,
     numabs,
@@ -7127,7 +7239,8 @@ function buildCombinationResult(
 type QuarterCombinationResult = {
   id: number;
   priority: CombinationPriority;
-  mode: 'same_quarter' | 'same_year' | 'multi_quarter';
+  p3SubCase?: 'A' | 'B' | 'C' | 'D';
+  mode: 'same_quarter' | 'same_year' | 'multi_quarter' | 'random';
   label: string;
   numabs: string[];
   sum: number;
@@ -7329,6 +7442,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     1: combinationResults.filter(c => c.priority === 1),
     2: combinationResults.filter(c => c.priority === 2),
     3: combinationResults.filter(c => c.priority === 3),
+    4: combinationResults.filter(c => c.priority === 4),
   }), [combinationResults]);
 
   const searchQuarterCombination = async () => {
@@ -7362,6 +7476,16 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
       const allItems = buildInvoiceItemsFromRows(rowQuarterMaps, refYear);
       if (allItems.length === 0) {
         setCombinationMessage('Aucune facture impayée trouvée pour les abonnés sélectionnés.');
+        return;
+      }
+
+      // Pré-filtrage strict des données pour exclure les factures supérieures au montant cible
+      const filteredAllItems = allItems.filter(item => item.amountCents <= targetCents);
+      if (filteredAllItems.length === 0) {
+        const availableTotal = allItems.reduce((a, it) => a + it.amountCents, 0) / 100;
+        setCombinationMessage(
+          `Aucune facture impayée n'est inférieure ou égale au montant cible (${fmt(target)}). Toutes les factures dépassent individuellement cette cible (total disponible : ${fmt(availableTotal)}).`
+        );
         return;
       }
 
@@ -7417,43 +7541,199 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
         .map(({ year, q }) => ({
           year,
           q,
-          items: allItems.filter(i => i.year === year && i.quarter === q),
+          items: filteredAllItems.filter(i => i.year === year && i.quarter === q),
         }))
         .filter(g => g.items.length > 0);
       for (let gi = 0; gi < p1Groups.length; gi++) {
-        if (remaining <= 0 || searchAbortedRef.current) break;
+        if (searchAbortedRef.current) break;
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
         await runPhase(
           1,
           p1Groups[gi].items,
           undefined,
-          (gi / p1Groups.length) * 0.34,
-          0.34 / Math.max(p1Groups.length, 1)
+          (gi / p1Groups.length) * 0.25,
+          0.25 / Math.max(p1Groups.length, 1)
         );
       }
 
-      // Priorité 2 : multi-trimestres, même année uniquement
-      const yearsDesc = [...new Set(allItems.map(i => i.year))].sort((a, b) => b - a);
-      for (let yi = 0; yi < yearsDesc.length; yi++) {
-        if (remaining <= 0 || searchAbortedRef.current) break;
-        const year = yearsDesc[yi];
-        const yearItems = allItems.filter(i => i.year === year);
-        await runPhase(
-          2,
-          yearItems,
-          picks => classifyCombinationPriority(picks) === 2,
-          0.34 + (yi / yearsDesc.length) * 0.33,
-          0.33 / Math.max(yearsDesc.length, 1)
-        );
+      // Priorité 2 : multi-trimestres, même année uniquement (si P1 n'a rien trouvé)
+      if (totalFound === 0 && !searchAbortedRef.current) {
+        const yearsDesc = [...new Set(filteredAllItems.map(i => i.year))].sort((a, b) => b - a);
+        for (let yi = 0; yi < yearsDesc.length; yi++) {
+          if (searchAbortedRef.current) break;
+          await new Promise<void>(resolve => setTimeout(resolve, 0));
+          const year = yearsDesc[yi];
+          const yearItems = filteredAllItems.filter(i => i.year === year);
+          await runPhase(
+            2,
+            yearItems,
+            picks => classifyCombinationPriority(picks) === 2,
+            0.25 + (yi / yearsDesc.length) * 0.25,
+            0.25 / Math.max(yearsDesc.length, 1)
+          );
+        }
       }
 
-      // Priorité 3 : combinaisons mixtes inter-années
-      if (remaining > 0 && !searchAbortedRef.current) {
+      // Priorité 3 : recherche mixte progressive par nombre d'années (si P1 & P2 n'ont rien trouvé)
+      if (totalFound === 0 && !searchAbortedRef.current) {
+        const distinctYearsInItems = [...new Set(filteredAllItems.map(i => i.year))].filter(Boolean).sort((a, b) => b - a);
+        const maxY = distinctYearsInItems.length;
+
+        // Helper pour générer les combinaisons mathématiques de taille k
+        function getCombinations<T>(array: T[], k: number): T[][] {
+          const result: T[][] = [];
+          function helper(start: number, path: T[]) {
+            if (path.length === k) {
+              result.push([...path]);
+              return;
+            }
+            for (let i = start; i < array.length; i++) {
+              path.push(array[i]);
+              helper(i + 1, path);
+              path.pop();
+            }
+          }
+          helper(0, []);
+          return result;
+        }
+        
+        const limitYears = Math.min(5, maxY);
+        for (let numYears = 2; numYears <= limitYears; numYears++) {
+          if (searchAbortedRef.current || totalFound > 0) break;
+
+          // On génère toutes les combinaisons de exactly `numYears` années
+          const yearCombos = getCombinations(distinctYearsInItems, numYears);
+
+          // On boucle sur chaque groupe d'années cible (ex. [2024, 2022])
+          for (let yci = 0; yci < yearCombos.length; yci++) {
+            if (searchAbortedRef.current || totalFound > 0) break;
+            
+            // Permet de libérer le thread principal et d'éviter que le navigateur ne se fige
+            await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+            const targetYears = yearCombos[yci];
+            
+            // Pré-filtrage strict des items pour ne garder UNIQUE que ces années (réduit la taille matricielle à une poignée d'éléments)
+            const subsetItems = filteredAllItems.filter(i => targetYears.includes(i.year));
+            if (subsetItems.length === 0) continue;
+
+            // 1. Sous-priorité A : Même trimestre sur des années distinctes
+            if (!searchAbortedRef.current && totalFound === 0) {
+              // Dans le cas A, on peut filtrer trimestre par trimestre pour accélérer encore plus !
+              for (let q = 1; q <= 4; q++) {
+                if (searchAbortedRef.current || totalFound > 0) break;
+                const qSubsetItems = subsetItems.filter(i => i.quarter === q);
+                if (qSubsetItems.length === 0) continue;
+
+                await runPhase(
+                  3,
+                  qSubsetItems,
+                  picks => {
+                    const pickedYears = new Set(picks.map(p => p.year).filter(Boolean));
+                    if (pickedYears.size !== numYears) return false;
+                    const quarters = new Set(picks.map(p => p.quarter));
+                    return quarters.size === 1;
+                  },
+                  0.50 + ((numYears - 2) / Math.max(maxY - 1, 1)) * 0.25,
+                  (0.25 / Math.max(maxY - 1, 1)) * 0.25 / 4
+                );
+              }
+            }
+
+            // 2. Sous-priorité C : Blocs complets de trimestres sur plusieurs années
+            if (!searchAbortedRef.current && totalFound === 0) {
+              await runPhase(
+                3,
+                subsetItems,
+                picks => {
+                  const pickedYears = [...new Set(picks.map(p => p.year).filter(Boolean))].sort((a, b) => a - b);
+                  if (pickedYears.length !== numYears) return false;
+                  const quarters = new Set(picks.map(p => p.quarter));
+                  if (quarters.size === 1) return false; // Exclure Cas A
+                  let hasCompleteYear = false;
+                  for (const year of pickedYears) {
+                    const quartersInYear = new Set(picks.filter(p => p.year === year).map(p => p.quarter));
+                    if (quartersInYear.size === 4) {
+                      hasCompleteYear = true;
+                      break;
+                    }
+                  }
+                  return hasCompleteYear;
+                },
+                0.50 + ((numYears - 2) / Math.max(maxY - 1, 1)) * 0.25 + (0.25 / Math.max(maxY - 1, 1)) * 0.25,
+                (0.25 / Math.max(maxY - 1, 1)) * 0.25 / Math.max(yearCombos.length, 1)
+              );
+            }
+
+            // 3. Sous-priorité B : Mélange libre de trimestres et d'années
+            if (!searchAbortedRef.current && totalFound === 0) {
+              await runPhase(
+                3,
+                subsetItems,
+                picks => {
+                  const pickedYears = [...new Set(picks.map(p => p.year).filter(Boolean))].sort((a, b) => a - b);
+                  if (pickedYears.length !== numYears) return false;
+                  const quarters = new Set(picks.map(p => p.quarter));
+                  if (quarters.size === 1) return false; // Exclure Cas A
+                  let hasCompleteYear = false;
+                  for (const year of pickedYears) {
+                    const quartersInYear = new Set(picks.filter(p => p.year === year).map(p => p.quarter));
+                    if (quartersInYear.size === 4) {
+                      hasCompleteYear = true;
+                      break;
+                    }
+                  }
+                  if (hasCompleteYear) return false; // Exclure Cas C
+                  const minYear = pickedYears[0];
+                  const maxYear = pickedYears[pickedYears.length - 1];
+                  const isCasD = pickedYears.length >= 4 || (maxYear - minYear) >= 5;
+                  return !isCasD;
+                },
+                0.50 + ((numYears - 2) / Math.max(maxY - 1, 1)) * 0.25 + (0.25 / Math.max(maxY - 1, 1)) * 0.50,
+                (0.25 / Math.max(maxY - 1, 1)) * 0.25 / Math.max(yearCombos.length, 1)
+              );
+            }
+
+            // 4. Sous-priorité D : Grand mix multi-années éloignées
+            if (!searchAbortedRef.current && totalFound === 0) {
+              await runPhase(
+                3,
+                subsetItems,
+                picks => {
+                  const pickedYears = [...new Set(picks.map(p => p.year).filter(Boolean))].sort((a, b) => a - b);
+                  if (pickedYears.length !== numYears) return false;
+                  const quarters = new Set(picks.map(p => p.quarter));
+                  if (quarters.size === 1) return false; // Exclure Cas A
+                  let hasCompleteYear = false;
+                  for (const year of pickedYears) {
+                    const quartersInYear = new Set(picks.filter(p => p.year === year).map(p => p.quarter));
+                    if (quartersInYear.size === 4) {
+                      hasCompleteYear = true;
+                      break;
+                    }
+                  }
+                  if (hasCompleteYear) return false; // Exclure Cas C
+                  const minYear = pickedYears[0];
+                  const maxYear = pickedYears[pickedYears.length - 1];
+                  return pickedYears.length >= 4 || (maxYear - minYear) >= 5;
+                },
+                0.50 + ((numYears - 2) / Math.max(maxY - 1, 1)) * 0.25 + (0.25 / Math.max(maxY - 1, 1)) * 0.75,
+                (0.25 / Math.max(maxY - 1, 1)) * 0.25 / Math.max(yearCombos.length, 1)
+              );
+            }
+          }
+        }
+      }
+
+      // Priorité 4 : recherche élargie et purement aléatoire (si tout le reste est épuisé)
+      if (totalFound === 0 && !searchAbortedRef.current) {
+        const shuffledItems = [...filteredAllItems].sort(() => Math.random() - 0.5);
         await runPhase(
-          3,
-          allItems,
-          picks => classifyCombinationPriority(picks) === 3,
-          0.67,
-          0.33
+          4,
+          shuffledItems,
+          undefined,
+          0.75,
+          0.25
         );
       }
 
@@ -8806,11 +9086,11 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
 
               {combinationSearching && combinationResults.length === 0 && (
                 <p className="text-xs text-[#667085] font-medium">
-                  Priorité 1 en cours — puis priorité 2, puis priorité 3 si nécessaire.
+                  Priorité 1 en cours — puis priorité 2, puis priorité 3 (progressive), et enfin priorité 4 si nécessaire.
                 </p>
               )}
 
-              {([1, 2, 3] as CombinationPriority[]).map(priority => {
+              {([1, 2, 3, 4] as CombinationPriority[]).map(priority => {
                 const combos = combinationByPriority[priority];
                 const section = PRIORITY_SECTIONS[priority];
                 const isActive = combinationSearching && combinationCurrentPriority === priority;

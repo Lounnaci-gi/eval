@@ -7171,6 +7171,15 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     searchAbortedRef.current = true;
   };
 
+  const [expandedComboIds, setExpandedComboIds] = useState<Record<number, boolean>>({});
+
+  const toggleComboExpand = (id: number) => {
+    setExpandedComboIds(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
   const PAGE_SIZE = 15;
 
   const fmt = (n: number) =>
@@ -7328,6 +7337,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     setCombinationTruncated(false);
     setCombinationMessage(null);
     setCombinationCurrentPriority(null);
+    setExpandedComboIds({});
     if (selectedCountInst === 0) {
       setCombinationMessage('Sélectionnez au moins un abonné dans le tableau.');
       return;
@@ -8763,7 +8773,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             )}
             {combinationResults.length > 0 && (
               <button
-                onClick={() => { setCombinationResults([]); setCombinationTruncated(false); setCombinationMessage(null); setCombinationCurrentPriority(null); }}
+                onClick={() => { setCombinationResults([]); setCombinationTruncated(false); setCombinationMessage(null); setCombinationCurrentPriority(null); setExpandedComboIds({}); }}
                 className="px-4 py-2.5 bg-white border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] hover:bg-[#F9FAFB]"
               >
                 Effacer
@@ -8833,74 +8843,105 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                       {combos.length === 0 && isActive && (
                         <p className="text-xs text-[#667085] font-medium px-1">Analyse en cours…</p>
                       )}
-                      {combos.map((combo, comboIdx) => (
-                        <div
-                          key={combo.id}
-                          className="p-4 bg-white border border-[#E4E7EC] rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-sm"
-                        >
-                          <p className="text-xs font-black text-[#101828]">
-                            Combinaison {comboIdx + 1} — {combo.label}
-                          </p>
-                          <p className="text-xs text-[#667085] font-bold mt-1">
-                            {combo.numabs.length} abonné{combo.numabs.length !== 1 ? 's' : ''}
-                            {' · '}{combo.pickCount} ligne{combo.pickCount !== 1 ? 's' : ''}
-                            {' · '}Total : {fmt(combo.sum)}
-                          </p>
-                          <div className="mt-3 overflow-x-auto">
-                            <table className="w-full text-xs border border-[#E4E7EC] rounded-xl overflow-hidden">
-                              <thead>
-                                <tr className="text-[10px] uppercase text-[#475467] font-bold bg-[#F9FAFB]">
-                                  <th className="text-left py-2 px-3 w-10">N°</th>
-                                  <th className="text-left py-2 px-3">Code abonné</th>
-                                  <th className="text-left py-2 px-3">Raison sociale</th>
-                                  <th className="text-left py-2 px-3">Institution</th>
-                                  <th className="text-left py-2 px-3">Période</th>
-                                  <th className="text-right py-2 px-3">Montant</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {combo.lines.map((line, idx) => (
-                                  <tr key={`${combo.id}-${line.numab}-${line.year}-Q${line.quarter}-${idx}`} className="border-t border-[#F2F4F7]">
-                                    <td className="py-2 px-3 font-black text-[#344054]">{String(idx + 1).padStart(2, '0')}</td>
-                                    <td className="py-2 px-3 font-mono font-bold">{line.numab}</td>
-                                    <td className="py-2 px-3">{line.raisoc}</td>
-                                    <td className="py-2 px-3">
-                                      <span className="font-mono text-[10px] text-[#667085]">{line.codinstit}</span>
-                                      {line.lib_instit !== '—' && (
-                                        <span className="block text-[10px] text-[#98A2B3]">{line.lib_instit}</span>
-                                      )}
-                                    </td>
-                                    <td className="py-2 px-3 font-bold text-[#344054]">{line.periodLabel}</td>
-                                    <td className="py-2 px-3 text-right font-black text-rose-600 whitespace-nowrap">{fmt(line.amount)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                              <tfoot>
-                                <tr className="bg-[#F9FAFB] text-[#101828] font-black border-t-2 border-[#E4E7EC]">
-                                  <td colSpan={5} className="py-2 px-3 text-right uppercase text-[10px] tracking-wide">
-                                    Total combinaison
-                                  </td>
-                                  <td className="py-2 px-3 text-right text-rose-700 whitespace-nowrap">{fmt(combo.sum)}</td>
-                                </tr>
-                              </tfoot>
-                            </table>
-                          </div>
-                          <div className="mt-3 flex items-center gap-2 flex-wrap">
-                            <button
-                              onClick={() => setSelectedNumabsInst(combo.numabs)}
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-[#101828] text-white rounded-xl text-xs font-black hover:bg-[#344054] transition-all active:scale-95"
+                       {combos.map((combo, comboIdx) => {
+                        const isExpanded = !!expandedComboIds[combo.id];
+                        return (
+                          <div
+                            key={combo.id}
+                            className="p-4 bg-white border border-[#E4E7EC] rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-sm"
+                          >
+                            <div
+                              onClick={() => toggleComboExpand(combo.id)}
+                              className="flex items-center justify-between gap-4 cursor-pointer select-none hover:bg-slate-50/50 p-1.5 rounded-lg -m-1.5 transition-colors"
+                              title="Cliquer pour afficher ou masquer les détails de la combinaison"
                             >
-                              Appliquer cette sélection ({combo.numabs.length})
-                            </button>
-                            <button
-                              onClick={() => handlePrintCombination(combo)}
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#D0D5DD] text-[#344054] rounded-xl text-xs font-black hover:bg-[#F9FAFB] hover:text-[#101828] transition-all active:scale-95"
-                            >
-                              <Printer size={13} /> Imprimer la combinaison
-                            </button>
+                              <div>
+                                <p className="text-xs font-black text-[#101828]">
+                                  Combinaison {comboIdx + 1} — {combo.label}
+                                </p>
+                                <p className="text-xs text-[#667085] font-bold mt-1">
+                                  {combo.numabs.length} abonné{combo.numabs.length !== 1 ? 's' : ''}
+                                  {' · '}{combo.pickCount} ligne{combo.pickCount !== 1 ? 's' : ''}
+                                  {' · '}Total : {fmt(combo.sum)}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#F2F4F7] border border-[#D0D5DD] text-[#475467] hover:bg-[#E4E7EC] hover:text-[#101828] rounded-lg text-[10px] font-black transition-colors"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronDown className="rotate-180 transition-transform duration-200" size={12} />
+                                    Masquer les détails
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="transition-transform duration-200" size={12} />
+                                    Afficher les détails
+                                  </>
+                                )}
+                              </button>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="mt-3 overflow-x-auto animate-in fade-in slide-in-from-top-1 duration-200">
+                                <table className="w-full text-xs border border-[#E4E7EC] rounded-xl overflow-hidden">
+                                  <thead>
+                                    <tr className="text-[10px] uppercase text-[#475467] font-bold bg-[#F9FAFB]">
+                                      <th className="text-left py-2 px-3 w-10">N°</th>
+                                      <th className="text-left py-2 px-3">Code abonné</th>
+                                      <th className="text-left py-2 px-3">Raison sociale</th>
+                                      <th className="text-left py-2 px-3">Institution</th>
+                                      <th className="text-left py-2 px-3">Période</th>
+                                      <th className="text-right py-2 px-3">Montant</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {combo.lines.map((line, idx) => (
+                                      <tr key={`${combo.id}-${line.numab}-${line.year}-Q${line.quarter}-${idx}`} className="border-t border-[#F2F4F7]">
+                                        <td className="py-2 px-3 font-black text-[#344054]">{String(idx + 1).padStart(2, '0')}</td>
+                                        <td className="py-2 px-3 font-mono font-bold">{line.numab}</td>
+                                        <td className="py-2 px-3">{line.raisoc}</td>
+                                        <td className="py-2 px-3">
+                                          <span className="font-mono text-[10px] text-[#667085]">{line.codinstit}</span>
+                                          {line.lib_instit !== '—' && (
+                                            <span className="block text-[10px] text-[#98A2B3]">{line.lib_instit}</span>
+                                          )}
+                                        </td>
+                                        <td className="py-2 px-3 font-bold text-[#344054]">{line.periodLabel}</td>
+                                        <td className="py-2 px-3 text-right font-black text-rose-600 whitespace-nowrap">{fmt(line.amount)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="bg-[#F9FAFB] text-[#101828] font-black border-t-2 border-[#E4E7EC]">
+                                      <td colSpan={5} className="py-2 px-3 text-right uppercase text-[10px] tracking-wide">
+                                        Total combinaison
+                                      </td>
+                                      <td className="py-2 px-3 text-right text-rose-700 whitespace-nowrap">{fmt(combo.sum)}</td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            )}
+
+                            <div className="mt-3 flex items-center gap-2 flex-wrap">
+                              <button
+                                onClick={() => setSelectedNumabsInst(combo.numabs)}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-[#101828] text-white rounded-xl text-xs font-black hover:bg-[#344054] transition-all active:scale-95"
+                              >
+                                Appliquer cette sélection ({combo.numabs.length})
+                              </button>
+                              <button
+                                onClick={() => handlePrintCombination(combo)}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#D0D5DD] text-[#344054] rounded-xl text-xs font-black hover:bg-[#F9FAFB] hover:text-[#101828] transition-all active:scale-95"
+                              >
+                                <Printer size={13} /> Imprimer la combinaison
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );

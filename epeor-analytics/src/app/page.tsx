@@ -6882,65 +6882,97 @@ function reconstructPicksFromBitset(
   return picks.reduce((a, p) => a + p.amountCents, 0) === targetCents ? picks : null;
 }
 
-async function findMultiQuarterCombinationBitsetAsync(
+const MAX_COMBINATIONS = 100;
+
+function combinationKey(indices: number[]): string {
+  return indices.slice().sort((a, b) => a - b).join('|');
+}
+
+function inferCombinationMeta(picks: QuarterPick[]): {
+  mode: QuarterCombinationResult['mode'];
+  label: string;
+} {
+  if (picks.length === 0) return { mode: 'multi_quarter', label: 'Combinaison' };
+  const quarterKeys = new Set(picks.map(p => p.quarterKey).filter(Boolean));
+  const years = new Set(picks.map(p => p.year).filter(Boolean));
+  if (quarterKeys.size === 1 && years.size === 1) {
+    const p = picks[0];
+    return { mode: 'same_quarter', label: formatQuarterLabel(p.year, p.quarter) };
+  }
+  if (years.size === 1) {
+    return { mode: 'same_year', label: `Année ${picks[0].year}` };
+  }
+  return { mode: 'multi_quarter', label: 'Multi-trimestres / multi-années' };
+}
+
+async function findAllCombinationIndicesAsync(
   items: QuarterPick[],
   targetCents: number,
+  maxResults = MAX_COMBINATIONS,
   onProgress?: (ratio: number) => void
-): Promise<ComboSearchState | null> {
-  if (items.length === 0 || targetCents <= 0) return null;
+): Promise<{ indices: number[][]; truncated: boolean; effectiveTarget: number | null }> {
+  if (items.length === 0 || targetCents <= 0) {
+    return { indices: [], truncated: false, effectiveTarget: null };
+  }
 
-  const CHUNK = 40;
-  const wordCount = (targetCents >>> 5) + 1;
-  const bits = new Uint32Array(wordCount);
-  bits[0] = 1;
-  const reachable = new Uint8Array(targetCents + 1);
-  reachable[0] = 1;
-  const prevItemIdx = new Int32Array(targetCents + 1);
-  prevItemIdx.fill(-1);
-
-  for (let i = 0; i < items.length; i++) {
-    const amt = items[i].amountCents;
-    if (amt > 0 && amt <= targetCents) {
-      const shifted = shiftLeftBits(bits, amt, wordCount);
-
-      for (let wi = 0; wi < wordCount; wi++) {
-        const newly = shifted[wi] & ~bits[wi];
-        if (newly === 0) continue;
-        for (let b = 0; b < 32; b++) {
-          if (!(newly & (1 << b))) continue;
-          const s = wi * 32 + b;
-          if (s > targetCents) continue;
-          const prev = s - amt;
-          if (prev < 0 || !isSumReachable(reachable, prev)) continue;
-          if (prevItemIdx[s] < 0) prevItemIdx[s] = i;
-          reachable[s] = 1;
-          setSumBit(bits, s);
-        }
-      }
-
-      for (let wi = 0; wi < wordCount; wi++) {
-        bits[wi] |= shifted[wi];
-      }
+  let effectiveTarget: number | null = null;
+  for (const tryTarget of [targetCents, targetCents - 1, targetCents + 1]) {
+    if (tryTarget <= 0) continue;
+    const bitset = runBitsetSubsetSum(items, tryTarget);
+    if (bitset && isSumReachable(bitset.reachable, tryTarget)) {
+      effectiveTarget = tryTarget;
+      break;
     }
+  }
+  if (effectiveTarget === null) {
+    return { indices: [], truncated: false, effectiveTarget: null };
+  }
 
-    if (i > 0 && i % CHUNK === 0) {
-      onProgress?.(i / items.length);
+  const results: number[][] = [];
+  const seen = new Set<string>();
+  let steps = 0;
+
+  async function dfs(start: number, remaining: number, path: number[]): Promise<void> {
+    if (results.length >= maxResults) return;
+    if (remaining === 0) {
+      const key = combinationKey(path);
+      if (!seen.has(key)) {
+        seen.add(key);
+        results.push([...path]);
+      }
+      return;
+    }
+    steps++;
+    if (steps % 2500 === 0) {
+      onProgress?.(Math.min(0.98, steps / (items.length * 500 + 1)));
       await new Promise<void>(resolve => setTimeout(resolve, 0));
     }
-  }
-
-  onProgress?.(1);
-
-  for (const tryTarget of [targetCents, targetCents - 1, targetCents + 1]) {
-    if (tryTarget <= 0 || !isSumReachable(reachable, tryTarget)) continue;
-    const picks = reconstructPicksFromBitset(items, tryTarget, prevItemIdx, reachable);
-    if (picks) {
-      const subs = new Set(picks.map(p => p.numab));
-      return { picks, subscriberCount: subs.size, pickCount: picks.length };
+    for (let i = start; i < items.length; i++) {
+      const amt = items[i].amountCents;
+      if (amt <= 0 || amt > remaining) continue;
+      path.push(i);
+      await dfs(i + 1, remaining - amt, path);
+      path.pop();
+      if (results.length >= maxResults) return;
     }
   }
 
-  return null;
+  await dfs(0, effectiveTarget, []);
+  onProgress?.(1);
+  return {
+    indices: results,
+    truncated: results.length >= maxResults,
+    effectiveTarget,
+  };
+}
+
+function sortCombinationResults(a: QuarterCombinationResult, b: QuarterCombinationResult): number {
+  const modeOrder = { same_quarter: 0, same_year: 1, multi_quarter: 2 };
+  const mo = modeOrder[a.mode] - modeOrder[b.mode];
+  if (mo !== 0) return mo;
+  if (a.pickCount !== b.pickCount) return a.pickCount - b.pickCount;
+  if (a.numabs.length !== b.numabs.length) return a.numabs.length - b.numabs.length;
+  return a.id - b.id;
 }
 
 function findMinSubsetSumIds(
@@ -7011,55 +7043,60 @@ function buildInvoiceItemsFromRows(
   return items;
 }
 
-function groupPicksToDetails(picks: QuarterPick[]) {
-  const byNumab = new Map<string, QuarterPick[]>();
-  for (const p of picks) {
-    const list = byNumab.get(p.numab) || [];
-    list.push(p);
-    byNumab.set(p.numab, list);
-  }
-  return Array.from(byNumab.entries()).map(([numab, subPicks]) => {
-    const row = subPicks[0].row;
-    const quarterMap = new Map<string, { year: number; quarter: number; amount: number }>();
-    for (const p of subPicks) {
-      const existing = quarterMap.get(p.quarterKey);
-      if (existing) {
-        existing.amount = Math.round((existing.amount + p.amount) * 100) / 100;
-      } else {
-        quarterMap.set(p.quarterKey, { year: p.year, quarter: p.quarter, amount: p.amount });
-      }
-    }
-    const quarters = Array.from(quarterMap.values())
-      .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.quarter - b.quarter))
-      .map(q => ({
-        year: q.year,
-        quarter: q.quarter,
-        label: formatQuarterLabel(q.year, q.quarter),
-        amount: q.amount,
-      }));
-    const amount = Math.round(quarters.reduce((a, q) => a + q.amount, 0) * 100) / 100;
-    return {
-      numab,
-      raisoc: row.raisoc || '—',
-      codinstit: row.codinstit || '—',
-      amount,
-      quarters,
-    };
-  });
+function picksToLines(picks: QuarterPick[]) {
+  return picks
+    .map(p => ({
+      numab: p.numab,
+      raisoc: p.row?.raisoc || '—',
+      codinstit: p.row?.codinstit || '—',
+      lib_instit: p.row?.lib_instit || '—',
+      year: p.year,
+      quarter: p.quarter,
+      periodLabel: p.year ? formatQuarterLabel(p.year, p.quarter) : '—',
+      amount: p.amount,
+    }))
+    .sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      if (a.quarter !== b.quarter) return a.quarter - b.quarter;
+      return String(a.numab).localeCompare(String(b.numab), 'fr');
+    });
+}
+
+function buildCombinationResult(
+  picks: QuarterPick[],
+  id: number
+): QuarterCombinationResult {
+  const { mode, label } = inferCombinationMeta(picks);
+  const lines = picksToLines(picks);
+  const numabs = [...new Set(picks.map(p => p.numab))];
+  const sum = Math.round(lines.reduce((a, l) => a + l.amount, 0) * 100) / 100;
+  return {
+    id,
+    mode,
+    label,
+    numabs,
+    sum,
+    pickCount: picks.length,
+    lines,
+  };
 }
 
 type QuarterCombinationResult = {
+  id: number;
   mode: 'same_quarter' | 'same_year' | 'multi_quarter';
   label: string;
   numabs: string[];
   sum: number;
   pickCount: number;
-  details: {
+  lines: {
     numab: string;
     raisoc: string;
     codinstit: string;
+    lib_instit: string;
+    year: number;
+    quarter: number;
+    periodLabel: string;
     amount: number;
-    quarters: { year: number; quarter: number; label: string; amount: number }[];
   }[];
 };
 
@@ -7069,7 +7106,8 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [targetMontantSearch, setTargetMontantSearch] = useState('');
-  const [combinationResult, setCombinationResult] = useState<QuarterCombinationResult | null>(null);
+  const [combinationResults, setCombinationResults] = useState<QuarterCombinationResult[]>([]);
+  const [combinationTruncated, setCombinationTruncated] = useState(false);
   const [combinationMessage, setCombinationMessage] = useState<string | null>(null);
   const [combinationSearching, setCombinationSearching] = useState(false);
   const [combinationProgress, setCombinationProgress] = useState(0);
@@ -7219,8 +7257,17 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     factures: flatRows.reduce((a, r) => a + (r.nombre_creance || 0), 0),
   }), [groups, flatRows]);
 
+  const comboHighlightNumabs = useMemo(() => {
+    const set = new Set<string>();
+    for (const combo of combinationResults) {
+      for (const numab of combo.numabs) set.add(numab);
+    }
+    return set;
+  }, [combinationResults]);
+
   const searchQuarterCombination = async () => {
-    setCombinationResult(null);
+    setCombinationResults([]);
+    setCombinationTruncated(false);
     setCombinationMessage(null);
     if (selectedCountInst === 0) {
       setCombinationMessage('Sélectionnez au moins un abonné dans le tableau.');
@@ -7234,7 +7281,6 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     const targetCents = Math.round(target * 100);
     const sourceRows = flatRows.filter((r: any) => selectedNumabsInst.includes(r.numab));
     const refYear = getRefYearFromRows(sourceRows);
-    const quarterOrder = buildQuarterSearchOrder(refYear);
     const rowQuarterMaps = sourceRows.map((row: any) => ({
       row,
       quarters: computeRowQuarterAmounts(row),
@@ -7244,117 +7290,44 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     setCombinationProgress(0);
 
     try {
-      // Phase 1 : même trimestre pour tous les abonnés retenus
-      for (const { year, q } of quarterOrder) {
-        const key = `${year}-Q${q}`;
-        const items: { id: string; amountCents: number; row: any; amount: number }[] = [];
-        for (const { row, quarters } of rowQuarterMaps) {
-          const amt = quarters[key] || 0;
-          if (amt > 0) {
-            items.push({
-              id: row.numab,
-              amountCents: Math.round(amt * 100),
-              row,
-              amount: amt,
-            });
-          }
-        }
-        if (items.length === 0) continue;
-        const matchIds = findMinSubsetSumIds(
-          items.map(i => ({ id: i.id, amountCents: i.amountCents })),
-          targetCents
-        );
-        if (matchIds) {
-          const picks: QuarterPick[] = matchIds.map(id => {
-            const item = items.find(i => i.id === id)!;
-            return {
-              numab: id,
-              year,
-              quarter: q,
-              quarterKey: key,
-              amount: item.amount,
-              amountCents: item.amountCents,
-              row: item.row,
-            };
-          });
-          const details = groupPicksToDetails(picks);
-          const sum = Math.round(details.reduce((a, d) => a + d.amount, 0) * 100) / 100;
-          setCombinationResult({
-            mode: 'same_quarter',
-            label: formatQuarterLabel(year, q),
-            numabs: matchIds,
-            sum,
-            pickCount: picks.length,
-            details,
-          });
-          return;
-        }
-      }
-
-      // Phase 1.5 : combinaison libre au sein d'une même année (ex. total colonne 2020)
       const allItems = buildInvoiceItemsFromRows(rowQuarterMaps, refYear);
       if (allItems.length === 0) {
         setCombinationMessage('Aucune facture impayée trouvée pour les abonnés sélectionnés.');
         return;
       }
 
-      const invoicesByYear = new Map<number, QuarterPick[]>();
-      for (const item of allItems) {
-        const list = invoicesByYear.get(item.year) || [];
-        list.push(item);
-        invoicesByYear.set(item.year, list);
-      }
-      const yearsDesc = [...invoicesByYear.keys()].sort((a, b) => b - a);
-      for (const year of yearsDesc) {
-        const yearItems = invoicesByYear.get(year)!;
-        const yearResult = await findMultiQuarterCombinationBitsetAsync(
-          yearItems,
-          targetCents,
-          ratio => setCombinationProgress(ratio * 0.5)
-        );
-        if (yearResult) {
-          const details = groupPicksToDetails(yearResult.picks);
-          const numabs = details.map(d => d.numab);
-          const sum = Math.round(details.reduce((a, d) => a + d.amount, 0) * 100) / 100;
-          setCombinationResult({
-            mode: 'same_year',
-            label: `Année ${year}`,
-            numabs,
-            sum,
-            pickCount: yearResult.pickCount,
-            details,
-          });
-          return;
-        }
-      }
-
-      // Phase 2 : combinaison multi-trimestres / multi-factures (toutes années)
-      const multiResult = await findMultiQuarterCombinationBitsetAsync(
+      const { indices, truncated, effectiveTarget } = await findAllCombinationIndicesAsync(
         allItems,
         targetCents,
-        ratio => setCombinationProgress(0.5 + ratio * 0.5)
+        MAX_COMBINATIONS,
+        ratio => setCombinationProgress(ratio)
       );
 
-      if (multiResult) {
-        const details = groupPicksToDetails(multiResult.picks);
-        const numabs = details.map(d => d.numab);
-        const sum = Math.round(details.reduce((a, d) => a + d.amount, 0) * 100) / 100;
-        setCombinationResult({
-          mode: 'multi_quarter',
-          label: 'Combinaison multi-trimestres',
-          numabs,
-          sum,
-          pickCount: multiResult.pickCount,
-          details,
-        });
+      if (effectiveTarget === null || indices.length === 0) {
+        const availableTotal = allItems.reduce((a, it) => a + it.amountCents, 0) / 100;
+        setCombinationMessage(
+          `Aucune combinaison trouvée pour ${fmt(target)} parmi ${selectedCountInst} abonné(s) et ${allItems.length} facture(s) (total disponible : ${fmt(availableTotal)}).`
+        );
         return;
       }
 
-      const availableTotal =
-        allItems.reduce((a, it) => a + it.amountCents, 0) / 100;
-      setCombinationMessage(
-        `Aucune combinaison trouvée pour ${fmt(target)} parmi ${selectedCountInst} abonné(s) et ${allItems.length} facture(s) (total disponible : ${fmt(availableTotal)}).`
-      );
+      const results = indices
+        .map((idxList, i) => buildCombinationResult(idxList.map(j => allItems[j]), i + 1))
+        .sort(sortCombinationResults);
+
+      setCombinationResults(results);
+      setCombinationTruncated(truncated);
+      if (truncated) {
+        setCombinationMessage(
+          `${MAX_COMBINATIONS} combinaisons affichées — d'autres solutions peuvent exister.`
+        );
+      } else if (effectiveTarget !== targetCents) {
+        setCombinationMessage(
+          `Tolérance de 0,01 DA appliquée (montant effectif : ${fmt(effectiveTarget / 100)}).`
+        );
+      } else {
+        setCombinationMessage(null);
+      }
     } finally {
       setCombinationSearching(false);
       setCombinationProgress(0);
@@ -8366,7 +8339,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 inputMode="decimal"
                 placeholder="225105,63"
                 value={targetMontantSearch}
-                onChange={e => { setTargetMontantSearch(e.target.value); setCombinationResult(null); setCombinationMessage(null); }}
+                onChange={e => { setTargetMontantSearch(e.target.value); setCombinationResults([]); setCombinationTruncated(false); setCombinationMessage(null); }}
                 onKeyDown={e => { if (e.key === 'Enter' && !combinationSearching) searchQuarterCombination(); }}
                 disabled={combinationSearching}
                 className="py-2.5 px-4 bg-white border border-[#E4E7EC] rounded-xl text-sm font-bold text-[#101828] outline-none focus:border-brand-300 w-full sm:w-48 disabled:opacity-50"
@@ -8388,9 +8361,9 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 </>
               )}
             </button>
-            {combinationResult && (
+            {combinationResults.length > 0 && (
               <button
-                onClick={() => { setCombinationResult(null); setCombinationMessage(null); }}
+                onClick={() => { setCombinationResults([]); setCombinationTruncated(false); setCombinationMessage(null); }}
                 className="px-4 py-2.5 bg-white border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] hover:bg-[#F9FAFB]"
               >
                 Effacer
@@ -8403,68 +8376,79 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             )}
           </div>
 
-          {combinationResult && (
-            <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+          {combinationResults.length > 0 && (
+            <div className="mt-4 space-y-4">
               <p className="text-sm font-black text-emerald-800">
-                Combinaison trouvée — {combinationResult.label}
+                {combinationResults.length} combinaison{combinationResults.length !== 1 ? 's' : ''} trouvée{combinationResults.length !== 1 ? 's' : ''}
+                {combinationTruncated ? ` (limite : ${MAX_COMBINATIONS} affichées)` : ''}
               </p>
-              <p className="text-xs text-emerald-700 font-bold mt-1">
-                {combinationResult.numabs.length} abonné{combinationResult.numabs.length !== 1 ? 's' : ''} sur {selectedCountInst} sélectionné{selectedCountInst !== 1 ? 's' : ''}
-                {' · '}{combinationResult.pickCount} ligne{combinationResult.pickCount !== 1 ? 's' : ''} trimestrielle{combinationResult.pickCount !== 1 ? 's' : ''}
-                {' · '}Total : {fmt(combinationResult.sum)}
-              </p>
-              {combinationResult.mode === 'multi_quarter' && (
-                <p className="text-[10px] text-emerald-600 font-medium mt-1">
-                  Chaque abonné peut contribuer avec un ou plusieurs trimestres distincts.
-                </p>
-              )}
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-[10px] uppercase text-emerald-700 font-bold">
-                      <th className="text-left py-1 pr-3">Code abonné</th>
-                      <th className="text-left py-1 pr-3">Raison sociale</th>
-                      <th className="text-left py-1 pr-3">Institution</th>
-                      <th className="text-left py-1 pr-3">Trimestres retenus</th>
-                      <th className="text-right py-1">Montant</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {combinationResult.details.map(d => (
-                      <tr key={d.numab} className="border-t border-emerald-100">
-                        <td className="py-1.5 pr-3 font-mono font-bold">{d.numab}</td>
-                        <td className="py-1.5 pr-3">{d.raisoc}</td>
-                        <td className="py-1.5 pr-3">{d.codinstit}</td>
-                        <td className="py-1.5 pr-3">
-                          <div className="flex flex-wrap gap-1">
-                            {d.quarters.map(q => (
-                              <span
-                                key={`${d.numab}-${q.year}-Q${q.quarter}`}
-                                className="inline-flex items-center px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-[10px] font-bold text-emerald-800"
-                                title={fmt(q.amount)}
-                              >
-                                {q.label} · {fmt(q.amount)}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="py-1.5 text-right font-black text-rose-600 whitespace-nowrap">{fmt(d.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <button
-                onClick={() => setSelectedNumabsInst(combinationResult.numabs)}
-                className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 transition-all"
-              >
-                Appliquer cette sélection ({combinationResult.numabs.length})
-              </button>
+
+              {combinationResults.map((combo, comboIdx) => (
+                <div key={combo.id} className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <p className="text-xs font-black text-emerald-800">
+                    Combinaison {comboIdx + 1} — {combo.label}
+                  </p>
+                  <p className="text-xs text-emerald-700 font-bold mt-1">
+                    {combo.numabs.length} abonné{combo.numabs.length !== 1 ? 's' : ''}
+                    {' · '}{combo.pickCount} ligne{combo.pickCount !== 1 ? 's' : ''}
+                    {' · '}Total : {fmt(combo.sum)}
+                  </p>
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full text-xs border border-emerald-200 rounded-xl overflow-hidden">
+                      <thead>
+                        <tr className="text-[10px] uppercase text-emerald-700 font-bold bg-white">
+                          <th className="text-left py-2 px-3 w-10">N°</th>
+                          <th className="text-left py-2 px-3">Code abonné</th>
+                          <th className="text-left py-2 px-3">Raison sociale</th>
+                          <th className="text-left py-2 px-3">Institution</th>
+                          <th className="text-left py-2 px-3">Période</th>
+                          <th className="text-right py-2 px-3">Montant</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {combo.lines.map((line, idx) => (
+                          <tr key={`${combo.id}-${line.numab}-${line.year}-Q${line.quarter}-${idx}`} className="border-t border-emerald-100 bg-white/60">
+                            <td className="py-2 px-3 font-black text-emerald-800">{String(idx + 1).padStart(2, '0')}</td>
+                            <td className="py-2 px-3 font-mono font-bold">{line.numab}</td>
+                            <td className="py-2 px-3">{line.raisoc}</td>
+                            <td className="py-2 px-3">
+                              <span className="font-mono text-[10px] text-emerald-700">{line.codinstit}</span>
+                              {line.lib_instit !== '—' && (
+                                <span className="block text-[10px] text-[#667085]">{line.lib_instit}</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 font-bold text-emerald-800">{line.periodLabel}</td>
+                            <td className="py-2 px-3 text-right font-black text-rose-600 whitespace-nowrap">{fmt(line.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-emerald-100/80 text-emerald-900 font-black border-t-2 border-emerald-200">
+                          <td colSpan={5} className="py-2 px-3 text-right uppercase text-[10px] tracking-wide">
+                            Total combinaison
+                          </td>
+                          <td className="py-2 px-3 text-right text-rose-700 whitespace-nowrap">{fmt(combo.sum)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  <button
+                    onClick={() => setSelectedNumabsInst(combo.numabs)}
+                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 transition-all"
+                  >
+                    Appliquer cette sélection ({combo.numabs.length})
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
-          {combinationMessage && !combinationResult && (
-            <p className="mt-3 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          {combinationMessage && (
+            <p className={`mt-3 text-xs font-bold rounded-xl px-4 py-3 border ${
+              combinationResults.length > 0
+                ? 'text-amber-700 bg-amber-50 border-amber-200'
+                : 'text-amber-700 bg-amber-50 border-amber-200'
+            }`}>
               {combinationMessage}
             </p>
           )}
@@ -8637,7 +8621,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                           <td className="px-4 py-3" />
                         </tr>
                         {g.rows.map((r: any, i: number) => {
-                          const isComboMatch = combinationResult?.numabs.includes(r.numab);
+                          const isComboMatch = comboHighlightNumabs.has(r.numab);
                           return (
                           <tr key={`${g.codinstit}-${r.numab}-${i}`} className={`hover:bg-[#F9FAFB] border-b border-[#F2F4F7] ${isComboMatch ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : ''}`}>
                             <td className="px-4 py-2 text-center">

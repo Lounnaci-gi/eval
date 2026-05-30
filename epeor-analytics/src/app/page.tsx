@@ -6796,6 +6796,7 @@ function buildQuarterItemsFromRows(
         amount,
         amountCents: Math.round(amount * 100),
         row,
+        itemIndex: items.length,
       });
     }
   }
@@ -6933,6 +6934,7 @@ async function findAllCombinationIndicesAsync(
   callbacks?: {
     onProgress?: (ratio: number) => void;
     onFound?: (picks: QuarterPick[], foundCount: number) => void | Promise<void>;
+    isAborted?: () => boolean;
   },
   seenGlobal?: Set<string>,
   acceptCombination?: (picks: QuarterPick[]) => boolean
@@ -6943,6 +6945,9 @@ async function findAllCombinationIndicesAsync(
 
   let effectiveTarget: number | null = null;
   for (const tryTarget of [targetCents, targetCents - 1, targetCents + 1]) {
+    if (callbacks?.isAborted?.()) {
+      return { truncated: false, effectiveTarget: null, totalFound: 0 };
+    }
     if (tryTarget <= 0) continue;
     const bitset = runBitsetSubsetSum(items, tryTarget);
     if (bitset && isSumReachable(bitset.reachable, tryTarget)) {
@@ -6959,6 +6964,7 @@ async function findAllCombinationIndicesAsync(
   let steps = 0;
 
   async function dfs(start: number, remaining: number, path: number[]): Promise<void> {
+    if (callbacks?.isAborted?.()) return;
     if (results.length >= maxResults) return;
     if (remaining === 0) {
       const picks = path.map(i => items[i]);
@@ -6978,6 +6984,7 @@ async function findAllCombinationIndicesAsync(
       await new Promise<void>(resolve => setTimeout(resolve, 0));
     }
     for (let i = start; i < items.length; i++) {
+      if (callbacks?.isAborted?.()) return;
       const amt = items[i].amountCents;
       if (amt <= 0 || amt > remaining) continue;
       path.push(i);
@@ -7158,6 +7165,12 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   const [sortKey, setSortKey] = useState('codinstit');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [selectedNumabsInst, setSelectedNumabsInst] = useState<string[]>([]);
+  const searchAbortedRef = useRef(false);
+
+  const abortSearchQuarterCombination = () => {
+    searchAbortedRef.current = true;
+  };
+
   const PAGE_SIZE = 15;
 
   const fmt = (n: number) =>
@@ -7310,6 +7323,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   }), [combinationResults]);
 
   const searchQuarterCombination = async () => {
+    searchAbortedRef.current = false;
     setCombinationResults([]);
     setCombinationTruncated(false);
     setCombinationMessage(null);
@@ -7361,6 +7375,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
         progressBase = 0,
         progressSpan = 0.33
       ) => {
+        if (searchAbortedRef.current) return;
         if (remaining <= 0 || items.length === 0) return;
         setCombinationCurrentPriority(priority);
         const r = await findAllCombinationIndicesAsync(
@@ -7373,6 +7388,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             onFound: async (picks) => {
               await emitFound(picks, priority);
             },
+            isAborted: () => searchAbortedRef.current,
           },
           seenGlobal,
           accept
@@ -7395,7 +7411,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
         }))
         .filter(g => g.items.length > 0);
       for (let gi = 0; gi < p1Groups.length; gi++) {
-        if (remaining <= 0) break;
+        if (remaining <= 0 || searchAbortedRef.current) break;
         await runPhase(
           1,
           p1Groups[gi].items,
@@ -7408,7 +7424,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
       // Priorité 2 : multi-trimestres, même année uniquement
       const yearsDesc = [...new Set(allItems.map(i => i.year))].sort((a, b) => b - a);
       for (let yi = 0; yi < yearsDesc.length; yi++) {
-        if (remaining <= 0) break;
+        if (remaining <= 0 || searchAbortedRef.current) break;
         const year = yearsDesc[yi];
         const yearItems = allItems.filter(i => i.year === year);
         await runPhase(
@@ -7421,7 +7437,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
       }
 
       // Priorité 3 : combinaisons mixtes inter-années
-      if (remaining > 0) {
+      if (remaining > 0 && !searchAbortedRef.current) {
         await runPhase(
           3,
           allItems,
@@ -7429,6 +7445,13 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
           0.67,
           0.33
         );
+      }
+
+      if (searchAbortedRef.current) {
+        setCombinationMessage(
+          `Recherche arrêtée par l'utilisateur. ${nextComboId - 1} combinaison(s) gelée(s) à l'écran.`
+        );
+        return;
       }
 
       if (effectiveTarget === null || totalFound === 0) {
@@ -8422,6 +8445,251 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     printWindow.document.close();
   };
 
+  const handlePrintCombination = (combo: QuarterCombinationResult) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const priorityText = PRIORITY_SECTIONS[combo.priority].title;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Impression Combinaison - ${combo.label}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 40px;
+              font-size: 10px;
+              line-height: 1.5;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 20px;
+              margin-bottom: 25px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin-bottom: 2px;
+            }
+            .company-name {
+              font-size: 9px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 18px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+              letter-spacing: -0.5px;
+            }
+            .subtitle {
+              font-size: 10px;
+              color: #667085;
+              margin: 4px 0 0 0;
+              font-weight: 500;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 15px;
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 12px;
+              padding: 12px 20px;
+              margin-bottom: 30px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 8px;
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 3px;
+            }
+            .meta-value {
+              font-size: 11px;
+              font-weight: 700;
+              color: #344054;
+            }
+            .comb-banner {
+              background-color: #F8F9FA;
+              border-left: 4px solid #0D83DE;
+              padding: 12px 16px;
+              border-radius: 0 8px 8px 0;
+              margin-bottom: 20px;
+            }
+            .comb-banner-title {
+              font-size: 11px;
+              font-weight: 700;
+              color: #101828;
+            }
+            .comb-banner-desc {
+              font-size: 9px;
+              color: #475467;
+              margin-top: 2px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            th {
+              background-color: #F9FAFB;
+              color: #475467;
+              font-size: 8px;
+              text-transform: uppercase;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #EAECF0;
+              padding: 8px 10px;
+              text-align: left;
+            }
+            td {
+              border-bottom: 1px solid #EAECF0;
+              padding: 8px 10px;
+              text-align: left;
+              color: #475467;
+            }
+            .font-bold-black {
+              font-weight: 700;
+              color: #101828;
+            }
+            .amount-right {
+              text-align: right;
+              font-weight: 700;
+            }
+            .total-row td {
+              border-top: 2px solid #EAECF0;
+              border-bottom: none;
+              font-weight: 900;
+              color: #101828;
+              background-color: #F9FAFB;
+            }
+            @media print {
+              body {
+                margin: 20px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
+              <div style="display: flex; flex-direction: column;">
+                <span class="logo-text">EPEOR Analytics</span>
+                <span class="company-name">Algérienne Des Eaux</span>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1 class="title">Détails de la combinaison</h1>
+              <p class="subtitle">Recherche de combinaison par trimestre</p>
+            </div>
+          </div>
+
+          <div class="comb-banner">
+            <div class="comb-banner-title">Priorité de la combinaison : ${priorityText}</div>
+            <div class="comb-banner-desc">${PRIORITY_SECTIONS[combo.priority].description}</div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Label Période</span>
+              <span class="meta-value">${combo.label}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Abonnés uniques</span>
+              <span class="meta-value">${combo.numabs.length}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Montant Total</span>
+              <span class="meta-value">${fmt(combo.sum)}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 5%">N°</th>
+                <th style="width: 15%">Code Abonné</th>
+                <th style="width: 25%">Raison Sociale</th>
+                <th style="width: 25%">Institution</th>
+                <th style="width: 15%">Période</th>
+                <th style="width: 15%; text-align: right;">Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${combo.lines.map((line, idx) => `
+                <tr>
+                  <td class="font-bold-black">${String(idx + 1).padStart(2, '0')}</td>
+                  <td class="font-bold-black">${line.numab || '—'}</td>
+                  <td>${line.raisoc || '—'}</td>
+                  <td>
+                    ${line.codinstit || '—'}
+                    ${line.lib_instit !== '—' ? `<br/><span style="font-size: 8px; color: #667085;">${line.lib_instit}</span>` : ''}
+                  </td>
+                  <td class="font-bold-black">${line.periodLabel}</td>
+                  <td class="amount-right">${fmt(line.amount)}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="5" style="text-align: right; text-transform: uppercase; font-size: 8px; letter-spacing: 0.5px; padding: 10px;">Total combinaison</td>
+                <td class="amount-right" style="color: #E11D48; font-size: 11px; padding: 10px;">${fmt(combo.sum)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const inputCls = 'pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 transition-all w-72';
   const selectCls = 'py-2 pl-4 pr-8 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] outline-none focus:border-brand-300 transition-all min-w-[180px]';
  
@@ -8472,7 +8740,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
             <button
               onClick={searchQuarterCombination}
               disabled={selectedCountInst === 0 || dataLoading || combinationSearching}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 disabled:opacity-50 transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 disabled:opacity-50 transition-all active:scale-95"
             >
               {combinationSearching ? (
                 <>
@@ -8485,6 +8753,14 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                 </>
               )}
             </button>
+            {combinationSearching && (
+              <button
+                onClick={abortSearchQuarterCombination}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-rose-600 text-white rounded-xl text-xs font-black hover:bg-rose-700 transition-all active:scale-95 animate-pulse"
+              >
+                <Ban size={13} /> Arrêter la recherche
+              </button>
+            )}
             {combinationResults.length > 0 && (
               <button
                 onClick={() => { setCombinationResults([]); setCombinationTruncated(false); setCombinationMessage(null); setCombinationCurrentPriority(null); }}
@@ -8609,12 +8885,20 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                               </tfoot>
                             </table>
                           </div>
-                          <button
-                            onClick={() => setSelectedNumabsInst(combo.numabs)}
-                            className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-[#101828] text-white rounded-xl text-xs font-black hover:bg-[#344054] transition-all"
-                          >
-                            Appliquer cette sélection ({combo.numabs.length})
-                          </button>
+                          <div className="mt-3 flex items-center gap-2 flex-wrap">
+                            <button
+                              onClick={() => setSelectedNumabsInst(combo.numabs)}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-[#101828] text-white rounded-xl text-xs font-black hover:bg-[#344054] transition-all active:scale-95"
+                            >
+                              Appliquer cette sélection ({combo.numabs.length})
+                            </button>
+                            <button
+                              onClick={() => handlePrintCombination(combo)}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#D0D5DD] text-[#344054] rounded-xl text-xs font-black hover:bg-[#F9FAFB] hover:text-[#101828] transition-all active:scale-95"
+                            >
+                              <Printer size={13} /> Imprimer la combinaison
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

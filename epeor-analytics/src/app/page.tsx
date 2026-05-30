@@ -6611,12 +6611,468 @@ function CreancesAbonnesView({ onBack }: any) {
   );
 }
 
+function getQuarterFromMonth(monthStr: string): number {
+  const m = parseInt(monthStr, 10);
+  if (isNaN(m)) return 1;
+  if (m >= 1 && m <= 3) return 1;
+  if (m >= 4 && m <= 6) return 2;
+  if (m >= 7 && m <= 9) return 3;
+  if (m >= 10 && m <= 12) return 4;
+  return 1;
+}
+
+function computeRowQuarterAmounts(row: any): Record<string, number> {
+  const raw: Record<string, number> = {};
+  if (!row.factures || !Array.isArray(row.factures)) return raw;
+  for (const f of row.factures) {
+    const df = String(f.date_fact || '').trim();
+    if (df.length !== 8) continue;
+    const y = parseInt(df.substring(0, 4), 10);
+    if (isNaN(y)) continue;
+    const mStr = df.substring(4, 6);
+    const amt = Number(f.montant) || 0;
+    const periode = Number(f.periode) || 3;
+    if (periode === 1) {
+      raw[`${y}-M${mStr}`] = (raw[`${y}-M${mStr}`] || 0) + amt;
+    } else {
+      const q = getQuarterFromMonth(mStr);
+      raw[`${y}-Q${q}`] = (raw[`${y}-Q${q}`] || 0) + amt;
+    }
+  }
+  const result: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key.includes('-M')) {
+      const [yearPart, monthPart] = key.split('-');
+      const q = getQuarterFromMonth(monthPart.substring(1));
+      const newKey = `${yearPart}-Q${q}`;
+      result[newKey] = Math.round(((result[newKey] || 0) + value) * 100) / 100;
+    } else {
+      result[key] = Math.round(((result[key] || 0) + value) * 100) / 100;
+    }
+  }
+  return result;
+}
+
+function getRefYearFromRows(rows: any[]): number {
+  let maxDateStr = '';
+  for (const r of rows) {
+    if (!r.factures || !Array.isArray(r.factures)) continue;
+    for (const f of r.factures) {
+      const df = String(f.date_fact || '').trim();
+      if (df.length === 8 && (!maxDateStr || df > maxDateStr)) maxDateStr = df;
+    }
+  }
+  if (maxDateStr.length >= 4) {
+    const y = parseInt(maxDateStr.substring(0, 4), 10);
+    if (!isNaN(y)) return y;
+  }
+  return new Date().getFullYear();
+}
+
+function buildQuarterSearchOrder(refYear: number, yearsBack = 20): { year: number; q: number }[] {
+  const order: { year: number; q: number }[] = [];
+  for (let y = refYear; y >= refYear - yearsBack; y--) {
+    for (let q = 1; q <= 4; q++) order.push({ year: y, q });
+  }
+  return order;
+}
+
+function formatQuarterLabel(year: number, q: number): string {
+  const ordinals = ['', '1er', '2ème', '3ème', '4ème'];
+  return `${ordinals[q]} trimestre ${year}`;
+}
+
+function parseAmountInput(input: string): number | null {
+  const cleaned = input.trim().replace(/\s/g, '').replace(',', '.');
+  if (!cleaned) return null;
+  const n = parseFloat(cleaned);
+  if (isNaN(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+function findMinSubsetSum(
+  items: { id: string; amountCents: number }[],
+  targetCents: number
+): string[] | null {
+  const n = items.length;
+  if (n === 0) return null;
+  let best: string[] | null = null;
+  let bestSize = Infinity;
+  for (let mask = 1; mask < 1 << n; mask++) {
+    let sum = 0;
+    const ids: string[] = [];
+    for (let i = 0; i < n; i++) {
+      if (mask & (1 << i)) {
+        sum += items[i].amountCents;
+        ids.push(items[i].id);
+      }
+    }
+    if (sum === targetCents && ids.length < bestSize) {
+      best = ids;
+      bestSize = ids.length;
+    }
+  }
+  return best;
+}
+
+type QuarterPick = {
+  numab: string;
+  year: number;
+  quarter: number;
+  quarterKey: string;
+  amount: number;
+  amountCents: number;
+  row: any;
+};
+
+type ComboSearchState = {
+  picks: QuarterPick[];
+  subscriberCount: number;
+  pickCount: number;
+};
+
+function buildQuarterItemsFromRows(
+  rowQuarterMaps: { row: any; quarters: Record<string, number> }[],
+  refYear: number,
+  yearsBack = 10
+): QuarterPick[] {
+  const minYear = refYear - yearsBack;
+  const items: QuarterPick[] = [];
+  for (const { row, quarters } of rowQuarterMaps) {
+    for (const [key, amount] of Object.entries(quarters)) {
+      if (amount <= 0) continue;
+      const match = key.match(/^(\d+)-Q(\d+)$/);
+      if (!match) continue;
+      const year = parseInt(match[1], 10);
+      const quarter = parseInt(match[2], 10);
+      if (year < minYear || year > refYear) continue;
+      items.push({
+        numab: row.numab,
+        year,
+        quarter,
+        quarterKey: key,
+        amount,
+        amountCents: Math.round(amount * 100),
+        row,
+      });
+    }
+  }
+  const quarterOrder = buildQuarterSearchOrder(refYear, yearsBack);
+  const orderIndex = new Map<string, number>();
+  quarterOrder.forEach(({ year, q }, i) => orderIndex.set(`${year}-Q${q}`, i));
+  items.sort((a, b) => {
+    const oa = orderIndex.get(a.quarterKey) ?? 9999;
+    const ob = orderIndex.get(b.quarterKey) ?? 9999;
+    if (oa !== ob) return oa - ob;
+    return b.amountCents - a.amountCents;
+  });
+  return items;
+}
+
+function shiftLeftBits(words: Uint32Array, shift: number, wordCount: number): Uint32Array {
+  const out = new Uint32Array(wordCount);
+  if (shift <= 0) {
+    out.set(words.subarray(0, wordCount));
+    return out;
+  }
+  const wordShift = shift >>> 5;
+  const bitShift = shift & 31;
+  for (let i = wordCount - 1; i >= 0; i--) {
+    const src = i - wordShift;
+    if (src < 0) continue;
+    let val = words[src] >>> 0;
+    if (bitShift > 0) {
+      val = ((val << bitShift) >>> 0);
+      if (src > 0) val |= (words[src - 1] >>> (32 - bitShift));
+    }
+    out[i] = val >>> 0;
+  }
+  return out;
+}
+
+function setSumBit(bits: Uint32Array, sum: number) {
+  bits[sum >>> 5] |= 1 << (sum & 31);
+}
+
+function isSumReachable(reachable: Uint8Array, sum: number): boolean {
+  return sum >= 0 && sum < reachable.length && reachable[sum] === 1;
+}
+
+function runBitsetSubsetSum(
+  items: QuarterPick[],
+  targetCents: number
+): { reachable: Uint8Array; prevItemIdx: Int32Array; bits: Uint32Array } | null {
+  if (items.length === 0 || targetCents <= 0) return null;
+
+  const wordCount = (targetCents >>> 5) + 1;
+  const bits = new Uint32Array(wordCount);
+  bits[0] = 1;
+
+  const reachable = new Uint8Array(targetCents + 1);
+  reachable[0] = 1;
+
+  const prevItemIdx = new Int32Array(targetCents + 1);
+  prevItemIdx.fill(-1);
+
+  for (let i = 0; i < items.length; i++) {
+    const amt = items[i].amountCents;
+    if (amt <= 0 || amt > targetCents) continue;
+
+    const shifted = shiftLeftBits(bits, amt, wordCount);
+
+    for (let wi = 0; wi < wordCount; wi++) {
+      const newly = shifted[wi] & ~bits[wi];
+      if (newly === 0) continue;
+      for (let b = 0; b < 32; b++) {
+        if (!(newly & (1 << b))) continue;
+        const s = wi * 32 + b;
+        if (s > targetCents) continue;
+        const prev = s - amt;
+        if (prev < 0 || !isSumReachable(reachable, prev)) continue;
+        if (prevItemIdx[s] < 0) prevItemIdx[s] = i;
+        reachable[s] = 1;
+        setSumBit(bits, s);
+      }
+    }
+
+    for (let wi = 0; wi < wordCount; wi++) {
+      bits[wi] |= shifted[wi];
+    }
+  }
+
+  return { reachable, prevItemIdx, bits };
+}
+
+function reconstructPicksFromBitset(
+  items: QuarterPick[],
+  targetCents: number,
+  prevItemIdx: Int32Array,
+  reachable: Uint8Array
+): QuarterPick[] | null {
+  if (!isSumReachable(reachable, targetCents)) return null;
+
+  const picks: QuarterPick[] = [];
+  let s = targetCents;
+  const used = new Set<number>();
+
+  while (s > 0) {
+    let idx = prevItemIdx[s];
+    if (idx >= 0 && !used.has(idx)) {
+      used.add(idx);
+      picks.push(items[idx]);
+      s -= items[idx].amountCents;
+      continue;
+    }
+    let found = false;
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (used.has(i)) continue;
+      const amt = items[i].amountCents;
+      if (amt > 0 && amt <= s && isSumReachable(reachable, s - amt)) {
+        used.add(i);
+        picks.push(items[i]);
+        s -= amt;
+        found = true;
+        break;
+      }
+    }
+    if (!found) return null;
+  }
+
+  picks.reverse();
+  return picks.reduce((a, p) => a + p.amountCents, 0) === targetCents ? picks : null;
+}
+
+async function findMultiQuarterCombinationBitsetAsync(
+  items: QuarterPick[],
+  targetCents: number,
+  onProgress?: (ratio: number) => void
+): Promise<ComboSearchState | null> {
+  if (items.length === 0 || targetCents <= 0) return null;
+
+  const CHUNK = 40;
+  const wordCount = (targetCents >>> 5) + 1;
+  const bits = new Uint32Array(wordCount);
+  bits[0] = 1;
+  const reachable = new Uint8Array(targetCents + 1);
+  reachable[0] = 1;
+  const prevItemIdx = new Int32Array(targetCents + 1);
+  prevItemIdx.fill(-1);
+
+  for (let i = 0; i < items.length; i++) {
+    const amt = items[i].amountCents;
+    if (amt > 0 && amt <= targetCents) {
+      const shifted = shiftLeftBits(bits, amt, wordCount);
+
+      for (let wi = 0; wi < wordCount; wi++) {
+        const newly = shifted[wi] & ~bits[wi];
+        if (newly === 0) continue;
+        for (let b = 0; b < 32; b++) {
+          if (!(newly & (1 << b))) continue;
+          const s = wi * 32 + b;
+          if (s > targetCents) continue;
+          const prev = s - amt;
+          if (prev < 0 || !isSumReachable(reachable, prev)) continue;
+          if (prevItemIdx[s] < 0) prevItemIdx[s] = i;
+          reachable[s] = 1;
+          setSumBit(bits, s);
+        }
+      }
+
+      for (let wi = 0; wi < wordCount; wi++) {
+        bits[wi] |= shifted[wi];
+      }
+    }
+
+    if (i > 0 && i % CHUNK === 0) {
+      onProgress?.(i / items.length);
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+    }
+  }
+
+  onProgress?.(1);
+
+  for (const tryTarget of [targetCents, targetCents - 1, targetCents + 1]) {
+    if (tryTarget <= 0 || !isSumReachable(reachable, tryTarget)) continue;
+    const picks = reconstructPicksFromBitset(items, tryTarget, prevItemIdx, reachable);
+    if (picks) {
+      const subs = new Set(picks.map(p => p.numab));
+      return { picks, subscriberCount: subs.size, pickCount: picks.length };
+    }
+  }
+
+  return null;
+}
+
+function findMinSubsetSumIds(
+  items: { id: string; amountCents: number }[],
+  targetCents: number
+): string[] | null {
+  if (items.length === 0) return null;
+  if (items.length <= 22) return findMinSubsetSum(items, targetCents);
+  const pseudoPicks: QuarterPick[] = items.map(it => ({
+    numab: it.id,
+    year: 0,
+    quarter: 0,
+    quarterKey: '',
+    amount: it.amountCents / 100,
+    amountCents: it.amountCents,
+    row: { numab: it.id },
+  }));
+  const result = runBitsetSubsetSum(pseudoPicks, targetCents);
+  if (!result || !isSumReachable(result.reachable, targetCents)) return null;
+  const picks = reconstructPicksFromBitset(
+    pseudoPicks,
+    targetCents,
+    result.prevItemIdx,
+    result.reachable
+  );
+  if (!picks) return null;
+  return [...new Set(picks.map(p => p.numab))];
+}
+
+function buildInvoiceItemsFromRows(
+  rowQuarterMaps: { row: any; quarters: Record<string, number> }[],
+  refYear: number,
+  yearsBack = 20
+): QuarterPick[] {
+  const minYear = refYear - yearsBack;
+  const items: QuarterPick[] = [];
+  for (const { row } of rowQuarterMaps) {
+    if (!row.factures || !Array.isArray(row.factures)) continue;
+    for (const f of row.factures) {
+      const amt = Number(f.montant) || 0;
+      if (amt <= 0) continue;
+      const df = String(f.date_fact || '').trim();
+      if (df.length !== 8) continue;
+      const year = parseInt(df.substring(0, 4), 10);
+      if (isNaN(year) || year < minYear) continue;
+      const mStr = df.substring(4, 6);
+      const quarter = getQuarterFromMonth(mStr);
+      items.push({
+        numab: row.numab,
+        year,
+        quarter,
+        quarterKey: `${year}-Q${quarter}`,
+        amount: Math.round(amt * 100) / 100,
+        amountCents: Math.round(amt * 100),
+        row,
+      });
+    }
+  }
+  const quarterOrder = buildQuarterSearchOrder(refYear, yearsBack);
+  const orderIndex = new Map<string, number>();
+  quarterOrder.forEach(({ year, q }, i) => orderIndex.set(`${year}-Q${q}`, i));
+  items.sort((a, b) => {
+    const oa = orderIndex.get(a.quarterKey) ?? 9999;
+    const ob = orderIndex.get(b.quarterKey) ?? 9999;
+    if (oa !== ob) return oa - ob;
+    return b.amountCents - a.amountCents;
+  });
+  return items;
+}
+
+function groupPicksToDetails(picks: QuarterPick[]) {
+  const byNumab = new Map<string, QuarterPick[]>();
+  for (const p of picks) {
+    const list = byNumab.get(p.numab) || [];
+    list.push(p);
+    byNumab.set(p.numab, list);
+  }
+  return Array.from(byNumab.entries()).map(([numab, subPicks]) => {
+    const row = subPicks[0].row;
+    const quarterMap = new Map<string, { year: number; quarter: number; amount: number }>();
+    for (const p of subPicks) {
+      const existing = quarterMap.get(p.quarterKey);
+      if (existing) {
+        existing.amount = Math.round((existing.amount + p.amount) * 100) / 100;
+      } else {
+        quarterMap.set(p.quarterKey, { year: p.year, quarter: p.quarter, amount: p.amount });
+      }
+    }
+    const quarters = Array.from(quarterMap.values())
+      .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.quarter - b.quarter))
+      .map(q => ({
+        year: q.year,
+        quarter: q.quarter,
+        label: formatQuarterLabel(q.year, q.quarter),
+        amount: q.amount,
+      }));
+    const amount = Math.round(quarters.reduce((a, q) => a + q.amount, 0) * 100) / 100;
+    return {
+      numab,
+      raisoc: row.raisoc || '—',
+      codinstit: row.codinstit || '—',
+      amount,
+      quarters,
+    };
+  });
+}
+
+type QuarterCombinationResult = {
+  mode: 'same_quarter' | 'same_year' | 'multi_quarter';
+  label: string;
+  numabs: string[];
+  sum: number;
+  pickCount: number;
+  details: {
+    numab: string;
+    raisoc: string;
+    codinstit: string;
+    amount: number;
+    quarters: { year: number; quarter: number; label: string; amount: number }[];
+  }[];
+};
+
 function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
-  const [meta, setMeta] = useState<{ total_links?: number; institutions_count?: number } | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [targetMontantSearch, setTargetMontantSearch] = useState('');
+  const [combinationResult, setCombinationResult] = useState<QuarterCombinationResult | null>(null);
+  const [combinationMessage, setCombinationMessage] = useState<string | null>(null);
+  const [combinationSearching, setCombinationSearching] = useState(false);
+  const [combinationProgress, setCombinationProgress] = useState(0);
   const [filterCodInstit, setFilterCodInstit] = useState<string[]>([]);
   const [filterTypeAbonInst, setFilterTypeAbonInst] = useState<string[]>([]);
   const [filterEtatCptInst, setFilterEtatCptInst] = useState<string[]>([]);
@@ -6653,10 +7109,6 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
         setRows([]);
       } else {
         setRows(data.rows || []);
-        setMeta({
-          total_links: data.total_links,
-          institutions_count: data.institutions_count,
-        });
       }
     } catch {
       setError('Impossible de contacter le serveur backend. Vérifiez qu\'il tourne sur le port 8000.');
@@ -6766,6 +7218,148 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     montant: flatRows.reduce((a, r) => a + (r.montant_creance || 0), 0),
     factures: flatRows.reduce((a, r) => a + (r.nombre_creance || 0), 0),
   }), [groups, flatRows]);
+
+  const searchQuarterCombination = async () => {
+    setCombinationResult(null);
+    setCombinationMessage(null);
+    if (selectedCountInst === 0) {
+      setCombinationMessage('Sélectionnez au moins un abonné dans le tableau.');
+      return;
+    }
+    const target = parseAmountInput(targetMontantSearch);
+    if (target === null) {
+      setCombinationMessage('Saisissez un montant cible valide (ex. 225105,63).');
+      return;
+    }
+    const targetCents = Math.round(target * 100);
+    const sourceRows = flatRows.filter((r: any) => selectedNumabsInst.includes(r.numab));
+    const refYear = getRefYearFromRows(sourceRows);
+    const quarterOrder = buildQuarterSearchOrder(refYear);
+    const rowQuarterMaps = sourceRows.map((row: any) => ({
+      row,
+      quarters: computeRowQuarterAmounts(row),
+    }));
+
+    setCombinationSearching(true);
+    setCombinationProgress(0);
+
+    try {
+      // Phase 1 : même trimestre pour tous les abonnés retenus
+      for (const { year, q } of quarterOrder) {
+        const key = `${year}-Q${q}`;
+        const items: { id: string; amountCents: number; row: any; amount: number }[] = [];
+        for (const { row, quarters } of rowQuarterMaps) {
+          const amt = quarters[key] || 0;
+          if (amt > 0) {
+            items.push({
+              id: row.numab,
+              amountCents: Math.round(amt * 100),
+              row,
+              amount: amt,
+            });
+          }
+        }
+        if (items.length === 0) continue;
+        const matchIds = findMinSubsetSumIds(
+          items.map(i => ({ id: i.id, amountCents: i.amountCents })),
+          targetCents
+        );
+        if (matchIds) {
+          const picks: QuarterPick[] = matchIds.map(id => {
+            const item = items.find(i => i.id === id)!;
+            return {
+              numab: id,
+              year,
+              quarter: q,
+              quarterKey: key,
+              amount: item.amount,
+              amountCents: item.amountCents,
+              row: item.row,
+            };
+          });
+          const details = groupPicksToDetails(picks);
+          const sum = Math.round(details.reduce((a, d) => a + d.amount, 0) * 100) / 100;
+          setCombinationResult({
+            mode: 'same_quarter',
+            label: formatQuarterLabel(year, q),
+            numabs: matchIds,
+            sum,
+            pickCount: picks.length,
+            details,
+          });
+          return;
+        }
+      }
+
+      // Phase 1.5 : combinaison libre au sein d'une même année (ex. total colonne 2020)
+      const allItems = buildInvoiceItemsFromRows(rowQuarterMaps, refYear);
+      if (allItems.length === 0) {
+        setCombinationMessage('Aucune facture impayée trouvée pour les abonnés sélectionnés.');
+        return;
+      }
+
+      const invoicesByYear = new Map<number, QuarterPick[]>();
+      for (const item of allItems) {
+        const list = invoicesByYear.get(item.year) || [];
+        list.push(item);
+        invoicesByYear.set(item.year, list);
+      }
+      const yearsDesc = [...invoicesByYear.keys()].sort((a, b) => b - a);
+      for (const year of yearsDesc) {
+        const yearItems = invoicesByYear.get(year)!;
+        const yearResult = await findMultiQuarterCombinationBitsetAsync(
+          yearItems,
+          targetCents,
+          ratio => setCombinationProgress(ratio * 0.5)
+        );
+        if (yearResult) {
+          const details = groupPicksToDetails(yearResult.picks);
+          const numabs = details.map(d => d.numab);
+          const sum = Math.round(details.reduce((a, d) => a + d.amount, 0) * 100) / 100;
+          setCombinationResult({
+            mode: 'same_year',
+            label: `Année ${year}`,
+            numabs,
+            sum,
+            pickCount: yearResult.pickCount,
+            details,
+          });
+          return;
+        }
+      }
+
+      // Phase 2 : combinaison multi-trimestres / multi-factures (toutes années)
+      const multiResult = await findMultiQuarterCombinationBitsetAsync(
+        allItems,
+        targetCents,
+        ratio => setCombinationProgress(0.5 + ratio * 0.5)
+      );
+
+      if (multiResult) {
+        const details = groupPicksToDetails(multiResult.picks);
+        const numabs = details.map(d => d.numab);
+        const sum = Math.round(details.reduce((a, d) => a + d.amount, 0) * 100) / 100;
+        setCombinationResult({
+          mode: 'multi_quarter',
+          label: 'Combinaison multi-trimestres',
+          numabs,
+          sum,
+          pickCount: multiResult.pickCount,
+          details,
+        });
+        return;
+      }
+
+      const availableTotal =
+        allItems.reduce((a, it) => a + it.amountCents, 0) / 100;
+      setCombinationMessage(
+        `Aucune combinaison trouvée pour ${fmt(target)} parmi ${selectedCountInst} abonné(s) et ${allItems.length} facture(s) (total disponible : ${fmt(availableTotal)}).`
+      );
+    } finally {
+      setCombinationSearching(false);
+      setCombinationProgress(0);
+    }
+  };
 
   const handleSort = (key: string) => {
     if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -7751,34 +8345,134 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
               Créances des organismes payeurs liées aux abonnés institutionnels (factures impayées)
             </p>
           </div>
-          {meta && !dataLoading && !error && (
-            <div className="flex flex-wrap gap-2 text-xs font-bold">
-              <span className="text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-100">
-                {rows.length} lien{rows.length !== 1 ? 's' : ''} avec créance
-              </span>
-              <span className="text-[#667085] bg-[#F9FAFB] px-3 py-1 rounded-full border border-[#E4E7EC]">
-                {meta.institutions_count} organismes · {meta.total_links} liens institutionnels
-              </span>
+        </div>
+
+        <div className="mt-6 p-5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-2xl">
+          <p className="text-xs font-black text-[#344054] uppercase tracking-wide mb-1">
+            Recherche de combinaison par trimestre
+          </p>
+          <p className="text-xs text-[#667085] font-medium mb-4">
+            Sélectionnez des abonnés, saisissez un montant cible, puis recherchez une combinaison.
+            La recherche privilégie d&apos;abord un même trimestre pour tous, puis autorise des trimestres
+            différents par abonné (ex. ab.1 → T1+T2, ab.2 → T1, ab.3 → T1 à T4).
+          </p>
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
+            <div>
+              <label className="block text-[10px] font-bold text-[#667085] uppercase mb-1.5">
+                Montant cible (DA)
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="225105,63"
+                value={targetMontantSearch}
+                onChange={e => { setTargetMontantSearch(e.target.value); setCombinationResult(null); setCombinationMessage(null); }}
+                onKeyDown={e => { if (e.key === 'Enter' && !combinationSearching) searchQuarterCombination(); }}
+                disabled={combinationSearching}
+                className="py-2.5 px-4 bg-white border border-[#E4E7EC] rounded-xl text-sm font-bold text-[#101828] outline-none focus:border-brand-300 w-full sm:w-48 disabled:opacity-50"
+              />
             </div>
+            <button
+              onClick={searchQuarterCombination}
+              disabled={selectedCountInst === 0 || dataLoading || combinationSearching}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 disabled:opacity-50 transition-all"
+            >
+              {combinationSearching ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Recherche… {Math.round(combinationProgress * 100)}%
+                </>
+              ) : (
+                <>
+                  <Search size={13} /> Rechercher
+                </>
+              )}
+            </button>
+            {combinationResult && (
+              <button
+                onClick={() => { setCombinationResult(null); setCombinationMessage(null); }}
+                className="px-4 py-2.5 bg-white border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] hover:bg-[#F9FAFB]"
+              >
+                Effacer
+              </button>
+            )}
+            {selectedCountInst > 0 && (
+              <span className="text-xs font-bold text-[#667085] sm:ml-auto">
+                {selectedCountInst} abonné{selectedCountInst !== 1 ? 's' : ''} sélectionné{selectedCountInst !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {combinationResult && (
+            <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <p className="text-sm font-black text-emerald-800">
+                Combinaison trouvée — {combinationResult.label}
+              </p>
+              <p className="text-xs text-emerald-700 font-bold mt-1">
+                {combinationResult.numabs.length} abonné{combinationResult.numabs.length !== 1 ? 's' : ''} sur {selectedCountInst} sélectionné{selectedCountInst !== 1 ? 's' : ''}
+                {' · '}{combinationResult.pickCount} ligne{combinationResult.pickCount !== 1 ? 's' : ''} trimestrielle{combinationResult.pickCount !== 1 ? 's' : ''}
+                {' · '}Total : {fmt(combinationResult.sum)}
+              </p>
+              {combinationResult.mode === 'multi_quarter' && (
+                <p className="text-[10px] text-emerald-600 font-medium mt-1">
+                  Chaque abonné peut contribuer avec un ou plusieurs trimestres distincts.
+                </p>
+              )}
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-[10px] uppercase text-emerald-700 font-bold">
+                      <th className="text-left py-1 pr-3">Code abonné</th>
+                      <th className="text-left py-1 pr-3">Raison sociale</th>
+                      <th className="text-left py-1 pr-3">Institution</th>
+                      <th className="text-left py-1 pr-3">Trimestres retenus</th>
+                      <th className="text-right py-1">Montant</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {combinationResult.details.map(d => (
+                      <tr key={d.numab} className="border-t border-emerald-100">
+                        <td className="py-1.5 pr-3 font-mono font-bold">{d.numab}</td>
+                        <td className="py-1.5 pr-3">{d.raisoc}</td>
+                        <td className="py-1.5 pr-3">{d.codinstit}</td>
+                        <td className="py-1.5 pr-3">
+                          <div className="flex flex-wrap gap-1">
+                            {d.quarters.map(q => (
+                              <span
+                                key={`${d.numab}-${q.year}-Q${q.quarter}`}
+                                className="inline-flex items-center px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-[10px] font-bold text-emerald-800"
+                                title={fmt(q.amount)}
+                              >
+                                {q.label} · {fmt(q.amount)}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-1.5 text-right font-black text-rose-600 whitespace-nowrap">{fmt(d.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button
+                onClick={() => setSelectedNumabsInst(combinationResult.numabs)}
+                className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 transition-all"
+              >
+                Appliquer cette sélection ({combinationResult.numabs.length})
+              </button>
+            </div>
+          )}
+
+          {combinationMessage && !combinationResult && (
+            <p className="mt-3 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              {combinationMessage}
+            </p>
           )}
         </div>
       </div>
 
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-8 py-5 border-b border-[#F2F4F7] bg-slate-50/30">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-brand-50 text-brand-700 border border-brand-100">
-              {tableTotals.institutions} institution{tableTotals.institutions !== 1 ? 's' : ''}
-            </span>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-100">
-              {tableTotals.count} abonné{tableTotals.count !== 1 ? 's' : ''}
-            </span>
-            {tableTotals.count > 0 && (
-              <span className="text-xs text-[#667085] font-bold">
-                Total : <span className="text-rose-600">{fmt(tableTotals.montant)}</span>
-              </span>
-            )}
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4 px-8 py-5 border-b border-[#F2F4F7] bg-slate-50/30">
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
@@ -7942,8 +8636,10 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                           </td>
                           <td className="px-4 py-3" />
                         </tr>
-                        {g.rows.map((r: any, i: number) => (
-                          <tr key={`${g.codinstit}-${r.numab}-${i}`} className="hover:bg-[#F9FAFB] border-b border-[#F2F4F7]">
+                        {g.rows.map((r: any, i: number) => {
+                          const isComboMatch = combinationResult?.numabs.includes(r.numab);
+                          return (
+                          <tr key={`${g.codinstit}-${r.numab}-${i}`} className={`hover:bg-[#F9FAFB] border-b border-[#F2F4F7] ${isComboMatch ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : ''}`}>
                             <td className="px-4 py-2 text-center">
                               <input
                                 type="checkbox"
@@ -7966,7 +8662,8 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
                             <td className="px-4 py-2 text-right font-black text-rose-600 whitespace-nowrap">{fmt(r.montant_creance)}</td>
                             <td className="px-4 py-2 whitespace-nowrap">{r.derniere_date_paiement}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </Fragment>
                     );
                   })}

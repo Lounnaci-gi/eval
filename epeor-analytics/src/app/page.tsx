@@ -251,6 +251,92 @@ function MultiSelectDropdown({
     );
 }
 
+
+
+// ─── Secteur (centre) dropdown ────────────────────────────────────────────────
+function SecteurDropdown({
+  sectors,
+  selectedSecteur,
+  onSelect,
+  uniteLabel,
+}: {
+  sectors: { code: string; libelle: string }[];
+  selectedSecteur: string;
+  onSelect: (code: string) => void;
+  uniteLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const currentLabel = selectedSecteur
+    ? (sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : `Toute l'Unité${uniteLabel ? ` (${uniteLabel})` : ''}`;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 pl-4 pr-3 py-2.5 bg-white border border-[#E4E7EC] rounded-2xl text-xs font-bold text-[#344054] hover:border-[#0D83DE] hover:text-[#0D83DE] transition-all shadow-sm min-w-[200px] justify-between"
+      >
+        <span className="flex items-center gap-2">
+          <MapPin size={14} className={selectedSecteur ? 'text-[#0D83DE]' : 'text-[#98A2B3]'} />
+          <span className={selectedSecteur ? 'text-[#0D83DE] font-black' : ''}>{currentLabel}</span>
+        </span>
+        <ChevronDown size={14} className="text-[#98A2B3] shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-[#E4E7EC] rounded-2xl shadow-xl z-50 overflow-hidden">
+          {/* All unit option */}
+          <button
+            type="button"
+            onClick={() => { onSelect(''); setOpen(false); }}
+            className={`w-full text-left px-4 py-3 text-xs font-bold flex items-center gap-2 transition-colors ${
+              !selectedSecteur
+                ? 'bg-blue-50 text-[#0D83DE]'
+                : 'text-[#344054] hover:bg-[#F9FAFB]'
+            }`}
+          >
+            <span className="w-5 h-5 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-[9px] font-black shrink-0">
+              ✦
+            </span>
+            Toute l'Unité{uniteLabel ? ` — ${uniteLabel}` : ''}
+          </button>
+          <div className="border-t border-[#F2F4F7]" />
+          {/* Individual sectors */}
+          {sectors.map(s => (
+            <button
+              key={s.code}
+              type="button"
+              onClick={() => { onSelect(s.code); setOpen(false); }}
+              className={`w-full text-left px-4 py-3 text-xs font-bold flex items-center gap-2 transition-colors ${
+                selectedSecteur === s.code
+                  ? 'bg-blue-50 text-[#0D83DE]'
+                  : 'text-[#344054] hover:bg-[#F9FAFB]'
+              }`}
+            >
+              <span className="w-5 h-5 rounded-lg bg-blue-50 text-[#0D83DE] flex items-center justify-center text-[9px] font-black shrink-0">
+                {s.code}
+              </span>
+              {s.libelle}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
@@ -267,6 +353,22 @@ export default function Dashboard() {
   const [calcDateRange, setCalcDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
   const [reloadPending, setReloadPending] = useState(false);
   const itemsPerPage = 20;
+  // Secteur/centre filter
+  const [selectedSecteur, setSelectedSecteur] = useState('');
+  const [sectors, setSectors] = useState<{ code: string; libelle: string }[]>([]);
+  const [uniteLabel, setUniteLabel] = useState('');
+
+  useEffect(() => {
+    fetch('http://127.0.0.1:8000/api/unites_settings')
+      .then(r => r.json())
+      .then((data: any[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setUniteLabel(data[0].denom || '');
+          setSectors((data[0].sectors || []).map((s: any) => ({ code: s.code, libelle: s.libelle })));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const requestDataReload = async () => {
     setReloadPending(true);
@@ -905,17 +1007,17 @@ export default function Dashboard() {
             )}
           </div>
         ) : currentView === 'details' ? (
-          <DetailedStatsView stats={stats} onBack={() => setCurrentView('dashboard')} />
+          <DetailedStatsView stats={stats} onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
         ) : currentView === 'resigned' ? (
-          <ResignedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
+          <ResignedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
         ) : currentView === 'stopped' ? (
-          <StoppedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
+          <StoppedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
         ) : currentView === 'no_meter' ? (
-          <NoMeterDetailView stats={stats} onBack={() => setCurrentView('dashboard')} />
+          <NoMeterDetailView stats={stats} onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
         ) : currentView === 'creances_abonnes' ? (
-          <CreancesAbonnesView onBack={() => setCurrentView('dashboard')} />
+          <CreancesAbonnesView onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
         ) : currentView === 'creances_institutions' ? (
-          <CreancesInstitutionsView onBack={() => setCurrentView('dashboard')} />
+          <CreancesInstitutionsView onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
         ) : currentView === 'settings' ? (
           <SettingsView onBack={() => setCurrentView('dashboard')} />
         ) : ['creance', 'repartition', 'commune'].includes(currentView) ? (
@@ -934,26 +1036,37 @@ export default function Dashboard() {
                   <h2 className="text-3xl font-black tracking-tight text-[#101828]">Analyses Financières</h2>
                   <p className="text-sm text-[#667085] mt-1 font-medium">Facturation, recouvrement et ventilation granulaire du réseau</p>
                 </div>
-                
-                {/* Modern Segmented Navigation Tabs */}
-                <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 self-start md:self-auto border border-[#E4E7EC] shadow-sm">
-                  {[
-                    { id: 'creance', label: 'Synthèse Globale' },
-                    { id: 'repartition', label: "Répartition par Type" },
-                    { id: 'commune', label: 'Répartition par Commune' }
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setCurrentView(tab.id as any)}
-                      className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 active:scale-95 border ${
-                        currentView === tab.id
-                          ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
-                          : 'text-[#667085] border-transparent hover:text-[#101828]'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Secteur dropdown */}
+                  {sectors.length > 0 && (
+                    <SecteurDropdown
+                      sectors={sectors}
+                      selectedSecteur={selectedSecteur}
+                      onSelect={(code) => { setSelectedSecteur(code); setCreanceData(null); }}
+                      uniteLabel={uniteLabel}
+                    />
+                  )}
+                  {/* Modern Segmented Navigation Tabs */}
+                  <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC] shadow-sm">
+                    {[
+                      { id: 'creance', label: 'Synthèse Globale' },
+                      { id: 'repartition', label: "Répartition par Type" },
+                      { id: 'commune', label: 'Répartition par Commune' }
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setCurrentView(tab.id as any)}
+                        className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 active:scale-95 border ${
+                          currentView === tab.id
+                            ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
+                            : 'text-[#667085] border-transparent hover:text-[#101828]'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -968,6 +1081,7 @@ export default function Dashboard() {
                   setCurrentView('repartition');
                 }}
                 onCalcDateChange={(s: string, e: string) => setCalcDateRange({start: s, end: e})}
+                selectedSecteur={selectedSecteur}
               />
             ) : currentView === 'repartition' ? (
               <CreanceRepartitionView

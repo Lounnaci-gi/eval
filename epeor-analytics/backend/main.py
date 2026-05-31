@@ -923,7 +923,7 @@ def search_subscribers(query: str = None, q: str = None):
         return {"error": str(e)}
 
 @app.get("/subscribers")
-def get_subscribers(quartier: str = None, etat: str = None):
+def get_subscribers(quartier: str = None, etat: str = None, secteur: str = None):
     if not quartier:
         return {"error": "Missing parameters"}
     
@@ -937,6 +937,16 @@ def get_subscribers(quartier: str = None, etat: str = None):
             elif code_affec.startswith('E'):
                 etat_map[code_affec[1:]] = libelle
 
+        # Build NUMAB set for secteur filter
+        secteur_numabs = None
+        if secteur and secteur.strip():
+            secteur_zfill = secteur.strip().zfill(2)
+            secteur_numabs = {
+                str(a.get('NUMAB', '')).strip().upper()
+                for a in MEM_ABONNES
+                if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
+            }
+
         results = []
         for record in MEM_ABONNES:
             numab = str(record.get('NUMAB', '')).strip()
@@ -944,6 +954,10 @@ def get_subscribers(quartier: str = None, etat: str = None):
             
             # Filter by Quartier
             if prefix != quartier:
+                continue
+
+            # Filter by Secteur
+            if secteur_numabs is not None and numab.upper() not in secteur_numabs:
                 continue
                 
             # Filter by ETATCPT
@@ -1034,7 +1048,8 @@ def get_creance(
     end_date: str = None,
     hist_type: str = "monthly_12",
     hist_start: str = None,
-    hist_end: str = None
+    hist_end: str = None,
+    secteur: str = None
 ):
     try:
         # Build period name for PROV lookup
@@ -1065,6 +1080,16 @@ def get_creance(
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
         target_date = end_date if end_date else '99991231'
 
+        # Build NUMAB set for secteur filter
+        secteur_numabs = None
+        if secteur and secteur.strip():
+            secteur_zfill = secteur.strip().zfill(2)
+            secteur_numabs = {
+                str(a.get('NUMAB', '')).strip().upper()
+                for a in MEM_ABONNES
+                if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
+            }
+
         # Chain all records in memory
         records = itertools.chain(
             ((r, False) for r in MEM_FACTURES),
@@ -1072,6 +1097,10 @@ def get_creance(
         )
 
         for r, is_avoir in records:
+            numab_r = str(r.get('NUMAB', '') or '').strip().upper()
+            if secteur_numabs is not None and numab_r not in secteur_numabs:
+                continue
+
             datsaisie = str(r.get('DATSAISIE') or '').strip()
             datreg  = str(r.get('DATREG') or '').strip()
             
@@ -1917,8 +1946,17 @@ def get_abonne_api(numab: str):
     }
 
 @app.get("/creances_abonnes")
-def get_creances_abonnes():
+def get_creances_abonnes(secteur: str = None):
     try:
+        # Build NUMAB set for secteur filter
+        secteur_numabs = None
+        if secteur and secteur.strip():
+            secteur_zfill = secteur.strip().zfill(2)
+            secteur_numabs = {
+                str(a.get('NUMAB', '')).strip().upper()
+                for a in MEM_ABONNES
+                if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
+            }
         date_arrete = _creance_date_arrete()
         debtors = {}
         tournees_set = set()
@@ -1931,6 +1969,7 @@ def get_creances_abonnes():
         for r, is_avoir in records:
             numab = str(r.get('NUMAB', '') or '').strip()
             if not numab: continue
+            if secteur_numabs is not None and numab.upper() not in secteur_numabs: continue
 
             datreg = str(r.get('DATREG') or '').strip()
             is_creance = is_unpaid_creance(r, is_avoir, date_arrete)
@@ -2014,7 +2053,7 @@ def get_creances_abonnes():
 
 
 @app.get("/creances_institutions")
-def get_creances_institutions(only_with_creance: bool = True):
+def get_creances_institutions(only_with_creance: bool = True, secteur: str = None):
     """
     Créances liées aux institutions (liens institutionnels + organismes payeurs),
     enrichies via abonnés, contrats, adresses et factures impayées.
@@ -2024,11 +2063,22 @@ def get_creances_institutions(only_with_creance: bool = True):
     try:
         date_arrete = _creance_date_arrete()
 
+        # Build secteur NUMAB filter
+        secteur_numabs = None
+        if secteur and secteur.strip():
+            secteur_zfill = secteur.strip().zfill(2)
+            secteur_numabs = {
+                str(a.get('NUMAB', '')).strip().upper()
+                for a in MEM_ABONNES
+                if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
+            }
+
         abinstit_numabs = set()
         for link in MEM_ABINSTIT:
             numab = str(link.get('NUMAB', '') or '').strip().upper()
             if numab:
-                abinstit_numabs.add(numab)
+                if secteur_numabs is None or numab in secteur_numabs:
+                    abinstit_numabs.add(numab)
 
         debtors = {}
         records = itertools.chain(

@@ -579,23 +579,6 @@ export default function Dashboard() {
             <h1 className="text-4xl font-black text-[#101828] tracking-tight">Bonjour, Admin !</h1>
             <p className="text-[#475467] mt-1 text-lg">Retrouvez la situation globale de votre réseau aujourd'hui.</p>
           </div>
-
-          <form onSubmit={handleSearch} className="flex gap-3">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#98A2B3] group-focus-within:text-[#0D83DE] transition-colors" size={20} />
-              <input
-                type="text"
-                placeholder="Un abonné, un numéro..."
-                className="bg-white border-[#D0D5DD] border rounded-2xl pl-12 pr-6 py-3.5 w-80 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0D83DE] transition-all placeholder:text-[#98A2B3] shadow-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <button className="bg-[#0D83DE] hover:bg-[#0b72c2] text-white px-8 py-3.5 rounded-2xl font-bold transition-all shadow-md shadow-blue-100 flex items-center gap-2">
-              <Search size={18} />
-              Rechercher
-            </button>
-          </form>
         </header>
 
         {/* Main Content */}

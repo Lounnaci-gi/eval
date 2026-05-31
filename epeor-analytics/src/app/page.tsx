@@ -40,6 +40,7 @@ import {
   Percent,
   MapPin,
   Building2,
+  RefreshCw,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -251,7 +252,7 @@ function MultiSelectDropdown({
 }
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes' | 'creances_institutions'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -553,7 +554,12 @@ export default function Dashboard() {
         <div className="mt-auto flex flex-col gap-1 pt-6 border-t border-[#F2F4F7]">
           <NavItem icon={<Bell size={20} />} label="Notifications" />
           <NavItem icon={<HelpCircle size={20} />} label="Centre d'aide" />
-          <NavItem icon={<Settings size={20} />} label="Paramètres" />
+          <NavItem
+            icon={<Settings size={20} />}
+            label="Paramètres"
+            active={currentView === 'settings'}
+            onClick={() => setCurrentView('settings')}
+          />
           <NavItem icon={<LogOut size={20} />} label="Déconnexion" />
         </div>
 
@@ -927,6 +933,8 @@ export default function Dashboard() {
           <CreancesAbonnesView onBack={() => setCurrentView('dashboard')} />
         ) : currentView === 'creances_institutions' ? (
           <CreancesInstitutionsView onBack={() => setCurrentView('dashboard')} />
+        ) : currentView === 'settings' ? (
+          <SettingsView onBack={() => setCurrentView('dashboard')} />
         ) : ['creance', 'repartition', 'commune'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
@@ -4832,6 +4840,8 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
   );
 }
 
+const NUMERIC_SORT_KEYS = new Set(['montant_creance', 'nombre_creance']);
+
 function CreancesAbonnesView({ onBack }: any) {
   // ─── Raw data from API ───────────────────────────────────────────
   const [allSubscribers, setAllSubscribers] = useState<any[]>([]);
@@ -4863,8 +4873,6 @@ function CreancesAbonnesView({ onBack }: any) {
   const [filterTourneesTable, setFilterTourneesTable] = useState<string[]>([]);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
   const PAGE_SIZE = 20;
-
-  const NUMERIC_SORT_KEYS = new Set(['montant_creance', 'nombre_creance']);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -7257,6 +7265,27 @@ type QuarterCombinationResult = {
   }[];
 };
 
+type InstitGroup = { codinstit: string; lib_instit: string; rows: any[] };
+
+const compareRows = (a: any, b: any, sortKey: string, sortDir: 'asc' | 'desc') => {
+  const av = a[sortKey];
+  const bv = b[sortKey];
+  if (sortKey === 'montant_creance' || sortKey === 'nombre_creance') {
+    const na = Number(av) || 0;
+    const nb = Number(bv) || 0;
+    return sortDir === 'asc' ? na - nb : nb - na;
+  }
+  const sa = String(av ?? '').toLowerCase();
+  const sb = String(bv ?? '').toLowerCase();
+  const cmp = sa.localeCompare(sb, 'fr');
+  return sortDir === 'asc' ? cmp : -cmp;
+};
+
+const groupTotals = (g: InstitGroup) => ({
+  montant: g.rows.reduce((a, r) => a + (r.montant_creance || 0), 0),
+  factures: g.rows.reduce((a, r) => a + (r.nombre_creance || 0), 0),
+});
+
 function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -7354,27 +7383,6 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     return { codinstit, types, etats, tournees, institutions };
   }, [rows]);
 
-  type InstitGroup = { codinstit: string; lib_instit: string; rows: any[] };
-
-  const compareRows = (a: any, b: any) => {
-    const av = a[sortKey];
-    const bv = b[sortKey];
-    if (sortKey === 'montant_creance' || sortKey === 'nombre_creance') {
-      const na = Number(av) || 0;
-      const nb = Number(bv) || 0;
-      return sortDir === 'asc' ? na - nb : nb - na;
-    }
-    const sa = String(av ?? '').toLowerCase();
-    const sb = String(bv ?? '').toLowerCase();
-    const cmp = sa.localeCompare(sb, 'fr');
-    return sortDir === 'asc' ? cmp : -cmp;
-  };
-
-  const groupTotals = (g: InstitGroup) => ({
-    montant: g.rows.reduce((a, r) => a + (r.montant_creance || 0), 0),
-    factures: g.rows.reduce((a, r) => a + (r.nombre_creance || 0), 0),
-  });
-
   const groups = useMemo(() => {
     const map = new Map<string, InstitGroup>();
     for (const r of filtered) {
@@ -7388,7 +7396,7 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
     }
     const list = Array.from(map.values());
     for (const g of list) {
-      g.rows.sort(compareRows);
+      g.rows.sort((a, b) => compareRows(a, b, sortKey, sortDir));
     }
     list.sort((a, b) => {
       if (sortKey === 'codinstit') {
@@ -9470,6 +9478,251 @@ function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function SettingsView({ onBack }: { onBack: () => void }) {
+  const [unites, setUnites] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sectorSearch, setSectorSearch] = useState('');
+  const [clearingCache, setClearingCache] = useState(false);
+  const [cacheMessage, setCacheMessage] = useState<string | null>(null);
+
+  const fetchSettings = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/unites_settings");
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setUnites(data);
+      }
+    } catch {
+      setError("Impossible de charger les paramètres depuis le serveur backend.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const handleClearCache = async () => {
+    if (!confirm("Êtes-vous sûr de vouloir vider le cache et recharger toutes les tables DBF ? Cette opération peut prendre quelques minutes.")) {
+      return;
+    }
+    setClearingCache(true);
+    setCacheMessage("Vidage du cache et rechargement en cours. Veuillez patienter...");
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/clear_cache");
+      const data = await res.json();
+      setCacheMessage(data.message || "Rechargement lancé avec succès !");
+      setTimeout(() => {
+        window.location.reload();
+      }, 5000);
+    } catch {
+      setCacheMessage("Erreur lors de la communication avec le serveur.");
+      setClearingCache(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      {/* Header */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+        >
+          <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
+        </button>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight text-[#101828]">Paramètres du Système</h2>
+            <p className="text-sm text-[#667085] mt-1 font-medium">Consultez la structure organisationnelle d'EPEOR, l'unité de gestion et ses centres associés.</p>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E4E7EC] rounded-[2rem] shadow-sm">
+          <div className="w-12 h-12 border-4 border-slate-200 border-t-[#0D83DE] rounded-full animate-spin"></div>
+          <p className="mt-4 text-sm font-bold text-[#475467]">Chargement de la structure organisationnelle...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-6 rounded-[2rem] shadow-sm">
+          <p className="font-bold">Une erreur est survenue</p>
+          <p className="text-sm mt-1">{error}</p>
+          <button
+            onClick={fetchSettings}
+            className="mt-4 px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+          >
+            Réessayer
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {unites.map((u: any) => {
+            const filteredSectors = u.sectors.filter((s: any) => 
+              s.code.toLowerCase().includes(sectorSearch.toLowerCase()) ||
+              s.libelle.toLowerCase().includes(sectorSearch.toLowerCase())
+            );
+
+            return (
+              <div key={u.code} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Unit Card */}
+                <div className="lg:col-span-1 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-black text-lg">
+                        {u.code}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black text-[#101828] uppercase">Unité {u.denom}</h3>
+                        <p className="text-xs text-blue-600 font-bold">Unité de Gestion Principale</p>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-[#F2F4F7] pt-6 space-y-4">
+                      <div>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Adresse</span>
+                        <span className="text-sm font-bold text-[#344054]">{u.adresse || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Téléphone</span>
+                        <span className="text-sm font-bold text-[#344054]">{u.telephone || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Identifiant Fiscal (NIF)</span>
+                        <span className="text-sm font-mono font-bold text-[#344054]">{u.identfisc || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Article d'Imposition</span>
+                        <span className="text-sm font-mono font-bold text-[#344054]">{u.nartfisc || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Banque</span>
+                        <span className="text-sm font-bold text-[#344054]">{u.ncompte || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">RIB / Compte Bancaire</span>
+                        <span className="text-sm font-mono font-bold text-slate-700 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 block mt-1 overflow-x-auto select-all">
+                          {u.dombanq || '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t border-[#F2F4F7]">
+                    <div className="flex items-center gap-2.5 text-xs font-bold text-[#667085]">
+                      <span>Statut :</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                        Opérationnel
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sectors/Centers Card */}
+                <div className="lg:col-span-2 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                      <h3 className="text-lg font-black text-[#101828]">Centres & Secteurs Associés</h3>
+                      <p className="text-xs text-[#667085] font-medium mt-0.5">Secteurs géographiques rattachés à l'unité de {u.denom} ({u.sectors.length} centres chargés)</p>
+                    </div>
+                    
+                    {/* Search sector */}
+                    <div className="relative">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3]" size={16} />
+                      <input
+                        type="text"
+                        placeholder="Rechercher un centre..."
+                        className="bg-white border-[#D0D5DD] border rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0D83DE] transition-all placeholder:text-[#98A2B3] w-48 sm:w-64"
+                        value={sectorSearch}
+                        onChange={(e) => setSectorSearch(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden flex-1 max-h-[500px] overflow-y-auto">
+                    <table className="w-full border-collapse text-left">
+                      <thead>
+                        <tr className="bg-[#F9FAFB] border-b border-[#E4E7EC] text-[#475467] text-[10px] uppercase font-black">
+                          <th className="px-6 py-4">Code Centre</th>
+                          <th className="px-6 py-4">Nom du Centre (Secteur)</th>
+                          <th className="px-6 py-4">Code Unité</th>
+                          <th className="px-6 py-4 text-right">Rattachement</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F2F4F7]">
+                        {filteredSectors.length > 0 ? (
+                          filteredSectors.map((s: any) => (
+                            <tr key={s.code} className="hover:bg-[#F9FAFB] transition-colors group">
+                              <td className="px-6 py-4 font-mono font-black text-sm text-[#0D83DE]">
+                                {s.code}
+                              </td>
+                              <td className="px-6 py-4 font-black text-slate-800 text-sm">
+                                {s.libelle}
+                              </td>
+                              <td className="px-6 py-4 font-mono text-xs text-[#667085]">
+                                {s.unite}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="inline-flex items-center px-2.5 py-1 bg-blue-50/50 text-blue-700 border border-blue-100/50 rounded-lg text-[10px] font-bold">
+                                  Lié à {u.denom}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-12 text-center text-sm font-bold text-[#98A2B3]">
+                              Aucun centre ne correspond à votre recherche.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Cache Settings card */}
+          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <h3 className="text-lg font-black text-[#101828]">Gestion du Cache de Données</h3>
+                <p className="text-sm text-[#667085] mt-1 font-medium">Forcez la ré-analyse et la mise en cache des tables DBF brutes. Utilisez cette fonction si les fichiers de données sur le disque ont été modifiés.</p>
+              </div>
+              <button
+                onClick={handleClearCache}
+                disabled={clearingCache}
+                className={`px-6 py-3.5 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-2 ${
+                  clearingCache 
+                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed' 
+                    : 'bg-[#0D83DE] text-white hover:bg-[#0b72c2] border border-[#0b72c2] shadow-blue-100'
+                }`}
+              >
+                <RefreshCw size={16} className={clearingCache ? 'animate-spin' : ''} />
+                Réindexer & Recharger les DBF
+              </button>
+            </div>
+            {cacheMessage && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-100 text-blue-800 rounded-xl text-xs font-bold animate-in fade-in duration-300">
+                {cacheMessage}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

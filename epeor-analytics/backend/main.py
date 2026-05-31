@@ -829,6 +829,49 @@ def reload_data_endpoint():
     threading.Thread(target=load_all_data_to_memory, daemon=True).start()
     return {"status": "started", "message": "Rechargement des données en cours...", "data_dir": DATA_DIR}
 
+@app.get("/api/unites_settings")
+def get_unites_settings():
+    try:
+        unites_list = []
+        for r_unite in MEM_UNITES:
+            code_unite = str(r_unite.get('UNITE', '')).strip()
+            denom = str(r_unite.get('DENOM', '')).strip()
+            adr = str(r_unite.get('ADR', '')).strip()
+            tel = str(r_unite.get('TEL', '')).strip()
+            identfisc = str(r_unite.get('IDENTFISC', '')).strip()
+            nartfisc = str(r_unite.get('NARTFISC', '')).strip()
+            ncompte = str(r_unite.get('NCOMPTE', '')).strip()
+            dombanq = str(r_unite.get('DOMBANQ', '')).strip()
+
+            sectors_list = []
+            for r_tab in MEM_TABCODES:
+                code_affec = str(r_tab.get('CODE_AFFEC', '')).strip()
+                if code_affec.startswith('S'):
+                    sec_unite = str(r_tab.get('UNITE', '')).strip()
+                    if sec_unite == code_unite or sec_unite.lstrip('0') == code_unite.lstrip('0'):
+                        sectors_list.append({
+                            "code": code_affec[1:],
+                            "libelle": str(r_tab.get('LIBELLE', '')).strip(),
+                            "unite": sec_unite
+                        })
+            
+            sectors_list.sort(key=lambda x: x["code"])
+
+            unites_list.append({
+                "code": code_unite,
+                "denom": denom,
+                "adresse": adr,
+                "telephone": tel,
+                "identfisc": identfisc,
+                "nartfisc": nartfisc,
+                "ncompte": ncompte,
+                "dombanq": dombanq,
+                "sectors": sectors_list
+            })
+        return unites_list
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/search")
 def search_subscribers(query: str = None, q: str = None):
     search_term = query or q

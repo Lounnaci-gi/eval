@@ -352,6 +352,14 @@ function appendSecteurParam(url: URL, secteur: string) {
   if (code) url.searchParams.set('secteur', code);
 }
 
+function buildSubscribersUrl(quartier: string, options?: { etat?: string; secteur?: string }) {
+  const url = new URL('http://127.0.0.1:8000/subscribers');
+  url.searchParams.set('quartier', quartier);
+  if (options?.etat) url.searchParams.set('etat', options.etat);
+  appendSecteurParam(url, options?.secteur || '');
+  return url.toString();
+}
+
 export default function Dashboard() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
@@ -660,7 +668,7 @@ export default function Dashboard() {
           <NavItem
             icon={<Users size={20} />}
             label="Gestion Abonnés"
-            active={currentView === 'details' || currentView === 'resigned' || currentView === 'stopped'}
+            active={['details', 'resigned', 'stopped', 'no_meter'].includes(currentView)}
             onClick={() => setCurrentView('details')}
           />
           <NavItem
@@ -1040,18 +1048,36 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        ) : currentView === 'details' ? (
-          <DetailedStatsView stats={stats} onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
-        ) : currentView === 'resigned' ? (
-          <ResignedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
-        ) : currentView === 'stopped' ? (
-          <StoppedDetailView stats={stats} onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
-        ) : currentView === 'no_meter' ? (
-          <NoMeterDetailView stats={stats} onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
+        ) : ['details', 'resigned', 'stopped', 'no_meter'].includes(currentView) ? (
+          <GestionAbonnesShell
+            currentView={currentView as 'details' | 'resigned' | 'stopped' | 'no_meter'}
+            setCurrentView={setCurrentView}
+            baseStats={stats}
+            selectedSecteur={selectedSecteur}
+            sectors={sectors}
+            uniteLabel={uniteLabel}
+            onSecteurChange={setSelectedSecteur}
+            sectorsLoading={sectorsLoading || !stats?.ready}
+            onBack={() => setCurrentView('dashboard')}
+          />
         ) : currentView === 'creances_abonnes' ? (
-          <CreancesAbonnesView onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
+          <CreancesAbonnesView
+            onBack={() => setCurrentView('dashboard')}
+            selectedSecteur={selectedSecteur}
+            sectors={sectors}
+            uniteLabel={uniteLabel}
+            onSecteurChange={setSelectedSecteur}
+            sectorsLoading={sectorsLoading || !stats?.ready}
+          />
         ) : currentView === 'creances_institutions' ? (
-          <CreancesInstitutionsView onBack={() => setCurrentView('dashboard')} selectedSecteur={selectedSecteur} sectors={sectors} uniteLabel={uniteLabel} onSecteurChange={setSelectedSecteur} />
+          <CreancesInstitutionsView
+            onBack={() => setCurrentView('dashboard')}
+            selectedSecteur={selectedSecteur}
+            sectors={sectors}
+            uniteLabel={uniteLabel}
+            onSecteurChange={setSelectedSecteur}
+            sectorsLoading={sectorsLoading || !stats?.ready}
+          />
         ) : currentView === 'settings' ? (
           <SettingsView onBack={() => setCurrentView('dashboard')} />
         ) : ['creance', 'repartition', 'commune'].includes(currentView) ? (
@@ -1193,7 +1219,155 @@ function NavItem({ icon, label, active = false, onClick }: any) {
   );
 }
 
-function DetailedStatsView({ stats, onBack }: any) {
+function GestionAbonnesShell({
+  currentView,
+  setCurrentView,
+  baseStats,
+  selectedSecteur,
+  sectors,
+  uniteLabel,
+  onSecteurChange,
+  sectorsLoading,
+  onBack,
+}: {
+  currentView: 'details' | 'resigned' | 'stopped' | 'no_meter';
+  setCurrentView: (v: any) => void;
+  baseStats: any;
+  selectedSecteur: string;
+  sectors: { code: string; libelle: string }[];
+  uniteLabel: string;
+  onSecteurChange: (code: string) => void;
+  sectorsLoading: boolean;
+  onBack: () => void;
+}) {
+  const [gestionStats, setGestionStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  const secteurLabel = selectedSecteur
+    ? (sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : null;
+
+  useEffect(() => {
+    if (!baseStats?.ready) return;
+    if (!selectedSecteur) {
+      setGestionStats(null);
+      return;
+    }
+    let cancelled = false;
+    setStatsLoading(true);
+    const url = new URL('http://127.0.0.1:8000/stats');
+    appendSecteurParam(url, selectedSecteur);
+    fetch(url.toString())
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled && data?.ready) setGestionStats(data);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedSecteur, baseStats?.ready]);
+
+  const stats = selectedSecteur && gestionStats ? gestionStats : baseStats;
+
+  const tabs = [
+    { id: 'details' as const, label: 'Vue globale' },
+    { id: 'resigned' as const, label: 'Résiliés' },
+    { id: 'stopped' as const, label: "À l'arrêt" },
+    { id: 'no_meter' as const, label: 'Sans compteur' },
+  ];
+
+  const viewProps = { stats, onBack, selectedSecteur };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+        >
+          <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
+        </button>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight text-[#101828]">Gestion Abonnés</h2>
+            <p className="text-sm text-[#667085] mt-1 font-medium">
+              {secteurLabel
+                ? `Statistiques et listes du centre ${secteurLabel}`
+                : 'Répartition par commune, quartier et état — toute l\'unité'}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <SecteurDropdown
+              sectors={sectors}
+              selectedSecteur={selectedSecteur}
+              onSelect={onSecteurChange}
+              uniteLabel={uniteLabel}
+              loading={sectorsLoading}
+            />
+            {stats?.ready && !statsLoading && (
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-full border border-emerald-100">
+                {(stats.total_subscribers ?? 0).toLocaleString('fr-FR')} abonné{(stats.total_subscribers ?? 0) !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 mt-6">
+          <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC] shadow-sm">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setCurrentView(tab.id)}
+                className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all border ${
+                  currentView === tab.id
+                    ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
+                    : 'text-[#667085] border-transparent hover:text-[#101828]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {secteurLabel && (
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE]">
+          <MapPin size={16} className="shrink-0" />
+          <span>
+            Périmètre : centre <strong className="font-black">{secteurLabel}</strong>
+            {uniteLabel ? ` — ${uniteLabel}` : ''}. Les tableaux et listes nominatives suivent ce filtre.
+          </span>
+        </div>
+      )}
+
+      <div className="relative">
+        {statsLoading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[2px] rounded-[2rem] min-h-[120px]">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+              <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest">Calcul par centre…</p>
+            </div>
+          </div>
+        )}
+        {currentView === 'details' && (
+          <DetailedStatsView key={`details-${selectedSecteur}`} {...viewProps} />
+        )}
+        {currentView === 'resigned' && (
+          <ResignedDetailView key={`resigned-${selectedSecteur}`} {...viewProps} />
+        )}
+        {currentView === 'stopped' && (
+          <StoppedDetailView key={`stopped-${selectedSecteur}`} {...viewProps} />
+        )}
+        {currentView === 'no_meter' && (
+          <NoMeterDetailView key={`no_meter-${selectedSecteur}`} {...viewProps} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DetailedStatsView({ stats, onBack, selectedSecteur = '' }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
@@ -1203,7 +1377,7 @@ function DetailedStatsView({ stats, onBack }: any) {
     setSelectedQuartier(q);
     setLoadingSubscribers(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/subscribers?quartier=${q.id}`);
+      const res = await fetch(buildSubscribersUrl(q.id, { secteur: selectedSecteur }));
       const data = await res.json();
       setQuartierSubscribers(data);
     } catch (e) {
@@ -1294,17 +1468,9 @@ function DetailedStatsView({ stats, onBack }: any) {
   return (
     <div className="space-y-10">
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-          <div>
-            <button
-              onClick={onBack}
-              className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
-            >
-              <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
-            </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée par Commune</h3>
-            <p className="text-sm text-[#667085] mt-1">Analyse complète des abonnés par zone géographique</p>
-          </div>
+        <div className="p-8 border-b border-[#F2F4F7]">
+          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée par Commune</h3>
+          <p className="text-sm text-[#667085] mt-1">Analyse complète des abonnés par zone géographique</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -1376,7 +1542,7 @@ function DetailedStatsView({ stats, onBack }: any) {
   );
 }
 
-function ResignedDetailView({ stats, onBack }: any) {
+function ResignedDetailView({ stats, onBack, selectedSecteur = '' }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
@@ -1386,7 +1552,7 @@ function ResignedDetailView({ stats, onBack }: any) {
     setSelectedQuartier(q);
     setLoadingSubscribers(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/subscribers?quartier=${q.id}&etat=40`);
+      const res = await fetch(buildSubscribersUrl(q.id, { etat: '40', secteur: selectedSecteur }));
       const data = await res.json();
       setQuartierSubscribers(data);
     } catch (e) {
@@ -1554,7 +1720,7 @@ function ResignedDetailView({ stats, onBack }: any) {
   );
 }
 
-function StoppedDetailView({ stats, onBack }: any) {
+function StoppedDetailView({ stats, onBack, selectedSecteur = '' }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
@@ -1564,7 +1730,7 @@ function StoppedDetailView({ stats, onBack }: any) {
     setSelectedQuartier(q);
     setLoadingSubscribers(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/subscribers?quartier=${q.id}&etat=20`);
+      const res = await fetch(buildSubscribersUrl(q.id, { etat: '20', secteur: selectedSecteur }));
       const data = await res.json();
       setQuartierSubscribers(data);
     } catch (e) {
@@ -1964,7 +2130,7 @@ function StoppedDetailView({ stats, onBack }: any) {
   );
 }
 
-function NoMeterDetailView({ stats, onBack }: any) {
+function NoMeterDetailView({ stats, onBack, selectedSecteur = '' }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
@@ -1974,7 +2140,7 @@ function NoMeterDetailView({ stats, onBack }: any) {
     setSelectedQuartier(q);
     setLoadingSubscribers(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/subscribers?quartier=${q.id}&etat=30`);
+      const res = await fetch(buildSubscribersUrl(q.id, { etat: '30', secteur: selectedSecteur }));
       const data = await res.json();
       setQuartierSubscribers(data);
     } catch (e) {
@@ -5021,7 +5187,18 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
 
 const NUMERIC_SORT_KEYS = new Set(['montant_creance', 'nombre_creance']);
 
-function CreancesAbonnesView({ onBack }: any) {
+function CreancesAbonnesView({
+  onBack,
+  selectedSecteur = '',
+  sectors = [],
+  uniteLabel = '',
+  onSecteurChange,
+  sectorsLoading = false,
+}: any) {
+  const secteurLabel = selectedSecteur
+    ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : null;
+
   // ─── Raw data from API ───────────────────────────────────────────
   const [allSubscribers, setAllSubscribers] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
@@ -5057,12 +5234,16 @@ function CreancesAbonnesView({ onBack }: any) {
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(n).replace(/[\u202F\u00A0]/g, ' ') + " DA";
 
-  // Load all data once
   const loadData = async () => {
     setDataLoading(true);
     setError(null);
+    setDataLoaded(false);
+    setResults(null);
+    setAllSubscribers([]);
     try {
-      const res = await fetch("http://127.0.0.1:8000/creances_abonnes");
+      const url = new URL('http://127.0.0.1:8000/creances_abonnes');
+      appendSecteurParam(url, selectedSecteur);
+      const res = await fetch(url.toString());
       const data = await res.json();
       if (data.error) {
         setError(data.error);
@@ -5077,7 +5258,7 @@ function CreancesAbonnesView({ onBack }: any) {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [selectedSecteur]);
 
   // ─── Day helper ──────────────────────────────────────────────────
   const daysSince = (raw: string | null): number | null => {
@@ -6206,18 +6387,46 @@ function CreancesAbonnesView({ onBack }: any) {
         >
           <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
         </button>
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <h2 className="text-3xl font-black tracking-tight text-[#101828]">Créances Abonnés</h2>
             <p className="text-sm text-[#667085] mt-1 font-medium">
-              Établissez une liste nominative des abonnés créanciers en configurant vos critères de filtrage
+              {secteurLabel
+                ? `Créanciers du centre ${secteurLabel} — filtres nominatifs ci-dessous`
+                : 'Liste nominative des abonnés créanciers — toute l\'unité'}
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-[#98A2B3]">
-            {dataLoaded && <span className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">{allSubscribers.length} créanciers chargés</span>}
+          <div className="flex flex-wrap items-center gap-3">
+            <SecteurDropdown
+              sectors={sectors}
+              selectedSecteur={selectedSecteur}
+              onSelect={(code: string) => onSecteurChange?.(code)}
+              uniteLabel={uniteLabel}
+              loading={sectorsLoading}
+            />
+            {dataLoaded && !dataLoading && (
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-full border border-emerald-100">
+                {allSubscribers.length} créancier{allSubscribers.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            {dataLoading && (
+              <span className="text-xs font-bold text-[#667085] bg-[#F9FAFB] px-3 py-2 rounded-full border border-[#E4E7EC]">
+                Chargement…
+              </span>
+            )}
           </div>
         </div>
       </div>
+
+      {secteurLabel && !dataLoading && (
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE] no-print">
+          <MapPin size={16} className="shrink-0" />
+          <span>
+            Données limitées au centre <strong className="font-black">{secteurLabel}</strong>
+            {uniteLabel ? ` (${uniteLabel})` : ''}. Changez de centre pour recharger la liste.
+          </span>
+        </div>
+      )}
 
       {/* ── Filter Panel ─────────────────────────────────────────────── */}
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
@@ -7465,7 +7674,18 @@ const groupTotals = (g: InstitGroup) => ({
   factures: g.rows.reduce((a, r) => a + (r.nombre_creance || 0), 0),
 });
 
-function CreancesInstitutionsView({ onBack }: any) {
+function CreancesInstitutionsView({
+  onBack,
+  selectedSecteur = '',
+  sectors = [],
+  uniteLabel = '',
+  onSecteurChange,
+  sectorsLoading = false,
+}: any) {
+  const secteurLabel = selectedSecteur
+    ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : null;
+
   const [rows, setRows] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -7510,8 +7730,15 @@ function CreancesInstitutionsView({ onBack }: any) {
   const loadData = async () => {
     setDataLoading(true);
     setError(null);
+    setRows([]);
+    setSelectedNumabsInst([]);
+    setCombinationResults([]);
+    setCombinationTruncated(false);
+    setCombinationMessage(null);
     try {
-      const res = await fetch('http://127.0.0.1:8000/creances_institutions');
+      const url = new URL('http://127.0.0.1:8000/creances_institutions');
+      appendSecteurParam(url, selectedSecteur);
+      const res = await fetch(url.toString());
       if (res.status === 404) {
         setError(
           'Route API introuvable (404). Fermez la fenêtre « EPEOR Backend » et relancez start.bat pour charger la dernière version du serveur.'
@@ -7537,7 +7764,7 @@ function CreancesInstitutionsView({ onBack }: any) {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [selectedSecteur]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -9180,14 +9407,45 @@ function CreancesInstitutionsView({ onBack }: any) {
         >
           <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
         </button>
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <h2 className="text-3xl font-black tracking-tight text-[#101828]">Créance institutions</h2>
             <p className="text-sm text-[#667085] mt-1 font-medium">
-              Créances des organismes payeurs liées aux abonnés institutionnels (factures impayées)
+              {secteurLabel
+                ? `Créances institutionnelles du centre ${secteurLabel}`
+                : 'Créances des organismes payeurs — toute l\'unité (factures impayées)'}
             </p>
           </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <SecteurDropdown
+              sectors={sectors}
+              selectedSecteur={selectedSecteur}
+              onSelect={(code: string) => onSecteurChange?.(code)}
+              uniteLabel={uniteLabel}
+              loading={sectorsLoading}
+            />
+            {!dataLoading && rows.length > 0 && (
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-full border border-emerald-100">
+                {rows.length} lien{rows.length !== 1 ? 's' : ''} institutionnel{rows.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            {dataLoading && (
+              <span className="text-xs font-bold text-[#667085] bg-[#F9FAFB] px-3 py-2 rounded-full border border-[#E4E7EC]">
+                Chargement…
+              </span>
+            )}
+          </div>
         </div>
+
+        {secteurLabel && !dataLoading && (
+          <div className="flex items-center gap-3 mt-6 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE]">
+            <MapPin size={16} className="shrink-0" />
+            <span>
+              Données limitées au centre <strong className="font-black">{secteurLabel}</strong>
+              {uniteLabel ? ` (${uniteLabel})` : ''}. Changez de centre pour recharger le tableau.
+            </span>
+          </div>
+        )}
 
         <div className="mt-6 p-5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-2xl">
           <p className="text-xs font-black text-[#344054] uppercase tracking-wide mb-1">

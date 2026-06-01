@@ -235,8 +235,65 @@ def build_invoice_indexes():
     print(f"[SUCCESS] Invoice indexes ready in {time.time()-t0:.2f}s")
 
 
-def compute_dashboard_stats():
-    """Precomputes dashboard KPIs (called once when core tables are loaded)."""
+def _secteur_numabs_set(secteur: str | None):
+    """NUMAB (upper) des abonnés du secteur/centre, ou None = toute l'unité."""
+    if not secteur or not str(secteur).strip():
+        return None
+    secteur_zfill = str(secteur).strip().zfill(2)
+    return {
+        str(a.get('NUMAB', '')).strip().upper()
+        for a in MEM_ABONNES
+        if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
+    }
+
+
+def _centre_code_zfill(secteur: str | None) -> str | None:
+    if not secteur or not str(secteur).strip():
+        return None
+    return str(secteur).strip().zfill(2)
+
+
+def _commune_codcoms_for_centre(secteur: str | None) -> set[str] | None:
+    """CODCOM des communes rattachées au centre (COMMUNE.SECTEUR = code centre TABCODE)."""
+    centre = _centre_code_zfill(secteur)
+    if centre is None:
+        return None
+    return {
+        codcom
+        for codcom, r in communes_by_code.items()
+        if str(r.get('SECTEUR', '')).strip().zfill(2) == centre
+    }
+
+
+def _commune_map_for_centre(secteur: str | None) -> dict[str, str]:
+    """CODCOM -> libellé commune pour un centre, ou toutes les communes si secteur absent."""
+    centre = _centre_code_zfill(secteur)
+    if centre is None:
+        return {
+            codcom: str(r.get('LIBCOM', '')).strip()
+            for codcom, r in communes_by_code.items()
+        }
+    return {
+        codcom: str(r.get('LIBCOM', '')).strip()
+        for codcom, r in communes_by_code.items()
+        if str(r.get('SECTEUR', '')).strip().zfill(2) == centre
+    }
+
+
+def _abonne_codcom(numab: str) -> str:
+    prefix = str(numab or '').strip()[:2]
+    return quartier_to_commune.get(prefix, '02')
+
+
+def _abonne_in_centre(numab: str, allowed_communes: set[str] | None) -> bool:
+    if allowed_communes is None:
+        return True
+    return _abonne_codcom(numab) in allowed_communes
+
+
+def compute_dashboard_stats(secteur: str | None = None):
+    """KPIs tableau de bord ; secteur optionnel = filtre par centre (COMMUNE.SECTEUR)."""
+    allowed_communes = _commune_codcoms_for_centre(secteur) if is_db_ready else None
     mapping = {}
     for code_affec, r in tabcodes_by_code.items():
         if code_affec.startswith('T'):
@@ -256,8 +313,10 @@ def compute_dashboard_stats():
     abonment_state_map = {}
     resigned = stopped = no_meter = 0
     for record in MEM_ABONMENTS:
-        etat = str(record.get('ETATCPT', '')).strip()
         numab = str(record.get('NUMAB', '')).strip()
+        if not _abonne_in_centre(numab, allowed_communes):
+            continue
+        etat = str(record.get('ETATCPT', '')).strip()
         abonment_state_map[numab] = etat
         if etat == '40':
             resigned += 1
@@ -272,13 +331,12 @@ def compute_dashboard_stats():
 
     type_counts = {}
     commune_counts = {}
-
-    commune_map = {}
-    for codcom, r in communes_by_code.items():
-        if str(r.get('SECTEUR', '')).strip().zfill(2) == '02':
-            commune_map[codcom] = r.get('LIBCOM', '')
+    commune_map = _commune_map_for_centre(secteur)
 
     for record in MEM_ABONNES:
+        numab = str(record.get('NUMAB', '')).strip()
+        if not _abonne_in_centre(numab, allowed_communes):
+            continue
         t = str(record.get('TYPABON', '')).strip()
         if t == '':
             continue
@@ -288,9 +346,9 @@ def compute_dashboard_stats():
             type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
         type_counts[t]["total"] += 1
 
-        numab = str(record.get('NUMAB', '')).strip()
-        prefix = numab[:2]
-        codcom = quartier_to_commune.get(prefix, '02')
+        codcom = _abonne_codcom(numab)
+        if codcom not in commune_map:
+            continue
 
         if codcom not in commune_counts:
             commune_counts[codcom] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}}
@@ -311,6 +369,7 @@ def compute_dashboard_stats():
             commune_counts[codcom]["no_meter"] += 1
             type_counts[t]["no_meter"] += 1
 
+        prefix = numab[:2]
         if prefix not in commune_counts[codcom]["quartiers"]:
             commune_counts[codcom]["quartiers"][prefix] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
         commune_counts[codcom]["quartiers"][prefix]["total"] += 1
@@ -320,6 +379,13 @@ def compute_dashboard_stats():
             commune_counts[codcom]["quartiers"][prefix]["stopped"] += 1
         if is_no_meter:
             commune_counts[codcom]["quartiers"][prefix]["no_meter"] += 1
+
+    # Sans filtre centre : n'afficher que les communes ayant des abonnés
+    if allowed_communes is None:
+        commune_map = {
+            codcom: commune_map.get(codcom) or communes_by_code.get(codcom, {}).get('LIBCOM', f'Commune {codcom}')
+            for codcom in commune_counts
+        }
 
     total = stats["total_subscribers"]
 
@@ -340,6 +406,11 @@ def compute_dashboard_stats():
     stats["subscriber_communes"] = []
     for codcom, label in commune_map.items():
         counts = commune_counts.get(codcom, {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}})
+        if allowed_communes is not None and counts["total"] == 0:
+            # Centre choisi : garder les communes du centre même sans abonné
+            pass
+        elif allowed_communes is None and counts["total"] == 0:
+            continue
         formatted_quartiers = []
         for q_id, q_counts in counts.get("quartiers", {}).items():
             q_label = quartier_names.get(q_id, f"Quartier {q_id}")
@@ -355,7 +426,7 @@ def compute_dashboard_stats():
         formatted_quartiers.sort(key=lambda x: x['value'], reverse=True)
         stats["subscriber_communes"].append({
             "id": codcom,
-            "name": label,
+            "name": label or f"Commune {codcom}",
             "value": counts["total"],
             "resigned": counts["resigned"],
             "stopped": counts["stopped"],
@@ -383,7 +454,13 @@ def compute_dashboard_stats():
     count = 0
     paid_count = 0
 
+    def _facture_in_scope(r):
+        numab_r = str(r.get('NUMAB', '') or '').strip()
+        return _abonne_in_centre(numab_r, allowed_communes)
+
     for r in MEM_FACTURES:
+        if not _facture_in_scope(r):
+            continue
         tp = str(r.get('TYPE') or '').strip()
         monttc = float(r.get('MONTTC') or 0)
         df = str(r.get('DATFACT') or '').strip()
@@ -396,6 +473,8 @@ def compute_dashboard_stats():
                 latest_period = p
 
     for r in MEM_AVOIRS:
+        if not _facture_in_scope(r):
+            continue
         tp = str(r.get('TYPE') or '').strip()
         monttc = float(r.get('MONTTC') or 0)
         df = str(r.get('DATFACT') or '').strip()
@@ -408,6 +487,8 @@ def compute_dashboard_stats():
                 latest_period = p
 
     for r in MEM_FACTURES:
+        if not _facture_in_scope(r):
+            continue
         tp = str(r.get('TYPE') or '').strip()
         monttc = float(r.get('MONTTC') or 0)
         df = str(r.get('DATFACT') or '').strip()
@@ -415,6 +496,8 @@ def compute_dashboard_stats():
             total_rev += monttc
 
     for r in MEM_AVOIRS:
+        if not _facture_in_scope(r):
+            continue
         tp = str(r.get('TYPE') or '').strip()
         monttc = float(r.get('MONTTC') or 0)
         df = str(r.get('DATFACT') or '').strip()
@@ -772,7 +855,7 @@ def resolve_rue_adresse(abonne_rec) -> str:
 # API HANDLERS (Blazing Fast In-Memory Processing)
 # -------------------------------------------------------------
 @app.get("/stats")
-def get_stats():
+def get_stats(secteur: str = None):
     if not is_db_ready or cached_dashboard_stats is None:
         msg = db_loading_status or "Chargement en cours..."
         is_error = (
@@ -787,7 +870,19 @@ def get_stats():
             "data_dir": DATA_DIR,
             "can_reload": True,
         }
-    if len(MEM_ABONNES) == 0 or cached_dashboard_stats.get("total_subscribers", 0) == 0:
+    if len(MEM_ABONNES) == 0:
+        return {
+            "status": "error",
+            "ready": False,
+            "error": db_loading_status or f"Aucune donnée dans {DATA_DIR}. Redémarrez le backend.",
+            "message": db_loading_status,
+            "data_dir": DATA_DIR,
+            "can_reload": True,
+        }
+    if secteur and str(secteur).strip():
+        scoped = compute_dashboard_stats(secteur=str(secteur).strip())
+        return {**scoped, "ready": True, "data_dir": DATA_DIR, "secteur": str(secteur).strip()}
+    if cached_dashboard_stats.get("total_subscribers", 0) == 0:
         return {
             "status": "error",
             "ready": False,
@@ -939,15 +1034,7 @@ def get_subscribers(quartier: str = None, etat: str = None, secteur: str = None)
             elif code_affec.startswith('E'):
                 etat_map[code_affec[1:]] = libelle
 
-        # Build NUMAB set for secteur filter
-        secteur_numabs = None
-        if secteur and secteur.strip():
-            secteur_zfill = secteur.strip().zfill(2)
-            secteur_numabs = {
-                str(a.get('NUMAB', '')).strip().upper()
-                for a in MEM_ABONNES
-                if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
-            }
+        allowed_communes = _commune_codcoms_for_centre(secteur)
 
         results = []
         for record in MEM_ABONNES:
@@ -958,8 +1045,8 @@ def get_subscribers(quartier: str = None, etat: str = None, secteur: str = None)
             if prefix != quartier:
                 continue
 
-            # Filter by Secteur
-            if secteur_numabs is not None and numab.upper() not in secteur_numabs:
+            # Filtre centre : commune géographique (COMMUNE.SECTEUR)
+            if not _abonne_in_centre(numab, allowed_communes):
                 continue
                 
             # Filter by ETATCPT
@@ -1043,18 +1130,6 @@ def get_official_ca(period_name: str):
     except:
         pass
     return None
-
-
-def _secteur_numabs_set(secteur: str | None):
-    """NUMAB (upper) des abonnés du secteur/centre, ou None = toute l'unité."""
-    if not secteur or not str(secteur).strip():
-        return None
-    secteur_zfill = str(secteur).strip().zfill(2)
-    return {
-        str(a.get('NUMAB', '')).strip().upper()
-        for a in MEM_ABONNES
-        if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
-    }
 
 
 @app.get("/creance")
@@ -1965,15 +2040,7 @@ def get_abonne_api(numab: str):
 @app.get("/creances_abonnes")
 def get_creances_abonnes(secteur: str = None):
     try:
-        # Build NUMAB set for secteur filter
-        secteur_numabs = None
-        if secteur and secteur.strip():
-            secteur_zfill = secteur.strip().zfill(2)
-            secteur_numabs = {
-                str(a.get('NUMAB', '')).strip().upper()
-                for a in MEM_ABONNES
-                if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
-            }
+        secteur_numabs = _secteur_numabs_set(secteur)
         date_arrete = _creance_date_arrete()
         debtors = {}
         tournees_set = set()
@@ -2079,16 +2146,7 @@ def get_creances_institutions(only_with_creance: bool = True, secteur: str = Non
         return {"status": "loading", "message": db_loading_status, "ready": False}
     try:
         date_arrete = _creance_date_arrete()
-
-        # Build secteur NUMAB filter
-        secteur_numabs = None
-        if secteur and secteur.strip():
-            secteur_zfill = secteur.strip().zfill(2)
-            secteur_numabs = {
-                str(a.get('NUMAB', '')).strip().upper()
-                for a in MEM_ABONNES
-                if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
-            }
+        secteur_numabs = _secteur_numabs_set(secteur)
 
         abinstit_numabs = set()
         for link in MEM_ABINSTIT:
@@ -2148,6 +2206,8 @@ def get_creances_institutions(only_with_creance: bool = True, secteur: str = Non
             if not numab:
                 continue
             numab_key = numab.upper()
+            if numab_key not in abinstit_numabs:
+                continue
 
             codinstit = str(link.get('CODINSTIT', '') or '').strip()
             unite_link = str(link.get('UNITE', '') or '').strip()

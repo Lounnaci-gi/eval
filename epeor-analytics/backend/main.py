@@ -832,6 +832,8 @@ def reload_data_endpoint():
 @app.get("/api/unites_settings")
 def get_unites_settings():
     try:
+        if not is_db_ready:
+            return []
         unites_list = []
         for r_unite in MEM_UNITES:
             code_unite = str(r_unite.get('UNITE', '')).strip()
@@ -1042,6 +1044,19 @@ def get_official_ca(period_name: str):
         pass
     return None
 
+
+def _secteur_numabs_set(secteur: str | None):
+    """NUMAB (upper) des abonnés du secteur/centre, ou None = toute l'unité."""
+    if not secteur or not str(secteur).strip():
+        return None
+    secteur_zfill = str(secteur).strip().zfill(2)
+    return {
+        str(a.get('NUMAB', '')).strip().upper()
+        for a in MEM_ABONNES
+        if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
+    }
+
+
 @app.get("/creance")
 def get_creance(
     start_date: str = None,
@@ -1080,15 +1095,7 @@ def get_creance(
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
         target_date = end_date if end_date else '99991231'
 
-        # Build NUMAB set for secteur filter
-        secteur_numabs = None
-        if secteur and secteur.strip():
-            secteur_zfill = secteur.strip().zfill(2)
-            secteur_numabs = {
-                str(a.get('NUMAB', '')).strip().upper()
-                for a in MEM_ABONNES
-                if str(a.get('SECTEUR', '')).strip().zfill(2) == secteur_zfill
-            }
+        secteur_numabs = _secteur_numabs_set(secteur)
 
         # Chain all records in memory
         records = itertools.chain(
@@ -1471,6 +1478,10 @@ def get_creance(
             )
 
             for r, is_avoir in records_hist:
+                numab_r = str(r.get('NUMAB', '') or '').strip().upper()
+                if secteur_numabs is not None and numab_r not in secteur_numabs:
+                    continue
+
                 datsaisie = str(r.get('DATSAISIE') or '').strip()
                 datreg = str(r.get('DATREG') or '').strip()
                 tp = str(r.get('TYPE') or '').strip()
@@ -1564,11 +1575,13 @@ def get_creance(
     except Exception as e:
         return {"error": str(e)}
 
+
 @app.get("/creance_detaillee")
-def get_creance_detaillee(date_arrete: str):
+def get_creance_detaillee(date_arrete: str, secteur: str = None):
     try:
         stats = {}
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
+        secteur_numabs = _secteur_numabs_set(secteur)
 
         # Chain all records in memory
         records = itertools.chain(
@@ -1577,6 +1590,10 @@ def get_creance_detaillee(date_arrete: str):
         )
 
         for r, is_avoir in records:
+            numab_r = str(r.get('NUMAB', '') or '').strip().upper()
+            if secteur_numabs is not None and numab_r not in secteur_numabs:
+                continue
+
             datsaisie = str(r.get('DATSAISIE') or '').strip()
             datreg = str(r.get('DATREG') or '').strip()
             
@@ -2218,10 +2235,11 @@ def get_creances_institutions(only_with_creance: bool = True, secteur: str = Non
 
 
 @app.get("/creance_subscribers")
-def get_creance_subscribers(start_date: str = None, end_date: str = None, target_name: str = None, column: str = None):
+def get_creance_subscribers(start_date: str = None, end_date: str = None, target_name: str = None, column: str = None, secteur: str = None):
     try:
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
         target_date = end_date if end_date else '99991231'
+        secteur_numabs = _secteur_numabs_set(secteur)
 
         records = itertools.chain(
             ((r, False) for r in MEM_FACTURES),
@@ -2231,6 +2249,10 @@ def get_creance_subscribers(start_date: str = None, end_date: str = None, target
         subscribers_data = {} # numab -> {numab, name, type_abonne, commune, amount, count}
 
         for r, is_avoir in records:
+            numab_r = str(r.get('NUMAB', '') or '').strip().upper()
+            if secteur_numabs is not None and numab_r not in secteur_numabs:
+                continue
+
             datsaisie = str(r.get('DATSAISIE') or '').strip()
             datreg  = str(r.get('DATREG') or '').strip()
             

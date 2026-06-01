@@ -259,11 +259,13 @@ function SecteurDropdown({
   selectedSecteur,
   onSelect,
   uniteLabel,
+  loading = false,
 }: {
   sectors: { code: string; libelle: string }[];
   selectedSecteur: string;
   onSelect: (code: string) => void;
   uniteLabel?: string;
+  loading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -277,16 +279,19 @@ function SecteurDropdown({
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const currentLabel = selectedSecteur
-    ? (sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
-    : `Toute l'Unité${uniteLabel ? ` (${uniteLabel})` : ''}`;
+  const currentLabel = loading
+    ? 'Chargement des centres…'
+    : selectedSecteur
+      ? (sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+      : `Tous les centres${uniteLabel ? ` — ${uniteLabel}` : ''}`;
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 pl-4 pr-3 py-2.5 bg-white border border-[#E4E7EC] rounded-2xl text-xs font-bold text-[#344054] hover:border-[#0D83DE] hover:text-[#0D83DE] transition-all shadow-sm min-w-[200px] justify-between"
+        disabled={loading}
+        onClick={() => !loading && setOpen(o => !o)}
+        className="flex items-center gap-2 pl-4 pr-3 py-2.5 bg-white border border-[#E4E7EC] rounded-2xl text-xs font-bold text-[#344054] hover:border-[#0D83DE] hover:text-[#0D83DE] transition-all shadow-sm min-w-[200px] justify-between disabled:opacity-60 disabled:cursor-wait"
       >
         <span className="flex items-center gap-2">
           <MapPin size={14} className={selectedSecteur ? 'text-[#0D83DE]' : 'text-[#98A2B3]'} />
@@ -310,9 +315,14 @@ function SecteurDropdown({
             <span className="w-5 h-5 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-[9px] font-black shrink-0">
               ✦
             </span>
-            Toute l'Unité{uniteLabel ? ` — ${uniteLabel}` : ''}
+            Tous les centres{uniteLabel ? ` — ${uniteLabel}` : ''}
           </button>
           <div className="border-t border-[#F2F4F7]" />
+          {sectors.length === 0 && !loading && (
+            <p className="px-4 py-3 text-xs text-[#667085] font-medium">
+              Aucun centre chargé. Attendez la fin du chargement des données ou ouvrez Paramètres.
+            </p>
+          )}
           {/* Individual sectors */}
           {sectors.map(s => (
             <button
@@ -337,6 +347,11 @@ function SecteurDropdown({
   );
 }
 
+function appendSecteurParam(url: URL, secteur: string) {
+  const code = (secteur || '').trim();
+  if (code) url.searchParams.set('secteur', code);
+}
+
 export default function Dashboard() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
@@ -357,18 +372,37 @@ export default function Dashboard() {
   const [selectedSecteur, setSelectedSecteur] = useState('');
   const [sectors, setSectors] = useState<{ code: string; libelle: string }[]>([]);
   const [uniteLabel, setUniteLabel] = useState('');
+  const [sectorsLoading, setSectorsLoading] = useState(false);
 
+  const loadSectors = async () => {
+    setSectorsLoading(true);
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/unites_settings');
+      const data = await res.json();
+      if (data?.error) return;
+      if (!Array.isArray(data) || data.length === 0) return;
+      const unite = data.find((u: any) => (u.sectors?.length ?? 0) > 0) ?? data[0];
+      setUniteLabel(String(unite.denom || '').trim());
+      const list = (unite.sectors || [])
+        .map((s: any) => ({
+          code: String(s.code ?? '').trim(),
+          libelle: String(s.libelle ?? '').trim(),
+        }))
+        .filter((s: { code: string }) => s.code);
+      setSectors(list);
+    } catch {
+      /* backend indisponible */
+    } finally {
+      setSectorsLoading(false);
+    }
+  };
+
+  // Les centres viennent de TABCODE : disponibles seulement après chargement DBF (pas au 1er fetch)
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/unites_settings')
-      .then(r => r.json())
-      .then((data: any[]) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setUniteLabel(data[0].denom || '');
-          setSectors((data[0].sectors || []).map((s: any) => ({ code: s.code, libelle: s.libelle })));
-        }
-      })
-      .catch(() => {});
-  }, []);
+    if (stats?.ready) {
+      loadSectors();
+    }
+  }, [stats?.ready]);
 
   const requestDataReload = async () => {
     setReloadPending(true);
@@ -1034,19 +1068,22 @@ export default function Dashboard() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                   <h2 className="text-3xl font-black tracking-tight text-[#101828]">Analyses Financières</h2>
-                  <p className="text-sm text-[#667085] mt-1 font-medium">Facturation, recouvrement et ventilation granulaire du réseau</p>
+                  <p className="text-sm text-[#667085] mt-1 font-medium">
+                    {selectedSecteur
+                      ? `Calculs limités au centre : ${sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur}`
+                      : 'Facturation, recouvrement et ventilation — toute l\'unité'}
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  {/* Secteur dropdown */}
-                  {sectors.length > 0 && (
-                    <SecteurDropdown
-                      sectors={sectors}
-                      selectedSecteur={selectedSecteur}
-                      onSelect={(code) => { setSelectedSecteur(code); setCreanceData(null); }}
-                      uniteLabel={uniteLabel}
-                    />
-                  )}
+                  {/* Centre (secteur) */}
+                  <SecteurDropdown
+                    sectors={sectors}
+                    selectedSecteur={selectedSecteur}
+                    onSelect={(code) => { setSelectedSecteur(code); setCreanceData(null); }}
+                    uniteLabel={uniteLabel}
+                    loading={sectorsLoading || !stats?.ready}
+                  />
                   {/* Modern Segmented Navigation Tabs */}
                   <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC] shadow-sm">
                     {[
@@ -1082,6 +1119,8 @@ export default function Dashboard() {
                 }}
                 onCalcDateChange={(s: string, e: string) => setCalcDateRange({start: s, end: e})}
                 selectedSecteur={selectedSecteur}
+                sectors={sectors}
+                uniteLabel={uniteLabel}
               />
             ) : currentView === 'repartition' ? (
               <CreanceRepartitionView
@@ -1091,11 +1130,15 @@ export default function Dashboard() {
                 onGoToCalculation={() => setCurrentView('creance')}
                 startDate={calcDateRange.start}
                 endDate={calcDateRange.end}
+                selectedSecteur={selectedSecteur}
+                sectors={sectors}
               />
             ) : currentView === 'commune' ? (
               <CreanceCommuneView
                 data={creanceData}
                 onGoToCalculation={() => setCurrentView('creance')}
+                selectedSecteur={selectedSecteur}
+                sectors={sectors}
               />
             ) : null}
           </div>
@@ -3005,9 +3048,12 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   );
 }
 
-function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartition, onCalcDateChange }: any) {
+function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartition, onCalcDateChange, selectedSecteur = '', sectors = [], uniteLabel = '' }: any) {
 
   const data = creanceData;
+  const secteurLabel = selectedSecteur
+    ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : null;
   const setData = setCreanceData;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -3339,6 +3385,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
       const url = new URL("http://127.0.0.1:8000/creance");
       if (start) url.searchParams.append("start_date", start.replace(/-/g, ''));
       if (end) url.searchParams.append("end_date", end.replace(/-/g, ''));
+      appendSecteurParam(url, selectedSecteur);
       url.searchParams.append("hist_type", histType);
       if (histType === 'years') {
         url.searchParams.append("hist_start", histStartYear);
@@ -3359,7 +3406,10 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
       setCalcStep("Calcul de la ventilation par type d'abonné...");
       setCalcProgress(60);
 
-      const res2 = await fetch(`http://127.0.0.1:8000/creance_detaillee?date_arrete=${ventDate.replace(/-/g, '')}`);
+      const ventUrl = new URL('http://127.0.0.1:8000/creance_detaillee');
+      ventUrl.searchParams.set('date_arrete', ventDate.replace(/-/g, ''));
+      appendSecteurParam(ventUrl, selectedSecteur);
+      const res2 = await fetch(ventUrl.toString());
       setCalcStep("Répartition des créances par commune...");
       setCalcProgress(80);
 
@@ -3411,10 +3461,16 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
         end = dateRange.end.replace(/-/g, '');
       }
 
+      // 12 derniers mois : date d'arrêt = fin de période du dernier calcul
+      if (histType === 'monthly_12' && !end) {
+        const ventEnd = lastVentDate || dateRange.end;
+        if (ventEnd) end = ventEnd.replace(/-/g, '');
+      }
+
       const url = new URL("http://127.0.0.1:8000/creance");
       if (start) url.searchParams.append("start_date", start);
       if (end) url.searchParams.append("end_date", end);
-      
+      appendSecteurParam(url, selectedSecteur);
       url.searchParams.append("hist_type", histType);
       if (histType === 'years') {
         url.searchParams.append("hist_start", histStartYear);
@@ -3574,11 +3630,12 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
         </div>`;
     };
 
+    const centreSuffix = secteurLabel ? ` — centre ${secteurLabel}` : '';
     const periodLabel = histType === 'monthly_12'
-      ? `12 derniers mois (arrêtés au ${lastVentDate ? lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1') : '...'})`
+      ? `12 derniers mois (arrêtés au ${lastVentDate ? lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1') : '...'})${centreSuffix}`
       : histType === 'years'
-        ? `${histStartYear} → ${histEndYear}`
-        : `${formatMonthFr(histStartMonth)} ${histStartYear} → ${formatMonthFr(histEndMonth)} ${histEndYear}`;
+        ? `${histStartYear} → ${histEndYear}${centreSuffix}`
+        : `${formatMonthFr(histStartMonth)} ${histStartYear} → ${formatMonthFr(histEndMonth)} ${histEndYear}${centreSuffix}`;
 
     const today = new Date();
     const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
@@ -3633,6 +3690,15 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
 
   return (
     <div className="space-y-10">
+      {secteurLabel && (
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE]">
+          <MapPin size={16} className="shrink-0" />
+          <span>
+            Périmètre : centre <strong className="font-black">{secteurLabel}</strong>
+            {uniteLabel ? ` — unité ${uniteLabel}` : ''}. Relancez <strong>Calculer</strong> après un changement de centre.
+          </span>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
@@ -4078,8 +4144,8 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
                 </h4>
                 <p className="text-xs text-[#667085] mt-0.5 font-medium">
                   {histType === 'monthly_12' 
-                    ? `Évolution mensuelle des indicateurs sur les 12 mois précédant la date d'arrêt (${lastVentDate ? formatDate(lastVentDate) : '...'})`
-                    : `Évolution des indicateurs financiers sur la période sélectionnée.`}
+                    ? `Évolution mensuelle sur les 12 mois précédant le ${lastVentDate ? formatDate(lastVentDate) : '...'}${secteurLabel ? ` — centre ${secteurLabel}` : ' — toute l\'unité'}`
+                    : `Évolution sur la période sélectionnée${secteurLabel ? ` — centre ${secteurLabel}` : ' — toute l\'unité'}.`}
                 </p>
               </div>
 
@@ -4323,7 +4389,7 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
   );
 }
 
-function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClose }: any) {
+function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClose, selectedSecteur = '' }: any) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -4349,6 +4415,7 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
     if (endDate) url.searchParams.append('end_date', endDate);
     if (targetName) url.searchParams.append('target_name', targetName);
     if (column) url.searchParams.append('column', column);
+    appendSecteurParam(url, selectedSecteur);
     fetch(url.toString())
       .then(r => r.json())
       .then(data => {
@@ -4356,7 +4423,7 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
         setLoading(false);
       })
       .catch(() => { setError('Erreur de connexion au serveur.'); setLoading(false); });
-  }, [targetName, column, startDate, endDate]);
+  }, [targetName, column, startDate, endDate, selectedSecteur]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -4531,9 +4598,12 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
   );
 }
 
-function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter, onGoToCalculation, startDate, endDate }: any) {
+function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter, onGoToCalculation, startDate, endDate, selectedSecteur = '', sectors = [] }: any) {
   const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [drillDown, setDrillDown] = useState<{targetName: string, column: string} | null>(null);
+  const secteurLabel = selectedSecteur
+    ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : null;
 
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -4578,6 +4648,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
         column={drillDown.column}
         startDate={startDate}
         endDate={endDate}
+        selectedSecteur={selectedSecteur}
         onClose={() => setDrillDown(null)}
       />
     );
@@ -4589,7 +4660,11 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition par Type d'Abonné</h3>
-          <p className="text-sm text-[#667085] mt-1 font-medium">Cliquez sur un montant pour voir le détail des abonnés concernés</p>
+          <p className="text-sm text-[#667085] mt-1 font-medium">
+            {secteurLabel
+              ? `Centre ${secteurLabel} — cliquez sur un montant pour le détail abonnés`
+              : "Cliquez sur un montant pour voir le détail des abonnés concernés"}
+          </p>
         </div>
         
         {/* Modern Tab Filters */}
@@ -4752,9 +4827,12 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
 }
 
 
-function CreanceCommuneView({ data, onGoToCalculation }: any) {
+function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sectors = [] }: any) {
   const [collapsedCommunes, setCollapsedCommunes] = useState<string[]>([]);
   const [isTableCollapsed, setIsTableCollapsed] = useState(false);
+  const secteurLabel = selectedSecteur
+    ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : null;
 
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -4803,7 +4881,11 @@ function CreanceCommuneView({ data, onGoToCalculation }: any) {
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition par Commune</h3>
-          <p className="text-sm text-[#667085] mt-1 font-medium">Détails du Chiffre d'Affaire Eau et Prestation par commune</p>
+          <p className="text-sm text-[#667085] mt-1 font-medium">
+            {secteurLabel
+              ? `Données du centre ${secteurLabel} (même périmètre que la synthèse)`
+              : "Détails du Chiffre d'Affaire Eau et Prestation par commune — toute l'unité"}
+          </p>
         </div>
         
         <div className="flex flex-wrap items-center gap-2.5">
@@ -7383,7 +7465,7 @@ const groupTotals = (g: InstitGroup) => ({
   factures: g.rows.reduce((a, r) => a + (r.nombre_creance || 0), 0),
 });
 
-function CreancesInstitutionsView({ onBack }: { onBack: () => void }) {
+function CreancesInstitutionsView({ onBack }: any) {
   const [rows, setRows] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

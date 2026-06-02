@@ -54,7 +54,9 @@ npm run dev
 
 | Variable | Description | Défaut |
 |----------|-------------|--------|
-| `EPEOR_DATA_DIR` | Dossier des données EPEOR | `d:\epeor` |
+| `EPEOR_DATA_DIR` | Dossier des données EPEOR (prioritaire sur la config UI) | `d:\epeor` |
+
+Le chemin peut aussi être modifié dans **Paramètres → Dossier des données (DBF)** ; il est enregistré dans `backend/epeor_config.json`.
 
 Voir `epeor.env.example`. Le cache binaire (pickle) est créé dans `backend/cache/` au premier chargement ; le premier démarrage peut être long.
 

@@ -75,6 +75,48 @@ function sanitizeUserFacingMessage(message: string | undefined): string {
     .trim();
 }
 
+type DataPathInfo = {
+  data_dir?: string;
+  data_dir_exists?: boolean;
+  primary_source_ready?: boolean;
+  needs_configuration?: boolean;
+  diagnostic?: string;
+};
+
+function isBackendConnectionError(stats: { error?: string } | null): boolean {
+  const err = (stats?.error || "").toLowerCase();
+  return err.includes("contacter") || err.includes("port 8000") || err.includes("réseau");
+}
+
+function isDataPathConfigurationRequired(
+  stats: any | null,
+  dataPathInfo: DataPathInfo | null,
+  backendReachable: boolean
+): boolean {
+  if (!backendReachable) return false;
+  if (dataPathInfo?.needs_configuration === true) return true;
+  if (dataPathInfo?.data_dir_exists === false) return true;
+  const diag = (dataPathInfo?.diagnostic || "").toLowerCase();
+  if (
+    diag.includes("introuvable") ||
+    diag.includes("absent") ||
+    diag.includes("illisible")
+  ) {
+    return true;
+  }
+  if (!stats) return false;
+  const msg = `${stats.message || ""} ${stats.error || ""}`.toLowerCase();
+  if (stats.status !== "error" && !stats.error) return false;
+  return (
+    msg.includes("aucune donnée") ||
+    msg.includes("introuvable") ||
+    msg.includes("référentiel") ||
+    msg.includes("absent") ||
+    msg.includes("epeor_data_dir") ||
+    msg.includes("dossier de données")
+  );
+}
+
 /** Évite les avertissements Recharts quand le conteneur n'a pas encore de taille (flex / onglets). */
 function ChartContainer({ children, className = "h-[350px] w-full min-h-[200px]" }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -381,6 +423,9 @@ export default function Dashboard() {
   const [sectors, setSectors] = useState<{ code: string; libelle: string }[]>([]);
   const [uniteLabel, setUniteLabel] = useState('');
   const [sectorsLoading, setSectorsLoading] = useState(false);
+  const [dataPathInfo, setDataPathInfo] = useState<DataPathInfo | null>(null);
+  const [backendReachable, setBackendReachable] = useState(false);
+  const [showDataPathSetup, setShowDataPathSetup] = useState(false);
 
   const loadSectors = async () => {
     setSectorsLoading(true);
@@ -427,15 +472,33 @@ export default function Dashboard() {
   useEffect(() => {
     let intervalId: any;
 
+    const checkDataPath = () => {
+      fetch("http://127.0.0.1:8000/api/data_dir")
+        .then((res) => {
+          if (!res.ok) throw new Error("Erreur réseau");
+          return res.json();
+        })
+        .then((data) => {
+          setBackendReachable(true);
+          setDataPathInfo(data);
+        })
+        .catch(() => {
+          /* backend indisponible */
+        });
+    };
+
     const checkStats = () => {
+      checkDataPath();
       fetch("http://127.0.0.1:8000/stats")
         .then((res) => {
           if (!res.ok) throw new Error("Erreur réseau");
           return res.json();
         })
         .then((data) => {
+          setBackendReachable(true);
           if (data?.error || data?.status === 'error') {
             setStats({
+              ...data,
               error: data.error || data.message || "Données indisponibles",
               ready: false,
             });
@@ -468,6 +531,12 @@ export default function Dashboard() {
       if (intervalId) clearInterval(intervalId);
     };
   }, []);
+
+  const needsDataPathConfig = isDataPathConfigurationRequired(
+    stats,
+    dataPathInfo,
+    backendReachable
+  );
 
   const getEtatBadge = (etat: string) => {
     switch (etat) {
@@ -517,7 +586,7 @@ export default function Dashboard() {
   const targetSubs = (stats?.stopped_subscribers || 0) + (stats?.no_meter_subscribers || 0);
   const pctCpt2030 = totalSubs > 0 ? (targetSubs / totalSubs) * 100 : 0;
 
-  if (stats?.error) {
+  if (stats?.error && isBackendConnectionError(stats)) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
         <div className="bg-white border border-rose-100 shadow-2xl rounded-[3rem] p-16 flex flex-col items-center gap-6 max-w-md w-full text-center">
@@ -526,6 +595,44 @@ export default function Dashboard() {
           <p className="text-sm text-[#475467] font-medium">{stats.error}</p>
           <p className="text-xs text-[#98A2B3]">Démarrez le backend : port 8000 (voir start.bat ou README)</p>
         </div>
+      </div>
+    );
+  }
+
+  if (needsDataPathConfig || showDataPathSetup) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] text-[#101828]">
+        <div className="border-b border-[#E4E7EC] bg-white shadow-sm">
+          <div className="max-w-4xl mx-auto px-6 py-5 flex items-center gap-4">
+            <div className="w-11 h-11 bg-[#0D83DE] rounded-2xl flex items-center justify-center text-white font-black text-sm">
+              E
+            </div>
+            <div>
+              <h1 className="text-lg font-black tracking-tight">EPEOR Analytics</h1>
+              <p className="text-xs text-[#667085] font-medium">Configuration du dossier de données requise</p>
+            </div>
+          </div>
+        </div>
+        <main className="max-w-4xl mx-auto px-6 py-10">
+          <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-[2rem] text-sm text-amber-950">
+            <p className="font-black mb-1">Dossier de données introuvable ou incomplet</p>
+            <p className="font-medium text-amber-900/90">
+              {sanitizeUserFacingMessage(dataPathInfo?.diagnostic || stats?.message || stats?.error) ||
+                "Indiquez le chemin du dossier contenant les fichiers de données EPEOR, puis appliquez le changement."}
+            </p>
+            {dataPathInfo?.data_dir && (
+              <p className="mt-3 text-xs font-mono text-amber-800/80 bg-white/60 px-3 py-2 rounded-lg border border-amber-100">
+                Chemin actuel : {dataPathInfo.data_dir}
+              </p>
+            )}
+          </div>
+          <SettingsView
+            setupMode
+            showBack={showDataPathSetup}
+            onBack={() => setShowDataPathSetup(false)}
+            onConfigured={() => window.location.reload()}
+          />
+        </main>
       </div>
     );
   }
@@ -585,6 +692,15 @@ export default function Dashboard() {
             >
               {reloadPending ? 'Rechargement…' : 'Relancer le chargement des données'}
             </button>
+            {backendReachable && (
+              <button
+                type="button"
+                onClick={() => setShowDataPathSetup(true)}
+                className="w-full px-6 py-3 bg-white border border-[#D0D5DD] text-[#344054] rounded-2xl text-sm font-black hover:bg-[#F9FAFB] transition-all"
+              >
+                Configurer le dossier de données
+              </button>
+            )}
             <p className="text-[10px] text-[#98A2B3]">
               Ou fermez « EPEOR Backend » et relancez start.bat — vérifiez le dossier de données (variable EPEOR_DATA_DIR)
             </p>
@@ -9919,13 +10035,86 @@ function CreancesInstitutionsView({
   );
 }
 
-function SettingsView({ onBack }: { onBack: () => void }) {
+function SettingsView({
+  onBack,
+  setupMode = false,
+  showBack = false,
+  onConfigured,
+}: {
+  onBack: () => void;
+  setupMode?: boolean;
+  showBack?: boolean;
+  onConfigured?: () => void;
+}) {
   const [unites, setUnites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sectorSearch, setSectorSearch] = useState('');
   const [clearingCache, setClearingCache] = useState(false);
   const [cacheMessage, setCacheMessage] = useState<string | null>(null);
+  const [dataDir, setDataDir] = useState('');
+  const [dataDirInfo, setDataDirInfo] = useState<{
+    diagnostic?: string;
+    dbf_count?: number;
+    data_dir_exists?: boolean;
+    locked_by_env?: boolean;
+    is_db_ready?: boolean;
+    loading_status?: string;
+  } | null>(null);
+  const [dataDirLoading, setDataDirLoading] = useState(true);
+  const [savingDataDir, setSavingDataDir] = useState(false);
+  const [dataDirMessage, setDataDirMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  const fetchDataDir = async () => {
+    setDataDirLoading(true);
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/data_dir');
+      const data = await res.json();
+      setDataDir(data.data_dir || '');
+      setDataDirInfo(data);
+    } catch {
+      setDataDirMessage({ type: 'err', text: 'Impossible de lire la configuration du dossier données.' });
+    } finally {
+      setDataDirLoading(false);
+    }
+  };
+
+  const handleSaveDataDir = async () => {
+    const trimmed = dataDir.trim();
+    if (!trimmed) {
+      setDataDirMessage({ type: 'err', text: 'Indiquez le chemin du dossier contenant les fichiers DBF.' });
+      return;
+    }
+    if (!confirm(`Utiliser ce dossier pour les données EPEOR ?\n\n${trimmed}\n\nLes données seront rechargées (quelques minutes).`)) {
+      return;
+    }
+    setSavingDataDir(true);
+    setDataDirMessage(null);
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/data_dir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data_dir: trimmed }),
+      });
+      const data = await res.json();
+      if (data.status === 'error') {
+        setDataDirMessage({ type: 'err', text: data.message || 'Chemin invalide.' });
+        setSavingDataDir(false);
+        return;
+      }
+      setDataDir(data.data_dir || trimmed);
+      setDataDirMessage({ type: 'ok', text: data.message || 'Dossier enregistré.' });
+      await fetchDataDir();
+      if (onConfigured) {
+        setTimeout(() => onConfigured(), 3000);
+      } else {
+        setTimeout(() => window.location.reload(), 5000);
+      }
+    } catch {
+      setDataDirMessage({ type: 'err', text: 'Erreur de communication avec le serveur backend.' });
+      setSavingDataDir(false);
+    }
+  };
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -9946,8 +10135,13 @@ function SettingsView({ onBack }: { onBack: () => void }) {
   };
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    fetchDataDir();
+    if (!setupMode) {
+      fetchSettings();
+    } else {
+      setLoading(false);
+    }
+  }, [setupMode]);
 
   const handleClearCache = async () => {
     if (!confirm("Êtes-vous sûr de vouloir vider le cache et recharger toutes les tables DBF ? Cette opération peut prendre quelques minutes.")) {
@@ -9971,22 +10165,136 @@ function SettingsView({ onBack }: { onBack: () => void }) {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
-        >
-          <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
-        </button>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h2 className="text-3xl font-black tracking-tight text-[#101828]">Paramètres du Système</h2>
-            <p className="text-sm text-[#667085] mt-1 font-medium">Consultez la structure organisationnelle d'EPEOR, l'unité de gestion et ses centres associés.</p>
+      {!setupMode && (
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+          >
+            <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
+          </button>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <h2 className="text-3xl font-black tracking-tight text-[#101828]">Paramètres du Système</h2>
+              <p className="text-sm text-[#667085] mt-1 font-medium">Consultez la structure organisationnelle d&apos;EPEOR, l&apos;unité de gestion et ses centres associés.</p>
+            </div>
           </div>
         </div>
+      )}
+      {setupMode && showBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm font-bold text-[#667085] hover:text-[#101828] flex items-center gap-2"
+        >
+          <ChevronRight className="rotate-180" size={16} /> Retour
+        </button>
+      )}
+
+      {/* Dossier données EPEOR */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-12 h-12 bg-slate-100 text-[#0D83DE] rounded-2xl flex items-center justify-center shrink-0">
+            <Database size={22} />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-[#101828]">Dossier des données (DBF)</h3>
+            <p className="text-sm text-[#667085] mt-1 font-medium">
+              Chemin du répertoire contenant les fichiers EPEOR (ABONNE.DBF, FACTURES.DBF, etc.). Le changement déclenche un rechargement complet.
+            </p>
+          </div>
+        </div>
+
+        {dataDirLoading ? (
+          <p className="text-xs font-bold text-[#98A2B3]">Lecture de la configuration...</p>
+        ) : (
+          <div className="space-y-4">
+            {dataDirInfo?.locked_by_env && (
+              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold">
+                Chemin verrouillé par la variable d&apos;environnement <span className="font-mono">EPEOR_DATA_DIR</span>.
+                Modifiez-la dans start.bat ou les paramètres Windows, puis redémarrez le backend.
+              </div>
+            )}
+            <div>
+              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">
+                Chemin du dossier
+              </label>
+              <input
+                type="text"
+                value={dataDir}
+                onChange={(e) => setDataDir(e.target.value)}
+                disabled={dataDirInfo?.locked_by_env || savingDataDir}
+                placeholder="Ex. d:\epeor"
+                className="w-full font-mono text-sm font-bold text-[#344054] bg-[#F9FAFB] border border-[#D0D5DD] rounded-xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0D83DE] disabled:opacity-60 disabled:cursor-not-allowed"
+                spellCheck={false}
+              />
+            </div>
+            {dataDirInfo && (
+              <div className="flex flex-wrap gap-3 text-[10px] font-bold">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
+                    dataDirInfo.data_dir_exists
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                      : 'bg-rose-50 text-rose-700 border-rose-100'
+                  }`}
+                >
+                  {dataDirInfo.data_dir_exists ? 'Dossier accessible' : 'Dossier introuvable'}
+                </span>
+                {typeof dataDirInfo.dbf_count === 'number' && (
+                  <span className="inline-flex items-center px-2.5 py-1 bg-slate-50 text-slate-600 border border-slate-200 rounded-full">
+                    {dataDirInfo.dbf_count} fichier(s) DBF
+                  </span>
+                )}
+                {dataDirInfo.is_db_ready && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                    Données chargées
+                  </span>
+                )}
+              </div>
+            )}
+            {dataDirInfo?.diagnostic && (
+              <p className="text-xs font-medium text-[#667085]">{dataDirInfo.diagnostic}</p>
+            )}
+            {dataDirMessage && (
+              <div
+                className={`p-4 rounded-xl text-xs font-bold ${
+                  dataDirMessage.type === 'ok'
+                    ? 'bg-emerald-50 border border-emerald-100 text-emerald-800'
+                    : 'bg-rose-50 border border-rose-100 text-rose-800'
+                }`}
+              >
+                {dataDirMessage.text}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleSaveDataDir}
+                disabled={dataDirInfo?.locked_by_env || savingDataDir || !dataDir.trim()}
+                className={`px-6 py-3 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 flex items-center gap-2 ${
+                  dataDirInfo?.locked_by_env || savingDataDir || !dataDir.trim()
+                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                    : 'bg-[#0D83DE] text-white hover:bg-[#0b72c2] border border-[#0b72c2]'
+                }`}
+              >
+                <RefreshCw size={16} className={savingDataDir ? 'animate-spin' : ''} />
+                {savingDataDir ? 'Enregistrement...' : 'Appliquer et recharger'}
+              </button>
+              <button
+                type="button"
+                onClick={fetchDataDir}
+                disabled={dataDirLoading || savingDataDir}
+                className="px-6 py-3 rounded-2xl font-black text-xs border border-[#D0D5DD] text-[#344054] hover:bg-[#F9FAFB] transition-all"
+              >
+                Actualiser
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {loading ? (
+      {!setupMode && (loading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E4E7EC] rounded-[2rem] shadow-sm">
           <div className="w-12 h-12 border-4 border-slate-200 border-t-[#0D83DE] rounded-full animate-spin"></div>
           <p className="mt-4 text-sm font-bold text-[#475467]">Chargement de la structure organisationnelle...</p>
@@ -10159,7 +10467,7 @@ function SettingsView({ onBack }: { onBack: () => void }) {
             )}
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }

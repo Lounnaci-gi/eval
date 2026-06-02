@@ -2,7 +2,6 @@
 setlocal
 set "ROOT=%~dp0"
 set "VENV=%ROOT%..\.venv\Scripts\python.exe"
-set "EPEOR_DATA_DIR=d:\epeor"
 
 echo ===================================================
 echo       Lancement de EPEOR Analytics Dashboard
@@ -16,13 +15,13 @@ if not exist "%VENV%" (
     exit /b 1
 )
 
-if not exist "%EPEOR_DATA_DIR%" (
-    echo [AVERTISSEMENT] Dossier donnees introuvable: %EPEOR_DATA_DIR%
-    echo Definissez EPEOR_DATA_DIR dans ce script ou dans les variables d'environnement.
-)
-
 echo [1/2] Lancement du Backend FastAPI (port 8000)...
-start "EPEOR Backend" cmd /k "cd /d "%ROOT%backend" && set EPEOR_DATA_DIR=%EPEOR_DATA_DIR% && "%VENV%" main.py"
+if "%EPEOR_DATA_DIR%"=="" (
+    start "EPEOR Backend" cmd /k "cd /d "%ROOT%backend" && "%VENV%" main.py"
+) else (
+    echo [INFO] Utilisation de la variable d'environnement existante EPEOR_DATA_DIR: %EPEOR_DATA_DIR%
+    start "EPEOR Backend" cmd /k "cd /d "%ROOT%backend" && set "EPEOR_DATA_DIR=%EPEOR_DATA_DIR%" && "%VENV%" main.py"
+)
 
 echo [2/2] Lancement du Frontend Next.js (port 3000)...
 start "EPEOR Frontend" cmd /k "cd /d "%ROOT%" && npm run dev"

@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from dbfread import DBF
 import os
 import itertools
+import json
 from datetime import datetime, timedelta
 import pickle
 import time
@@ -21,12 +23,93 @@ def _normalize_data_dir(path: str) -> str:
     return os.path.normpath(str(path or "").strip())
 
 
-DATA_DIR = _normalize_data_dir(os.environ.get("EPEOR_DATA_DIR", r"d:\epeor"))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "epeor_config.json")
+CACHE_DIR = os.path.join(BASE_DIR, "cache")
+
+
+def _read_config_file() -> dict:
+    try:
+        if os.path.isfile(CONFIG_PATH):
+            with open(CONFIG_PATH, encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        else:
+            default_cfg = {"data_dir": r"d:\epeor"}
+            _save_config_file(default_cfg)
+            return default_cfg
+    except Exception as e:
+        print(f"[WARNING] Impossible de lire ou initialiser {CONFIG_PATH}: {e}")
+    return {}
+
+
+def _save_config_file(data: dict) -> None:
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def _is_valid_data_dir(path: str) -> bool:
+    normalized = _normalize_data_dir(path)
+    if not normalized or not os.path.isdir(normalized):
+        return False
+    try:
+        for entry in os.listdir(normalized):
+            if entry.lower() == "abonne.dbf":
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _resolve_initial_data_dir() -> str:
+    env = os.environ.get("EPEOR_DATA_DIR", "").strip()
+    if env and _is_valid_data_dir(env):
+        return _normalize_data_dir(env)
+    saved = _read_config_file().get("data_dir", "")
+    if saved and str(saved).strip():
+        return _normalize_data_dir(saved)
+    return ""
+
+
+def _env_overrides_data_dir() -> bool:
+    env = os.environ.get("EPEOR_DATA_DIR", "").strip()
+    return bool(env and _is_valid_data_dir(env))
+
+
+def _count_dbf_files(data_dir: str | None = None) -> int:
+    root = data_dir or DATA_DIR
+    if not os.path.isdir(root):
+        return 0
+    return len([f for f in os.listdir(root) if f.lower().endswith(".dbf")])
+
+
+def _validate_data_dir(path: str) -> tuple[bool, str]:
+    normalized = _normalize_data_dir(path)
+    if not normalized:
+        return False, "Veuillez indiquer un chemin de dossier."
+    if not os.path.isdir(normalized):
+        return False, f"Dossier introuvable : {normalized}"
+    has_abonne = False
+    try:
+        for entry in os.listdir(normalized):
+            if entry.lower() == "abonne.dbf":
+                has_abonne = True
+                break
+    except OSError as e:
+        return False, f"Impossible de lire le dossier : {e}"
+    if not has_abonne:
+        n = _count_dbf_files(normalized)
+        return (
+            False,
+            f"Fichier ABONNE.DBF introuvable dans ce dossier ({n} fichier(s) DBF détecté(s)).",
+        )
+    return True, ""
+
+
+DATA_DIR = _resolve_initial_data_dir()
 if not os.path.isdir(DATA_DIR):
     print(f"[WARNING] EPEOR data directory not found: {DATA_DIR}")
-    print("          Set EPEOR_DATA_DIR to the EPEOR data folder.")
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CACHE_DIR = os.path.join(BASE_DIR, "cache")
+    print("          Définissez le chemin dans Paramètres ou via EPEOR_DATA_DIR.")
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
 
@@ -901,6 +984,8 @@ def get_api_status():
     return {
         "data_dir": DATA_DIR,
         "data_dir_exists": os.path.isdir(DATA_DIR),
+        "dbf_count": _count_dbf_files(),
+        "locked_by_env": _env_overrides_data_dir(),
         "primary_source_ready": os.path.isfile(abonne_path) and os.path.getsize(abonne_path) >= 100,
         "is_db_ready": is_db_ready,
         "indexes_ready": indexes_ready,
@@ -909,6 +994,79 @@ def get_api_status():
         "loading_status": db_loading_status,
         "load_retries": _load_retry_count,
         "diagnostic": diagnose_data_dir(),
+    }
+
+
+class DataDirUpdate(BaseModel):
+    data_dir: str
+
+
+@app.get("/api/data_dir")
+def get_data_dir_settings():
+    """Chemin actuel du dossier EPEOR (DBF) et diagnostic."""
+    abonne_path = resolve_dbf_path("ABONNE.DBF")
+    primary_ok = os.path.isfile(abonne_path) and os.path.getsize(abonne_path) >= 100
+    dir_ok = os.path.isdir(DATA_DIR)
+    needs_configuration = (not dir_ok) or (not primary_ok)
+    return {
+        "data_dir": DATA_DIR,
+        "data_dir_exists": dir_ok,
+        "primary_source_ready": primary_ok,
+        "needs_configuration": needs_configuration,
+        "dbf_count": _count_dbf_files(),
+        "diagnostic": diagnose_data_dir(),
+        "locked_by_env": _env_overrides_data_dir(),
+        "config_path": CONFIG_PATH,
+        "is_db_ready": is_db_ready,
+        "loading_status": db_loading_status,
+    }
+
+
+@app.post("/api/data_dir")
+def update_data_dir_settings(body: DataDirUpdate):
+    """Change le dossier des données, enregistre la config et recharge les DBF."""
+    global DATA_DIR, is_db_ready, cached_dashboard_stats, indexes_ready, _load_retry_count, db_loading_status
+
+    if _env_overrides_data_dir():
+        return {
+            "status": "error",
+            "message": (
+                "Le chemin est imposé par la variable d'environnement EPEOR_DATA_DIR. "
+                "Modifiez-la dans start.bat ou les variables système, puis redémarrez le backend."
+            ),
+            "data_dir": DATA_DIR,
+            "locked_by_env": True,
+        }
+
+    ok, err = _validate_data_dir(body.data_dir)
+    if not ok:
+        return {"status": "error", "message": err, "data_dir": DATA_DIR}
+
+    new_dir = _normalize_data_dir(body.data_dir)
+    changed = new_dir != DATA_DIR
+    DATA_DIR = new_dir
+
+    cfg = _read_config_file()
+    if not isinstance(cfg, dict):
+        cfg = {}
+    cfg["data_dir"] = DATA_DIR
+    _save_config_file(cfg)
+    print(f"[INFO] Dossier données EPEOR défini sur : {DATA_DIR}")
+
+    is_db_ready = False
+    cached_dashboard_stats = None
+    indexes_ready = False
+    _load_retry_count = 0
+    db_loading_status = "Changement de dossier données — rechargement..."
+    if changed:
+        clear_cache_directory()
+    threading.Thread(target=load_all_data_to_memory, daemon=True).start()
+
+    return {
+        "status": "success",
+        "message": "Dossier enregistré. Rechargement des données en cours...",
+        "data_dir": DATA_DIR,
+        "changed": changed,
     }
 
 

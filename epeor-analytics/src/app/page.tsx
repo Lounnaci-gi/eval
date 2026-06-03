@@ -4903,6 +4903,326 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
     );
   };
 
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const formatDateStr = (d: string) => {
+      if (!d) return "";
+      const cleaned = d.trim();
+      if (/^\d{8}$/.test(cleaned)) {
+        return cleaned.substring(6, 8) + "-" + cleaned.substring(4, 6) + "-" + cleaned.substring(0, 4);
+      }
+      const parts = cleaned.split(/[-/]/);
+      if (parts.length === 3 && parts[0].length === 4) {
+        return parts[2] + "-" + parts[1] + "-" + parts[0];
+      }
+      return d;
+    };
+
+    const titleStr = "Répartition par Type d'Abonné";
+    const subTitleStr = secteurLabel
+      ? "Centre : " + secteurLabel
+      : "Toute l'unité";
+    const formattedStart = formatDateStr(startDate);
+    const formattedEnd = formatDateStr(endDate);
+    const dateStr = formattedStart && formattedEnd ? "Période du " + formattedStart + " au " + formattedEnd : "";
+    const printDate = new Date().toLocaleDateString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const activeSections = typeSectionFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [typeSectionFilter];
+
+    let tableRowsHtml = "";
+
+    activeSections.forEach(section => {
+      const sectionRows = data.by_type.filter((t: any) => t.section === section);
+      if (sectionRows.length === 0) return;
+
+      const subTotalCaEau = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca_eau, 0);
+      const subTotalCaPrest = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca_prestation, 0);
+      const subTotalCa = sectionRows.reduce((acc: number, curr: any) => acc + curr.ca, 0);
+      const subTotalCaRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + (curr.ca_recouvre || 0), 0);
+      const subTotalRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + curr.recouvre, 0);
+      const subTotalCreance = sectionRows.reduce((acc: number, curr: any) => acc + curr.creance, 0);
+      const subTotalTaux = subTotalCa > 0 ? (subTotalCaRecouvre / subTotalCa * 100) : 0;
+
+      const isEau = section === 'EAU';
+
+      tableRowsHtml += `
+        <tr class="group-header">
+          <td colspan="9" style="padding: 8px 12px; font-weight: bold; background: ${isEau ? '#eff6ff' : '#f0fdf4'};">
+            <span class="badge ${isEau ? 'badge-blue' : 'badge-green'}">${section}</span>
+            <span style="margin-left: 6px; font-size: 9px; color: #475467;">(${sectionRows.length} types d'abonnés)</span>
+          </td>
+        </tr>
+      `;
+
+      sectionRows.forEach((t: any) => {
+        tableRowsHtml += `
+          <tr>
+            <td style="padding: 5px 12px; font-family: monospace; font-size: 9px; font-weight: bold; color: #475467;">${t.type_code}</td>
+            <td style="padding: 5px 12px; font-weight: bold;">${t.name}</td>
+            <td style="padding: 5px 12px; text-align: right; color: #2563eb;">${fmt(t.ca_eau)}</td>
+            <td style="padding: 5px 12px; text-align: right; color: #0891b2;">${fmt(t.ca_prestation)}</td>
+            <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #4f46e5;">${fmt(t.ca)}</td>
+            <td style="padding: 5px 12px; text-align: right; color: #0d9488;">${fmt(t.ca_recouvre || 0)}</td>
+            <td style="padding: 5px 12px; text-align: right; color: #059669;">${fmt(t.recouvre)}</td>
+            <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #e11d48;">${fmt(t.creance)}</td>
+            <td style="padding: 5px 12px; text-align: right; font-weight: bold;">${t.taux.toFixed(2)}%</td>
+          </tr>
+        `;
+      });
+
+      tableRowsHtml += `
+        <tr class="subtotal-row" style="background: #f8fafc; font-weight: bold; border-top: 1px solid #e2e8f0; border-bottom: 2px solid #cbd5e1;">
+          <td colspan="2" style="padding: 8px 12px; text-transform: uppercase; font-size: 9px;">Sous-total ${section}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #2563eb;">${fmt(subTotalCaEau)}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #0891b2;">${fmt(subTotalCaPrest)}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #4f46e5;">${fmt(subTotalCa)}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #0d9488;">${fmt(subTotalCaRecouvre)}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #059669;">${fmt(subTotalRecouvre)}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #e11d48;">${fmt(subTotalCreance)}</td>
+          <td style="padding: 8px 12px; text-align: right;">${subTotalTaux.toFixed(2)}%</td>
+        </tr>
+      `;
+    });
+
+    if (typeSectionFilter === 'ALL') {
+      const totalTaux = data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0;
+      tableRowsHtml += `
+        <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
+          <td colspan="2" style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
+          <td style="padding: 9px 12px; text-align: right; color: #93c5fd; border-bottom: none;">${fmt(data.total_ca_eau)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #a5f3fc; border-bottom: none;">${fmt(data.total_ca_prestation)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #c7d2fe; border-bottom: none;">${fmt(data.total_ca)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #99f6e4; border-bottom: none;">${fmt(data.total_ca_recouvre || 0)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #a7f3d0; border-bottom: none;">${fmt(data.total_recouvre)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #fca5a5; border-bottom: none;">${fmt(data.total_creance)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
+        </tr>
+      `;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${titleStr}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @page {
+              size: landscape;
+              margin: 10mm 12mm;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 0;
+              font-size: 9px;
+              line-height: 1.4;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 10px;
+              margin-bottom: 12px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin: 0;
+            }
+            .company-name {
+              font-size: 8.5px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-top: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 16px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+            }
+            .subtitle {
+              font-size: 9.5px;
+              color: #667085;
+              margin: 3px 0 0 0;
+              font-weight: 500;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 10px;
+              margin-bottom: 15px;
+              background: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 8px;
+              padding: 8px 12px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 8px;
+              text-transform: uppercase;
+              color: #667085;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              margin-bottom: 2px;
+            }
+            .meta-value {
+              font-size: 10px;
+              font-weight: 700;
+              color: #101828;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 15px;
+              text-align: left;
+            }
+            th {
+              background: #F9FAFB;
+              color: #475467;
+              font-size: 8px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              padding: 7px 12px;
+              border-bottom: 1px solid #F2F4F7;
+            }
+            td {
+              border-bottom: 1px solid #F2F4F7;
+              padding: 5px 12px;
+              font-size: 9px;
+            }
+            .badge {
+              display: inline-flex;
+              align-items: center;
+              padding: 1.5px 5px;
+              border-radius: 3px;
+              font-size: 8px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .badge-blue {
+              background-color: #dbeafe;
+              color: #1e40af;
+              border: 1px solid #bfdbfe;
+            }
+            .badge-green {
+              background-color: #d1fae5;
+              color: #065f46;
+              border: 1px solid #a7f3d0;
+            }
+            .footer-info {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              color: #667085;
+              font-size: 8px;
+              border-top: 1px solid #F2F4F7;
+              padding-top: 10px;
+              margin-top: 20px;
+            }
+            @media print {
+              body { margin: 20px; }
+              .no-print { display: none; }
+              tr { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <div>
+                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <div class="company-name">Algérienne des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <h2 class="title">${titleStr}</h2>
+              <p class="subtitle">Analyses Financières</p>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Périmètre</span>
+              <span class="meta-value">${subTitleStr}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Période</span>
+              <span class="meta-value">${dateStr || "Toutes les dates"}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Date d'édition</span>
+              <span class="meta-value">${printDate}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">Code</th>
+                <th>Type d'Abonné</th>
+                <th style="text-align: right;">CA Eau</th>
+                <th style="text-align: right;">CA Prest.</th>
+                <th style="text-align: right;">Total CA</th>
+                <th style="text-align: right;">CA Recouvré</th>
+                <th style="text-align: right;">Encaissement</th>
+                <th style="text-align: right;">Créance</th>
+                <th style="text-align: right; width: 80px;">Taux Recov.</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml}
+            </tbody>
+          </table>
+
+          <div class="footer-info">
+            <span>EPEOR Analytics - Système d'analyse financière</span>
+            <span>Page 1 sur 1</span>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   if (!data || !data.by_type) {
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-12 text-center max-w-2xl mx-auto my-12 animate-in fade-in duration-300">
@@ -4949,25 +5269,36 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
           </p>
         </div>
         
-        {/* Modern Tab Filters */}
-        <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 self-start md:self-auto border border-[#E4E7EC]">
-          {[
-            { id: 'ALL', label: 'Tous les Types' },
-            { id: 'EAU', label: 'Eau Uniquement' },
-            { id: 'PRESTATIONS', label: 'Prestations Uniquement' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setTypeSectionFilter(tab.id as any)}
-              className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
-                typeSectionFilter === tab.id
-                  ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
-                  : 'text-[#667085] border-transparent hover:text-[#101828]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Modern Tab Filters & Print Button */}
+        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+          <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC]">
+            {[
+              { id: 'ALL', label: 'Tous les Types' },
+              { id: 'EAU', label: 'Eau Uniquement' },
+              { id: 'PRESTATIONS', label: 'Prestations Uniquement' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setTypeSectionFilter(tab.id as any)}
+                className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
+                  typeSectionFilter === tab.id
+                    ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
+                    : 'text-[#667085] border-transparent hover:text-[#101828]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-brand-600/10 border border-brand-500/10 h-[38px]"
+            title="Imprimer cette répartition par type d'abonné"
+          >
+            <Printer size={13} />
+            <span>Imprimer</span>
+          </button>
         </div>
       </div>
 

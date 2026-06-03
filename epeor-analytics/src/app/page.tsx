@@ -1392,7 +1392,7 @@ function GestionAbonnesShell({
     { id: 'no_meter' as const, label: 'Sans compteur' },
   ];
 
-  const viewProps = { stats, onBack, selectedSecteur };
+  const viewProps = { stats, onBack, selectedSecteur, secteurLabel };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -1483,7 +1483,7 @@ function GestionAbonnesShell({
   );
 }
 
-function DetailedStatsView({ stats, onBack, selectedSecteur = '' }: any) {
+function DetailedStatsView({ stats, onBack, selectedSecteur = '', secteurLabel }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
@@ -1505,6 +1505,462 @@ function DetailedStatsView({ stats, onBack, selectedSecteur = '' }: any) {
 
   const communes = stats?.subscriber_communes || [];
   const types = stats?.subscriber_types || [];
+
+  const handlePrintCommunes = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const titleStr = "Répartition Détaillée par Commune";
+    const subTitleStr = secteurLabel
+      ? "Centre : " + secteurLabel
+      : "Toute l'unité";
+    const printDate = new Date().toLocaleDateString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    let tableRowsHtml = "";
+    communes.forEach((c: any) => {
+      const actifs = c.value - (c.resigned || 0);
+      tableRowsHtml += `
+        <tr>
+          <td style="padding: 6px 12px; font-weight: bold;">${c.name}</td>
+          <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #0D83DE;">${c.value.toLocaleString()}</td>
+          <td style="padding: 6px 12px; text-align: right; color: #059669;">${actifs.toLocaleString()}</td>
+          <td style="padding: 6px 12px; text-align: right; color: #e11d48;">${c.resigned?.toLocaleString() || 0}</td>
+          <td style="padding: 6px 12px; text-align: right; font-weight: bold;">${c.percentage}%</td>
+        </tr>
+      `;
+    });
+
+    const totalVal = communes.reduce((acc: number, curr: any) => acc + curr.value, 0);
+    const totalResigned = communes.reduce((acc: number, curr: any) => acc + (curr.resigned || 0), 0);
+    const totalActifs = totalVal - totalResigned;
+    const totalPct = communes.reduce((acc: number, curr: any) => acc + (curr.percentage || 0), 0);
+
+    tableRowsHtml += `
+      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #93c5fd; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #a7f3d0; border-bottom: none;">${totalActifs.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #fca5a5; border-bottom: none;">${totalResigned.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalPct.toFixed(0)}%</td>
+      </tr>
+    `;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${titleStr}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @page {
+              size: landscape;
+              margin: 10mm 12mm;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 0;
+              font-size: 9px;
+              line-height: 1.4;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 10px;
+              margin-bottom: 12px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin: 0;
+            }
+            .company-name {
+              font-size: 8.5px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-top: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 16px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+            }
+            .subtitle {
+              font-size: 9.5px;
+              color: #667085;
+              margin: 3px 0 0 0;
+              font-weight: 500;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 10px;
+              margin-bottom: 15px;
+              background: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 8px;
+              padding: 8px 12px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 8px;
+              text-transform: uppercase;
+              color: #667085;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              margin-bottom: 2px;
+            }
+            .meta-value {
+              font-size: 10px;
+              font-weight: 700;
+              color: #101828;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 15px;
+              text-align: left;
+            }
+            th {
+              background: #F9FAFB;
+              color: #475467;
+              font-size: 8px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              padding: 7px 12px;
+              border-bottom: 1px solid #F2F4F7;
+            }
+            td {
+              border-bottom: 1px solid #F2F4F7;
+              padding: 5px 12px;
+              font-size: 9px;
+            }
+            .footer-info {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              color: #667085;
+              font-size: 8px;
+              border-top: 1px solid #F2F4F7;
+              padding-top: 10px;
+              margin-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <div>
+                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <div class="company-name">Algérienne des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <h2 class="title">${titleStr}</h2>
+              <p class="subtitle">Gestion Abonnés</p>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Périmètre</span>
+              <span class="meta-value">${subTitleStr}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Date d'édition</span>
+              <span class="meta-value">${printDate}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Commune</th>
+                <th style="text-align: right;">Total Abonnés</th>
+                <th style="text-align: right;">Abonnés Actifs</th>
+                <th style="text-align: right;">Abonnés Résiliés</th>
+                <th style="text-align: right; width: 80px;">Part (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml}
+            </tbody>
+          </table>
+
+          <div class="footer-info">
+            <span>EPEOR Analytics - Gestion Abonnés</span>
+            <span>Page 1 sur 1</span>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
+  const handlePrintTypes = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const titleStr = "Répartition Détaillée par Type d'Abonné";
+    const subTitleStr = secteurLabel
+      ? "Centre : " + secteurLabel
+      : "Toute l'unité";
+    const printDate = new Date().toLocaleDateString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    let tableRowsHtml = "";
+    types.forEach((t: any) => {
+      const actifs = t.value - (t.resigned || 0);
+      tableRowsHtml += `
+        <tr>
+          <td style="padding: 6px 12px; font-weight: bold;">${t.name}</td>
+          <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #0D83DE;">${t.value.toLocaleString()}</td>
+          <td style="padding: 6px 12px; text-align: right; color: #059669;">${actifs.toLocaleString()}</td>
+          <td style="padding: 6px 12px; text-align: right; color: #e11d48;">${t.resigned?.toLocaleString() || 0}</td>
+          <td style="padding: 6px 12px; text-align: right; font-weight: bold;">${t.percentage}%</td>
+        </tr>
+      `;
+    });
+
+    const totalVal = types.reduce((acc: number, curr: any) => acc + curr.value, 0);
+    const totalResigned = types.reduce((acc: number, curr: any) => acc + (curr.resigned || 0), 0);
+    const totalActifs = totalVal - totalResigned;
+    const totalPct = types.reduce((acc: number, curr: any) => acc + (curr.percentage || 0), 0);
+
+    tableRowsHtml += `
+      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #93c5fd; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #a7f3d0; border-bottom: none;">${totalActifs.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #fca5a5; border-bottom: none;">${totalResigned.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalPct.toFixed(0)}%</td>
+      </tr>
+    `;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${titleStr}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @page {
+              size: landscape;
+              margin: 10mm 12mm;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 0;
+              font-size: 9px;
+              line-height: 1.4;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 10px;
+              margin-bottom: 12px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin: 0;
+            }
+            .company-name {
+              font-size: 8.5px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-top: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 16px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+            }
+            .subtitle {
+              font-size: 9.5px;
+              color: #667085;
+              margin: 3px 0 0 0;
+              font-weight: 500;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 10px;
+              margin-bottom: 15px;
+              background: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 8px;
+              padding: 8px 12px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 8px;
+              text-transform: uppercase;
+              color: #667085;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              margin-bottom: 2px;
+            }
+            .meta-value {
+              font-size: 10px;
+              font-weight: 700;
+              color: #101828;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 15px;
+              text-align: left;
+            }
+            th {
+              background: #F9FAFB;
+              color: #475467;
+              font-size: 8px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              padding: 7px 12px;
+              border-bottom: 1px solid #F2F4F7;
+            }
+            td {
+              border-bottom: 1px solid #F2F4F7;
+              padding: 5px 12px;
+              font-size: 9px;
+            }
+            .footer-info {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              color: #667085;
+              font-size: 8px;
+              border-top: 1px solid #F2F4F7;
+              padding-top: 10px;
+              margin-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <div>
+                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <div class="company-name">Algérienne des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <h2 class="title">${titleStr}</h2>
+              <p class="subtitle">Gestion Abonnés</p>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Périmètre</span>
+              <span class="meta-value">${subTitleStr}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Date d'édition</span>
+              <span class="meta-value">${printDate}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Catégorie / Type</th>
+                <th style="text-align: right;">Total Abonnés</th>
+                <th style="text-align: right;">Abonnés Actifs</th>
+                <th style="text-align: right;">Abonnés Résiliés</th>
+                <th style="text-align: right; width: 80px;">Part (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml}
+            </tbody>
+          </table>
+
+          <div class="footer-info">
+            <span>EPEOR Analytics - Gestion Abonnés</span>
+            <span>Page 1 sur 1</span>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
 
   if (selectedQuartier) {
     return (
@@ -1584,9 +2040,19 @@ function DetailedStatsView({ stats, onBack, selectedSecteur = '' }: any) {
   return (
     <div className="space-y-10">
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7]">
-          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée par Commune</h3>
-          <p className="text-sm text-[#667085] mt-1">Analyse complète des abonnés par zone géographique</p>
+        <div className="p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée par Commune</h3>
+            <p className="text-sm text-[#667085] mt-1 font-medium">Analyse complète des abonnés par zone géographique</p>
+          </div>
+          <button
+            onClick={handlePrintCommunes}
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-brand-600/10 border border-brand-500/10 self-start sm:self-auto"
+            title="Imprimer la répartition par commune"
+          >
+            <Printer size={13} />
+            <span>Imprimer</span>
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -1622,9 +2088,19 @@ function DetailedStatsView({ stats, onBack, selectedSecteur = '' }: any) {
       </div>
 
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7]">
-          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée par Type d'Abonné</h3>
-          <p className="text-sm text-[#667085] mt-1">Analyse des abonnés classés par catégorie (Ménage, Administration, etc.)</p>
+        <div className="p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée par Type d'Abonné</h3>
+            <p className="text-sm text-[#667085] mt-1 font-medium">Analyse des abonnés classés par catégorie (Ménage, Administration, etc.)</p>
+          </div>
+          <button
+            onClick={handlePrintTypes}
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-brand-600/10 border border-brand-500/10 self-start sm:self-auto"
+            title="Imprimer la répartition par type d'abonné"
+          >
+            <Printer size={13} />
+            <span>Imprimer</span>
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">

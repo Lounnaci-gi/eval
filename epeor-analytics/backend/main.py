@@ -1311,10 +1311,8 @@ def get_creance(
         
         official = get_official_ca(period_label) if period_label else None
 
-        # Build commune map: CODCOM -> label
-        commune_map = {}
-        for codcom, r in communes_by_code.items():
-            commune_map[codcom] = r.get('LIBCOM', '')
+        # Build commune map: CODCOM -> label, filtered by sector if provided
+        commune_map = _commune_map_for_centre(secteur)
 
         total_ca_eau        = 0.0
         total_ca_prestation = 0.0

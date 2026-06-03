@@ -1281,6 +1281,8 @@ export default function Dashboard() {
                 onGoToCalculation={() => setCurrentView('creance')}
                 selectedSecteur={selectedSecteur}
                 sectors={sectors}
+                startDate={calcDateRange.start}
+                endDate={calcDateRange.end}
               />
             ) : null}
           </div>
@@ -7284,7 +7286,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
 }
 
 
-function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sectors = [] }: any) {
+function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sectors = [], startDate = '', endDate = '' }: any) {
   const [collapsedCommunes, setCollapsedCommunes] = useState<string[]>([]);
   const [isTableCollapsed, setIsTableCollapsed] = useState(false);
   const secteurLabel = selectedSecteur
@@ -7295,6 +7297,178 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(n)
       .replace(/[\u202F\u00A0]/g, ' ') + " DA";
+
+  const handlePrint = () => {
+    if (!data || !data.by_commune || data.by_commune.length === 0) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fen\u00eatres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const fmtP = (n: number) =>
+      new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        .format(n).replace(/[\u202F\u00A0]/g, '\u00a0') + ' DA';
+
+    const formatDateStr = (d: string) => {
+      if (!d) return '';
+      const cleaned = d.trim();
+      if (/^\d{8}$/.test(cleaned))
+        return cleaned.substring(6, 8) + '-' + cleaned.substring(4, 6) + '-' + cleaned.substring(0, 4);
+      const parts = cleaned.split(/[-/]/);
+      if (parts.length === 3 && parts[0].length === 4)
+        return parts[2] + '-' + parts[1] + '-' + parts[0];
+      return d;
+    };
+
+    const titleStr = 'R\u00e9partition des Cr\u00e9ances par Commune';
+    const subTitleStr = secteurLabel ? 'Centre\u00a0: ' + secteurLabel : "Toute l'unit\u00e9";
+    const formattedStart = formatDateStr(startDate);
+    const formattedEnd = formatDateStr(endDate);
+    const dateStr = formattedStart && formattedEnd ? 'P\u00e9riode du ' + formattedStart + ' au ' + formattedEnd : '';
+    const printDate = new Date().toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+    let tableRowsHtml = '';
+    data.by_commune.forEach((c: any) => {
+      const taux = c.taux ?? 0;
+      tableRowsHtml += `
+        <tr class="commune-row">
+          <td style="padding:5px 8px;font-weight:700;color:#101828;">${c.name}</td>
+          <td style="padding:5px 8px;text-align:right;color:#2563eb;">${fmtP(c.ca_eau)}</td>
+          <td style="padding:5px 8px;text-align:right;color:#0891b2;">${fmtP(c.ca_prestation)}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#0D83DE;">${fmtP(c.ca)}</td>
+          <td style="padding:5px 8px;text-align:right;color:#0d9488;">${fmtP(c.ca_recouvre || 0)}</td>
+          <td style="padding:5px 8px;text-align:right;color:#059669;">${fmtP(c.recouvre)}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#e11d48;">${fmtP(c.creance)}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#475467;">${taux.toFixed(2)}%</td>
+        </tr>
+        <tr class="sub-row">
+          <td style="padding:3px 8px 3px 22px;font-size:8px;color:#2563eb;">\u21b3\u00a0Eau</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#2563eb;">${fmtP(c.ca_eau)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#1e40af;">${fmtP(c.ca_eau)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#0d9488;">${fmtP(c.ca_recouvre_eau || 0)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#059669;">${fmtP(c.recouvre_eau || 0)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#e11d48;">${fmtP(c.creance_eau || 0)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#1d4ed8;">${(c.taux_eau ?? 0).toFixed(2)}%</td>
+        </tr>
+        <tr class="sub-row">
+          <td style="padding:3px 8px 3px 22px;font-size:8px;color:#0891b2;">\u21b3\u00a0Prestations</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#0891b2;">${fmtP(c.ca_prestation)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#164e63;">${fmtP(c.ca_prestation)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#0d9488;">${fmtP(c.ca_recouvre_prestation || 0)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#059669;">${fmtP(c.recouvre_prestation || 0)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#e11d48;">${fmtP(c.creance_prestation || 0)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#0e7490;">${(c.taux_prestation ?? 0).toFixed(2)}%</td>
+        </tr>
+      `;
+    });
+
+    const totalTaux = data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0;
+    tableRowsHtml += `
+      <tr style="background:#0f172a;color:white;font-weight:700;font-size:9px;">
+        <td style="padding:8px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:none;">Total G\u00e9n\u00e9ral</td>
+        <td style="padding:8px;text-align:right;color:#93c5fd;border-bottom:none;">${fmtP(data.total_ca_eau)}</td>
+        <td style="padding:8px;text-align:right;color:#67e8f9;border-bottom:none;">${fmtP(data.total_ca_prestation)}</td>
+        <td style="padding:8px;text-align:right;color:#60a5fa;border-bottom:none;">${fmtP(data.total_ca)}</td>
+        <td style="padding:8px;text-align:right;color:#5eead4;border-bottom:none;">${fmtP(data.total_ca_recouvre || 0)}</td>
+        <td style="padding:8px;text-align:right;color:#6ee7b7;border-bottom:none;">${fmtP(data.total_recouvre)}</td>
+        <td style="padding:8px;text-align:right;color:#fca5a5;border-bottom:none;">${fmtP(data.total_creance)}</td>
+        <td style="padding:8px;text-align:right;color:#e2e8f0;border-bottom:none;">${totalTaux.toFixed(2)}%</td>
+      </tr>
+    `;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${titleStr}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @page { size: landscape; margin: 8mm 10mm; }
+            * { box-sizing: border-box; }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              color: #101828; margin: 0; font-size: 8.5px; line-height: 1.35;
+              -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            }
+            .header {
+              display: flex; justify-content: space-between; align-items: center;
+              border-bottom: 2px solid #F2F4F7; padding-bottom: 8px; margin-bottom: 10px;
+            }
+            .logo-text { font-size: 13px; font-weight: 900; color: #0D83DE; letter-spacing: -0.5px; margin: 0; }
+            .company-name { font-size: 8px; font-weight: 700; color: #667085; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+            .title-section { text-align: right; }
+            .title { font-size: 15px; font-weight: 900; color: #101828; margin: 0; }
+            .subtitle { font-size: 8.5px; color: #667085; margin: 2px 0 0 0; font-weight: 500; }
+            .meta-grid {
+              display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+              margin-bottom: 10px; background: #F9FAFB; border: 1px solid #E4E7EC;
+              border-radius: 6px; padding: 6px 10px;
+            }
+            .meta-item { display: flex; flex-direction: column; }
+            .meta-label { font-size: 7px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 1px; }
+            .meta-value { font-size: 8.5px; font-weight: 700; color: #101828; }
+            table { width: 100%; border-collapse: collapse; text-align: left; }
+            th {
+              background: #F9FAFB; color: #475467; font-size: 7px; font-weight: 700;
+              text-transform: uppercase; letter-spacing: 0.4px; padding: 5px 8px;
+              border-bottom: 1px solid #E4E7EC; white-space: nowrap;
+            }
+            td { border-bottom: 1px solid #F2F4F7; padding: 4px 8px; font-size: 8.5px; }
+            .commune-row td { border-top: 1px solid #E4E7EC; }
+            .sub-row { background: #fafafa; }
+            .sub-row td { border-bottom: none; }
+            .footer-info {
+              display: flex; justify-content: space-between; align-items: center;
+              color: #667085; font-size: 7.5px; border-top: 1px solid #F2F4F7;
+              padding-top: 8px; margin-top: 15px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="logo-text">EPEOR ANALYTICS</div>
+              <div class="company-name">Alg\u00e9rienne des Eaux</div>
+            </div>
+            <div class="title-section">
+              <div class="title">${titleStr}</div>
+              <div class="subtitle">Analyses Financi\u00e8res</div>
+            </div>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-item"><span class="meta-label">P\u00e9rim\u00e8tre</span><span class="meta-value">${subTitleStr}</span></div>
+            <div class="meta-item"><span class="meta-label">P\u00e9riode</span><span class="meta-value">${dateStr || '\u2014'}</span></div>
+            <div class="meta-item"><span class="meta-label">Date d'\u00e9dition</span><span class="meta-value">${printDate}</span></div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Commune</th>
+                <th style="text-align:right;color:#2563eb;">CA Eau (DA)</th>
+                <th style="text-align:right;color:#0891b2;">CA Prest. (DA)</th>
+                <th style="text-align:right;">Total CA (DA)</th>
+                <th style="text-align:right;color:#0d9488;">CA Recouv. (DA)</th>
+                <th style="text-align:right;color:#059669;">Encaissement (DA)</th>
+                <th style="text-align:right;color:#e11d48;">Cr\u00e9ance (DA)</th>
+                <th style="text-align:right;">Taux Recov. (%)</th>
+              </tr>
+            </thead>
+            <tbody>${tableRowsHtml}</tbody>
+          </table>
+          <div class="footer-info">
+            <span>EPEOR Analytics \u2014 Analyses Financi\u00e8res / R\u00e9partition par Commune</span>
+            <span>${printDate}</span>
+          </div>
+          <script>window.onload=function(){setTimeout(function(){window.print();},500);};<\/script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
 
   const toggleCommune = (communeId: string) => {
     setCollapsedCommunes(prev =>
@@ -7374,6 +7548,16 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
               </button>
             </>
           )}
+
+          <div className="w-[1px] h-6 bg-[#E4E7EC] mx-1 hidden sm:block"></div>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#0D83DE] hover:bg-[#0a6ab8] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10"
+            title="Imprimer la répartition par commune"
+          >
+            <Printer size={13} />
+            <span>Imprimer</span>
+          </button>
         </div>
       </div>
 

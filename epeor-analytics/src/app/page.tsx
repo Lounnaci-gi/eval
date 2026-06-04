@@ -913,12 +913,12 @@ export default function Dashboard() {
                     onMouseLeave={() => setShowChartGuide(false)}
                   >
                     <h3 className="text-xl font-black tracking-tight text-[#101828] hover:text-[#0D83DE] transition-colors">
-                      Répartition par Commune & Résiliations
+                      Répartition par Secteur (centre) & Résiliations
                     </h3>
                   </div>
                 </div>
                 <ChartContainer className="h-[350px] w-full">
-                    <BarChart data={stats?.subscriber_communes || []} margin={{ top: 30, right: 10, left: -20, bottom: 20 }}>
+                    <BarChart data={stats?.subscriber_sectors || []} margin={{ top: 30, right: 10, left: -20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
                       <XAxis
                         dataKey="name"
@@ -1010,11 +1010,11 @@ export default function Dashboard() {
                 onClick={() => setCurrentView('details')}
                 className="lg:col-span-3 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 text-obat-gray cursor-pointer hover:shadow-md hover:border-[#D0D5DD] transition-all group"
               >
-                <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">Types d'Abonnés</h3>
+                <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">Secteurs (centres)</h3>
                 <ChartContainer className="h-[350px] w-full">
                     <PieChart>
                       <Pie
-                        data={stats?.subscriber_types?.slice(0, 5) || []}
+                        data={stats?.subscriber_sectors?.slice(0, 5) || []}
                         cx="50%"
                         cy="50%"
                         outerRadius={120}
@@ -1024,7 +1024,7 @@ export default function Dashboard() {
                         strokeWidth={2}
                         label={({ name, percent }) => percent !== undefined ? `${name} ${(percent * 100).toFixed(0)}%` : name}
                       >
-                        {(stats?.subscriber_types || []).map((entry: any, index: number) => (
+                        {(stats?.subscriber_sectors || []).map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={[
                             '#0D83DE', // Blue
                             '#00D1FF', // Cyan

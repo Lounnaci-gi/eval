@@ -519,6 +519,56 @@ def compute_dashboard_stats(secteur: str | None = None):
         })
     stats["subscriber_communes"].sort(key=lambda x: x['value'], reverse=True)
 
+    # Group by sectors (centres)
+    sector_counts = {}
+    for r_tab in MEM_TABCODES:
+        code_affec = str(r_tab.get('CODE_AFFEC', '')).strip().upper()
+        if code_affec.startswith('S'):
+            sec_code = code_affec[1:].strip().zfill(2)
+            libelle = str(r_tab.get('LIBELLE', '')).strip()
+            if sec_code and sec_code not in sector_counts:
+                sector_counts[sec_code] = {
+                    "id": sec_code,
+                    "name": libelle or f"Secteur {sec_code}",
+                    "value": 0,
+                    "resigned": 0,
+                    "stopped": 0,
+                    "no_meter": 0
+                }
+
+    for codcom, counts in commune_counts.items():
+        commune_rec = communes_by_code.get(codcom)
+        secteur_code = str(commune_rec.get('SECTEUR', '')).strip().zfill(2) if commune_rec else None
+        if not secteur_code:
+            continue
+        if secteur_code not in sector_counts:
+            libcom = None
+            for r_tab in MEM_TABCODES:
+                code_affec = str(r_tab.get('CODE_AFFEC', '')).strip().upper()
+                if code_affec == 'S' + secteur_code:
+                    libcom = str(r_tab.get('LIBELLE', '')).strip()
+                    break
+            sector_counts[secteur_code] = {
+                "id": secteur_code,
+                "name": libcom or f"Secteur {secteur_code}",
+                "value": 0,
+                "resigned": 0,
+                "stopped": 0,
+                "no_meter": 0
+            }
+        sector_counts[secteur_code]["value"] += counts["total"]
+        sector_counts[secteur_code]["resigned"] += counts["resigned"]
+        sector_counts[secteur_code]["stopped"] += counts["stopped"]
+        sector_counts[secteur_code]["no_meter"] += counts["no_meter"]
+
+    stats["subscriber_sectors"] = []
+    for sec_code, s_data in sector_counts.items():
+        if s_data["value"] > 0:
+            s_data["percentage"] = round((s_data["value"] / total) * 100, 2) if total > 0 else 0
+            stats["subscriber_sectors"].append(s_data)
+    stats["subscriber_sectors"].sort(key=lambda x: x['value'], reverse=True)
+
+
     months = {
         "01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril",
         "05": "Mai", "06": "Juin", "07": "Juillet", "08": "Août",

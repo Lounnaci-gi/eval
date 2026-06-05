@@ -51,6 +51,8 @@ import {
   Bar,
   LineChart,
   Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -403,7 +405,7 @@ function buildSubscribersUrl(quartier: string, options?: { etat?: string; secteu
 }
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1167,9 +1169,9 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        ) : ['details', 'resigned', 'stopped', 'no_meter'].includes(currentView) ? (
+        ) : ['details', 'evolution', 'resigned', 'stopped', 'no_meter'].includes(currentView) ? (
           <GestionAbonnesShell
-            currentView={currentView as 'details' | 'resigned' | 'stopped' | 'no_meter'}
+            currentView={currentView as 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter'}
             setCurrentView={setCurrentView}
             baseStats={stats}
             selectedSecteur={selectedSecteur}
@@ -1373,7 +1375,7 @@ function GestionAbonnesShell({
   sectorsLoading,
   onBack,
 }: {
-  currentView: 'details' | 'resigned' | 'stopped' | 'no_meter';
+  currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter';
   setCurrentView: (v: any) => void;
   baseStats: any;
   selectedSecteur: string;
@@ -1414,6 +1416,7 @@ function GestionAbonnesShell({
 
   const tabs = [
     { id: 'details' as const, label: 'Vue globale' },
+    { id: 'evolution' as const, label: 'Évolution des abonnés' },
     { id: 'resigned' as const, label: 'Résiliés' },
     { id: 'stopped' as const, label: "À l'arrêt" },
     { id: 'no_meter' as const, label: 'Sans compteur' },
@@ -1496,6 +1499,9 @@ function GestionAbonnesShell({
         {currentView === 'details' && (
           <DetailedStatsView key={`details-${selectedSecteur}`} {...viewProps} />
         )}
+        {currentView === 'evolution' && (
+          <SubscribersEvolutionView key={`evolution-${selectedSecteur}`} {...viewProps} />
+        )}
         {currentView === 'resigned' && (
           <ResignedDetailView key={`resigned-${selectedSecteur}`} {...viewProps} />
         )}
@@ -1505,6 +1511,717 @@ function GestionAbonnesShell({
         {currentView === 'no_meter' && (
           <NoMeterDetailView key={`no_meter-${selectedSecteur}`} {...viewProps} />
         )}
+      </div>
+    </div>
+  );
+}
+
+function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel }: any) {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<string>('2015');
+
+  // Filtering states
+  const [selectedFilterCommune, setSelectedFilterCommune] = useState<string>("");
+  const [selectedFilterType, setSelectedFilterType] = useState<string>("");
+
+  // Interactive date calculator states
+  const [selectedYear, setSelectedYear] = useState<number>(2020);
+  const [selectedMonth, setSelectedMonth] = useState<number>(7);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    
+    const url = new URL('http://127.0.0.1:8000/api/subscribers_evolution');
+    if (selectedSecteur) {
+      url.searchParams.set('secteur', selectedSecteur);
+    }
+    if (selectedFilterCommune) {
+      url.searchParams.set('commune', selectedFilterCommune);
+    }
+    if (selectedFilterType) {
+      url.searchParams.set('type_abon', selectedFilterType);
+    }
+    
+    fetch(url.toString())
+      .then(res => {
+        if (!res.ok) throw new Error("Erreur serveur");
+        return res.json();
+      })
+      .then(resData => {
+        if (cancelled) return;
+        if (resData.ready) {
+          setData(resData.evolution);
+        } else {
+          setError(resData.message || "Les données ne sont pas prêtes");
+        }
+      })
+      .catch(err => {
+        if (cancelled) return;
+        setError("Impossible de charger l'historique des abonnés.");
+        console.error(err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSecteur, selectedFilterCommune, selectedFilterType]);
+
+  const filteredData = useMemo(() => {
+    if (!data) return [];
+    if (timeRange === 'all') return data;
+    const startYear = parseInt(timeRange);
+    return data.filter(d => {
+      const y = parseInt(d.period.split('-')[0]);
+      return y >= startYear;
+    });
+  }, [data, timeRange]);
+
+  const milestones = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    const targets = ['2000-12', '2005-12', '2010-12', '2015-12', '2020-12', '2021-12', '2022-12', '2023-12', '2024-12', '2025-12'];
+    const result: any[] = [];
+    targets.forEach(t => {
+      const found = data.find(d => d.period === t);
+      if (found) {
+        result.push({ period: t, count: found.count });
+      }
+    });
+    const latest = data[data.length - 1];
+    if (latest && !targets.includes(latest.period)) {
+      result.push({ period: latest.period, count: latest.count, isLatest: true });
+    }
+    return result;
+  }, [data]);
+
+  const resignedCommunes = useMemo(() => {
+    const communes = stats?.subscriber_communes || [];
+    return communes
+      .map((c: any) => ({
+        name: c.name,
+        total: c.value,
+        resigned: c.resigned || 0,
+        rate: c.value > 0 ? ((c.resigned || 0) / c.value) * 100 : 0
+      }))
+      .filter((c: any) => c.resigned > 0)
+      .sort((a: any, b: any) => b.resigned - a.resigned);
+  }, [stats?.subscriber_communes]);
+
+  const resignedTypes = useMemo(() => {
+    const types = stats?.subscriber_types || [];
+    return types
+      .map((t: any) => ({
+        name: t.name,
+        total: t.value,
+        resigned: t.resigned || 0,
+        rate: t.value > 0 ? ((t.resigned || 0) / t.value) * 100 : 0
+      }))
+      .filter((t: any) => t.resigned > 0)
+      .sort((a: any, b: any) => b.resigned - a.resigned);
+  }, [stats?.subscriber_types]);
+
+  // Find simulated count
+  const calculatorResult = useMemo(() => {
+    if (!data || data.length === 0) return null;
+    const periodKey = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
+    const found = data.find(d => d.period === periodKey);
+    if (found) return found;
+    
+    // Fallback: if selected date is before data starts, return first record
+    const targetInt = selectedYear * 100 + selectedMonth;
+    const firstPeriod = data[0].period;
+    const [fy, fm] = firstPeriod.split('-').map(Number);
+    const firstInt = fy * 100 + fm;
+    if (targetInt < firstInt) {
+      return { period: periodKey, count: 0, new_registrations: 0, isBefore: true };
+    }
+    
+    // If selected date is after data ends, return last record
+    const lastPeriod = data[data.length - 1].period;
+    const [ly, lm] = lastPeriod.split('-').map(Number);
+    const lastInt = ly * 100 + lm;
+    if (targetInt > lastInt) {
+      return { period: periodKey, count: data[data.length - 1].count, new_registrations: 0, isAfter: true };
+    }
+    
+    return null;
+  }, [data, selectedYear, selectedMonth]);
+
+  // Calculate annual growth stats
+  const growthStats = useMemo(() => {
+    if (!data || data.length < 13) return null;
+    const latestCount = data[data.length - 1].count;
+    // Count 12 months ago
+    const oneYearAgoIndex = data.length - 13;
+    const countOneYearAgo = data[oneYearAgoIndex].count;
+    const growth12m = latestCount - countOneYearAgo;
+    const pct12m = ((growth12m) / countOneYearAgo) * 100;
+    
+    // Average new registrations per month
+    const totalNewLast12m = data.slice(data.length - 12).reduce((sum, d) => sum + d.new_registrations, 0);
+    const avgMonthlyNew = totalNewLast12m / 12;
+
+    return {
+      growth12m,
+      pct12m: pct12m.toFixed(2),
+      avgMonthlyNew: Math.round(avgMonthlyNew)
+    };
+  }, [data]);
+
+  const monthsList = [
+    { value: 1, label: "Janvier" },
+    { value: 2, label: "Février" },
+    { value: 3, label: "Mars" },
+    { value: 4, label: "Avril" },
+    { value: 5, label: "Mai" },
+    { value: 6, label: "Juin" },
+    { value: 7, label: "Juillet" },
+    { value: 8, label: "Août" },
+    { value: 9, label: "Septembre" },
+    { value: 10, label: "Octobre" },
+    { value: 11, label: "Novembre" },
+    { value: 12, label: "Décembre" }
+  ];
+
+  const yearsList = useMemo(() => {
+    if (!data || data.length === 0) return Array.from({ length: 27 }, (_, i) => 2000 + i);
+    const firstYear = parseInt(data[0].period.split('-')[0]);
+    const lastYear = parseInt(data[data.length - 1].period.split('-')[0]);
+    const list = [];
+    for (let y = firstYear; y <= lastYear; y++) {
+      list.push(y);
+    }
+    return list;
+  }, [data]);
+
+  const formatPeriodFrench = (periodStr: string) => {
+    const [y, m] = periodStr.split('-');
+    const mIdx = parseInt(m) - 1;
+    return `${monthsList[mIdx]?.label} ${y}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center justify-center gap-4 min-h-[400px]">
+        <div className="w-12 h-12 border-4 border-blue-100 border-t-[#0D83DE] rounded-full animate-spin" />
+        <p className="text-base font-bold text-[#475467] animate-pulse">Calcul de l'évolution des abonnés...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-12 text-center text-rose-600">
+        <p className="font-bold">{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold border border-blue-100 hover:bg-blue-100 transition-all"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* KPI Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white border border-[#E4E7EC] p-6 rounded-[2rem] shadow-sm">
+          <div className="flex justify-between items-start mb-6">
+            <div className="p-4 rounded-2xl bg-blue-50 text-[#0D83DE]">
+              <Users size={24} />
+            </div>
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#98A2B3]">Cumul</span>
+          </div>
+          <div>
+            <p className="text-[#475467] text-sm font-bold mb-1">Total Abonnés Actuels</p>
+            <p className="text-3xl font-black text-[#101828] tracking-tight">
+              {(data[data.length - 1]?.count ?? 0).toLocaleString('fr-FR')}
+            </p>
+            <p className="text-xs text-[#667085] mt-1 font-medium">À fin {formatPeriodFrench(data[data.length - 1]?.period)}</p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#E4E7EC] p-6 rounded-[2rem] shadow-sm">
+          <div className="flex justify-between items-start mb-6">
+            <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600">
+              <TrendingUp size={24} />
+            </div>
+            <span className="text-[11px] font-black uppercase tracking-widest text-emerald-600">
+              {growthStats ? `+${growthStats.pct12m}%` : ''}
+            </span>
+          </div>
+          <div>
+            <p className="text-[#475467] text-sm font-bold mb-1">Croissance (12 mois)</p>
+            <p className="text-3xl font-black text-[#101828] tracking-tight">
+              {growthStats ? `+${growthStats.growth12m.toLocaleString('fr-FR')}` : '---'}
+            </p>
+            <p className="text-xs text-[#667085] mt-1 font-medium">Nouveaux abonnés sur la dernière année</p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#E4E7EC] p-6 rounded-[2rem] shadow-sm">
+          <div className="flex justify-between items-start mb-6">
+            <div className="p-4 rounded-2xl bg-purple-50 text-purple-600">
+              <Calendar size={24} />
+            </div>
+            <span className="text-[11px] font-black uppercase tracking-widest text-purple-600">Rythme</span>
+          </div>
+          <div>
+            <p className="text-[#475467] text-sm font-bold mb-1">Moyenne Mensuelle</p>
+            <p className="text-3xl font-black text-[#101828] tracking-tight">
+              {growthStats ? `+${growthStats.avgMonthlyNew}` : '---'}
+            </p>
+            <p className="text-xs text-[#667085] mt-1 font-medium">Inscriptions moyennes par mois</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Chart Area */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8">
+          <div>
+            <h3 className="text-xl font-black tracking-tight text-[#101828]">Courbe de Croissance Temporelle</h3>
+            <p className="text-xs text-[#667085] mt-1">Évolution cumulative des abonnés enregistrés</p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Commune Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Commune :</span>
+              <div className="relative">
+                <select
+                  value={selectedFilterCommune}
+                  onChange={(e) => setSelectedFilterCommune(e.target.value)}
+                  className="text-xs font-bold border-[#D0D5DD] border rounded-xl pl-3 pr-8 py-2 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer"
+                >
+                  <option value="">Toutes les communes</option>
+                  {(stats?.subscriber_communes || []).map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#667085] pointer-events-none" size={12} />
+              </div>
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Catégorie :</span>
+              <div className="relative">
+                <select
+                  value={selectedFilterType}
+                  onChange={(e) => setSelectedFilterType(e.target.value)}
+                  className="text-xs font-bold border-[#D0D5DD] border rounded-xl pl-3 pr-8 py-2 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer w-44 truncate"
+                >
+                  <option value="">Toutes les catégories</option>
+                  {(stats?.subscriber_types || []).map((t: any) => (
+                    <option key={t.code} value={t.code}>{t.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#667085] pointer-events-none" size={12} />
+              </div>
+            </div>
+
+            {/* Time range buttons */}
+            <div className="flex bg-[#F2F4F7] p-1 rounded-xl gap-1 border border-[#E4E7EC] self-start xl:self-auto">
+              {[
+                { id: '2000', label: 'Depuis 2000' },
+                { id: '2010', label: 'Depuis 2010' },
+                { id: '2015', label: 'Depuis 2015' },
+                { id: '2020', label: 'Depuis 2020' },
+                { id: 'all', label: 'Tout' }
+              ].map(range => (
+                <button
+                  key={range.id}
+                  onClick={() => setTimeRange(range.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                    timeRange === range.id
+                      ? 'bg-white text-[#0D83DE] shadow-sm'
+                      : 'text-[#667085] hover:text-[#101828]'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="h-[350px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={filteredData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#0D83DE" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#0D83DE" stopOpacity={0.0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2F4F7" />
+              <XAxis 
+                dataKey="period" 
+                tickLine={false} 
+                axisLine={false}
+                stroke="#98A2B3"
+                style={{ fontSize: '10px', fontWeight: 'bold' } as any}
+                tickFormatter={(tick) => {
+                  const [y, m] = tick.split('-');
+                  if (m === '01') return y;
+                  return '';
+                }}
+              />
+              <YAxis 
+                tickLine={false} 
+                axisLine={false}
+                stroke="#98A2B3"
+                style={{ fontSize: '10px', fontWeight: 'bold' } as any}
+                domain={['dataMin - 1000', 'dataMax + 1000']}
+                tickFormatter={(val) => val.toLocaleString('fr-FR')}
+              />
+              <Tooltip 
+                contentStyle={{
+                  backgroundColor: "#101828",
+                  border: "none",
+                  borderRadius: "16px",
+                  color: "#fff",
+                  fontSize: '12px',
+                  boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)"
+                }}
+                labelStyle={{ fontWeight: 'black', marginBottom: '4px', color: '#98A2B3' }}
+                labelFormatter={(label) => formatPeriodFrench(label)}
+                formatter={(value: any) => [
+                  <span className="font-bold text-white">{value.toLocaleString('fr-FR')} abonnés</span>,
+                  'Cumul'
+                ]}
+              />
+              <Area type="monotone" dataKey="count" stroke="#0D83DE" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Interactive Estimator / Calculator */}
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col justify-between">
+          <div>
+            <h3 className="text-xl font-black tracking-tight text-[#101828]">Simulateur de Période Historique</h3>
+            <p className="text-xs text-[#667085] mt-1 mb-6">
+              Saisissez ou sélectionnez une date pour afficher le nombre d'abonnés enregistrés à ce moment précis de l'histoire.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Mois</label>
+                <div className="relative">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                    className="w-full text-xs font-bold border-[#D0D5DD] border rounded-xl px-4 py-3 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer"
+                  >
+                    {monthsList.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] pointer-events-none" size={14} />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Année</label>
+                <div className="relative">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="w-full text-xs font-bold border-[#D0D5DD] border rounded-xl px-4 py-3 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer"
+                  >
+                    {yearsList.map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] pointer-events-none" size={14} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-8 bg-blue-50/50 border border-blue-100 rounded-2xl text-center space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#0D83DE]">Nombre d'abonnés estimé</span>
+            <div className="text-4xl font-black text-[#101828] tracking-tight">
+              {calculatorResult ? (
+                calculatorResult.isBefore ? "0" : calculatorResult.count.toLocaleString('fr-FR')
+              ) : '---'}
+            </div>
+            <p className="text-xs text-[#667085] font-medium">
+              au 01/{selectedMonth.toString().padStart(2, '0')}/{selectedYear}
+            </p>
+            {calculatorResult && calculatorResult.new_registrations > 0 && (
+              <span className="inline-block text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md mt-2">
+                +{calculatorResult.new_registrations} nouvelles inscriptions ce mois-là
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Milestones / Key Years Table */}
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+          <div>
+            <h3 className="text-xl font-black tracking-tight text-[#101828]">Jalons et Points de Repère</h3>
+            <p className="text-xs text-[#667085] mt-1 mb-6">Aperçu rapide du cumul des abonnés à la fin de chaque période charnière.</p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-bold">
+                  <th className="px-6 py-4">Période</th>
+                  <th className="px-6 py-4 text-right">Nombre d'abonnés</th>
+                  <th className="px-6 py-4 text-right">Croissance vs précédent</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {milestones.map((m, idx) => {
+                  const prevMilestone = milestones[idx - 1];
+                  const diff = prevMilestone ? m.count - prevMilestone.count : 0;
+                  const pct = prevMilestone && prevMilestone.count > 0 ? ((diff / prevMilestone.count) * 100).toFixed(1) : null;
+                  
+                  return (
+                    <tr key={m.period} className="hover:bg-[#F9FAFB] transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-black text-[#101828]">
+                          {m.isLatest ? "Dernière période (" + formatPeriodFrench(m.period) + ")" : formatPeriodFrench(m.period)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-xs font-black text-[#0D83DE]">{m.count.toLocaleString('fr-FR')}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {diff > 0 ? (
+                          <span className="inline-flex items-center text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
+                            +{diff.toLocaleString('fr-FR')} ({pct}%)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-[#98A2B3]">--</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Growth by Commune Chart */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-xl font-black tracking-tight text-[#101828]">Répartition des Abonnés par Commune</h3>
+            <p className="text-xs text-[#667085] mt-1">Volume total d'abonnés par commune — filtrables depuis les menus ci-dessus</p>
+          </div>
+        </div>
+        <div className="h-[320px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={(stats?.subscriber_communes || []).slice(0, 15).map((c: any) => ({
+                name: c.name?.length > 18 ? c.name.slice(0, 16) + '…' : c.name,
+                fullName: c.name,
+                total: c.value,
+                actifs: c.value - (c.resigned || 0),
+                resiliés: c.resigned || 0,
+              }))}
+              margin={{ top: 5, right: 20, left: 10, bottom: 60 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2F4F7" />
+              <XAxis
+                dataKey="name"
+                tickLine={false}
+                axisLine={false}
+                stroke="#98A2B3"
+                style={{ fontSize: '9px', fontWeight: 'bold' } as any}
+                angle={-35}
+                textAnchor="end"
+                interval={0}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                stroke="#98A2B3"
+                style={{ fontSize: '10px', fontWeight: 'bold' } as any}
+                tickFormatter={(v) => v.toLocaleString('fr-FR')}
+              />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#101828', border: 'none', borderRadius: '14px', color: '#fff', fontSize: '12px' }}
+                labelStyle={{ color: '#98A2B3', fontWeight: 'bold', marginBottom: '4px' }}
+                labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || _}
+                formatter={(value: any, name: any) => [value.toLocaleString('fr-FR'), name === 'actifs' ? 'Actifs' : name === 'resiliés' ? 'Résiliés' : 'Total']}
+              />
+              <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '12px' }} />
+              <Bar dataKey="actifs" name="Actifs" stackId="a" fill="#0D83DE" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="resiliés" name="Résiliés" stackId="a" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Growth by Type Chart */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-xl font-black tracking-tight text-[#101828]">Répartition des Abonnés par Catégorie</h3>
+            <p className="text-xs text-[#667085] mt-1">Volume total d'abonnés ventilé par type d'abonnement</p>
+          </div>
+        </div>
+        <div className="h-[320px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={(stats?.subscriber_types || []).slice(0, 12).map((t: any) => ({
+                name: t.name?.length > 22 ? t.name.slice(0, 20) + '…' : t.name,
+                fullName: t.name,
+                total: t.value,
+                actifs: t.value - (t.resigned || 0),
+                resiliés: t.resigned || 0,
+              }))}
+              layout="vertical"
+              margin={{ top: 5, right: 50, left: 10, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F2F4F7" />
+              <XAxis
+                type="number"
+                tickLine={false}
+                axisLine={false}
+                stroke="#98A2B3"
+                style={{ fontSize: '10px', fontWeight: 'bold' } as any}
+                tickFormatter={(v) => v.toLocaleString('fr-FR')}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                tickLine={false}
+                axisLine={false}
+                stroke="#98A2B3"
+                style={{ fontSize: '10px', fontWeight: 'bold' } as any}
+                width={130}
+              />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#101828', border: 'none', borderRadius: '14px', color: '#fff', fontSize: '12px' }}
+                labelStyle={{ color: '#98A2B3', fontWeight: 'bold', marginBottom: '4px' }}
+                labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || _}
+                formatter={(value: any, name: any) => [value.toLocaleString('fr-FR'), name === 'actifs' ? 'Actifs' : name === 'resiliés' ? 'Résiliés' : 'Total']}
+              />
+              <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '12px' }} />
+              <Bar dataKey="actifs" name="Actifs" stackId="a" fill="#0D83DE" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="resiliés" name="Résiliés" stackId="a" fill="#f43f5e" radius={[0, 6, 6, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Resigned Statistics Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Resigned by Commune Table */}
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+          <div>
+            <h3 className="text-xl font-black tracking-tight text-[#101828]">Abonnés Résiliés par Commune</h3>
+            <p className="text-xs text-[#667085] mt-1 mb-6">Répartition et taux de résiliation des abonnés au sein de chaque commune.</p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-bold">
+                  <th className="px-6 py-4">Commune</th>
+                  <th className="px-6 py-4 text-right">Résiliés</th>
+                  <th className="px-6 py-4 text-right">Taux de résiliation</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {resignedCommunes.length > 0 ? (
+                  resignedCommunes.map((c: any) => (
+                    <tr key={c.name} className="hover:bg-[#F9FAFB] transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-black text-[#101828]">{c.name}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-xs font-black text-rose-600">{c.resigned.toLocaleString('fr-FR')}</span>
+                        <span className="text-[10px] text-[#98A2B3] ml-1.5">/ {c.total.toLocaleString('fr-FR')}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <span className="text-xs font-black text-rose-600">{c.rate.toFixed(1)}%</span>
+                          <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden hidden sm:block">
+                            <div className="h-full bg-rose-500" style={{ width: `${c.rate}%` }} />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-8 text-center text-xs font-bold text-[#667085]">
+                      Aucune résiliation enregistrée.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Resigned by Subscriber Type Table */}
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+          <div>
+            <h3 className="text-xl font-black tracking-tight text-[#101828]">Abonnés Résiliés par Catégorie</h3>
+            <p className="text-xs text-[#667085] mt-1 mb-6">Répartition et taux de résiliation selon la catégorie ou le type d'abonné.</p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-bold">
+                  <th className="px-6 py-4">Catégorie</th>
+                  <th className="px-6 py-4 text-right">Résiliés</th>
+                  <th className="px-6 py-4 text-right">Taux de résiliation</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {resignedTypes.length > 0 ? (
+                  resignedTypes.map((t: any) => (
+                    <tr key={t.name} className="hover:bg-[#F9FAFB] transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-black text-[#101828]">{t.name}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-xs font-black text-rose-600">{t.resigned.toLocaleString('fr-FR')}</span>
+                        <span className="text-[10px] text-[#98A2B3] ml-1.5">/ {t.total.toLocaleString('fr-FR')}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <span className="text-xs font-black text-rose-600">{t.rate.toFixed(1)}%</span>
+                          <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden hidden sm:block">
+                            <div className="h-full bg-rose-500" style={{ width: `${t.rate}%` }} />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-8 text-center text-xs font-bold text-[#667085]">
+                      Aucune résiliation enregistrée.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );

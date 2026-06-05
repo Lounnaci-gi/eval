@@ -477,6 +477,7 @@ def compute_dashboard_stats(secteur: str | None = None):
             continue
         label = mapping.get(t_code, f"Autre ({t_code})" if t_code else "Inconnu")
         stats["subscriber_types"].append({
+            "code": t_code,
             "name": label,
             "value": counts["total"],
             "resigned": counts["resigned"],
@@ -1044,6 +1045,116 @@ def get_api_status():
         "loading_status": db_loading_status,
         "load_retries": _load_retry_count,
         "diagnostic": diagnose_data_dir(),
+    }
+
+
+@app.get("/api/subscribers_evolution")
+def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abon: str = None):
+    if not is_db_ready or len(MEM_ABONNES) == 0:
+        return {"ready": False, "evolution": [], "total": 0, "missing_dates_handled": 0}
+    
+    allowed_communes = _commune_codcoms_for_centre(secteur) if secteur and str(secteur).strip() else None
+    
+    # Index of DATEINST in MEM_ABONMENTS by NUMAB
+    abonment_dates = {}
+    for r in MEM_ABONMENTS:
+        numab = str(r.get('NUMAB') or '').strip().upper()
+        di = str(r.get('DATEINST') or '').strip()
+        if numab and di and len(di) == 8 and di.isdigit():
+            abonment_dates[numab] = di
+
+    join_dates = []
+    missing_count = 0
+    
+    for r in MEM_ABONNES:
+        numab = str(r.get('NUMAB') or '').strip().upper()
+        if not _abonne_in_centre(numab, allowed_communes):
+            continue
+            
+        if commune and str(commune).strip():
+            if _abonne_codcom(numab) != str(commune).strip():
+                continue
+                
+        if type_abon and str(type_abon).strip():
+            if str(r.get('TYPABON') or '').strip() != str(type_abon).strip():
+                continue
+                
+        dp = str(r.get('DATEPRISE') or '').strip()
+        dc = str(r.get('DATECRE') or '').strip()
+        ff = str(r.get('FIRSTFACT') or '').strip()
+        di = abonment_dates.get(numab, '')
+        
+        resolved_date = None
+        for d in [dp, dc, ff, di]:
+            if d and len(d) == 8 and d.isdigit():
+                y = int(d[:4])
+                if 1980 <= y <= 2026:
+                    resolved_date = d
+                    break
+        
+        if resolved_date:
+            join_dates.append(resolved_date)
+        else:
+            missing_count += 1
+            
+    if not join_dates and missing_count == 0:
+        return {"ready": True, "evolution": [], "total": 0, "missing_dates_handled": 0}
+        
+    min_date = min(join_dates) if join_dates else "20100101"
+    min_year = int(min_date[:4])
+    if min_year < 2000:
+        min_year = 2000
+        
+    monthly_counts = {}
+    current_year = 2026
+    current_month = 6
+    
+    year_ptr = min_year
+    month_ptr = 1
+    while year_ptr < current_year or (year_ptr == current_year and month_ptr <= current_month):
+        period_str = f"{year_ptr}-{month_ptr:02d}"
+        monthly_counts[period_str] = 0
+        month_ptr += 1
+        if month_ptr > 12:
+            month_ptr = 1
+            year_ptr += 1
+            
+    for d in join_dates:
+        yr = int(d[:4])
+        if yr < min_year:
+            period_str = f"{min_year}-01"
+        elif yr > current_year or (yr == current_year and int(d[4:6]) > current_month):
+            period_str = f"{current_year}-{current_month:02d}"
+        else:
+            period_str = f"{yr}-{int(d[4:6]):02d}"
+            
+        if period_str in monthly_counts:
+            monthly_counts[period_str] += 1
+        else:
+            first_period = f"{min_year}-01"
+            monthly_counts[first_period] += 1
+
+    first_period = f"{min_year}-01"
+    if first_period in monthly_counts:
+        monthly_counts[first_period] += missing_count
+    
+    evolution = []
+    cumulative = 0
+    sorted_periods = sorted(monthly_counts.keys())
+    for period in sorted_periods:
+        new_regs = monthly_counts[period]
+        cumulative += new_regs
+        evolution.append({
+            "period": period,
+            "count": cumulative,
+            "new_registrations": new_regs
+        })
+        
+    return {
+        "ready": True,
+        "evolution": evolution,
+        "total": cumulative,
+        "missing_dates_handled": missing_count
     }
 
 

@@ -403,7 +403,7 @@ function buildSubscribersUrl(quartier: string, options?: { etat?: string; secteu
 }
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -414,6 +414,9 @@ export default function Dashboard() {
   const [hoveredAbonne, setHoveredAbonne] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [creanceData, setCreanceData] = useState<any>(null);
+  const [ventilationData, setVentilationData] = useState<any[]>([]);
+  const [lastVentDate, setLastVentDate] = useState('');
+  const [ventilationFilter, setVentilationFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [repartitionFilter, setRepartitionFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [calcDateRange, setCalcDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
   const [reloadPending, setReloadPending] = useState(false);
@@ -790,7 +793,7 @@ export default function Dashboard() {
           <NavItem
             icon={<BarChart3 size={20} />}
             label="Analyses Financières"
-            active={currentView === 'creance' || currentView === 'repartition' || currentView === 'commune'}
+            active={currentView === 'creance' || currentView === 'repartition' || currentView === 'commune' || currentView === 'ventilation'}
             onClick={() => setCurrentView('creance')}
           />
           <NavItem
@@ -1196,7 +1199,7 @@ export default function Dashboard() {
           />
         ) : currentView === 'settings' ? (
           <SettingsView onBack={() => setCurrentView('dashboard')} />
-        ) : ['creance', 'repartition', 'commune'].includes(currentView) ? (
+        ) : ['creance', 'repartition', 'commune', 'ventilation'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
             <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print no-print-charts-only">
@@ -1222,7 +1225,7 @@ export default function Dashboard() {
                   <SecteurDropdown
                     sectors={sectors}
                     selectedSecteur={selectedSecteur}
-                    onSelect={(code) => { setSelectedSecteur(code); setCreanceData(null); }}
+                    onSelect={(code) => { setSelectedSecteur(code); setCreanceData(null); setVentilationData([]); setLastVentDate(''); }}
                     uniteLabel={uniteLabel}
                     loading={sectorsLoading || !stats?.ready}
                   />
@@ -1230,6 +1233,7 @@ export default function Dashboard() {
                   <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC] shadow-sm">
                     {[
                       { id: 'creance', label: 'Synthèse Globale' },
+                      { id: 'ventilation', label: 'Ventilation Créances' },
                       { id: 'repartition', label: "Répartition par Type" },
                       { id: 'commune', label: 'Répartition par Commune' }
                     ].map(tab => (
@@ -1255,14 +1259,35 @@ export default function Dashboard() {
               <CreanceDetailView
                 creanceData={creanceData}
                 setCreanceData={setCreanceData}
+                ventilationData={ventilationData}
+                setVentilationData={setVentilationData}
+                lastVentDate={lastVentDate}
+                setLastVentDate={setLastVentDate}
+                ventilationFilter={ventilationFilter}
+                setVentilationFilter={setVentilationFilter}
                 onNavigateToRepartition={(filter: 'ALL' | 'EAU' | 'PRESTATIONS') => {
                   setRepartitionFilter(filter);
                   setCurrentView('repartition');
                 }}
+                onNavigateToVentilation={() => setCurrentView('ventilation')}
                 onCalcDateChange={(s: string, e: string) => setCalcDateRange({start: s, end: e})}
                 selectedSecteur={selectedSecteur}
                 sectors={sectors}
                 uniteLabel={uniteLabel}
+              />
+            ) : currentView === 'ventilation' ? (
+              <CreanceVentilationView
+                ventilationData={ventilationData}
+                setVentilationData={setVentilationData}
+                lastVentDate={lastVentDate}
+                setLastVentDate={setLastVentDate}
+                ventilationFilter={ventilationFilter}
+                setVentilationFilter={setVentilationFilter}
+                onGoToCalculation={() => setCurrentView('creance')}
+                selectedSecteur={selectedSecteur}
+                sectors={sectors}
+                uniteLabel={uniteLabel}
+                endDate={calcDateRange.end}
               />
             ) : currentView === 'repartition' ? (
               <CreanceRepartitionView
@@ -5176,7 +5201,11 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   );
 }
 
-function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartition, onCalcDateChange, selectedSecteur = '', sectors = [], uniteLabel = '' }: any) {
+function CreanceDetailView({
+  creanceData, setCreanceData, ventilationData, setVentilationData, lastVentDate, setLastVentDate,
+  ventilationFilter, setVentilationFilter, onNavigateToRepartition, onNavigateToVentilation,
+  onCalcDateChange, selectedSecteur = '', sectors = [], uniteLabel = ''
+}: any) {
 
   const data = creanceData;
   const secteurLabel = selectedSecteur
@@ -5188,14 +5217,9 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
   const [filterPeriod, setFilterPeriod] = useState('all');
-  const [ventilationData, setVentilationData] = useState<any[]>([]);
-  const [ventilationLoading, setVentilationLoading] = useState(false);
-  const [ventilationFilter, setVentilationFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS' | null>(null);
   const [calcProgress, setCalcProgress] = useState(0);
   const [calcStep, setCalcStep] = useState("");
-  const [expandedSections, setExpandedSections] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
-  const [lastVentDate, setLastVentDate] = useState("");
   const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre'>('creance');
 
   const [histType, setHistType] = useState<'monthly_12' | 'years' | 'months'>('monthly_12');
@@ -5216,284 +5240,11 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
   const recoveryRate = data ? (data.total_ca > 0 ? ((data.total_ca_recouvre || 0) / data.total_ca) * 100 : 0) : 0;
 
 
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev =>
-      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
-    );
-  };
-
   const toggleTypeSection = (section: string) => {
     setExpandedTypes(prev =>
       prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
     );
   };
-
-  // exportToJson has been removed to disable exporting JSON files at the end of calculations
-
-  const exportToExcel = async () => {
-    console.log("Starting Excel export...");
-    try {
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Ventilation");
-
-      const formattedDate = lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
-      const today = new Date();
-      const printDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-
-      // Add 4 empty rows first for the header
-      worksheet.addRow([]);
-      worksheet.addRow([]);
-      worksheet.addRow([]);
-      worksheet.addRow([]);
-
-      // Load Image
-      try {
-        const response = await fetch('/ade.png');
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          const imageId = workbook.addImage({
-            buffer: arrayBuffer,
-            extension: 'png',
-          });
-          // Add image top-left
-          worksheet.addImage(imageId, {
-            tl: { col: 0, row: 0 },
-            ext: { width: 100, height: 60 }
-          });
-        }
-      } catch (e) {
-        console.warn("Failed to load logo for Excel:", e);
-      }
-
-      // Title Row
-      worksheet.mergeCells('C2:E2');
-      const titleCell = worksheet.getCell('C2');
-      titleCell.value = `Détail Ventilation des Créances  -  Arrêtées au : ${formattedDate}`;
-      titleCell.font = { bold: true, size: 12 };
-      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-      // Unit & Print Date
-      worksheet.getCell('E1').value = `Unité : 26 - MEDEA`;
-      worksheet.getCell('E1').alignment = { horizontal: 'right' };
-
-      worksheet.getCell('E3').value = `Centre : S02 - BERROUAGHIA`;
-      worksheet.getCell('E3').alignment = { horizontal: 'right' };
-
-      worksheet.getCell('E4').value = `Edité le : ${printDate}`;
-      worksheet.getCell('E4').alignment = { horizontal: 'right' };
-
-      // Row 5 spacing
-      worksheet.addRow([]);
-
-      // Table Headers (Row 6)
-      const headerRow = worksheet.addRow(['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette (DA)']);
-      headerRow.font = { bold: true };
-
-      worksheet.getColumn(1).width = 25;
-      worksheet.getColumn(2).width = 15;
-      worksheet.getColumn(3).width = 40;
-      worksheet.getColumn(4).width = 15;
-      worksheet.getColumn(5).width = 25;
-
-      const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
-      let globalTotalVolume = 0;
-      let globalTotalCreance = 0;
-
-      let currentRow = 7;
-
-      sections.forEach(section => {
-        if (!section) return;
-        const rows = ventilationData.filter(r => r.SECTION === section);
-        if (rows.length === 0) return;
-
-        const subTotalCreance = rows.reduce((acc, r) => acc + r.CREANCE, 0);
-        const subTotalVolume = rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0);
-        globalTotalVolume += subTotalVolume;
-        globalTotalCreance += subTotalCreance;
-
-        rows.forEach((row, i) => {
-          worksheet.addRow([
-            i === 0 ? section : "",
-            row.TYPE_CODE,
-            row.CATEGORIE,
-            row.NBR_FACTURES,
-            row.CREANCE
-          ]);
-        });
-
-        if (rows.length > 1) {
-          worksheet.mergeCells(`A${currentRow}:A${currentRow + rows.length - 1}`);
-          worksheet.getCell(`A${currentRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-          worksheet.getCell(`A${currentRow}`).font = { bold: true };
-        }
-        currentRow += rows.length;
-
-        const subTotalRow = worksheet.addRow([
-          `Sous-total ${section}`,
-          '',
-          '',
-          subTotalVolume,
-          subTotalCreance
-        ]);
-        subTotalRow.font = { bold: true };
-        worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
-        currentRow++;
-      });
-
-      // Add Global Total Row
-      const globalTotalRow = worksheet.addRow([
-        'TOTAL GÉNÉRAL',
-        '',
-        '',
-        globalTotalVolume,
-        globalTotalCreance
-      ]);
-      globalTotalRow.font = { bold: true };
-      worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
-
-      // Generate Excel file
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      saveAs(blob, `ventilation_${lastVentDate || 'export'}.xlsx`);
-      console.log("Excel export successful");
-    } catch (error) {
-      console.error("Excel export error:", error);
-      alert("Une erreur est survenue lors de l'exportation Excel. Veuillez vérifier la console.");
-    }
-  };
-
-  const exportToPDF = async () => {
-    console.log("Starting PDF export...");
-    try {
-      const doc = new jsPDF();
-      const formattedDate = lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
-
-      const pageWidth = doc.internal.pageSize.width;
-      let imgHeightOut = 0;
-
-      // Load and add image with timeout to prevent hanging
-      try {
-        const img = new window.Image();
-        img.src = '/ade.png';
-        await Promise.race([
-          new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Image timeout")), 3000))
-        ]);
-
-        if (img.width) {
-          const imgWidth = 35;
-          imgHeightOut = (img.height * imgWidth) / img.width;
-          // Draw image on the left, aligned roughly with the title
-          doc.addImage(img, 'PNG', 14, 12, imgWidth, imgHeightOut);
-        }
-      } catch (e) {
-        console.warn("Failed to load logo for PDF:", e);
-      }
-
-      // Header Title (Centered)
-      const fullTitle = `Détail Ventilation des Créances  -  Arrêtées au : ${formattedDate}`;
-      doc.setFontSize(9.5);
-      doc.setTextColor(16, 24, 40); // text-[#101828]
-      doc.text(fullTitle, pageWidth / 2, 20, { align: 'center' });
-
-      const today = new Date();
-      const printDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-
-      // Unit & Center (Top Right)
-      doc.setFontSize(9);
-      doc.setTextColor(71, 84, 103);
-      doc.text("Unité : 26 - MEDEA", pageWidth - 14, 15, { align: 'right' });
-      doc.text("Centre : S02 - BERROUAGHIA", pageWidth - 14, 19, { align: 'right' });
-      doc.setFontSize(8);
-      doc.text(`Edité le : ${printDate}`, pageWidth - 14, 23, { align: 'right' });
-
-      // Set starting Y for the table, ensuring it's below the image and text
-      let currentY = Math.max(32, 12 + imgHeightOut + 8);
-
-      const bodyData: any[] = [];
-      const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
-
-      let globalTotalVolume = 0;
-      let globalTotalCreance = 0;
-
-      sections.forEach(section => {
-        if (!section) return;
-        const rows = ventilationData.filter(r => r.SECTION === section);
-        if (rows.length === 0) return;
-
-        const subTotalCreance = rows.reduce((acc, r) => acc + r.CREANCE, 0);
-        const subTotalVolume = rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0);
-        globalTotalVolume += subTotalVolume;
-        globalTotalCreance += subTotalCreance;
-
-        rows.forEach((row, i) => {
-          const rowData: any[] = [];
-          if (i === 0) {
-            rowData.push({
-              content: section.split('').join('\n'),
-              rowSpan: rows.length,
-              styles: {
-                halign: 'center',
-                valign: 'middle',
-                fontStyle: 'bold',
-                fontSize: rows.length < 5 ? 5 : 8,
-                textColor: section === 'EAU' ? [13, 131, 222] : [147, 51, 234]
-              }
-            });
-          }
-          rowData.push(
-            { content: row.TYPE_CODE, styles: { halign: 'center', fontStyle: 'bold', textColor: [102, 112, 133] } },
-            { content: row.CATEGORIE, styles: { textColor: [16, 24, 40] } },
-            { content: fmtNum(row.NBR_FACTURES), styles: { halign: 'right', textColor: [71, 84, 103] } },
-            { content: fmt(row.CREANCE), styles: { halign: 'right', fontStyle: 'bold', textColor: [16, 24, 40] } }
-          );
-          bodyData.push(rowData);
-        });
-
-        const fillColor: [number, number, number] = section === 'EAU' ? [239, 246, 255] : [250, 245, 255];
-        bodyData.push([
-          { content: `Sous-total ${section}`, colSpan: 3, styles: { fontStyle: 'bold', fillColor, textColor: [16, 24, 40] } },
-          { content: fmtNum(subTotalVolume), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [71, 84, 103] } },
-          { content: fmt(subTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [16, 24, 40] } }
-        ]);
-      });
-
-      // Global Total Row
-      bodyData.push([
-        { content: 'TOTAL GÉNÉRAL', colSpan: 3, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
-        { content: fmtNum(globalTotalVolume), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
-        { content: fmt(globalTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } }
-      ]);
-
-      autoTable(doc, {
-        startY: currentY,
-        margin: { bottom: 12 },
-        head: [['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette']],
-        body: bodyData,
-        theme: 'grid',
-        headStyles: { fillColor: [249, 250, 251], textColor: [71, 84, 103], fontStyle: 'bold', lineWidth: 0.1, lineColor: [228, 231, 236] },
-        styles: { fontSize: 8.5, cellPadding: 3, lineColor: [242, 244, 247], lineWidth: 0.1 },
-        columnStyles: {
-          0: { cellWidth: 25 },
-          1: { cellWidth: 15 },
-          2: { cellWidth: 'auto' },
-          3: { cellWidth: 25 },
-          4: { cellWidth: 35 }
-        }
-      });
-
-      doc.save(`ventilation_${lastVentDate || 'export'}.pdf`);
-      console.log("PDF export successful");
-    } catch (error) {
-      console.error("PDF export error:", error);
-      alert("Une erreur est survenue lors de l'exportation PDF. Veuillez vérifier la console.");
-    }
-  };
-
-
 
   const fetchData = async (start = '', end = '') => {
     setData(null);
@@ -6007,146 +5758,24 @@ function CreanceDetailView({ creanceData, setCreanceData, onNavigateToRepartitio
             })}
           </div>
 
-          {/* Detailed Ventilation Table - Integrated */}
-          {ventilationFilter && (
-            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-              <div className="p-8 border-b border-[#F2F4F7] flex justify-between items-center bg-slate-50/50">
-                <div>
-                  <h4 className="text-xl font-black tracking-tight text-[#101828]">Détail Ventilation des Créance Arrêtées au : {lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1')}</h4>
-                  <p className="text-sm text-[#667085] mt-1">Analyse granulaire de la section {ventilationFilter === 'ALL' ? 'Eau & Prestations' : ventilationFilter}</p>
-                </div>
-                {ventilationLoading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                ) : (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={exportToExcel}
-                      className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all shadow-sm"
-                    >
-                      <FileSpreadsheet size={14} /> Excel
-                    </button>
-                    <button
-                      onClick={exportToPDF}
-                      className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 transition-all shadow-sm"
-                    >
-                      <FileText size={14} /> PDF
-                    </button>
-                  </div>
-                )}
+          {ventilationData.length > 0 && lastVentDate && (
+            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest mb-1">Ventilation disponible</p>
+                <p className="text-sm font-bold text-[#101828]">
+                  Détail ventilation des créances arrêtées au{' '}
+                  {lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1')}
+                </p>
+                <p className="text-xs text-[#667085] mt-1">{ventilationData.length} lignes · export Excel / PDF</p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-separate border-spacing-0">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-[0.15em] font-black border-b border-[#E4E7EC]">
-                      <th className="px-8 py-5 border-b border-[#E4E7EC]">Section</th>
-                      <th className="px-6 py-5 border-b border-[#E4E7EC]">Type</th>
-                      <th className="px-6 py-5 border-b border-[#E4E7EC]">Désignation</th>
-                      <th className="px-6 py-5 text-right border-b border-[#E4E7EC]">Volume</th>
-                      <th className="px-8 py-5 text-right border-b border-[#E4E7EC]">Créance Nette</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F2F4F7]">
-                    {ventilationLoading ? (
-                      <tr><td colSpan={5} className="px-8 py-12 text-center text-sm font-bold text-[#667085]">Chargement du détail...</td></tr>
-                    ) : ventilationData.length > 0 ? (
-                      <>
-                        {(ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter]).map(section => {
-                          const rows = ventilationData.filter(r => r.SECTION === section);
-                          if (rows.length === 0) return null;
-                          const isExpanded = expandedSections.includes(section);
-                          const subTotal = rows.reduce((acc, r) => acc + r.CREANCE, 0);
-                          return (
-                            <Fragment key={section}>
-                              {/* Group Header Toggle */}
-                              <tr
-                                onClick={() => toggleSection(section)}
-                                className={`${section === 'EAU' ? 'bg-blue-50/10' : 'bg-teal-50/10'} cursor-pointer hover:bg-slate-50 transition-colors border-y border-[#F2F4F7]`}
-                              >
-                                <td colSpan={5} className="px-8 py-3">
-                                  <div className="flex items-center gap-3">
-                                    <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
-                                      <ChevronRight size={16} className="text-[#98A2B3]" />
-                                    </div>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${section === 'EAU' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
-                                      {section}
-                                    </span>
-                                    <span className="text-[11px] font-bold text-[#667085]">
-                                      {isExpanded ? 'Masquer le détail' : `Afficher le détail (${rows.length} lignes)`}
-                                    </span>
-                                  </div>
-                                </td>
-                              </tr>
-
-                              {isExpanded && rows.map((row, i) => (
-                                <tr key={i} className="hover:bg-blue-50/20 transition-colors group">
-                                  {i === 0 ? (
-                                    <td rowSpan={rows.length} className={`px-5 py-8 text-center border-r border-[#F2F4F7] ${section === 'EAU' ? 'bg-blue-50/10' : 'bg-teal-50/10'}`}>
-                                      <div className="flex flex-col items-center justify-center h-full">
-                                        <span className={`[writing-mode:vertical-lr] rotate-180 text-[13px] font-black uppercase tracking-[0.4em] ${section === 'EAU' ? 'text-blue-500' : 'text-teal-500'}`}>
-                                          {section}
-                                        </span>
-                                      </div>
-                                    </td>
-                                  ) : null}
-                                  <td className="px-6 py-4">
-                                    <span className="font-mono text-[11px] font-bold text-[#667085] bg-[#F2F4F7] px-1.5 py-0.5 rounded">
-                                      {row.TYPE_CODE}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <div className="font-bold text-[13px] text-[#101828] uppercase tracking-tight">{row.CATEGORIE}</div>
-                                    <div className="text-[9px] text-[#98A2B3] font-medium uppercase mt-0.5">Code: {row.ORDRE}</div>
-                                  </td>
-                                  <td className="px-6 py-4 text-right">
-                                    <div className="font-bold text-[13px] text-[#475467] font-mono tabular-nums">{fmtNum(row.NBR_FACTURES)}</div>
-                                  </td>
-                                  <td className="px-8 py-4 text-right">
-                                    <div className="font-black text-[13px] text-[#101828] font-mono tracking-tighter">{fmt(row.CREANCE)}</div>
-                                  </td>
-                                </tr>
-                              ))}
-                              <tr className={`${section === 'EAU' ? 'bg-blue-50/40' : 'bg-teal-50/40'} border-y border-[#F2F4F7]/50`}>
-                                <td colSpan={3} className="px-8 py-4">
-                                  <div className="flex items-center gap-2">
-                                    <div className={`w-1 h-4 rounded-full ${section === 'EAU' ? 'bg-blue-400' : 'bg-teal-400'} opacity-50`}></div>
-                                    <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                  <span className="font-black text-[13px] text-[#475467] font-mono">{fmtNum(rows.reduce((acc, r) => acc + r.NBR_FACTURES, 0))}</span>
-                                </td>
-                                <td className="px-8 py-4 text-right">
-                                  <span className={`font-black text-[15px] ${section === 'EAU' ? 'text-blue-700' : 'text-teal-700'} font-mono tracking-tighter`}>{fmt(subTotal)}</span>
-                                </td>
-                              </tr>
-                            </Fragment>
-                          );
-                        })}
-                        {ventilationFilter === 'ALL' && (
-                          <tr className="bg-slate-950 text-white relative z-20">
-                            <td colSpan={3} className="px-8 py-7">
-                              <div className="flex flex-col">
-                                <span className="font-black uppercase tracking-[0.3em] text-[10px] text-slate-400 mb-1">Analyse Consolidée</span>
-                                <span className="font-black text-lg text-white">Total Créance Ventilation</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-7 text-right align-bottom">
-                              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Volume Global</div>
-                              <div className="font-black text-lg text-slate-200 font-mono">{fmtNum(ventilationData.reduce((acc, r) => acc + r.NBR_FACTURES, 0))}</div>
-                            </td>
-                            <td className="px-8 py-7 text-right align-bottom bg-white/5 border-l border-white/10">
-                              <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Créance Totale Arretée</div>
-                              <div className="font-black text-2xl tracking-tighter text-white font-mono">{fmt(ventilationData.reduce((acc, r) => acc + r.CREANCE, 0))}</div>
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    ) : (
-                      <tr><td colSpan={5} className="px-8 py-12 text-center text-sm font-bold text-[#667085]">Cliquez sur Calculer pour voir le détail</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <button
+                type="button"
+                onClick={onNavigateToVentilation}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 transition-all shadow-sm self-start md:self-center"
+              >
+                Voir la ventilation détaillée
+                <ChevronRight size={14} />
+              </button>
             </div>
           )}
 
@@ -6722,6 +6351,453 @@ function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClo
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CreanceVentilationView({
+  ventilationData, setVentilationData, lastVentDate, setLastVentDate,
+  ventilationFilter, setVentilationFilter, onGoToCalculation,
+  selectedSecteur = '', sectors = [], uniteLabel = '', endDate = ''
+}: any) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dateArrete, setDateArrete] = useState(
+    endDate || (lastVentDate ? lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '')
+  );
+  const [expandedSections, setExpandedSections] = useState<string[]>(['EAU', 'PRESTATIONS']);
+
+  const secteurLabel = selectedSecteur
+    ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : null;
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n)
+      .replace(/[\u202F\u00A0]/g, ' ') + " DA";
+
+  const fmtNum = (n: number) =>
+    new Intl.NumberFormat("fr-DZ", { maximumFractionDigits: 0 })
+      .format(n)
+      .replace(/[\u202F\u00A0]/g, ' ');
+
+  const formatVentDate = (d: string) =>
+    d.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev =>
+      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
+    );
+  };
+
+  const fetchVentilation = async (rawDate?: string) => {
+    setLoading(true);
+    setError(null);
+    const ventDate = (rawDate || dateArrete || new Date().toISOString().split('T')[0]).replace(/-/g, '');
+    setLastVentDate(ventDate);
+    try {
+      const ventUrl = new URL('http://127.0.0.1:8000/creance_detaillee');
+      ventUrl.searchParams.set('date_arrete', ventDate);
+      appendSecteurParam(ventUrl, selectedSecteur);
+      const res = await fetch(ventUrl.toString());
+      const d = await res.json();
+      if (d?.error) {
+        setError(d.error);
+        setVentilationData([]);
+      } else {
+        setVentilationData(Array.isArray(d) ? d : []);
+        setVentilationFilter('ALL');
+      }
+    } catch {
+      setError("Erreur de connexion au serveur.");
+      setVentilationData([]);
+    }
+    setLoading(false);
+  };
+
+  const exportToExcel = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Ventilation");
+      const formattedDate = formatVentDate(lastVentDate);
+      const today = new Date();
+      const printDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+
+      worksheet.addRow([]);
+      worksheet.addRow([]);
+      worksheet.addRow([]);
+      worksheet.addRow([]);
+
+      try {
+        const response = await fetch('/ade.png');
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const imageId = workbook.addImage({ buffer: arrayBuffer, extension: 'png' });
+          worksheet.addImage(imageId, { tl: { col: 0, row: 0 }, ext: { width: 100, height: 60 } });
+        }
+      } catch { /* logo optionnel */ }
+
+      worksheet.mergeCells('C2:E2');
+      const titleCell = worksheet.getCell('C2');
+      titleCell.value = `Détail Ventilation des Créances — Arrêtées au : ${formattedDate}`;
+      titleCell.font = { bold: true, size: 12 };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      worksheet.getCell('E4').value = `Edité le : ${printDate}`;
+      worksheet.getCell('E4').alignment = { horizontal: 'right' };
+      worksheet.addRow([]);
+
+      const headerRow = worksheet.addRow(['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette (DA)']);
+      headerRow.font = { bold: true };
+      worksheet.getColumn(1).width = 25;
+      worksheet.getColumn(2).width = 15;
+      worksheet.getColumn(3).width = 40;
+      worksheet.getColumn(4).width = 15;
+      worksheet.getColumn(5).width = 25;
+
+      const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
+      let globalTotalVolume = 0;
+      let globalTotalCreance = 0;
+      let currentRow = 7;
+
+      sections.forEach(section => {
+        const rows = ventilationData.filter((r: any) => r.SECTION === section);
+        if (rows.length === 0) return;
+        const subTotalCreance = rows.reduce((acc: number, r: any) => acc + r.CREANCE, 0);
+        const subTotalVolume = rows.reduce((acc: number, r: any) => acc + r.NBR_FACTURES, 0);
+        globalTotalVolume += subTotalVolume;
+        globalTotalCreance += subTotalCreance;
+        rows.forEach((row: any, i: number) => {
+          worksheet.addRow([i === 0 ? section : "", row.TYPE_CODE, row.CATEGORIE, row.NBR_FACTURES, row.CREANCE]);
+        });
+        if (rows.length > 1) {
+          worksheet.mergeCells(`A${currentRow}:A${currentRow + rows.length - 1}`);
+          worksheet.getCell(`A${currentRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+          worksheet.getCell(`A${currentRow}`).font = { bold: true };
+        }
+        currentRow += rows.length;
+        const subTotalRow = worksheet.addRow([`Sous-total ${section}`, '', '', subTotalVolume, subTotalCreance]);
+        subTotalRow.font = { bold: true };
+        worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+        currentRow++;
+      });
+
+      const globalTotalRow = worksheet.addRow(['TOTAL GÉNÉRAL', '', '', globalTotalVolume, globalTotalCreance]);
+      globalTotalRow.font = { bold: true };
+      worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `ventilation_${lastVentDate || 'export'}.xlsx`);
+    } catch {
+      alert("Une erreur est survenue lors de l'exportation Excel.");
+    }
+  };
+
+  const exportToPDF = async () => {
+    try {
+      const doc = new jsPDF();
+      const formattedDate = formatVentDate(lastVentDate);
+      const pageWidth = doc.internal.pageSize.width;
+      doc.setFontSize(9.5);
+      doc.setTextColor(16, 24, 40);
+      doc.text(`Détail Ventilation des Créances — Arrêtées au : ${formattedDate}`, pageWidth / 2, 20, { align: 'center' });
+
+      const bodyData: any[] = [];
+      const sections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
+      let globalTotalVolume = 0;
+      let globalTotalCreance = 0;
+
+      sections.forEach(section => {
+        const rows = ventilationData.filter((r: any) => r.SECTION === section);
+        if (rows.length === 0) return;
+        const subTotalCreance = rows.reduce((acc: number, r: any) => acc + r.CREANCE, 0);
+        const subTotalVolume = rows.reduce((acc: number, r: any) => acc + r.NBR_FACTURES, 0);
+        globalTotalVolume += subTotalVolume;
+        globalTotalCreance += subTotalCreance;
+        rows.forEach((row: any, i: number) => {
+          const rowData: any[] = [];
+          if (i === 0) {
+            rowData.push({
+              content: section.split('').join('\n'),
+              rowSpan: rows.length,
+              styles: { halign: 'center', valign: 'middle', fontStyle: 'bold', fontSize: rows.length < 5 ? 5 : 8,
+                textColor: section === 'EAU' ? [13, 131, 222] : [13, 148, 136] }
+            });
+          }
+          rowData.push(
+            { content: row.TYPE_CODE, styles: { halign: 'center', fontStyle: 'bold', textColor: [102, 112, 133] } },
+            { content: row.CATEGORIE, styles: { textColor: [16, 24, 40] } },
+            { content: fmtNum(row.NBR_FACTURES), styles: { halign: 'right', textColor: [71, 84, 103] } },
+            { content: fmt(row.CREANCE), styles: { halign: 'right', fontStyle: 'bold', textColor: [16, 24, 40] } }
+          );
+          bodyData.push(rowData);
+        });
+        const fillColor: [number, number, number] = section === 'EAU' ? [239, 246, 255] : [240, 253, 250];
+        bodyData.push([
+          { content: `Sous-total ${section}`, colSpan: 3, styles: { fontStyle: 'bold', fillColor, textColor: [16, 24, 40] } },
+          { content: fmtNum(subTotalVolume), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [71, 84, 103] } },
+          { content: fmt(subTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor, textColor: [16, 24, 40] } }
+        ]);
+      });
+
+      bodyData.push([
+        { content: 'TOTAL GÉNÉRAL', colSpan: 3, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+        { content: fmtNum(globalTotalVolume), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+        { content: fmt(globalTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } }
+      ]);
+
+      autoTable(doc, {
+        startY: 32,
+        margin: { bottom: 12 },
+        head: [['Section', 'Type', 'Désignation', 'Volume', 'Créance Nette']],
+        body: bodyData,
+        theme: 'grid',
+        headStyles: { fillColor: [249, 250, 251], textColor: [71, 84, 103], fontStyle: 'bold', lineWidth: 0.1, lineColor: [228, 231, 236] },
+        styles: { fontSize: 8.5, cellPadding: 3, lineColor: [242, 244, 247], lineWidth: 0.1 },
+        columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 15 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 25 }, 4: { cellWidth: 35 } }
+      });
+      doc.save(`ventilation_${lastVentDate || 'export'}.pdf`);
+    } catch {
+      alert("Une erreur est survenue lors de l'exportation PDF.");
+    }
+  };
+
+  if (!ventilationData.length && !loading && !lastVentDate) {
+    return (
+      <div className="bg-[#F9FAFB] border-2 border-dashed border-[#E4E7EC] rounded-[2rem] p-16 flex flex-col items-center text-center gap-6">
+        <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center border border-brand-100 shadow-inner">
+          <BarChart3 className="text-brand-600" size={36} />
+        </div>
+        <div>
+          <p className="text-lg font-black text-[#101828]">Ventilation des créances</p>
+          <p className="text-sm text-[#667085] mt-2 max-w-md">
+            Lancez un calcul depuis la <strong>Synthèse Globale</strong>, ou choisissez une date d&apos;arrêté ci-dessous.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end justify-center gap-3">
+          <div className="space-y-1 text-left">
+            <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Date d&apos;arrêté</label>
+            <input
+              type="date"
+              value={dateArrete}
+              onChange={(e) => setDateArrete(e.target.value)}
+              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchVentilation()}
+            className="px-6 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 transition-all h-[42px]"
+          >
+            Calculer la ventilation
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onGoToCalculation}
+          className="text-xs font-bold text-brand-600 hover:text-brand-800"
+        >
+          Aller à la Synthèse Globale →
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      {secteurLabel && (
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE]">
+          <MapPin size={16} className="shrink-0" />
+          <span>
+            Périmètre : centre <strong className="font-black">{secteurLabel}</strong>
+            {uniteLabel ? ` — unité ${uniteLabel}` : ''}
+          </span>
+        </div>
+      )}
+
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div>
+          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Détail Ventilation des Créances Arrêtées</h3>
+          <p className="text-sm text-[#667085] mt-1 font-medium">
+            {lastVentDate
+              ? `Arrêtées au ${formatVentDate(lastVentDate)}`
+              : 'Sélectionnez une date d\'arrêté pour recalculer'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Date d&apos;arrêté</label>
+            <input
+              type="date"
+              value={dateArrete}
+              onChange={(e) => setDateArrete(e.target.value)}
+              className="block bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchVentilation()}
+            disabled={loading}
+            className="px-5 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 disabled:opacity-50 transition-all h-[42px] flex items-center gap-2"
+          >
+            <Search size={14} />
+            {loading ? 'Calcul…' : 'Recalculer'}
+          </button>
+          <div className="flex bg-[#F2F4F7] p-1 rounded-xl gap-1 border border-[#E4E7EC]">
+            {(['ALL', 'EAU', 'PRESTATIONS'] as const).map(f => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setVentilationFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                  ventilationFilter === f ? 'bg-white text-brand-600 shadow-sm' : 'text-[#667085] hover:text-[#101828]'
+                }`}
+              >
+                {f === 'ALL' ? 'Tout' : f === 'EAU' ? 'Eau' : 'Prestations'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-rose-600 font-bold text-sm">{error}</div>
+      )}
+
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="p-8 border-b border-[#F2F4F7] flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h4 className="text-xl font-black tracking-tight text-[#101828]">
+              Détail Ventilation des Créances Arrêtées au : {lastVentDate ? formatVentDate(lastVentDate) : '—'}
+            </h4>
+            <p className="text-sm text-[#667085] mt-1">
+              Section {ventilationFilter === 'ALL' ? 'Eau & Prestations' : ventilationFilter}
+            </p>
+          </div>
+          {!loading && ventilationData.length > 0 && (
+            <div className="flex gap-2">
+              <button onClick={exportToExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all shadow-sm">
+                <FileSpreadsheet size={14} /> Excel
+              </button>
+              <button onClick={exportToPDF} className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 transition-all shadow-sm">
+                <FileText size={14} /> PDF
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-[0.15em] font-black border-b border-[#E4E7EC]">
+                <th className="px-8 py-5 border-b border-[#E4E7EC]">Section</th>
+                <th className="px-6 py-5 border-b border-[#E4E7EC]">Type</th>
+                <th className="px-6 py-5 border-b border-[#E4E7EC]">Désignation</th>
+                <th className="px-6 py-5 text-right border-b border-[#E4E7EC]">Volume</th>
+                <th className="px-8 py-5 text-right border-b border-[#E4E7EC]">Créance Nette</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F2F4F7]">
+              {loading ? (
+                <tr><td colSpan={5} className="px-8 py-12 text-center text-sm font-bold text-[#667085]">Chargement du détail…</td></tr>
+              ) : ventilationData.length > 0 ? (
+                <>
+                  {(ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter]).map(section => {
+                    const rows = ventilationData.filter((r: any) => r.SECTION === section);
+                    if (rows.length === 0) return null;
+                    const isExpanded = expandedSections.includes(section);
+                    const subTotal = rows.reduce((acc: number, r: any) => acc + r.CREANCE, 0);
+                    return (
+                      <Fragment key={section}>
+                        <tr
+                          onClick={() => toggleSection(section)}
+                          className={`${section === 'EAU' ? 'bg-blue-50/10' : 'bg-teal-50/10'} cursor-pointer hover:bg-slate-50 transition-colors border-y border-[#F2F4F7]`}
+                        >
+                          <td colSpan={5} className="px-8 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                                <ChevronRight size={16} className="text-[#98A2B3]" />
+                              </div>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${section === 'EAU' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
+                                {section}
+                              </span>
+                              <span className="text-[11px] font-bold text-[#667085]">
+                                {isExpanded ? 'Masquer le détail' : `Afficher le détail (${rows.length} lignes)`}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && rows.map((row: any, i: number) => (
+                          <tr key={i} className="hover:bg-blue-50/20 transition-colors group">
+                            {i === 0 ? (
+                              <td rowSpan={rows.length} className={`px-5 py-8 text-center border-r border-[#F2F4F7] ${section === 'EAU' ? 'bg-blue-50/10' : 'bg-teal-50/10'}`}>
+                                <div className="flex flex-col items-center justify-center h-full">
+                                  <span className={`[writing-mode:vertical-lr] rotate-180 text-[13px] font-black uppercase tracking-[0.4em] ${section === 'EAU' ? 'text-blue-500' : 'text-teal-500'}`}>
+                                    {section}
+                                  </span>
+                                </div>
+                              </td>
+                            ) : null}
+                            <td className="px-6 py-4">
+                              <span className="font-mono text-[11px] font-bold text-[#667085] bg-[#F2F4F7] px-1.5 py-0.5 rounded">{row.TYPE_CODE}</span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-[13px] text-[#101828] uppercase tracking-tight">{row.CATEGORIE}</div>
+                              <div className="text-[9px] text-[#98A2B3] font-medium uppercase mt-0.5">Code: {row.ORDRE}</div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="font-bold text-[13px] text-[#475467] font-mono tabular-nums">{fmtNum(row.NBR_FACTURES)}</div>
+                            </td>
+                            <td className="px-8 py-4 text-right">
+                              <div className="font-black text-[13px] text-[#101828] font-mono tracking-tighter">{fmt(row.CREANCE)}</div>
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className={`${section === 'EAU' ? 'bg-blue-50/40' : 'bg-teal-50/40'} border-y border-[#F2F4F7]/50`}>
+                          <td colSpan={3} className="px-8 py-4">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-1 h-4 rounded-full ${section === 'EAU' ? 'bg-blue-400' : 'bg-teal-400'} opacity-50`}></div>
+                              <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <span className="font-black text-[13px] text-[#475467] font-mono">{fmtNum(rows.reduce((acc: number, r: any) => acc + r.NBR_FACTURES, 0))}</span>
+                          </td>
+                          <td className="px-8 py-4 text-right">
+                            <span className={`font-black text-[15px] ${section === 'EAU' ? 'text-blue-700' : 'text-teal-700'} font-mono tracking-tighter`}>{fmt(subTotal)}</span>
+                          </td>
+                        </tr>
+                      </Fragment>
+                    );
+                  })}
+                  {ventilationFilter === 'ALL' && (
+                    <tr className="bg-slate-950 text-white relative z-20">
+                      <td colSpan={3} className="px-8 py-7">
+                        <div className="flex flex-col">
+                          <span className="font-black uppercase tracking-[0.3em] text-[10px] text-slate-400 mb-1">Analyse Consolidée</span>
+                          <span className="font-black text-lg text-white">Total Créance Ventilation</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-7 text-right align-bottom">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Volume Global</div>
+                        <div className="font-black text-lg text-slate-200 font-mono">{fmtNum(ventilationData.reduce((acc: number, r: any) => acc + r.NBR_FACTURES, 0))}</div>
+                      </td>
+                      <td className="px-8 py-7 text-right align-bottom bg-white/5 border-l border-white/10">
+                        <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Créance Totale Arrêtée</div>
+                        <div className="font-black text-2xl tracking-tighter text-white font-mono">{fmt(ventilationData.reduce((acc: number, r: any) => acc + r.CREANCE, 0))}</div>
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ) : (
+                <tr>
+                  <td colSpan={5} className="px-8 py-12 text-center text-sm font-bold text-[#667085]">
+                    Aucune donnée — lancez un calcul ou choisissez une autre date d&apos;arrêté.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

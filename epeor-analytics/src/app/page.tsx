@@ -4398,9 +4398,11 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
+  const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
+    setSelectedNumabs([]);
     setLoadingSubscribers(true);
     try {
       const res = await fetch(buildSubscribersUrl(q.id, { etat: '30', secteur: selectedSecteur }));
@@ -4416,11 +4418,22 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const handlePrint = () => {
     if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
 
+    const toprint = selectedNumabs.length > 0 
+      ? quartierSubscribers.filter(sub => selectedNumabs.includes(sub.numab))
+      : quartierSubscribers;
+
+    if (toprint.length === 0) {
+      alert('Aucun abonné à imprimer. Veuillez sélectionner au moins un abonné.');
+      return;
+    }
+
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
       return;
     }
+
+    const selectionNote = selectedNumabs.length > 0 ? `Sélection de ${selectedNumabs.length} abonné(s)` : `Total : ${toprint.length} abonné(s)`;
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -4581,8 +4594,8 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
               <span class="meta-value">${new Date().toLocaleDateString('fr-FR')}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">Total Abonnés</span>
-              <span class="meta-value">${quartierSubscribers.length}</span>
+              <span class="meta-label">Abonnés à imprimer</span>
+              <span class="meta-value">${selectionNote}</span>
             </div>
           </div>
 
@@ -4600,7 +4613,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
               </tr>
             </thead>
             <tbody>
-              ${quartierSubscribers.map(sub => `
+              ${toprint.map(sub => `
                 <tr>
                   <td class="font-bold-black">${sub.numab || '—'}</td>
                   <td class="font-bold-black">${sub.name || '—'}</td>
@@ -5102,6 +5115,8 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           loading={loadingSubscribers}
           accentColor="cyan"
           consecutiveEtatColumn={{ field: 'consecutive_etat30', label: 'Factures sans compteur', activeClass: 'bg-cyan-50 text-cyan-700 border-cyan-100', hoverClass: 'text-cyan-700' }}
+          selectedNumabs={selectedNumabs}
+          onSelectedNumabsChange={setSelectedNumabs}
         />
       </div>
     );

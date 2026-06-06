@@ -1201,7 +1201,7 @@ export default function Dashboard() {
           />
         ) : currentView === 'settings' ? (
           <SettingsView onBack={() => setCurrentView('dashboard')} />
-        ) : ['creance', 'repartition', 'commune', 'ventilation'].includes(currentView) ? (
+        ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
             <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print no-print-charts-only">
@@ -1235,9 +1235,10 @@ export default function Dashboard() {
                   <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC] shadow-sm">
                     {[
                       { id: 'creance', label: 'Synthèse Globale' },
-                      { id: 'ventilation', label: 'Ventilation Créances' },
-                      { id: 'repartition', label: "Répartition par Type" },
-                      { id: 'commune', label: 'Répartition par Commune' }
+                        { id: 'ventilation', label: 'Ventilation Créances' },
+                        { id: 'repartition', label: "Répartition par Type" },
+                        { id: 'commune', label: 'Répartition par Commune' },
+                        { id: 'bilan', label: 'Bilan' }
                     ].map(tab => (
                       <button
                         key={tab.id}
@@ -1311,6 +1312,8 @@ export default function Dashboard() {
                 startDate={calcDateRange.start}
                 endDate={calcDateRange.end}
               />
+            ) : currentView === 'bilan' ? (
+              <BilanView selectedSecteur={selectedSecteur} sectors={sectors} />
             ) : null}
           </div>
         ) : null}
@@ -9223,6 +9226,88 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
               </tfoot>
             </table>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function BilanView({ selectedSecteur = '', sectors = [] }: any) {
+  const [communes, setCommunes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const url = new URL('http://127.0.0.1:8000/stats');
+        if (selectedSecteur) url.searchParams.set('secteur', selectedSecteur);
+        const res = await fetch(url.toString());
+        const d = await res.json();
+        if (!cancelled) {
+          setCommunes(d?.subscriber_communes || []);
+        }
+      } catch (e) {
+        if (!cancelled) setCommunes([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [selectedSecteur]);
+
+  const secteurLabel = selectedSecteur
+    ? (sectors.find((s: any) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : 'Toute l\'unité';
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Bilan</h3>
+            <p className="text-sm text-[#667085] mt-1">Communes associées au centre : <strong>{secteurLabel}</strong></p>
+          </div>
+        </div>
+        <div className="mt-6">
+          {loading ? (
+            <div className="text-sm text-[#667085]">Chargement des communes…</div>
+          ) : communes.length === 0 ? (
+            <div className="text-sm text-[#667085]">Aucune commune trouvée pour ce centre.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-[#F9FAFB]">
+                    <th className="text-left px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Commune</th>
+                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Abonnés</th>
+                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Abonnés à l'arrêt</th>
+                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Taux % à l'arrêt</th>
+                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Résiliés</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {communes.map((c: any) => {
+                    const total = c.value || 0;
+                    const stopped = c.stopped || 0;
+                    const stoppedRate = total > 0 ? (stopped / total) * 100 : 0;
+                    return (
+                      <tr key={c.code} className="border-b border-[#F2F4F7] hover:bg-[#F9FAFB]">
+                        <td className="px-6 py-4 text-sm text-[#101828]">{c.name}</td>
+                        <td className="px-6 py-4 text-right font-black text-[#101828] tabular-nums">{total.toLocaleString('fr-FR')}</td>
+                        <td className="px-6 py-4 text-right font-black text-[#101828] tabular-nums">{stopped.toLocaleString('fr-FR')}</td>
+                        <td className="px-6 py-4 text-right text-[#667085] tabular-nums">{stoppedRate.toFixed(2)}%</td>
+                        <td className="px-6 py-4 text-right text-[#667085] tabular-nums">{(c.resigned || 0).toLocaleString('fr-FR')}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

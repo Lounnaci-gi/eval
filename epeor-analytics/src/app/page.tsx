@@ -1704,10 +1704,96 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
   const maxYear = yearsList[yearsList.length - 1] ?? 2026;
 
   const formatPeriodFrench = (periodStr: string) => {
+    if (!periodStr) return '';
     const [y, m] = periodStr.split('-');
     const mIdx = parseInt(m) - 1;
-    return `${monthsList[mIdx]?.label} ${y}`;
+    return `${monthsList[mIdx]?.label || ''} ${y || ''}`.trim();
   };
+
+  const { xAxisTicks, formatTick } = useMemo(() => {
+    if (!filteredData || filteredData.length === 0) {
+      return { xAxisTicks: [], formatTick: (v: string) => v };
+    }
+    
+    const N = filteredData.length;
+    let type: '10years' | '5years' | '1year' | 'semester' | 'quarter' | 'month';
+    if (N > 240) {
+      type = '10years';
+    } else if (N > 120) {
+      type = '5years';
+    } else if (N > 24) {
+      type = '1year';
+    } else if (N > 12) {
+      type = 'semester';
+    } else if (N > 6) {
+      type = 'quarter';
+    } else {
+      type = 'month';
+    }
+
+    const generatedTicks: string[] = [];
+    
+    filteredData.forEach((d) => {
+      if (!d || !d.period) return;
+      const parts = d.period.split('-');
+      const y = parseInt(parts[0]);
+      const m = parseInt(parts[1]);
+      
+      if (type === '10years') {
+        if (y % 10 === 0 && m === 1) {
+          generatedTicks.push(d.period);
+        }
+      } else if (type === '5years') {
+        if (y % 5 === 0 && m === 1) {
+          generatedTicks.push(d.period);
+        }
+      } else if (type === '1year') {
+        if (m === 1) {
+          generatedTicks.push(d.period);
+        }
+      } else if (type === 'semester') {
+        if (m === 1 || m === 7) {
+          generatedTicks.push(d.period);
+        }
+      } else if (type === 'quarter') {
+        if (m === 1 || m === 4 || m === 7 || m === 10) {
+          generatedTicks.push(d.period);
+        }
+      } else {
+        generatedTicks.push(d.period);
+      }
+    });
+
+    if (generatedTicks.length === 0) {
+      if (filteredData[0]?.period) {
+        generatedTicks.push(filteredData[0].period);
+      }
+      if (filteredData.length > 1 && filteredData[filteredData.length - 1]?.period) {
+        generatedTicks.push(filteredData[filteredData.length - 1].period);
+      }
+    }
+
+    const formatTick = (tick: string) => {
+      if (!tick) return '';
+      const parts = tick.split('-');
+      const y = parts[0];
+      const m = parseInt(parts[1]);
+      const monthsShort = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jui", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
+      const monthsFull = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+      
+      if (type === '10years' || type === '5years' || type === '1year') {
+        return y;
+      } else if (type === 'semester') {
+        return `${m === 1 ? 'Jan' : 'Juil'} ${y}`;
+      } else if (type === 'quarter') {
+        return `${monthsShort[m - 1]} ${y.slice(-2)}`;
+      } else {
+        return `${monthsFull[m - 1]} ${y}`;
+      }
+    };
+
+    return { xAxisTicks: generatedTicks, formatTick };
+  }, [filteredData]);
 
   if (loading) {
     return (
@@ -1869,15 +1955,12 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2F4F7" />
               <XAxis 
                 dataKey="period" 
+                ticks={xAxisTicks}
                 tickLine={false} 
                 axisLine={false}
                 stroke="#98A2B3"
                 style={{ fontSize: '10px', fontWeight: 'bold' } as any}
-                tickFormatter={(tick) => {
-                  const [y, m] = tick.split('-');
-                  if (m === '01') return y;
-                  return '';
-                }}
+                tickFormatter={formatTick}
               />
               <YAxis 
                 tickLine={false} 

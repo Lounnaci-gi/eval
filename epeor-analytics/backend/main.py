@@ -2802,6 +2802,135 @@ def get_creance_subscribers(start_date: str = None, end_date: str = None, target
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/api/nin_stats")
+def get_nin_stats(secteur: str = None, date_from: str = None, date_to: str = None):
+    """
+    Statistiques des abonnés ayant le champ NIN renseigné (non vide).
+    - total avec NIN
+    - répartition par type d'abonné (TYPABON)
+    - répartition mensuelle par date de saisie (DATEMAJ)
+    Filtre optionnel par centre (secteur) et par plage de dates (date_from, date_to au format YYYY-MM).
+    """
+    if not is_db_ready or len(MEM_ABONNES) == 0:
+        return {"ready": False, "total_with_nin": 0, "by_type": [], "by_month": []}
+
+    allowed_communes = _commune_codcoms_for_centre(secteur) if secteur and str(secteur).strip() else None
+
+    # Parse date filters (format: YYYY-MM)
+    date_from_period = None
+    date_to_period = None
+    if date_from and str(date_from).strip():
+        try:
+            date_from_period = str(date_from).strip()
+            if len(date_from_period) == 10:  # YYYY-MM-DD format
+                date_from_period = date_from_period[:7]  # Convert to YYYY-MM
+        except Exception:
+            pass
+    if date_to and str(date_to).strip():
+        try:
+            date_to_period = str(date_to).strip()
+            if len(date_to_period) == 10:  # YYYY-MM-DD format
+                date_to_period = date_to_period[:7]  # Convert to YYYY-MM
+        except Exception:
+            pass
+
+    # Build type label mapping from TABCODE
+    type_label_map = {}
+    for code_affec, r in tabcodes_by_code.items():
+        if code_affec.startswith('T'):
+            type_label_map[code_affec[1:]] = str(r.get('LIBELLE', '')).strip()
+
+    total_with_nin = 0
+    type_counts: dict = {}   # typabon_code -> {"label": str, "count": int}
+    month_counts: dict = {}  # "YYYY-MM" -> int
+
+    for record in MEM_ABONNES:
+        numab = str(record.get('NUMAB', '') or '').strip()
+        if not _abonne_in_centre(numab, allowed_communes):
+            continue
+
+        nin = str(record.get('NIN', '') or '').strip()
+        if not nin:
+            continue
+
+        # --- Par mois de saisie (DATEMAJ) - Extraction d'abord pour filtrage ---
+        datemaj = str(record.get('DATEMAJ', '') or '').strip()
+        period = None
+        if datemaj:
+            # handle datetime.date objects (dbfread converts date fields)
+            if hasattr(datemaj, 'year'):
+                period = f"{datemaj.year}-{datemaj.month:02d}"
+            elif len(datemaj) >= 6 and datemaj[:4].isdigit():
+                yr = int(datemaj[:4])
+                mo = int(datemaj[4:6]) if len(datemaj) >= 6 else 1
+                if 1980 <= yr <= 2030 and 1 <= mo <= 12:
+                    period = f"{yr}-{mo:02d}"
+
+        # Re-check: datemaj might be a date object from dbfread (not a string)
+        raw_datemaj = record.get('DATEMAJ')
+        if raw_datemaj and hasattr(raw_datemaj, 'year'):
+            try:
+                period = f"{raw_datemaj.year}-{raw_datemaj.month:02d}"
+            except Exception:
+                pass
+
+        # Apply date range filter if specified
+        # Skip if date filters are specified but we don't have a valid period
+        if date_from_period or date_to_period:
+            if not period:
+                continue
+            if date_from_period and period < date_from_period:
+                continue
+            if date_to_period and period > date_to_period:
+                continue
+        
+        # At this point, the subscriber has passed all filters (date filter if specified)
+        total_with_nin += 1
+
+        # --- Par type ---
+        typabon = str(record.get('TYPABON', '') or '').strip()
+        label = type_label_map.get(typabon, f"Autre ({typabon})" if typabon else "Inconnu")
+        if typabon not in type_counts:
+            type_counts[typabon] = {"label": label, "count": 0}
+        type_counts[typabon]["count"] += 1
+
+        # --- Add to monthly counts ---
+        if period:
+            month_counts[period] = month_counts.get(period, 0) + 1
+
+    # Format by_type
+    by_type = []
+    for code, info in type_counts.items():
+        by_type.append({
+            "code": code,
+            "label": info["label"],
+            "count": info["count"],
+            "percentage": round((info["count"] / total_with_nin) * 100, 1) if total_with_nin > 0 else 0
+        })
+    by_type.sort(key=lambda x: x["count"], reverse=True)
+
+    # Format by_month (sorted chronologically)
+    by_month = []
+    for period in sorted(month_counts.keys()):
+        yr, mo = period.split("-")
+        months_fr = {
+            "01": "Jan", "02": "Fev", "03": "Mar", "04": "Avr",
+            "05": "Mai", "06": "Juin", "07": "Juil", "08": "Aou",
+            "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
+        }
+        label = f"{months_fr.get(mo, mo)} {yr}"
+        by_month.append({"period": period, "label": label, "count": month_counts[period]})
+
+    return {
+        "ready": True,
+        "total_with_nin": total_with_nin,
+        "by_type": by_type,
+        "by_month": by_month,
+        "date_from": date_from_period,
+        "date_to": date_to_period,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

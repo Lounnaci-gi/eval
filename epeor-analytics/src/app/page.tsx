@@ -405,7 +405,7 @@ function buildSubscribersUrl(quartier: string, options?: { etat?: string; secteu
 }
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'nin_stats' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -789,7 +789,7 @@ export default function Dashboard() {
           <NavItem
             icon={<Users size={20} />}
             label="Gestion Abonnés"
-            active={['details', 'resigned', 'stopped', 'no_meter'].includes(currentView)}
+            active={['details', 'evolution', 'resigned', 'stopped', 'no_meter', 'nin_stats'].includes(currentView)}
             onClick={() => setCurrentView('details')}
           />
           <NavItem
@@ -1169,9 +1169,9 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        ) : ['details', 'evolution', 'resigned', 'stopped', 'no_meter'].includes(currentView) ? (
+        ) : ['details', 'evolution', 'resigned', 'stopped', 'no_meter', 'nin_stats'].includes(currentView) ? (
           <GestionAbonnesShell
-            currentView={currentView as 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter'}
+            currentView={currentView as 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'nin_stats'}
             setCurrentView={setCurrentView}
             baseStats={stats}
             selectedSecteur={selectedSecteur}
@@ -1375,7 +1375,7 @@ function GestionAbonnesShell({
   sectorsLoading,
   onBack,
 }: {
-  currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter';
+  currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'nin_stats';
   setCurrentView: (v: any) => void;
   baseStats: any;
   selectedSecteur: string;
@@ -1420,6 +1420,7 @@ function GestionAbonnesShell({
     { id: 'resigned' as const, label: 'Résiliés' },
     { id: 'stopped' as const, label: "À l'arrêt" },
     { id: 'no_meter' as const, label: 'Sans compteur' },
+    { id: 'nin_stats' as const, label: 'Abonnés NIN' },
   ];
 
   const viewProps = { stats, onBack, selectedSecteur, secteurLabel };
@@ -1510,6 +1511,9 @@ function GestionAbonnesShell({
         )}
         {currentView === 'no_meter' && (
           <NoMeterDetailView key={`no_meter-${selectedSecteur}`} {...viewProps} />
+        )}
+        {currentView === 'nin_stats' && (
+          <NinStatsView key={`nin_stats-${selectedSecteur}`} selectedSecteur={selectedSecteur} secteurLabel={secteurLabel} />
         )}
       </div>
     </div>
@@ -14386,3 +14390,240 @@ function SettingsView({
 }
 
 
+
+// ─── NinStatsView ─────────────────────────────────────────────────────────────
+function NinStatsView({ selectedSecteur, secteurLabel }: { selectedSecteur: string; secteurLabel: string | null }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [monthRange, setMonthRange] = useState<'all' | '12' | '24' | '36'>('all');
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  const PIE_COLORS = [
+    '#0D83DE', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+    '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1',
+  ];
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    const url = new URL('http://127.0.0.1:8000/api/nin_stats');
+    if (selectedSecteur) url.searchParams.set('secteur', selectedSecteur);
+    
+    fetch(url.toString())
+      .then(res => { if (!res.ok) throw new Error('Erreur serveur'); return res.json(); })
+      .then(d => { if (!cancelled) { if (d.ready === false) setError('Donnees non prates'); else setData(d); } })
+      .catch(() => { if (!cancelled) setError('Impossible de charger les statistiques NIN.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedSecteur, monthRange]);
+
+  const filteredMonths = useMemo(() => {
+    if (!data?.by_month) return [];
+    if (monthRange === 'all') return data.by_month;
+    const n = parseInt(monthRange);
+    return data.by_month.slice(-n);
+  }, [data, monthRange]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[300px]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+        <p className="text-xs font-black text-brand-600 uppercase tracking-widest animate-pulse">Chargement NIN</p>
+      </div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="bg-rose-50 border border-rose-100 rounded-[2rem] p-10 text-center">
+      <p className="text-sm font-bold text-rose-600">{error}</p>
+    </div>
+  );
+
+  if (!data) return null;
+
+  const totalNin = data.total_with_nin ?? 0;
+  const byType: any[] = data.by_type ?? [];
+  const byMonth: any[] = filteredMonths;
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="bg-white border border-[#E4E7EC] rounded-[2rem] p-8 shadow-sm flex flex-col gap-3 col-span-1">
+          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
+            <Users size={24} className="text-[#0D83DE]" />
+          </div>
+          <p className="text-sm font-bold text-[#475467]">Abonnes avec NIN renseigne</p>
+          <p className="text-4xl font-black text-[#101828] tracking-tight">
+            {totalNin.toLocaleString('fr-FR')}
+          </p>
+          {secteurLabel && (
+            <span className="text-xs font-bold text-[#0D83DE] bg-blue-50 px-3 py-1 rounded-full self-start border border-blue-100">
+              Centre : {secteurLabel}
+            </span>
+          )}
+        </div>
+
+        <div className="bg-white border border-[#E4E7EC] rounded-[2rem] p-8 shadow-sm sm:col-span-2">
+          <p className="text-sm font-black text-[#101828] mb-1">Repartition par type d abonne</p>
+          <p className="text-xs text-[#667085] mb-6 font-medium">Top types parmi les abonnes ayant un NIN enregistre</p>
+          <div className="space-y-3">
+            {byType.slice(0, 6).map((t, i) => (
+              <div key={t.code} className="flex items-center gap-3">
+                <span className="shrink-0 w-3 h-3 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                <span className="text-xs font-bold text-[#344054] flex-1 truncate">{t.label}</span>
+                <span className="text-xs font-black text-[#101828] tabular-nums">{t.count.toLocaleString('fr-FR')}</span>
+                <div className="w-24 h-2 bg-[#F2F4F7] rounded-full overflow-hidden shrink-0">
+                  <div className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${t.percentage}%`, background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                </div>
+                <span className="text-[10px] font-bold text-[#98A2B3] w-9 text-right tabular-nums">{t.percentage}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="bg-white border border-[#E4E7EC] rounded-[2rem] p-8 shadow-sm lg:col-span-3">
+          <p className="text-sm font-black text-[#101828] mb-1">Abonnes NIN par type</p>
+          <p className="text-xs text-[#667085] mb-6 font-medium">Nombre d abonnes avec NIN, regroupes par categorie</p>
+          <ChartContainer className="h-[280px] w-full min-h-[160px]">
+            <BarChart data={byType.slice(0, 10)} margin={{ top: 8, right: 16, left: 0, bottom: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fontWeight: 700, fill: '#667085' }} angle={-35} textAnchor="end" interval={0} />
+              <YAxis tick={{ fontSize: 10, fontWeight: 700, fill: '#98A2B3' }} />
+              <Tooltip contentStyle={{ borderRadius: '1rem', border: '1px solid #E4E7EC', fontSize: 12, fontWeight: 700 }}
+                formatter={(v: any) => [v.toLocaleString('fr-FR'), 'Abonnes NIN']} />
+              <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                {byType.slice(0, 10).map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                <LabelList dataKey="count" position="top" style={{ fontSize: 10, fontWeight: 800, fill: '#475467' }} />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        </div>
+
+        <div className="bg-white border border-[#E4E7EC] rounded-[2rem] p-8 shadow-sm lg:col-span-2">
+          <p className="text-sm font-black text-[#101828] mb-1">Part par type</p>
+          <p className="text-xs text-[#667085] mb-4 font-medium">Distribution proportionnelle</p>
+          <ChartContainer className="h-[220px] w-full min-h-[140px]">
+            <PieChart>
+              <Pie data={byType} dataKey="count" nameKey="label" cx="50%" cy="50%"
+                outerRadius={85} innerRadius={45} paddingAngle={2}
+                onMouseEnter={(_: any, i: number) => setActiveIndex(i)}
+                onMouseLeave={() => setActiveIndex(null)}>
+                {byType.map((_: any, i: number) => (
+                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}
+                    opacity={activeIndex === null || activeIndex === i ? 1 : 0.5}
+                    stroke="white" strokeWidth={2} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ borderRadius: '1rem', border: '1px solid #E4E7EC', fontSize: 12, fontWeight: 700 }}
+                formatter={(v: any, name: any) => [v.toLocaleString('fr-FR'), name]} />
+              <Legend iconType="circle" iconSize={8}
+                wrapperStyle={{ fontSize: 10, fontWeight: 700, paddingTop: 8 }}
+                formatter={(value: string) => value.length > 18 ? value.slice(0, 18) + '...' : value} />
+            </PieChart>
+          </ChartContainer>
+        </div>
+      </div>
+
+      <div className="bg-white border border-[#E4E7EC] rounded-[2rem] p-8 shadow-sm">
+        <div className="flex flex-col gap-6 mb-6">
+          <div>
+            <p className="text-sm font-black text-[#101828]">Evolution mensuelle des saisies NIN</p>
+            <p className="text-xs text-[#667085] font-medium mt-1">
+              Abonnes avec NIN selon leur date de mise a jour (DATEMAJ)
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <div className="flex bg-[#F2F4F7] p-1 rounded-xl gap-0.5 border border-[#E4E7EC] shrink-0 flex-wrap">
+              {(['all', '36', '24', '12'] as const).map(r => (
+                <button key={r} type="button" onClick={() => setMonthRange(r)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                    monthRange === r ? 'bg-white text-[#0D83DE] shadow-sm' : 'text-[#667085] hover:text-[#101828]'
+                  }`}>
+                  {r === 'all' ? 'Tout' : `${r} mois`}
+                </button>
+              ))}
+            </div>
+            
+          </div>
+        </div>
+        {byMonth.length === 0 ? (
+          <div className="flex items-center justify-center h-40 text-sm font-bold text-[#98A2B3]">
+            Aucune date DATEMAJ disponible pour les abonnes avec NIN.
+          </div>
+        ) : (
+          <ChartContainer className="h-[300px] w-full min-h-[180px]">
+            <AreaChart data={byMonth} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="ninGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#0D83DE" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#0D83DE" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 9, fontWeight: 700, fill: '#98A2B3' }}
+                interval={Math.max(0, Math.floor(byMonth.length / 18) - 1)}
+                angle={-30} textAnchor="end" height={50} />
+              <YAxis tick={{ fontSize: 10, fontWeight: 700, fill: '#98A2B3' }} />
+              <Tooltip
+                contentStyle={{ borderRadius: '1rem', border: '1px solid #E4E7EC', fontSize: 12, fontWeight: 700 }}
+                formatter={(v: any) => [v.toLocaleString('fr-FR'), 'Abonnes NIN saisis']}
+                labelFormatter={(l: any) => `Periode : ${l}`} />
+              <Area type="monotone" dataKey="count" stroke="#0D83DE" strokeWidth={2.5}
+                fill="url(#ninGrad)"
+                dot={byMonth.length < 30 ? { r: 3, fill: '#0D83DE', strokeWidth: 0 } : false}
+                activeDot={{ r: 5, fill: '#0D83DE', stroke: 'white', strokeWidth: 2 }} />
+            </AreaChart>
+          </ChartContainer>
+        )}
+      </div>
+
+      <div className="bg-white border border-[#E4E7EC] rounded-[2rem] shadow-sm overflow-hidden">
+        <div className="px-8 py-6 border-b border-[#F2F4F7]">
+          <p className="text-sm font-black text-[#101828]">Detail par type d abonne</p>
+          <p className="text-xs text-[#667085] mt-1 font-medium">Tous les types ayant au moins un NIN enregistre</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-[#F2F4F7] bg-[#F9FAFB]">
+                <th className="text-left px-8 py-3 text-[10px] font-black text-[#98A2B3] uppercase tracking-widest">Type</th>
+                <th className="text-right px-8 py-3 text-[10px] font-black text-[#98A2B3] uppercase tracking-widest">Abonnes NIN</th>
+                <th className="text-right px-8 py-3 text-[10px] font-black text-[#98A2B3] uppercase tracking-widest">Part</th>
+                <th className="px-8 py-3 text-[10px] font-black text-[#98A2B3] uppercase tracking-widest">Progression</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byType.length === 0 ? (
+                <tr><td colSpan={4} className="px-8 py-12 text-center text-sm font-bold text-[#98A2B3]">Aucun abonne avec NIN renseigne.</td></tr>
+              ) : byType.map((t: any, i: number) => (
+                <tr key={t.code} className="border-b border-[#F9FAFB] hover:bg-[#F9FAFB] transition-colors">
+                  <td className="px-8 py-4">
+                    <div className="flex items-center gap-3">
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <span className="text-xs font-bold text-[#101828]">{t.label}</span>
+                      {t.code && <span className="text-[10px] font-mono text-[#98A2B3] bg-[#F2F4F7] px-1.5 py-0.5 rounded">{t.code}</span>}
+                    </div>
+                  </td>
+                  <td className="px-8 py-4 text-right text-xs font-black text-[#101828] tabular-nums">{t.count.toLocaleString('fr-FR')}</td>
+                  <td className="px-8 py-4 text-right text-xs font-bold text-[#475467] tabular-nums">{t.percentage}%</td>
+                  <td className="px-8 py-4">
+                    <div className="w-32 h-2 bg-[#F2F4F7] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${t.percentage}%`, background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

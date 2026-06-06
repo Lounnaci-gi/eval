@@ -174,3 +174,8 @@ table thead th {
     page-break-inside: avoid !important;
   }
 }
+
+/* Hide Next.js Dev Tools badge */
+[data-next-badge-root="true"] {
+  display: none !important;
+}

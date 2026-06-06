@@ -2232,9 +2232,11 @@ function DetailedStatsView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
+  const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
+    setSelectedNumabs([]);
     setLoadingSubscribers(true);
     try {
       const res = await fetch(buildSubscribersUrl(q.id, { secteur: selectedSecteur }));
@@ -2245,6 +2247,234 @@ function DetailedStatsView({ stats, onBack, selectedSecteur = '', secteurLabel }
       setQuartierSubscribers([]);
     }
     setLoadingSubscribers(false);
+  };
+
+  const handlePrint = () => {
+    if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
+
+    const toprint = selectedNumabs.length > 0
+      ? quartierSubscribers.filter((sub: any) => selectedNumabs.includes(sub.numab))
+      : quartierSubscribers;
+
+    if (toprint.length === 0) {
+      alert('Aucun abonné à imprimer. Veuillez sélectionner au moins un abonné.');
+      return;
+    }
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const selectionNote = selectedNumabs.length > 0 ? `Sélection de ${selectedNumabs.length} abonné(s)` : `Total : ${toprint.length} abonné(s)`;
+
+    const rowsHtml = toprint.map((sub: any) => `
+      <tr>
+        <td class="font-bold-black">${sub.numab || '—'}</td>
+        <td class="font-bold-black">${sub.name || '—'}</td>
+        <td>${[sub.adresse, sub.bloc ? `Bl. ${sub.bloc}` : '', sub.ndom ? `N°${sub.ndom}` : ''].filter(Boolean).join(' · ') || '—'}</td>
+        <td class="tournee-badge">${sub.tournee ? `T-${sub.tournee}` : '—'}</td>
+        <td>${sub.numser || '—'}</td>
+        <td style="font-weight: 700; text-align: right; color: #101828;">${sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
+        <td>${sub.type || '—'}</td>
+      </tr>
+    `).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Liste nominative - ${selectedQuartier.name}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 40px;
+              font-size: 11px;
+              line-height: 1.5;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 20px;
+              margin-bottom: 25px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin-bottom: 2px;
+            }
+            .company-name {
+              font-size: 9px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 18px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+              letter-spacing: -0.5px;
+            }
+            .subtitle {
+              font-size: 11px;
+              color: #667085;
+              margin: 4px 0 0 0;
+              font-weight: 500;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 15px;
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 12px;
+              padding: 12px 20px;
+              margin-bottom: 30px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 9px;
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 3px;
+            }
+            .meta-value {
+              font-size: 11px;
+              font-weight: 700;
+              color: #344054;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            th {
+              background-color: #F9FAFB;
+              color: #475467;
+              font-size: 9px;
+              text-transform: uppercase;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #EAECF0;
+              padding: 10px 12px;
+              text-align: left;
+            }
+            td {
+              border-bottom: 1px solid #EAECF0;
+              padding: 10px 12px;
+              text-align: left;
+              color: #475467;
+            }
+            .font-bold-black {
+              font-weight: 700;
+              color: #101828;
+            }
+            .tournee-badge {
+              font-weight: 700;
+              color: #D97706;
+            }
+            @media print {
+              body {
+                margin: 20px;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
+              <div style="display: flex; flex-direction: column;">
+                <span class="logo-text">EPEOR Analytics</span>
+                <span class="company-name">Algérienne Des Eaux</span>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1 class="title">Tous les Abonnés</h1>
+              <p class="subtitle">Liste nominative des abonnés du quartier</p>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Commune</span>
+              <span class="meta-value">${selectedCommune?.name || '—'}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Quartier</span>
+              <span class="meta-value">${selectedQuartier.name}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Date d'édition</span>
+              <span class="meta-value">${new Date().toLocaleDateString('fr-FR')}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Abonnés à imprimer</span>
+              <span class="meta-value">${selectionNote}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 12%">N° Abonné</th>
+                <th style="width: 24%">Nom / Raison Sociale</th>
+                <th style="width: 24%">Adresse</th>
+                <th style="width: 8%">Tournée</th>
+                <th style="width: 10%">N° Série</th>
+                <th style="width: 10%; text-align: right;">Nouvel Index</th>
+                <th style="width: 12%">Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>`;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   const communes = stats?.subscriber_communes || [];
@@ -2720,8 +2950,16 @@ function DetailedStatsView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <h3 className="text-2xl font-black tracking-tight text-[#101828]">Tous les Abonnés - {selectedQuartier.name}</h3>
             <p className="text-sm text-[#667085] mt-1">Liste nominative de tous les abonnés du quartier</p>
           </div>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#0D83DE] hover:bg-[#0B74C9] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10 self-start md:self-auto"
+            title="Imprimer la liste des abonnés du quartier"
+          >
+            <Printer size={13} />
+            <span>Imprimer</span>
+          </button>
         </div>
-        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="blue" />
+        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="blue" selectedNumabs={selectedNumabs} onSelectedNumabsChange={setSelectedNumabs} />
       </div>
     );
   }
@@ -2883,9 +3121,11 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
+  const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
+    setSelectedNumabs([]);
     setLoadingSubscribers(true);
     try {
       const res = await fetch(buildSubscribersUrl(q.id, { etat: '40', secteur: selectedSecteur }));
@@ -2896,6 +3136,234 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
       setQuartierSubscribers([]);
     }
     setLoadingSubscribers(false);
+  };
+
+  const handlePrint = () => {
+    if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
+
+    const toprint = selectedNumabs.length > 0
+      ? quartierSubscribers.filter((sub: any) => selectedNumabs.includes(sub.numab))
+      : quartierSubscribers;
+
+    if (toprint.length === 0) {
+      alert('Aucun abonné à imprimer. Veuillez sélectionner au moins un abonné.');
+      return;
+    }
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const selectionNote = selectedNumabs.length > 0 ? `Sélection de ${selectedNumabs.length} abonné(s)` : `Total : ${toprint.length} abonné(s)`;
+
+    const rowsHtml = toprint.map((sub: any) => `
+      <tr>
+        <td class="font-bold-black">${sub.numab || '—'}</td>
+        <td class="font-bold-black">${sub.name || '—'}</td>
+        <td>${[sub.adresse, sub.bloc ? `Bl. ${sub.bloc}` : '', sub.ndom ? `N°${sub.ndom}` : ''].filter(Boolean).join(' · ') || '—'}</td>
+        <td class="tournee-badge">${sub.tournee ? `T-${sub.tournee}` : '—'}</td>
+        <td>${sub.numser || '—'}</td>
+        <td style="font-weight: 700; text-align: right; color: #101828;">${sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
+        <td>${sub.type || '—'}</td>
+      </tr>
+    `).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Liste nominative des abonnés résiliés - ${selectedQuartier.name}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 40px;
+              font-size: 11px;
+              line-height: 1.5;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 20px;
+              margin-bottom: 25px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin-bottom: 2px;
+            }
+            .company-name {
+              font-size: 9px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 18px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+              letter-spacing: -0.5px;
+            }
+            .subtitle {
+              font-size: 11px;
+              color: #667085;
+              margin: 4px 0 0 0;
+              font-weight: 500;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 15px;
+              background-color: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 12px;
+              padding: 12px 20px;
+              margin-bottom: 30px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 9px;
+              font-weight: 700;
+              color: #98A2B3;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 3px;
+            }
+            .meta-value {
+              font-size: 11px;
+              font-weight: 700;
+              color: #344054;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            th {
+              background-color: #F9FAFB;
+              color: #475467;
+              font-size: 9px;
+              text-transform: uppercase;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #EAECF0;
+              padding: 10px 12px;
+              text-align: left;
+            }
+            td {
+              border-bottom: 1px solid #EAECF0;
+              padding: 10px 12px;
+              text-align: left;
+              color: #475467;
+            }
+            .font-bold-black {
+              font-weight: 700;
+              color: #101828;
+            }
+            .tournee-badge {
+              font-weight: 700;
+              color: #D97706;
+            }
+            @media print {
+              body {
+                margin: 20px;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
+              <div style="display: flex; flex-direction: column;">
+                <span class="logo-text">EPEOR Analytics</span>
+                <span class="company-name">Algérienne Des Eaux</span>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1 class="title">Abonnés Résiliés (Code 40)</h1>
+              <p class="subtitle">Liste nominative des compteurs résiliés</p>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Commune</span>
+              <span class="meta-value">${selectedCommune?.name || '—'}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Quartier</span>
+              <span class="meta-value">${selectedQuartier.name}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Date d'édition</span>
+              <span class="meta-value">${new Date().toLocaleDateString('fr-FR')}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Abonnés à imprimer</span>
+              <span class="meta-value">${selectionNote}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 12%">N° Abonné</th>
+                <th style="width: 24%">Nom / Raison Sociale</th>
+                <th style="width: 24%">Adresse</th>
+                <th style="width: 8%">Tournée</th>
+                <th style="width: 10%">N° Série</th>
+                <th style="width: 10%; text-align: right;">Nouvel Index</th>
+                <th style="width: 12%">Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>`;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   // Sort by resigned descending
@@ -3354,8 +3822,16 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             <h3 className="text-2xl font-black tracking-tight text-[#101828]">Abonnés Résiliés - {selectedQuartier.name}</h3>
             <p className="text-sm text-[#667085] mt-1">Liste nominative des compteurs résiliés (Code 40)</p>
           </div>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#E11D48] hover:bg-[#BE123C] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-rose-600/10 border border-rose-500/10 self-start md:self-auto"
+            title="Imprimer la liste des abonnés résiliés du quartier"
+          >
+            <Printer size={13} />
+            <span>Imprimer</span>
+          </button>
         </div>
-        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="rose" />
+        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="rose" selectedNumabs={selectedNumabs} onSelectedNumabsChange={setSelectedNumabs} />
       </div>
     );
   }

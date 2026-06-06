@@ -6780,16 +6780,25 @@ function CreanceDetailView({
           <div className="flex flex-col md:flex-row md:items-end gap-4">
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Année</label>
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="block w-full md:w-32 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
-              >
-                <option value="all">Toutes</option>
-                {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <input
+                  list="years-list"
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(e.target.value)}
+                  placeholder="Entrez une année ou choisissez"
+                  className="block w-full md:w-32 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
+                />
+                <datalist id="years-list">
+                  <option value="all">Toutes</option>
+                  {Array.from({ length: 30 }, (_, i) => (new Date().getFullYear() - i).toString()).map(year => (
+                    <option key={year} value={year} />
+                  ))}
+                </datalist>
+                <button type="button" onClick={() => setFilterYear('all')}
+                  className="hidden md:inline-block px-3 py-2 rounded-xl text-[10px] font-black bg-white text-[#0D83DE] border border-[#E4E7EC]">
+                  Toutes
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -7735,10 +7744,12 @@ function CreanceVentilationView({
         ]);
       });
 
+      // Use a light background for the grand total to match subtotals (no dark background)
+      const totalFill: [number, number, number] = [249, 250, 251];
       bodyData.push([
-        { content: 'TOTAL GÉNÉRAL', colSpan: 3, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
-        { content: fmtNum(globalTotalVolume), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
-        { content: fmt(globalTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor: [15, 23, 42], textColor: [255, 255, 255] } }
+        { content: 'TOTAL GÉNÉRAL', colSpan: 3, styles: { fontStyle: 'bold', fillColor: totalFill, textColor: [16, 24, 40] } },
+        { content: fmtNum(globalTotalVolume), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [71, 84, 103] } },
+        { content: fmt(globalTotalCreance), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [16, 24, 40] } }
       ]);
 
       autoTable(doc, {
@@ -7821,10 +7832,10 @@ function CreanceVentilationView({
       const globalTotalVolume = ventilationData.reduce((acc: number, r: any) => acc + r.NBR_FACTURES, 0);
       const globalTotalCreance = ventilationData.reduce((acc: number, r: any) => acc + r.CREANCE, 0);
       tableRowsHtml += `
-        <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
+        <tr style="background: #f8fafc; color: #101828; font-weight: bold; font-size: 9.5px;">
           <td colspan="3" style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-          <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none; font-family: monospace;">${fmtNum(globalTotalVolume)}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #ffffff; border-bottom: none; font-family: monospace;">${fmt(globalTotalCreance)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #475467; border-bottom: none; font-family: monospace;">${fmtNum(globalTotalVolume)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none; font-family: monospace;">${fmt(globalTotalCreance)}</td>
         </tr>
       `;
     }

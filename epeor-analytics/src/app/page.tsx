@@ -7753,6 +7753,289 @@ function CreanceVentilationView({
     }
   };
 
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const titleStr = "Détail Ventilation des Créances Arrêtées";
+    const subTitleStr = secteurLabel
+      ? "Centre : " + secteurLabel
+      : "Toute l'unité";
+    const dateStr = lastVentDate ? "Arrêtées au " + formatVentDate(lastVentDate) : "";
+    const printDate = new Date().toLocaleDateString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const activeSections = ventilationFilter === 'ALL' ? ['EAU', 'PRESTATIONS'] : [ventilationFilter];
+
+    let tableRowsHtml = "";
+
+    activeSections.forEach(section => {
+      const sectionRows = ventilationData.filter((r: any) => r.SECTION === section);
+      if (sectionRows.length === 0) return;
+
+      const subTotalCreance = sectionRows.reduce((acc: number, r: any) => acc + r.CREANCE, 0);
+      const subTotalVolume = sectionRows.reduce((acc: number, r: any) => acc + r.NBR_FACTURES, 0);
+
+      const isEau = section === 'EAU';
+
+      tableRowsHtml += `
+        <tr class="group-header">
+          <td colspan="5" style="padding: 8px 12px; font-weight: bold; background: ${isEau ? '#eff6ff' : '#f0fdf4'}; border-bottom: 1px solid #e2e8f0;">
+            <span class="badge ${isEau ? 'badge-blue' : 'badge-green'}">${section}</span>
+            <span style="margin-left: 6px; font-size: 9px; color: #475467;">(${sectionRows.length} types)</span>
+          </td>
+        </tr>
+      `;
+
+      sectionRows.forEach((row: any) => {
+        tableRowsHtml += `
+          <tr>
+            <td style="padding: 6px 12px; font-family: monospace; font-size: 9px; font-weight: bold; color: #475467; border-bottom: 1px solid #f2f4f7;">${row.TYPE_CODE}</td>
+            <td style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #f2f4f7;">${row.CATEGORIE}</td>
+            <td style="padding: 6px 12px; text-align: center; color: #667085; font-size: 8px; border-bottom: 1px solid #f2f4f7;">Code: ${row.ORDRE}</td>
+            <td style="padding: 6px 12px; text-align: right; color: #475467; font-family: monospace; border-bottom: 1px solid #f2f4f7;">${fmtNum(row.NBR_FACTURES)}</td>
+            <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #101828; font-family: monospace; border-bottom: 1px solid #f2f4f7;">${fmt(row.CREANCE)}</td>
+          </tr>
+        `;
+      });
+
+      tableRowsHtml += `
+        <tr class="subtotal-row" style="background: #f8fafc; font-weight: bold; border-top: 1px solid #e2e8f0; border-bottom: 2px solid #cbd5e1;">
+          <td colspan="3" style="padding: 8px 12px; text-transform: uppercase; font-size: 9px;">Sous-total ${section}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #475467; font-family: monospace;">${fmtNum(subTotalVolume)}</td>
+          <td style="padding: 8px 12px; text-align: right; color: ${isEau ? '#1e40af' : '#0f766e'}; font-family: monospace;">${fmt(subTotalCreance)}</td>
+        </tr>
+      `;
+    });
+
+    if (ventilationFilter === 'ALL') {
+      const globalTotalVolume = ventilationData.reduce((acc: number, r: any) => acc + r.NBR_FACTURES, 0);
+      const globalTotalCreance = ventilationData.reduce((acc: number, r: any) => acc + r.CREANCE, 0);
+      tableRowsHtml += `
+        <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
+          <td colspan="3" style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
+          <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none; font-family: monospace;">${fmtNum(globalTotalVolume)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #ffffff; border-bottom: none; font-family: monospace;">${fmt(globalTotalCreance)}</td>
+        </tr>
+      `;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${titleStr}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @page {
+              size: portrait;
+              margin: 10mm 12mm;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #101828;
+              margin: 0;
+              font-size: 9px;
+              line-height: 1.4;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #F2F4F7;
+              padding-bottom: 10px;
+              margin-bottom: 12px;
+            }
+            .logo-section {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-text {
+              font-size: 14px;
+              font-weight: 900;
+              color: #0D83DE;
+              letter-spacing: -0.5px;
+              margin: 0;
+            }
+            .company-name {
+              font-size: 8.5px;
+              font-weight: 700;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-top: 1px;
+            }
+            .title-section {
+              text-align: right;
+            }
+            .title {
+              font-size: 16px;
+              font-weight: 900;
+              color: #101828;
+              margin: 0;
+            }
+            .subtitle {
+              font-size: 9.5px;
+              color: #667085;
+              margin: 3px 0 0 0;
+              font-weight: 500;
+            }
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 10px;
+              margin-bottom: 15px;
+              background: #F9FAFB;
+              border: 1px solid #E4E7EC;
+              border-radius: 8px;
+              padding: 8px 12px;
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .meta-label {
+              font-size: 8px;
+              text-transform: uppercase;
+              color: #667085;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              margin-bottom: 2px;
+            }
+            .meta-value {
+              font-size: 10px;
+              font-weight: 700;
+              color: #101828;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 15px;
+              text-align: left;
+            }
+            th {
+              background: #F9FAFB;
+              color: #475467;
+              font-size: 8px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              padding: 7px 12px;
+              border-bottom: 1px solid #F2F4F7;
+            }
+            td {
+              border-bottom: 1px solid #F2F4F7;
+              padding: 5px 12px;
+              font-size: 9px;
+            }
+            .badge {
+              display: inline-flex;
+              align-items: center;
+              padding: 1.5px 5px;
+              border-radius: 3px;
+              font-size: 8px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .badge-blue {
+              background-color: #dbeafe;
+              color: #1e40af;
+              border: 1px solid #bfdbfe;
+            }
+            .badge-green {
+              background-color: #d1fae5;
+              color: #065f46;
+              border: 1px solid #a7f3d0;
+            }
+            .footer-info {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              color: #667085;
+              font-size: 8px;
+              border-top: 1px solid #F2F4F7;
+              padding-top: 10px;
+              margin-top: 20px;
+            }
+            @media print {
+              body { margin: 20px; }
+              .no-print { display: none; }
+              tr { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <div>
+                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <div class="company-name">Algérienne des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <h2 class="title">${titleStr}</h2>
+              <p class="subtitle">Analyses Financières</p>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Périmètre</span>
+              <span class="meta-value">${subTitleStr}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Date d'Arrêté</span>
+              <span class="meta-value">${dateStr || "—"}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Date d'édition</span>
+              <span class="meta-value">${printDate}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">Type</th>
+                <th>Désignation</th>
+                <th style="text-align: center; width: 60px;">Ordre</th>
+                <th style="text-align: right; width: 80px;">Volume</th>
+                <th style="text-align: right; width: 120px;">Créance Nette</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml}
+            </tbody>
+          </table>
+
+          <div class="footer-info">
+            <span>EPEOR Analytics - Ventilation des créances</span>
+            <span>Généré automatiquement</span>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   if (!ventilationData.length && !loading && !lastVentDate) {
     return (
       <div className="bg-[#F9FAFB] border-2 border-dashed border-[#E4E7EC] rounded-[2rem] p-16 flex flex-col items-center text-center gap-6">
@@ -7872,6 +8155,9 @@ function CreanceVentilationView({
               </button>
               <button onClick={exportToPDF} className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 transition-all shadow-sm">
                 <FileText size={14} /> PDF
+              </button>
+              <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-xl text-xs font-black hover:bg-slate-900 transition-all shadow-sm">
+                <Printer size={14} /> Imprimer
               </button>
             </div>
           )}

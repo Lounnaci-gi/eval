@@ -6395,6 +6395,7 @@ function CreanceDetailView({
   const [filterPeriod, setFilterPeriod] = useState('all');
   const [calcProgress, setCalcProgress] = useState(0);
   const [calcStep, setCalcStep] = useState("");
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre'>('creance');
 
@@ -6423,9 +6424,18 @@ function CreanceDetailView({
   };
 
   const fetchData = async (start = '', end = '') => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setData(null);
+    setError(null);
     setLoading(true);
     setCalcProgress(0);
+    setCalcStep("Préparation du calcul...");
 
     const targetFilter = ventilationFilter || 'ALL';
     setVentilationFilter(targetFilter);
@@ -6452,7 +6462,7 @@ function CreanceDetailView({
 
       // We run them in sequence to show "real" progress as requested
       // though parallel is faster, the user wants to see the steps
-      const res1 = await fetch(url.toString());
+      const res1 = await fetch(url.toString(), { signal: controller.signal });
       const d1 = await res1.json();
       setData(d1);
       setCalcProgress(50);
@@ -6464,7 +6474,7 @@ function CreanceDetailView({
       const ventUrl = new URL('http://127.0.0.1:8000/creance_detaillee');
       ventUrl.searchParams.set('date_arrete', ventDate.replace(/-/g, ''));
       appendSecteurParam(ventUrl, selectedSecteur);
-      const res2 = await fetch(ventUrl.toString());
+      const res2 = await fetch(ventUrl.toString(), { signal: controller.signal });
       setCalcStep("Répartition des créances par commune...");
       setCalcProgress(80);
 
@@ -6480,10 +6490,17 @@ function CreanceDetailView({
       // Small delay to show 100%
       await new Promise(r => setTimeout(r, 500));
 
-    } catch {
-      setError("Erreur de connexion au serveur.");
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        setCalcStep("Calcul annulé.");
+        setError("Calcul annulé par l'utilisateur.");
+      } else {
+        setError("Erreur de connexion au serveur.");
+      }
+    } finally {
+      setLoading(false);
+      abortControllerRef.current = null;
     }
-    setLoading(false);
   };
 
 
@@ -6865,11 +6882,22 @@ function CreanceDetailView({
                   style={{ width: `${calcProgress}%` }}
                 ></div>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-3">
                 <span className="text-[9px] font-black text-[#98A2B3] uppercase tracking-widest">Traitement Big Data</span>
                 <span className="text-[9px] font-black text-brand-600 uppercase tracking-widest">Calcul Optimisé</span>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                abortControllerRef.current?.abort();
+                setCalcStep("Annulation en cours...");
+              }}
+              className="px-6 py-2 rounded-full border border-rose-200 bg-rose-50 text-rose-700 font-bold text-xs uppercase tracking-widest hover:bg-rose-100 transition-colors"
+            >
+              Annuler le calcul
+            </button>
           </div>
         </div>
       )}

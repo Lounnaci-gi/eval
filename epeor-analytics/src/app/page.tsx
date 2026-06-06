@@ -9558,7 +9558,7 @@ function BilanView({ selectedSecteur = '', sectors = [], startDate = '', endDate
                             ) : null}
                             <td className="px-6 py-4 text-sm text-[#101828]">{category.label}</td>
                             <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{category.value.toLocaleString('fr-FR')}</td>
-                            <td className="px-6 py-4 text-right text-sm text-[#667085] tabular-nums">—</td>
+                            <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{((c.resigned_categories || {})[category.id] || 0).toLocaleString('fr-FR')}</td>
                             <td className="px-6 py-4 text-right text-sm text-[#667085] tabular-nums">—</td>
                             <td className="px-6 py-4 text-right text-sm text-[#667085] tabular-nums">—</td>
                           </tr>

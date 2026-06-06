@@ -1122,6 +1122,12 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
         for r in MEM_ABONMENTS
         if str(r.get('NUMAB') or '').strip() and str(r.get('DATEINST') or '').strip()
     }
+    # Map NUMAB -> ETATCPT from ABONMENT
+    abonment_state_map = {
+        str(r.get('NUMAB') or '').strip().upper(): str(r.get('ETATCPT') or '').strip()
+        for r in MEM_ABONMENTS
+        if str(r.get('NUMAB') or '').strip() and str(r.get('ETATCPT') or '').strip()
+    }
 
     cutoff_date = end_date if end_date else start_date if start_date else None
     earliest_known_date = None
@@ -1159,7 +1165,7 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
         typabon = str(abonne_rec.get('TYPABON', '')).strip()
         category_info = _typabon_to_category(typabon)
 
-        state = str(abonne_rec.get('ETATCPT') or '').strip()
+        state = abonment_state_map.get(numab, '')
         resigned = state == '40'
         stopped = state == '20'
 
@@ -1186,12 +1192,21 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
                     "commerce": 0,
                     "industriel": 0,
                     "vente_en_gros": 0,
+                },
+                "resigned_categories": {
+                    "menages": 0,
+                    "administrations": 0,
+                    "commerce": 0,
+                    "industriel": 0,
+                    "vente_en_gros": 0,
                 }
             }
 
         commune_counts[codcom]["total"] += 1
         if category_key is not None:
             commune_counts[codcom]["categories"][category_key] += 1
+            if resigned:
+                commune_counts[codcom]["resigned_categories"][category_key] += 1
         if resigned:
             commune_counts[codcom]["resigned"] += 1
         if stopped:
@@ -1207,6 +1222,7 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
             "resigned": counts["resigned"],
             "stopped": counts["stopped"],
             "categories": counts["categories"],
+            "resigned_categories": counts["resigned_categories"],
         })
     communes_list.sort(key=lambda x: x["value"], reverse=True)
 

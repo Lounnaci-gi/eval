@@ -14,7 +14,7 @@ if (typeof window !== "undefined") {
   };
 }
 
-import { useEffect, useState, Fragment, useRef, useMemo, type ReactNode } from "react";
+import { useEffect, useState, Fragment, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   Users,
@@ -1896,7 +1896,7 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
                 labelStyle={{ fontWeight: 'black', marginBottom: '4px', color: '#98A2B3' }}
                 labelFormatter={(label) => formatPeriodFrench(label)}
                 formatter={(value: any) => [
-                  <span className="font-bold text-white">{value.toLocaleString('fr-FR')} abonnés</span>,
+                  <span key="value" className="font-bold text-white">{value.toLocaleString('fr-FR')} abonnés</span>,
                   'Cumul'
                 ]}
               />
@@ -3517,9 +3517,11 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
+  const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
+    setSelectedNumabs([]);
     setLoadingSubscribers(true);
     try {
       const res = await fetch(buildSubscribersUrl(q.id, { etat: '20', secteur: selectedSecteur }));
@@ -3535,11 +3537,22 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const handlePrint = () => {
     if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
 
+    const toprint = selectedNumabs.length > 0 
+      ? quartierSubscribers.filter(sub => selectedNumabs.includes(sub.numab))
+      : quartierSubscribers;
+
+    if (toprint.length === 0) {
+      alert('Aucun abonné à imprimer. Veuillez sélectionner au moins un abonné.');
+      return;
+    }
+
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
       return;
     }
+
+    const selectionNote = selectedNumabs.length > 0 ? `Sélection de ${selectedNumabs.length} abonné(s)` : `Total : ${toprint.length} abonné(s)`;
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -3700,8 +3713,8 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
               <span class="meta-value">${new Date().toLocaleDateString('fr-FR')}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">Total Abonnés</span>
-              <span class="meta-value">${quartierSubscribers.length}</span>
+              <span class="meta-label">Abonnés à imprimer</span>
+              <span class="meta-value">${selectionNote}</span>
             </div>
           </div>
 
@@ -3719,7 +3732,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
               </tr>
             </thead>
             <tbody>
-              ${quartierSubscribers.map(sub => `
+              ${toprint.map(sub => `
                 <tr>
                   <td class="font-bold-black">${sub.numab || '—'}</td>
                   <td class="font-bold-black">${sub.name || '—'}</td>
@@ -4221,6 +4234,8 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           loading={loadingSubscribers}
           accentColor="amber"
           consecutiveEtatColumn={{ field: 'consecutive_etat20', label: "Factures à l'arrêt", activeClass: 'bg-amber-50 text-amber-700 border-amber-100', hoverClass: 'text-amber-700' }}
+          selectedNumabs={selectedNumabs}
+          onSelectedNumabsChange={setSelectedNumabs}
         />
       </div>
     );
@@ -5261,7 +5276,7 @@ function etatBadge(etatcpt: string, etatLabel?: string) {
   }
 }
 
-function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string } }) {
+function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string }; selectedNumabs?: string[]; onSelectedNumabsChange?: (numabs: string[]) => void }) {
   const [hoveredSub, setHoveredSub] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -5346,13 +5361,13 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
           <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${style.spinner}`}></div>
         </div>
       ) : (
-        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} />
+        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} />
       )}
     </div>
   );
 }
 
-function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn }: any) {
+function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange }: any) {
   const ITEMS_PER_PAGE = 20;
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<string>('numab');
@@ -5827,6 +5842,22 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       <table className="w-full text-left">
         <thead>
           <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
+            <th className="px-4 py-5 text-center">
+              <input
+                type="checkbox"
+                checked={pageItems.length > 0 && pageItems.every((s: any) => selectedNumabs.includes(s.numab))}
+                onChange={(e) => {
+                  if (onSelectedNumabsChange) {
+                    if (e.target.checked) {
+                      onSelectedNumabsChange([...selectedNumabs, ...pageItems.map((s: any) => s.numab).filter((n: string) => !selectedNumabs.includes(n))]);
+                    } else {
+                      onSelectedNumabsChange(selectedNumabs.filter((n: string) => !pageItems.map((s: any) => s.numab).includes(n)));
+                    }
+                  }
+                }}
+                className="w-4 h-4 rounded border-[#D0D5DD] text-[#0D83DE] focus:ring-2 focus:ring-[#0D83DE]/20 cursor-pointer"
+              />
+            </th>
             <Th label="N° Abonné" field="numab" />
             <Th label="Nom / Raison Sociale" field="name" />
             <Th label="Adresse" field="adresse" />
@@ -5847,24 +5878,40 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           {pageItems.length > 0 ? pageItems.map((sub: any, i: number) => (
             <tr
               key={i}
-              className="hover:bg-[#F9FAFB] transition-colors cursor-pointer"
-              onClick={() => handleRowClick(sub)}
+              className="hover:bg-[#F9FAFB] transition-colors"
               onMouseEnter={(e) => { setHoveredSub(sub); setMousePos({ x: e.clientX, y: e.clientY }); }}
               onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
               onMouseLeave={() => setHoveredSub(null)}
             >
-              <td className="px-6 py-4 font-black text-[13px] text-[#101828] whitespace-nowrap">{sub.numab}</td>
-              <td className="px-6 py-4 font-medium text-[13px] text-[#101828] min-w-[200px]">{sub.name}</td>
-              <td className="px-6 py-4 font-medium text-[13px] text-[#667085] min-w-[200px]">{sub.adresse}</td>
-              <td className="px-6 py-4 font-bold text-[13px] text-[#0D83DE] whitespace-nowrap">T-{sub.tournee}</td>
-              <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.bloc}</td>
-              <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.ndom}</td>
-              <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap">{sub.numser}</td>
-              <td className="px-6 py-4 font-bold text-[13px] text-[#101828] text-right">{sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
-              <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{sub.type}</td>
-              <td className="px-6 py-4">{etatBadge(sub.etatcpt, sub.etat_label)}</td>
+              <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selectedNumabs.includes(sub.numab)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    if (onSelectedNumabsChange) {
+                      if (e.target.checked) {
+                        onSelectedNumabsChange([...selectedNumabs, sub.numab]);
+                      } else {
+                        onSelectedNumabsChange(selectedNumabs.filter((n: string) => n !== sub.numab));
+                      }
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-[#D0D5DD] text-[#0D83DE] focus:ring-2 focus:ring-[#0D83DE]/20 cursor-pointer"
+                />
+              </td>
+              <td className="px-6 py-4 font-black text-[13px] text-[#101828] whitespace-nowrap cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.numab}</td>
+              <td className="px-6 py-4 font-medium text-[13px] text-[#101828] min-w-[200px] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.name}</td>
+              <td className="px-6 py-4 font-medium text-[13px] text-[#667085] min-w-[200px] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.adresse}</td>
+              <td className="px-6 py-4 font-bold text-[13px] text-[#0D83DE] whitespace-nowrap cursor-pointer" onClick={() => handleRowClick(sub)}>T-{sub.tournee}</td>
+              <td className="px-4 py-4 font-medium text-[13px] text-[#667085] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.bloc}</td>
+              <td className="px-4 py-4 font-medium text-[13px] text-[#667085] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.ndom}</td>
+              <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.numser}</td>
+              <td className="px-6 py-4 font-bold text-[13px] text-[#101828] text-right cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
+              <td className="px-6 py-4 font-medium text-[13px] text-[#667085] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.type}</td>
+              <td className="px-6 py-4 cursor-pointer" onClick={() => handleRowClick(sub)}>{etatBadge(sub.etatcpt, sub.etat_label)}</td>
               {consecutiveEtatColumn && (
-                <td className="px-6 py-4 text-right">
+                <td className="px-6 py-4 text-right cursor-pointer" onClick={() => handleRowClick(sub)}>
                   <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-lg text-[12px] font-black border ${
                     (sub[consecutiveEtatColumn.field] ?? 0) > 0
                       ? consecutiveEtatColumn.activeClass
@@ -5874,11 +5921,11 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                   </span>
                 </td>
               )}
-              <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467]">{sub.numordre}</td>
+              <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.numordre}</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={consecutiveEtatColumn ? 12 : 11} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
+              <td colSpan={consecutiveEtatColumn ? 13 : 12} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé.</td>
             </tr>
           )}
         </tbody>
@@ -8502,7 +8549,7 @@ function CreancesAbonnesView({
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(n).replace(/[\u202F\u00A0]/g, ' ') + " DA";
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setDataLoading(true);
     setError(null);
     setDataLoaded(false);
@@ -8524,9 +8571,9 @@ function CreancesAbonnesView({
     } finally {
       setDataLoading(false);
     }
-  };
+  }, [selectedSecteur]);
 
-  useEffect(() => { loadData(); }, [selectedSecteur]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   // ─── Day helper ──────────────────────────────────────────────────
   const daysSince = (raw: string | null): number | null => {
@@ -10995,7 +11042,7 @@ function CreancesInstitutionsView({
     new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(n).replace(/[\u202F\u00A0]/g, ' ') + ' DA';
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setDataLoading(true);
     setError(null);
     setRows([]);
@@ -11030,9 +11077,9 @@ function CreancesInstitutionsView({
     } finally {
       setDataLoading(false);
     }
-  };
+  }, [selectedSecteur]);
 
-  useEffect(() => { loadData(); }, [selectedSecteur]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

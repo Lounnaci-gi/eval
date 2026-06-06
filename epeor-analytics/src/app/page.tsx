@@ -1639,7 +1639,7 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
     const [fy, fm] = firstPeriod.split('-').map(Number);
     const firstInt = fy * 100 + fm;
     if (targetInt < firstInt) {
-      return { period: periodKey, count: 0, new_registrations: 0, isBefore: true };
+      return { period: periodKey, count: 0, new_registrations: 0, resigned_count: 0, isBefore: true };
     }
     
     // If selected date is after data ends, return last record
@@ -1647,7 +1647,7 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
     const [ly, lm] = lastPeriod.split('-').map(Number);
     const lastInt = ly * 100 + lm;
     if (targetInt > lastInt) {
-      return { period: periodKey, count: data[data.length - 1].count, new_registrations: 0, isAfter: true };
+      return { period: periodKey, count: data[data.length - 1].count, new_registrations: 0, resigned_count: data[data.length - 1].resigned_count ?? 0, isAfter: true };
     }
     
     return null;
@@ -1699,6 +1699,9 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
     }
     return list;
   }, [data]);
+
+  const minYear = yearsList[0] ?? 2000;
+  const maxYear = yearsList[yearsList.length - 1] ?? 2026;
 
   const formatPeriodFrench = (periodStr: string) => {
     const [y, m] = periodStr.split('-');
@@ -1912,40 +1915,38 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
           <div>
             <h3 className="text-xl font-black tracking-tight text-[#101828]">Simulateur de Période Historique</h3>
             <p className="text-xs text-[#667085] mt-1 mb-6">
-              Saisissez ou sélectionnez une date pour afficher le nombre d'abonnés enregistrés à ce moment précis de l'histoire.
+              Saisissez le mois et l'année pour afficher le nombre d'abonnés et de résiliés à cette période.
             </p>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Mois</label>
-                <div className="relative">
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                    className="w-full text-xs font-bold border-[#D0D5DD] border rounded-xl px-4 py-3 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer"
-                  >
-                    {monthsList.map(m => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] pointer-events-none" size={14} />
-                </div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Mois (1-12)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    const value = Number(e.target.value || 1);
+                    setSelectedMonth(Math.min(12, Math.max(1, value)));
+                  }}
+                  className="w-full text-xs font-bold border-[#D0D5DD] border rounded-xl px-4 py-3 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Année</label>
-                <div className="relative">
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                    className="w-full text-xs font-bold border-[#D0D5DD] border rounded-xl px-4 py-3 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer"
-                  >
-                    {yearsList.map(y => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] pointer-events-none" size={14} />
-                </div>
+                <input
+                  type="number"
+                  min={minYear}
+                  max={maxYear}
+                  value={selectedYear}
+                  onChange={(e) => {
+                    const value = Number(e.target.value || minYear);
+                    setSelectedYear(Math.min(maxYear, Math.max(minYear, value)));
+                  }}
+                  className="w-full text-xs font-bold border-[#D0D5DD] border rounded-xl px-4 py-3 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
               </div>
             </div>
           </div>
@@ -1960,6 +1961,11 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
             <p className="text-xs text-[#667085] font-medium">
               au 01/{selectedMonth.toString().padStart(2, '0')}/{selectedYear}
             </p>
+            {calculatorResult && (
+              <p className="text-xs text-[#667085] font-medium">
+                Abonnés résiliés : <span className="font-black text-rose-600">{(calculatorResult.resigned_count ?? 0).toLocaleString('fr-FR')}</span>
+              </p>
+            )}
             {calculatorResult && calculatorResult.new_registrations > 0 && (
               <span className="inline-block text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md mt-2">
                 +{calculatorResult.new_registrations} nouvelles inscriptions ce mois-là

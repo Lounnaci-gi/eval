@@ -1052,38 +1052,42 @@ def get_api_status():
 def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abon: str = None):
     if not is_db_ready or len(MEM_ABONNES) == 0:
         return {"ready": False, "evolution": [], "total": 0, "missing_dates_handled": 0}
-    
+
     allowed_communes = _commune_codcoms_for_centre(secteur) if secteur and str(secteur).strip() else None
-    
-    # Index of DATEINST in MEM_ABONMENTS by NUMAB
+
     abonment_dates = {}
+    abonment_state_map = {}
     for r in MEM_ABONMENTS:
         numab = str(r.get('NUMAB') or '').strip().upper()
+        if not numab:
+            continue
         di = str(r.get('DATEINST') or '').strip()
-        if numab and di and len(di) == 8 and di.isdigit():
-            abonment_dates[numab] = di
+        abonment_dates[numab] = di if di and len(di) == 8 and di.isdigit() else ''
+        abonment_state_map[numab] = str(r.get('ETATCPT') or '').strip()
 
     join_dates = []
     missing_count = 0
-    
+    resigned_join_dates = []
+    missing_resigned_count = 0
+
     for r in MEM_ABONNES:
         numab = str(r.get('NUMAB') or '').strip().upper()
         if not _abonne_in_centre(numab, allowed_communes):
             continue
-            
+
         if commune and str(commune).strip():
             if _abonne_codcom(numab) != str(commune).strip():
                 continue
-                
+
         if type_abon and str(type_abon).strip():
             if str(r.get('TYPABON') or '').strip() != str(type_abon).strip():
                 continue
-                
+
         dp = str(r.get('DATEPRISE') or '').strip()
         dc = str(r.get('DATECRE') or '').strip()
         ff = str(r.get('FIRSTFACT') or '').strip()
         di = abonment_dates.get(numab, '')
-        
+
         resolved_date = None
         for d in [dp, dc, ff, di]:
             if d and len(d) == 8 and d.isdigit():
@@ -1091,65 +1095,87 @@ def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abo
                 if 1980 <= y <= 2026:
                     resolved_date = d
                     break
-        
+
         if resolved_date:
             join_dates.append(resolved_date)
         else:
             missing_count += 1
-            
+
+        state = abonment_state_map.get(numab)
+        if state == '40':
+            if resolved_date:
+                resigned_join_dates.append(resolved_date)
+            else:
+                missing_resigned_count += 1
+
     if not join_dates and missing_count == 0:
         return {"ready": True, "evolution": [], "total": 0, "missing_dates_handled": 0}
-        
+
     min_date = min(join_dates) if join_dates else "20100101"
     min_year = int(min_date[:4])
     if min_year < 2000:
         min_year = 2000
-        
+
     monthly_counts = {}
+    monthly_resigned_counts = {}
     current_year = 2026
     current_month = 6
-    
+
     year_ptr = min_year
     month_ptr = 1
     while year_ptr < current_year or (year_ptr == current_year and month_ptr <= current_month):
         period_str = f"{year_ptr}-{month_ptr:02d}"
         monthly_counts[period_str] = 0
+        monthly_resigned_counts[period_str] = 0
         month_ptr += 1
         if month_ptr > 12:
             month_ptr = 1
             year_ptr += 1
-            
-    for d in join_dates:
-        yr = int(d[:4])
+
+    def normalize_period(date_str: str) -> str:
+        yr = int(date_str[:4])
+        mo = int(date_str[4:6])
         if yr < min_year:
-            period_str = f"{min_year}-01"
-        elif yr > current_year or (yr == current_year and int(d[4:6]) > current_month):
-            period_str = f"{current_year}-{current_month:02d}"
-        else:
-            period_str = f"{yr}-{int(d[4:6]):02d}"
-            
+            return f"{min_year}-01"
+        if yr > current_year or (yr == current_year and mo > current_month):
+            return f"{current_year}-{current_month:02d}"
+        return f"{yr}-{mo:02d}"
+
+    for d in join_dates:
+        period_str = normalize_period(d)
         if period_str in monthly_counts:
             monthly_counts[period_str] += 1
         else:
-            first_period = f"{min_year}-01"
-            monthly_counts[first_period] += 1
+            monthly_counts[f"{min_year}-01"] += 1
+
+    for d in resigned_join_dates:
+        period_str = normalize_period(d)
+        if period_str in monthly_resigned_counts:
+            monthly_resigned_counts[period_str] += 1
+        else:
+            monthly_resigned_counts[f"{min_year}-01"] += 1
 
     first_period = f"{min_year}-01"
     if first_period in monthly_counts:
         monthly_counts[first_period] += missing_count
-    
+    if first_period in monthly_resigned_counts:
+        monthly_resigned_counts[first_period] += missing_resigned_count
+
     evolution = []
     cumulative = 0
+    resigned_cumulative = 0
     sorted_periods = sorted(monthly_counts.keys())
     for period in sorted_periods:
         new_regs = monthly_counts[period]
         cumulative += new_regs
+        resigned_cumulative += monthly_resigned_counts.get(period, 0)
         evolution.append({
             "period": period,
             "count": cumulative,
-            "new_registrations": new_regs
+            "new_registrations": new_regs,
+            "resigned_count": resigned_cumulative
         })
-        
+
     return {
         "ready": True,
         "evolution": evolution,

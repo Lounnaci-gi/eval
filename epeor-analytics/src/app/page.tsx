@@ -1313,7 +1313,7 @@ export default function Dashboard() {
                 endDate={calcDateRange.end}
               />
             ) : currentView === 'bilan' ? (
-              <BilanView selectedSecteur={selectedSecteur} sectors={sectors} />
+              <BilanView selectedSecteur={selectedSecteur} sectors={sectors} startDate={calcDateRange.start} endDate={calcDateRange.end} />
             ) : null}
           </div>
         ) : null}
@@ -6395,6 +6395,10 @@ function CreanceDetailView({
   const [filterPeriod, setFilterPeriod] = useState('all');
   const [calcProgress, setCalcProgress] = useState(0);
   const [calcStep, setCalcStep] = useState("");
+  const [categoryCounts, setCategoryCounts] = useState<{ id: string; label: string; value: number }[]>([]);
+  const [categoryCountsLoading, setCategoryCountsLoading] = useState(false);
+  const [categoryCountsPeriod, setCategoryCountsPeriod] = useState('');
+  const [periodSubscriberTotal, setPeriodSubscriberTotal] = useState<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre'>('creance');
@@ -6412,6 +6416,70 @@ function CreanceDetailView({
       '07': 'Juillet', '08': 'Août', '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
     };
     return months[m] || m;
+  };
+
+  const formatPeriodLabel = (start: string, end: string) => {
+    if (!start && !end) return 'Période calculée';
+    if (start && end && start === end) {
+      return `${formatMonthFr(start.slice(4, 6))} ${start.slice(0, 4)}`;
+    }
+    if (start && end) {
+      return `${formatMonthFr(start.slice(4, 6))} ${start.slice(0, 4)} → ${formatMonthFr(end.slice(4, 6))} ${end.slice(0, 4)}`;
+    }
+    if (end) {
+      return `Jusqu'au ${formatMonthFr(end.slice(4, 6))} ${end.slice(0, 4)}`;
+    }
+    return `À partir de ${formatMonthFr(start.slice(4, 6))} ${start.slice(0, 4)}`;
+  };
+
+  const loadCategoryCounts = async (start = '', end = '', signal?: AbortSignal) => {
+    if (!start && !end) {
+      setCategoryCounts([]);
+      setCategoryCountsPeriod('');
+      setPeriodSubscriberTotal(null);
+      return;
+    }
+
+    setCategoryCountsLoading(true);
+    setCategoryCountsPeriod(formatPeriodLabel(start, end));
+    try {
+      const url = new URL('http://127.0.0.1:8000/subscriber_category_counts');
+      if (start) url.searchParams.append('start_date', start);
+      if (end) url.searchParams.append('end_date', end);
+      appendSecteurParam(url, selectedSecteur);
+      const res = await fetch(url.toString(), { signal });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json?.ready) return;
+      const categories = json?.communes?.reduce((acc: any[], commune: any) => {
+        Object.entries(commune.categories || {}).forEach(([key, value]) => {
+          const existing = acc.find(item => item.id === key);
+          if (existing) {
+            existing.value += Number(value || 0);
+          } else {
+            acc.push({ id: key, label: key === 'menages' ? 'Cat I' : key === 'administrations' ? 'Cat II' : key === 'commerce' ? 'Cat III' : key === 'industriel' ? 'Cat IV' : 'Cat V', value: Number(value || 0) });
+          }
+        });
+        return acc;
+      }, []);
+      const ordered = [
+        { id: 'menages', label: 'Cat I' },
+        { id: 'administrations', label: 'Cat II' },
+        { id: 'commerce', label: 'Cat III' },
+        { id: 'industriel', label: 'Cat IV' },
+        { id: 'vente_en_gros', label: 'Cat V' },
+      ].map((item) => ({
+        ...item,
+        value: categories.find((cat: any) => cat.id === item.id)?.value || 0,
+      }));
+      setCategoryCounts(ordered);
+      setPeriodSubscriberTotal(Number(json.total ?? ordered.reduce((sum, category) => sum + category.value, 0)));
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
+      console.error('Erreur chargement abonnés par catégorie :', error);
+    } finally {
+      setCategoryCountsLoading(false);
+    }
   };
 
   const recoveryRate = data ? (data.total_ca > 0 ? ((data.total_ca_recouvre || 0) / data.total_ca) * 100 : 0) : 0;
@@ -6434,8 +6502,10 @@ function CreanceDetailView({
     setData(null);
     setError(null);
     setLoading(true);
+    setCategoryCounts([]);
     setCalcProgress(0);
     setCalcStep("Préparation du calcul...");
+    loadCategoryCounts(start, end, controller.signal).catch(() => {});
 
     const targetFilter = ventilationFilter || 'ALL';
     setVentilationFilter(targetFilter);
@@ -6989,6 +7059,33 @@ function CreanceDetailView({
                 Voir la ventilation détaillée
                 <ChevronRight size={14} />
               </button>
+            </div>
+          )}
+
+          {categoryCounts.length > 0 && (
+            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-6 mt-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#98A2B3]">Abonnés par catégorie</p>
+                  <p className="text-sm text-[#667085] mt-1">Période : {categoryCountsPeriod}</p>
+                  {periodSubscriberTotal !== null && (
+                    <p className="text-sm text-[#101828] font-black mt-1">Abonnés période : {periodSubscriberTotal.toLocaleString('fr-FR')}</p>
+                  )}
+                </div>
+                {categoryCountsLoading && (
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#F9FAFB] px-4 py-2 text-xs font-black text-[#667085] border border-[#E4E7EC]">
+                    <div className="w-2.5 h-2.5 rounded-full bg-brand-600 animate-pulse" /> Chargement des totaux
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                {categoryCounts.map((category) => (
+                  <div key={category.id} className="p-4 bg-[#F9FAFB] rounded-[2rem] border border-[#F2F4F7]">
+                    <p className="text-[10px] font-black text-[#98A2B3] uppercase tracking-widest mb-2">{category.label}</p>
+                    <p className="text-3xl font-black text-[#101828] tabular-nums">{category.value.toLocaleString('fr-FR')}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -9238,9 +9335,63 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
 }
 
 
-function BilanView({ selectedSecteur = '', sectors = [] }: any) {
+function BilanView({ selectedSecteur = '', sectors = [], startDate = '', endDate = '' }: any) {
   const [communes, setCommunes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [periodCommuneCounts, setPeriodCommuneCounts] = useState<any[]>([]);
+  const [periodCountsLoading, setPeriodCountsLoading] = useState(false);
+  const [periodLabel, setPeriodLabel] = useState('Période calculée');
+  const [periodSubscriberTotal, setPeriodSubscriberTotal] = useState<number | null>(null);
+
+  const periodCategoryTotals = useMemo(() => {
+    const totals = {
+      menages: 0,
+      administrations: 0,
+      commerce: 0,
+      industriel: 0,
+      vente_en_gros: 0,
+    };
+
+    periodCommuneCounts.forEach((c: any) => {
+      const cats = c.categories || {};
+      totals.menages += Number(cats.menages || 0);
+      totals.administrations += Number(cats.administrations || 0);
+      totals.commerce += Number(cats.commerce || 0);
+      totals.industriel += Number(cats.industriel || 0);
+      totals.vente_en_gros += Number(cats.vente_en_gros || 0);
+    });
+
+    return [
+      { id: 'menages', label: 'Cat I', value: totals.menages },
+      { id: 'administrations', label: 'Cat II', value: totals.administrations },
+      { id: 'commerce', label: 'Cat III', value: totals.commerce },
+      { id: 'industriel', label: 'Cat IV', value: totals.industriel },
+      { id: 'vente_en_gros', label: 'Cat V', value: totals.vente_en_gros },
+    ];
+  }, [periodCommuneCounts]);
+
+  const formatPeriodLabel = (start: string, end: string) => {
+    const months: Record<string, string> = {
+      '01': 'Janvier', '02': 'Février', '03': 'Mars', '04': 'Avril',
+      '05': 'Mai', '06': 'Juin', '07': 'Juillet', '08': 'Août',
+      '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
+    };
+    const norm = (value: string) => value.replace(/-/g, '').trim();
+    const s = norm(start);
+    const e = norm(end);
+    if (s && e && s.length >= 6 && e.length >= 6) {
+      const startLabel = `${months[s.slice(4, 6)] || s.slice(4, 6)} ${s.slice(0, 4)}`;
+      const endLabel = `${months[e.slice(4, 6)] || e.slice(4, 6)} ${e.slice(0, 4)}`;
+      return startLabel === endLabel ? startLabel : `${startLabel} → ${endLabel}`;
+    }
+    if (e && e.length >= 6) {
+      return `Jusqu'au ${months[e.slice(4, 6)] || e.slice(4, 6)} ${e.slice(0, 4)}`;
+    }
+    if (s && s.length >= 6) {
+      return `À partir de ${months[s.slice(4, 6)] || s.slice(4, 6)} ${s.slice(0, 4)}`;
+    }
+    return 'Période calculée';
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -9264,9 +9415,55 @@ function BilanView({ selectedSecteur = '', sectors = [] }: any) {
     return () => { cancelled = true; };
   }, [selectedSecteur]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!startDate && !endDate) {
+      setPeriodCommuneCounts([]);
+      setPeriodLabel('Période calculée');
+      setPeriodSubscriberTotal(null);
+      return;
+    }
+
+    const loadPeriodCounts = async () => {
+      setPeriodCountsLoading(true);
+      try {
+        const url = new URL('http://127.0.0.1:8000/subscriber_category_counts');
+        if (startDate) url.searchParams.set('start_date', startDate.replace(/-/g, ''));
+        if (endDate) url.searchParams.set('end_date', endDate.replace(/-/g, ''));
+        if (selectedSecteur) url.searchParams.set('secteur', selectedSecteur);
+        const res = await fetch(url.toString());
+        const json = await res.json();
+        if (cancelled) return;
+        if (json?.ready) {
+          setPeriodCommuneCounts(json?.communes || []);
+          const resolvedLabel = json?.period_label && json.period_label !== 'Période calculée'
+            ? json.period_label
+            : formatPeriodLabel(startDate, endDate);
+          setPeriodLabel(resolvedLabel);
+          setPeriodSubscriberTotal(json?.total != null ? Number(json.total) : null);
+        }
+      } catch (e) {
+        if (!cancelled) setPeriodCommuneCounts([]);
+      } finally {
+        if (!cancelled) setPeriodCountsLoading(false);
+      }
+    };
+
+    loadPeriodCounts();
+    return () => { cancelled = true; };
+  }, [selectedSecteur, startDate, endDate]);
+
   const secteurLabel = selectedSecteur
     ? (sectors.find((s: any) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
     : 'Toute l\'unité';
+
+  const showPeriodNotice = Boolean(startDate || endDate);
+  const displayCommunes = (showPeriodNotice ? periodCommuneCounts : communes) || [];
+
+  const totalSubscribers = displayCommunes.reduce((sum, c: any) => sum + (c.value || 0), 0);
+  const totalResigned = displayCommunes.reduce((sum, c: any) => sum + (c.resigned || 0), 0);
+  const totalStopped = displayCommunes.reduce((sum, c: any) => sum + (c.stopped || 0), 0);
+  const totalRate = totalSubscribers > 0 ? (totalStopped / totalSubscribers) * 100 : 0;
 
   return (
     <div className="space-y-6">
@@ -9278,10 +9475,50 @@ function BilanView({ selectedSecteur = '', sectors = [] }: any) {
           </div>
         </div>
         <div className="mt-6">
+          <div className="mb-4 rounded-2xl border border-[#E4E7EC] bg-[#F9FAFB] p-4 text-sm text-[#334155] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-2">
+              <div>
+                <span className="font-black">Période calculée :</span> {periodLabel}
+              </div>
+              {periodSubscriberTotal !== null && (
+                <div className="text-[#101828] font-black">Abonnés période : {periodSubscriberTotal.toLocaleString('fr-FR')}</div>
+              )}
+            </div>
+            {periodCountsLoading && (
+              <span className="text-[#667085] font-bold">Chargement des abonnés par catégorie…</span>
+            )}
+          </div>
+
+          {(periodCategoryTotals.some(cat => cat.value > 0) || periodSubscriberTotal !== null) && (
+            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-6 mt-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#98A2B3]">Abonnés par catégorie</p>
+                  <p className="text-sm text-[#667085] mt-1">Période : {periodLabel}</p>
+                  {periodSubscriberTotal !== null && (
+                    <p className="text-sm text-[#101828] font-black mt-1">Abonnés période : {periodSubscriberTotal.toLocaleString('fr-FR')}</p>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                {periodCategoryTotals.map((category) => (
+                  <div key={category.id} className="p-4 bg-[#F9FAFB] rounded-[2rem] border border-[#F2F4F7]">
+                    <p className="text-[10px] font-black text-[#98A2B3] uppercase tracking-widest mb-2">{category.label}</p>
+                    <p className="text-3xl font-black text-[#101828] tabular-nums">{category.value.toLocaleString('fr-FR')}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="text-sm text-[#667085]">Chargement des communes…</div>
-          ) : communes.length === 0 ? (
-            <div className="text-sm text-[#667085]">Aucune commune trouvée pour ce centre.</div>
+          ) : displayCommunes.length === 0 ? (
+            <div className="text-sm text-[#667085]">
+              {showPeriodNotice
+                ? 'Aucune commune trouvée pour cette période.'
+                : 'Aucune commune trouvée pour ce centre.'}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -9296,7 +9533,7 @@ function BilanView({ selectedSecteur = '', sectors = [] }: any) {
                   </tr>
                 </thead>
                 <tbody>
-                  {communes.map((c: any, index: number) => {
+                  {displayCommunes.map((c: any, index: number) => {
                     const cats = c.categories || {};
                     const categories = [
                       { id: 'menages', label: 'Cat I', value: cats.menages || 0 },
@@ -9336,6 +9573,13 @@ function BilanView({ selectedSecteur = '', sectors = [] }: any) {
                       </Fragment>
                     );
                   })}
+                  <tr className="bg-[#E4E7EC] font-black">
+                    <td colSpan={2} className="px-6 py-4 text-sm text-[#101828]">Total général</td>
+                    <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{totalSubscribers.toLocaleString('fr-FR')}</td>
+                    <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{totalResigned.toLocaleString('fr-FR')}</td>
+                    <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">—</td>
+                    <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{totalRate.toFixed(2)}%</td>
+                  </tr>
                 </tbody>
               </table>
             </div>

@@ -1059,23 +1059,163 @@ def get_stats(secteur: str = None):
     return {**cached_dashboard_stats, "ready": True, "data_dir": DATA_DIR}
 
 
-@app.get("/api/status")
-def get_api_status():
-    """Diagnostic rapide du backend et du dossier données."""
-    abonne_path = resolve_dbf_path("ABONNE.DBF")
+def _format_period_label(start_date: str | None, end_date: str | None) -> str:
+    months = {
+        "01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril",
+        "05": "Mai", "06": "Juin", "07": "Juillet", "08": "Août",
+        "09": "Septembre", "10": "Octobre", "11": "Novembre", "12": "Décembre"
+    }
+    if start_date and len(start_date) >= 6 and end_date and len(end_date) >= 6:
+        start_label = f"{months.get(start_date[4:6], start_date[4:6])} {start_date[:4]}"
+        end_label = f"{months.get(end_date[4:6], end_date[4:6])} {end_date[:4]}"
+        return start_label if start_label == end_label else f"{start_label} → {end_label}"
+    if end_date and len(end_date) >= 6:
+        return f"Jusqu'au {months.get(end_date[4:6], end_date[4:6])} {end_date[:4]}"
+    if start_date and len(start_date) >= 6:
+        return f"À partir de {months.get(start_date[4:6], start_date[4:6])} {start_date[:4]}"
+    return "Période calculée"
+
+
+def _typabon_to_category(typabon: str) -> tuple[str, str] | None:
+    code = ('T' + str(typabon).strip()).upper()
+    try:
+        typ_num = int(str(typabon).strip())
+    except Exception:
+        typ_num = None
+
+    if code in ('T15', 'T60', 'T50'):
+        return 'vente_en_gros', 'Cat V'
+    if code == 'T80' or (typ_num is not None and 20 <= typ_num <= 29):
+        return 'administrations', 'Cat II'
+    if typ_num is not None and 30 <= typ_num <= 39:
+        return 'commerce', 'Cat III'
+    if typ_num is not None and 40 <= typ_num <= 49:
+        return 'industriel', 'Cat IV'
+    if code in ('T10', 'T11', 'T19'):
+        return 'menages', 'Cat I'
+    return None
+
+
+def _resolve_subscriber_join_date(numab: str, abonne_rec: dict[str, str] | None, abonment_dates: dict[str, str]) -> str | None:
+    candidates = [
+        str(abonne_rec.get('DATEPRISE') or '').strip() if abonne_rec else '',
+        str(abonne_rec.get('DATECRE') or '').strip() if abonne_rec else '',
+        str(abonne_rec.get('FIRSTFACT') or '').strip() if abonne_rec else '',
+        abonment_dates.get(numab, ''),
+    ]
+    for date_value in candidates:
+        if date_value and len(date_value) == 8 and date_value.isdigit():
+            year = int(date_value[:4])
+            if 1980 <= year <= 2026:
+                return date_value
+    return None
+
+
+@app.get("/subscriber_category_counts")
+def get_subscriber_category_counts(start_date: str = None, end_date: str = None, secteur: str = None):
+    if not is_db_ready or len(MEM_ABONNES) == 0:
+        return {"ready": False, "message": db_loading_status or "Données indisponibles", "communes": []}
+
+    allowed_communes = _commune_codcoms_for_centre(secteur) if secteur and str(secteur).strip() else None
+    abonment_dates = {
+        str(r.get('NUMAB') or '').strip().upper(): str(r.get('DATEINST') or '').strip()
+        for r in MEM_ABONMENTS
+        if str(r.get('NUMAB') or '').strip() and str(r.get('DATEINST') or '').strip()
+    }
+
+    cutoff_date = end_date if end_date else start_date if start_date else None
+    earliest_known_date = None
+    for abonne_rec in MEM_ABONNES:
+        numab = str(abonne_rec.get('NUMAB') or '').strip().upper()
+        if not numab or not _abonne_in_centre(numab, allowed_communes):
+            continue
+        resolved = _resolve_subscriber_join_date(numab, abonne_rec, abonment_dates)
+        if resolved:
+            earliest_known_date = resolved if earliest_known_date is None else min(earliest_known_date, resolved)
+
+    subscribers_seen = set()
+    commune_counts: dict[str, dict] = {}
+    total = 0
+
+    for abonne_rec in MEM_ABONNES:
+        numab = str(abonne_rec.get('NUMAB') or '').strip().upper()
+        if not numab:
+            continue
+        if not _abonne_in_centre(numab, allowed_communes):
+            continue
+
+        join_date = _resolve_subscriber_join_date(numab, abonne_rec, abonment_dates)
+        if cutoff_date:
+            if join_date:
+                if join_date > cutoff_date:
+                    continue
+            else:
+                if earliest_known_date and cutoff_date < earliest_known_date:
+                    continue
+
+        if numab in subscribers_seen:
+            continue
+
+        typabon = str(abonne_rec.get('TYPABON', '')).strip()
+        category_info = _typabon_to_category(typabon)
+
+        state = str(abonne_rec.get('ETATCPT') or '').strip()
+        resigned = state == '40'
+        stopped = state == '20'
+
+        category_key = None
+        if category_info is not None:
+            category_key, _ = category_info
+
+        subscribers_seen.add(numab)
+        total += 1
+
+        codcom = _abonne_codcom(numab)
+        commune_label = communes_by_code.get(codcom, {}).get('LIBCOM', f'Commune {codcom}')
+
+        if codcom not in commune_counts:
+            commune_counts[codcom] = {
+                "id": codcom,
+                "name": commune_label,
+                "total": 0,
+                "resigned": 0,
+                "stopped": 0,
+                "categories": {
+                    "menages": 0,
+                    "administrations": 0,
+                    "commerce": 0,
+                    "industriel": 0,
+                    "vente_en_gros": 0,
+                }
+            }
+
+        commune_counts[codcom]["total"] += 1
+        if category_key is not None:
+            commune_counts[codcom]["categories"][category_key] += 1
+        if resigned:
+            commune_counts[codcom]["resigned"] += 1
+        if stopped:
+            commune_counts[codcom]["stopped"] += 1
+
+    communes_list = []
+    for codcom, counts in commune_counts.items():
+        communes_list.append({
+            "id": codcom,
+            "name": counts["name"],
+            "value": counts["total"],
+            "total": counts["total"],
+            "resigned": counts["resigned"],
+            "stopped": counts["stopped"],
+            "categories": counts["categories"],
+        })
+    communes_list.sort(key=lambda x: x["value"], reverse=True)
+
     return {
-        "data_dir": DATA_DIR,
-        "data_dir_exists": os.path.isdir(DATA_DIR),
-        "dbf_count": _count_dbf_files(),
-        "locked_by_env": _env_overrides_data_dir(),
-        "primary_source_ready": os.path.isfile(abonne_path) and os.path.getsize(abonne_path) >= 100,
-        "is_db_ready": is_db_ready,
-        "indexes_ready": indexes_ready,
-        "subscribers_loaded": len(MEM_ABONNES),
-        "billing_records_loaded": len(MEM_FACTURES),
-        "loading_status": db_loading_status,
-        "load_retries": _load_retry_count,
-        "diagnostic": diagnose_data_dir(),
+        "ready": True,
+        "message": "Données prêtes",
+        "total": total,
+        "period_label": _format_period_label(start_date, end_date),
+        "communes": communes_list,
     }
 
 

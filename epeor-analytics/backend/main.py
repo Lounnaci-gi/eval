@@ -434,10 +434,40 @@ def compute_dashboard_stats(secteur: str | None = None):
             continue
 
         if codcom not in commune_counts:
-            commune_counts[codcom] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}}
+            commune_counts[codcom] = {
+                "total": 0,
+                "resigned": 0,
+                "stopped": 0,
+                "no_meter": 0,
+                "quartiers": {},
+                "categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}
+            }
         commune_counts[codcom]["total"] += 1
 
         state = abonment_state_map.get(numab)
+        # Categorize by TYPABON into the five requested categories
+        try:
+            typ_num = int(t)
+        except Exception:
+            typ_num = None
+        cats = commune_counts[codcom].setdefault("categories", {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0})
+        code_affec = ('T' + str(t)).upper() if t else ''
+        # Mapping per user specification:
+        # Cat V: T15, T60, T50
+        # Cat II: T20..T29 and T80
+        # Cat III: T30..T39
+        # Cat IV: T40..T49
+        # Cat I: T10, T11, T19 (T15 excluded above)
+        if code_affec in ('T15', 'T60', 'T50'):
+            cats["vente_en_gros"] += 1
+        elif code_affec == 'T80' or (typ_num is not None and 20 <= typ_num <= 29):
+            cats["administrations"] += 1
+        elif typ_num is not None and 30 <= typ_num <= 39:
+            cats["commerce"] += 1
+        elif typ_num is not None and 40 <= typ_num <= 49:
+            cats["industriel"] += 1
+        elif code_affec in ('T10', 'T11', 'T19'):
+            cats["menages"] += 1
         is_resigned = (state == '40')
         is_stopped = (state == '20')
         is_no_meter = (state == '30')
@@ -516,6 +546,7 @@ def compute_dashboard_stats(secteur: str | None = None):
             "stopped": counts["stopped"],
             "no_meter": counts["no_meter"],
             "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0,
+            "categories": counts.get("categories", {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}),
             "quartiers": formatted_quartiers
         })
     stats["subscriber_communes"].sort(key=lambda x: x['value'], reverse=True)

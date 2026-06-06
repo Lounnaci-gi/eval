@@ -405,7 +405,7 @@ function buildSubscribersUrl(quartier: string, options?: { etat?: string; secteu
 }
 
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'nin_stats' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'nin_stats' | 'bilan' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -2081,44 +2081,22 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
-                {milestones.map((m, idx) => {
-                  const prevMilestone = milestones[idx - 1];
-                  const diff = prevMilestone ? m.count - prevMilestone.count : 0;
-                  const pct = prevMilestone && prevMilestone.count > 0 ? ((diff / prevMilestone.count) * 100).toFixed(1) : null;
-                  
-                  return (
-                    <tr key={m.period} className="hover:bg-[#F9FAFB] transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-black text-[#101828]">
-                          {m.isLatest ? "Dernière période (" + formatPeriodFrench(m.period) + ")" : formatPeriodFrench(m.period)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-xs font-black text-[#0D83DE]">{m.count.toLocaleString('fr-FR')}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {diff > 0 ? (
-                          <span className="inline-flex items-center text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-                            +{diff.toLocaleString('fr-FR')} ({pct}%)
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-[#98A2B3]">--</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+                  {milestones.map((milestone: any, index: number) => {
+                    const previous = milestones[index - 1];
+                    const growth = previous ? milestone.count - previous.count : 0;
+                    const growthLabel = previous ? `${growth >= 0 ? '+' : ''}${growth.toLocaleString('fr-FR')}` : '—';
 
-      {/* Growth by Commune Chart */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h3 className="text-xl font-black tracking-tight text-[#101828]">Répartition des Abonnés par Commune</h3>
+                    return (
+                      <tr key={milestone.period} className="border-b border-[#F2F4F7] hover:bg-[#F9FAFB]">
+                        <td className="px-6 py-4 text-sm text-[#101828]">{milestone.period}</td>
+                        <td className="px-6 py-4 text-right font-black text-[#101828] tabular-nums">{milestone.count.toLocaleString('fr-FR')}</td>
+                        <td className="px-6 py-4 text-right text-[#667085] tabular-nums">{growthLabel}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
             <p className="text-xs text-[#667085] mt-1">Volume total d'abonnés par commune — filtrables depuis les menus ci-dessus</p>
           </div>
         </div>
@@ -2164,7 +2142,6 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
 
       
     </div>
@@ -9283,25 +9260,52 @@ function BilanView({ selectedSecteur = '', sectors = [] }: any) {
                 <thead>
                   <tr className="bg-[#F9FAFB]">
                     <th className="text-left px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Commune</th>
-                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Abonnés</th>
-                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Abonnés à l'arrêt</th>
-                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Taux % à l'arrêt</th>
-                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Résiliés</th>
+                    <th className="text-left px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Catégorie</th>
+                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Nbrs Abonnés</th>
+                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Nbrs Résiliés</th>
+                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Forfait</th>
+                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Taux</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {communes.map((c: any) => {
+                  {communes.map((c: any, index: number) => {
+                    const cats = c.categories || {};
+                    const categories = [
+                      { id: 'menages', label: 'Cat I', value: cats.menages || 0 },
+                      { id: 'administrations', label: 'Cat II', value: cats.administrations || 0 },
+                      { id: 'commerce', label: 'Cat III', value: cats.commerce || 0 },
+                      { id: 'industriel', label: 'Cat IV', value: cats.industriel || 0 },
+                      { id: 'vente_en_gros', label: 'Cat V', value: cats.vente_en_gros || 0 },
+                    ];
                     const total = c.value || 0;
                     const stopped = c.stopped || 0;
+                    const resigned = c.resigned || 0;
                     const stoppedRate = total > 0 ? (stopped / total) * 100 : 0;
+
                     return (
-                      <tr key={c.code} className="border-b border-[#F2F4F7] hover:bg-[#F9FAFB]">
-                        <td className="px-6 py-4 text-sm text-[#101828]">{c.name}</td>
-                        <td className="px-6 py-4 text-right font-black text-[#101828] tabular-nums">{total.toLocaleString('fr-FR')}</td>
-                        <td className="px-6 py-4 text-right font-black text-[#101828] tabular-nums">{stopped.toLocaleString('fr-FR')}</td>
-                        <td className="px-6 py-4 text-right text-[#667085] tabular-nums">{stoppedRate.toFixed(2)}%</td>
-                        <td className="px-6 py-4 text-right text-[#667085] tabular-nums">{(c.resigned || 0).toLocaleString('fr-FR')}</td>
-                      </tr>
+                      <Fragment key={`${c.code ?? c.name ?? 'commune'}-${index}`}> 
+                        {categories.map((category, rowIndex) => (
+                          <tr key={`${c.code ?? c.name ?? 'commune'}-${category.id}-${rowIndex}`} className="border-b border-[#F2F4F7] hover:bg-[#F9FAFB]">
+                            {rowIndex === 0 ? (
+                              <td rowSpan={categories.length + 1} className="px-6 py-4 text-sm text-[#101828] align-top font-black">
+                                {c.name}
+                              </td>
+                            ) : null}
+                            <td className="px-6 py-4 text-sm text-[#101828]">{category.label}</td>
+                            <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{category.value.toLocaleString('fr-FR')}</td>
+                            <td className="px-6 py-4 text-right text-sm text-[#667085] tabular-nums">—</td>
+                            <td className="px-6 py-4 text-right text-sm text-[#667085] tabular-nums">—</td>
+                            <td className="px-6 py-4 text-right text-sm text-[#667085] tabular-nums">—</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-[#F3F4F6] border-b border-[#D1D5DB] font-black">
+                          <td className="px-6 py-4 text-sm text-[#101828]">Total</td>
+                          <td className="px-6 py-4 text-right text-[#101828] tabular-nums">{total.toLocaleString('fr-FR')}</td>
+                          <td className="px-6 py-4 text-right text-[#101828] tabular-nums">{resigned.toLocaleString('fr-FR')}</td>
+                          <td className="px-6 py-4 text-right text-[#101828] tabular-nums">—</td>
+                          <td className="px-6 py-4 text-right text-[#101828] tabular-nums">{stoppedRate.toFixed(2)}%</td>
+                        </tr>
+                      </Fragment>
                     );
                   })}
                 </tbody>

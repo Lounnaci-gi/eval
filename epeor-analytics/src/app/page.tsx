@@ -9259,15 +9259,17 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
                     <Fragment key={c.id || i}>
                       {/* Main Commune Row */}
                       <tr className="hover:bg-[#F9FAFB] transition-colors group">
-                        <td className="px-8 py-4 font-black text-sm text-[#101828]">
+                        <td className="px-8 py-4 font-black text-sm text-[#101828] text-center align-middle">
                           <div
-                            className="flex items-center gap-2 cursor-pointer select-none group-hover:text-brand-600 transition-colors"
+                            className="flex items-center justify-center gap-2 cursor-pointer select-none group-hover:text-brand-600 transition-colors"
                             onClick={() => toggleCommune(c.id)}
                           >
                             <div className={`transition-transform duration-200 ${!isCollapsed ? 'rotate-90' : ''}`}>
                               <ChevronRight size={14} className="text-[#98A2B3]" />
                             </div>
-                            <span>{c.name}</span>
+                            <span style={{ transform: 'rotate(45deg)', display: 'inline-block' }} className="whitespace-nowrap">
+                              {c.name}
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
@@ -9460,9 +9462,16 @@ function BilanView({ selectedSecteur = '', sectors = [], startDate = '', endDate
   const showPeriodNotice = Boolean(startDate || endDate);
   const displayCommunes = (showPeriodNotice ? periodCommuneCounts : communes) || [];
 
-  const totalSubscribers = displayCommunes.reduce((sum, c: any) => sum + (c.value || 0), 0);
-  const totalResigned = displayCommunes.reduce((sum, c: any) => sum + (c.resigned || 0), 0);
-  const totalStopped = displayCommunes.reduce((sum, c: any) => sum + (c.stopped || 0), 0);
+  // Grand totals — summed from the 5 displayed categories only (TYPABON-mapped subscribers)
+  const totalSubscribers = displayCommunes.reduce((sum: number, c: any) => {
+    const cats = c.categories || {};
+    return sum + (cats.menages || 0) + (cats.administrations || 0) + (cats.commerce || 0) + (cats.industriel || 0) + (cats.vente_en_gros || 0);
+  }, 0);
+  const totalResigned = displayCommunes.reduce((sum: number, c: any) => {
+    const rcats = c.resigned_categories || {};
+    return sum + (rcats.menages || 0) + (rcats.administrations || 0) + (rcats.commerce || 0) + (rcats.industriel || 0) + (rcats.vente_en_gros || 0);
+  }, 0);
+  const totalStopped = displayCommunes.reduce((sum: number, c: any) => sum + (c.stopped || 0), 0);
   const totalRate = totalSubscribers > 0 ? (totalStopped / totalSubscribers) * 100 : 0;
 
   return (
@@ -9542,9 +9551,11 @@ function BilanView({ selectedSecteur = '', sectors = [], startDate = '', endDate
                       { id: 'industriel', label: 'Cat IV', value: cats.industriel || 0 },
                       { id: 'vente_en_gros', label: 'Cat V', value: cats.vente_en_gros || 0 },
                     ];
-                    const total = c.value || 0;
+                    // Compute totals as sum of the 5 displayed categories (not c.value which includes unmapped TYPABON)
+                    const res_cats = c.resigned_categories || {};
+                    const total = categories.reduce((s: number, cat: any) => s + cat.value, 0);
+                    const resigned = categories.reduce((s: number, cat: any) => s + (res_cats[cat.id] || 0), 0);
                     const stopped = c.stopped || 0;
-                    const resigned = c.resigned || 0;
                     const stoppedRate = total > 0 ? (stopped / total) * 100 : 0;
 
                     return (
@@ -9552,8 +9563,10 @@ function BilanView({ selectedSecteur = '', sectors = [], startDate = '', endDate
                         {categories.map((category, rowIndex) => (
                           <tr key={`${c.code ?? c.name ?? 'commune'}-${category.id}-${rowIndex}`} className="border-b border-[#F2F4F7] hover:bg-[#F9FAFB]">
                             {rowIndex === 0 ? (
-                              <td rowSpan={categories.length + 1} className="px-6 py-4 text-sm text-[#101828] align-top font-black">
-                                {c.name}
+                              <td rowSpan={categories.length + 1} className="px-6 py-4 text-sm text-[#101828] align-middle text-center font-black">
+                                <span style={{ transform: 'rotate(45deg)', display: 'inline-block' }} className="whitespace-nowrap">
+                                  {c.name}
+                                </span>
                               </td>
                             ) : null}
                             <td className="px-6 py-4 text-sm text-[#101828]">{category.label}</td>

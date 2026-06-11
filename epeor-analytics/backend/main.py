@@ -440,17 +440,23 @@ def compute_dashboard_stats(secteur: str | None = None):
                 "stopped": 0,
                 "no_meter": 0,
                 "quartiers": {},
-                "categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}
+                "categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0},
+                "resigned_categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}
             }
         commune_counts[codcom]["total"] += 1
 
         state = abonment_state_map.get(numab)
+        is_resigned = (state == '40')
+        is_stopped = (state == '20')
+        is_no_meter = (state == '30')
+
         # Categorize by TYPABON into the five requested categories
         try:
             typ_num = int(t)
         except Exception:
             typ_num = None
         cats = commune_counts[codcom].setdefault("categories", {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0})
+        res_cats = commune_counts[codcom].setdefault("resigned_categories", {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0})
         code_affec = ('T' + str(t)).upper() if t else ''
         # Mapping per user specification:
         # Cat V: T15, T60, T50
@@ -460,17 +466,24 @@ def compute_dashboard_stats(secteur: str | None = None):
         # Cat I: T10, T11, T19 (T15 excluded above)
         if code_affec in ('T15', 'T60', 'T50'):
             cats["vente_en_gros"] += 1
+            if is_resigned:
+                res_cats["vente_en_gros"] += 1
         elif code_affec == 'T80' or (typ_num is not None and 20 <= typ_num <= 29):
             cats["administrations"] += 1
+            if is_resigned:
+                res_cats["administrations"] += 1
         elif typ_num is not None and 30 <= typ_num <= 39:
             cats["commerce"] += 1
+            if is_resigned:
+                res_cats["commerce"] += 1
         elif typ_num is not None and 40 <= typ_num <= 49:
             cats["industriel"] += 1
+            if is_resigned:
+                res_cats["industriel"] += 1
         elif code_affec in ('T10', 'T11', 'T19'):
             cats["menages"] += 1
-        is_resigned = (state == '40')
-        is_stopped = (state == '20')
-        is_no_meter = (state == '30')
+            if is_resigned:
+                res_cats["menages"] += 1
 
         if is_resigned:
             commune_counts[codcom]["resigned"] += 1
@@ -519,7 +532,15 @@ def compute_dashboard_stats(secteur: str | None = None):
 
     stats["subscriber_communes"] = []
     for codcom, label in commune_map.items():
-        counts = commune_counts.get(codcom, {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}})
+        counts = commune_counts.get(codcom, {
+            "total": 0,
+            "resigned": 0,
+            "stopped": 0,
+            "no_meter": 0,
+            "quartiers": {},
+            "categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0},
+            "resigned_categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}
+        })
         if allowed_communes is not None and counts["total"] == 0:
             # Centre choisi : garder les communes du centre même sans abonné
             pass
@@ -547,6 +568,7 @@ def compute_dashboard_stats(secteur: str | None = None):
             "no_meter": counts["no_meter"],
             "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0,
             "categories": counts.get("categories", {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}),
+            "resigned_categories": counts.get("resigned_categories", {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}),
             "quartiers": formatted_quartiers
         })
     stats["subscriber_communes"].sort(key=lambda x: x['value'], reverse=True)
@@ -1135,6 +1157,9 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
         numab = str(abonne_rec.get('NUMAB') or '').strip().upper()
         if not numab or not _abonne_in_centre(numab, allowed_communes):
             continue
+        # Only count subscribers with a non-empty TYPABON
+        if not str(abonne_rec.get('TYPABON', '')).strip():
+            continue
         resolved = _resolve_subscriber_join_date(numab, abonne_rec, abonment_dates)
         if resolved:
             earliest_known_date = resolved if earliest_known_date is None else min(earliest_known_date, resolved)
@@ -1150,6 +1175,11 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
         if not _abonne_in_centre(numab, allowed_communes):
             continue
 
+        # Only count subscribers with a non-empty TYPABON (matches ABONNE.DBF TYPABON <> '')
+        typabon = str(abonne_rec.get('TYPABON', '')).strip()
+        if not typabon:
+            continue
+
         join_date = _resolve_subscriber_join_date(numab, abonne_rec, abonment_dates)
         if cutoff_date:
             if join_date:
@@ -1162,7 +1192,6 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
         if numab in subscribers_seen:
             continue
 
-        typabon = str(abonne_rec.get('TYPABON', '')).strip()
         category_info = _typabon_to_category(typabon)
 
         state = abonment_state_map.get(numab, '')
@@ -1756,8 +1785,7 @@ def get_creance(
             
             numab   = str(r.get('NUMAB', '') or '').strip()
             typabon = str(r.get('TYPABON', '') or '').strip()
-            prefix  = numab[:2]
-            codcom  = quartier_to_commune.get(prefix, '??')
+            codcom  = _abonne_codcom(numab)
 
             # Category determination
             section = None
@@ -2885,8 +2913,7 @@ def get_creance_subscribers(start_date: str = None, end_date: str = None, target
             
             numab   = str(r.get('NUMAB', '') or '').strip()
             typabon = str(r.get('TYPABON', '') or '').strip()
-            prefix  = numab[:2]
-            codcom  = quartier_to_commune.get(prefix, '??')
+            codcom  = _abonne_codcom(numab)
 
             # Category determination
             section = None

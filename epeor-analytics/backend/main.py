@@ -424,6 +424,25 @@ def compute_dashboard_stats(secteur: str | None = None):
         if t == '':
             continue
 
+        # Check if TYPABON maps to a category (only count mapped subscribers)
+        try:
+            typ_num = int(t)
+        except Exception:
+            typ_num = None
+        code_affec = ('T' + str(t)).upper() if t else ''
+        
+        is_mapped = (
+            code_affec in ('T15', 'T60', 'T50') or
+            code_affec == 'T80' or (typ_num is not None and 20 <= typ_num <= 29) or
+            (typ_num is not None and 30 <= typ_num <= 39) or
+            (typ_num is not None and 40 <= typ_num <= 49) or
+            code_affec in ('T10', 'T11', 'T19')
+        )
+        
+        # Skip subscribers with TYPABON not mapped to any category
+        if not is_mapped:
+            continue
+
         stats["total_subscribers"] += 1
         if t not in type_counts:
             type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
@@ -451,13 +470,8 @@ def compute_dashboard_stats(secteur: str | None = None):
         is_no_meter = (state == '30')
 
         # Categorize by TYPABON into the five requested categories
-        try:
-            typ_num = int(t)
-        except Exception:
-            typ_num = None
         cats = commune_counts[codcom].setdefault("categories", {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0})
         res_cats = commune_counts[codcom].setdefault("resigned_categories", {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0})
-        code_affec = ('T' + str(t)).upper() if t else ''
         # Mapping per user specification:
         # Cat V: T15, T60, T50
         # Cat II: T20..T29 and T80
@@ -1201,6 +1215,9 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
         category_key = None
         if category_info is not None:
             category_key, _ = category_info
+        else:
+            # Skip subscribers with TYPABON not mapped to any category
+            continue
 
         subscribers_seen.add(numab)
         total += 1

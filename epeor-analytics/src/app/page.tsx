@@ -1537,6 +1537,9 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
   // Interactive date calculator states
   const [selectedYear, setSelectedYear] = useState<number>(2020);
   const [selectedMonth, setSelectedMonth] = useState<number>(7);
+  // Compact panels open state (remplace <details>) — visibles par défaut
+  const [simOpen, setSimOpen] = useState<boolean>(true);
+  const [milestonesOpen, setMilestonesOpen] = useState<boolean>(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -2000,112 +2003,123 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Interactive Estimator / Calculator */}
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col justify-between">
-          <div>
-            <h3 className="text-xl font-black tracking-tight text-[#101828]">Simulateur de Période Historique</h3>
-            <p className="text-xs text-[#667085] mt-1 mb-6">
-              Saisissez le mois et l'année pour afficher le nombre d'abonnés et de résiliés à cette période.
-            </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Simulateur - style professionnel compact */}
+        <div className="group bg-white border border-[#E6EEF9] shadow-sm rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between gap-4 px-5 py-3 bg-gradient-to-r from-white to-slate-50">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#E6F0FF] to-[#F9FBFF] flex items-center justify-center border border-[#DCEFFF]">
+                <Calendar className="text-[#0D6FCC]" size={20} />
+              </div>
+              <div>
+                <div className="text-sm font-extrabold text-[#0F1724]">Contexte — Simulateur Historique</div>
+                <div className="text-[11px] text-[#64748B]">Choisissez mois et année pour contexte temporel.</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-[#64748B]">Contexte</div>
+              <button
+                onClick={() => setSimOpen(s => !s)}
+                aria-expanded={simOpen}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-[#E6EEF9] bg-white text-sm font-bold hover:shadow"
+              >
+                {simOpen ? 'Réduire' : 'Étendre'}
+                <ChevronRight className={simOpen ? 'rotate-90' : ''} />
+              </button>
+            </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Mois (1-12)</label>
+          <div className={`transition-all px-5 ${simOpen ? 'pb-5 pt-4' : 'max-h-0 pb-0 overflow-hidden'}`}>
+            <div className="grid grid-cols-2 gap-4 items-center">
+              <div>
+                <label className="text-[10px] font-semibold text-[#94A3B8]">Mois</label>
                 <input
                   type="number"
                   min={1}
                   max={12}
                   value={selectedMonth}
-                  onChange={(e) => {
-                    const value = Number(e.target.value || 1);
-                    setSelectedMonth(Math.min(12, Math.max(1, value)));
-                  }}
-                  className="w-full text-xs font-bold border-[#D0D5DD] border rounded-xl px-4 py-3 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  onChange={(e) => setSelectedMonth(Math.min(12, Math.max(1, Number(e.target.value || 1))))}
+                  className="mt-1 w-full text-sm font-semibold border border-[#E6EEF9] rounded-lg px-3 py-2 bg-white focus:outline-none"
                 />
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Année</label>
+              <div>
+                <label className="text-[10px] font-semibold text-[#94A3B8]">Année</label>
                 <input
                   type="number"
                   min={minYear}
                   max={maxYear}
                   value={selectedYear}
-                  onChange={(e) => {
-                    const value = Number(e.target.value || minYear);
-                    setSelectedYear(Math.min(maxYear, Math.max(minYear, value)));
-                  }}
-                  className="w-full text-xs font-bold border-[#D0D5DD] border rounded-xl px-4 py-3 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  onChange={(e) => setSelectedYear(Math.min(maxYear, Math.max(minYear, Number(e.target.value || minYear))))}
+                  className="mt-1 w-full text-sm font-semibold border border-[#E6EEF9] rounded-lg px-3 py-2 bg-white focus:outline-none"
                 />
               </div>
             </div>
-          </div>
 
-          <div className="p-8 bg-blue-50/50 border border-blue-100 rounded-2xl text-center space-y-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#0D83DE]">Nombre d'abonnés estimé</span>
-            <div className="text-4xl font-black text-[#101828] tracking-tight">
-              {calculatorResult ? (
-                calculatorResult.isBefore ? "0" : calculatorResult.count.toLocaleString('fr-FR')
-              ) : '---'}
+            <div className="mt-4 flex gap-4 items-center">
+              <div className="flex-1 p-4 rounded-lg bg-[#F8FAFF] border border-[#EAF3FF]">
+                <div className="text-[11px] text-[#64748B] font-semibold">Abonnés estimés</div>
+                <div className="text-2xl font-extrabold text-[#0F1724] mt-2">{calculatorResult ? (calculatorResult.isBefore ? '0' : calculatorResult.count.toLocaleString('fr-FR')) : '---'}</div>
+                <div className="text-[11px] text-[#94A3B8] mt-1">au 01/{selectedMonth.toString().padStart(2, '0')}/{selectedYear}</div>
+              </div>
+
+              <div className="w-64 p-4 rounded-lg bg-white border border-[#EEF2FF] shadow-xs">
+                <div className="text-[11px] text-[#64748B] font-semibold">Détails</div>
+                <div className="mt-2 text-sm text-[#0F1724]">
+                  <div>Résiliés: <span className="font-bold text-rose-600">{(calculatorResult?.resigned_count ?? 0).toLocaleString('fr-FR')}</span></div>
+                  <div className="mt-1">Factures arrêtées: <span className="font-bold text-amber-600">{(calculatorResult?.stopped_count ?? stats?.invoice_stopped_subscribers ?? 0).toLocaleString('fr-FR')}</span></div>
+                  {calculatorResult?.new_registrations > 0 && (
+                    <div className="mt-2 inline-block text-[12px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">+{calculatorResult.new_registrations} nouvelles</div>
+                  )}
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-[#667085] font-medium">
-              au 01/{selectedMonth.toString().padStart(2, '0')}/{selectedYear}
-            </p>
-            {calculatorResult && (
-              <p className="text-xs text-[#667085] font-medium">
-                Abonnés résiliés : <span className="font-black text-rose-600">{(calculatorResult.resigned_count ?? 0).toLocaleString('fr-FR')}</span>
-              </p>
-            )}
-            {stats?.invoice_stopped_subscribers != null && (
-              <p className="text-xs text-[#667085] font-medium">
-                Abonnés factures à l'arrêt : <span className="font-black text-amber-600">{(calculatorResult?.stopped_count ?? stats.invoice_stopped_subscribers).toLocaleString('fr-FR')}</span>
-              </p>
-            )}
-            {calculatorResult && calculatorResult.new_registrations > 0 && (
-              <span className="inline-block text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md mt-2">
-                +{calculatorResult.new_registrations} nouvelles inscriptions ce mois-là
-              </span>
-            )}
           </div>
         </div>
 
-        {/* Milestones / Key Years Table */}
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-          <div>
-            <h3 className="text-xl font-black tracking-tight text-[#101828]">Jalons et Points de Repère</h3>
-            <p className="text-xs text-[#667085] mt-1 mb-6">Aperçu rapide du cumul des abonnés à la fin de chaque période charnière.</p>
+        {/* Milestones - style professionnel compact */}
+        <div className="group bg-white border border-[#E6EEF9] shadow-sm rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between gap-4 px-5 py-3 bg-gradient-to-r from-white to-slate-50">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#FFF7ED] to-[#FFFBF5] flex items-center justify-center border border-[#FFF0E6]">
+                <FileText className="text-[#B45309]" size={20} />
+              </div>
+              <div>
+                <div className="text-sm font-extrabold text-[#0F1724]">Contexte — Jalons & Repères</div>
+                <div className="text-[11px] text-[#64748B]">Repères clés et croissance entre échéances.</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-[#64748B]">Repères</div>
+              <button
+                onClick={() => setMilestonesOpen(s => !s)}
+                aria-expanded={milestonesOpen}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-[#E6EEF9] bg-white text-sm font-bold hover:shadow"
+              >
+                {milestonesOpen ? 'Réduire' : 'Étendre'}
+                <ChevronRight className={milestonesOpen ? 'rotate-90' : ''} />
+              </button>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-bold">
-                  <th className="px-6 py-4">Période</th>
-                  <th className="px-6 py-4 text-right">Nombre d'abonnés</th>
-                  <th className="px-6 py-4 text-right">Croissance vs précédent</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F2F4F7]">
-                  {milestones.map((milestone: any, index: number) => {
-                    const previous = milestones[index - 1];
-                    const growth = previous ? milestone.count - previous.count : 0;
-                    const growthLabel = previous ? `${growth >= 0 ? '+' : ''}${growth.toLocaleString('fr-FR')}` : '—';
-
-                    return (
-                      <tr key={milestone.period} className="border-b border-[#F2F4F7] hover:bg-[#F9FAFB]">
-                        <td className="px-6 py-4 text-sm text-[#101828]">{milestone.period}</td>
-                        <td className="px-6 py-4 text-right font-black text-[#101828] tabular-nums">{milestone.count.toLocaleString('fr-FR')}</td>
-                        <td className="px-6 py-4 text-right text-[#667085] tabular-nums">{growthLabel}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <div className={`transition-all px-5 ${milestonesOpen ? 'pb-5 pt-4' : 'max-h-0 pb-0 overflow-hidden'}`}>
+            <div className="grid grid-cols-1 gap-3">
+              {milestones.slice(0, 6).map((m: any, idx: number) => (
+                <div key={m.period} className="flex items-center justify-between px-3 py-2 rounded-lg border border-[#F1F5F9] bg-white">
+                  <div>
+                    <div className="text-sm font-semibold text-[#0F1724]">{formatPeriodFrench(m.period)}</div>
+                    <div className="text-xs text-[#64748B]">Période</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-extrabold text-[#0F1724]">{m.count.toLocaleString('fr-FR')}</div>
+                    <div className="text-xs text-[#64748B]">{idx === 0 ? 'Référence' : ''}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="text-xs text-[#667085] mt-1">Volume total d'abonnés par commune — filtrables depuis les menus ci-dessus</p>
+            <div className="text-[11px] text-[#64748B] mt-3">Volume total d'abonnés par commune — filtrable depuis les menus.</div>
           </div>
         </div>
+      </div>
         <div className="h-[320px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart

@@ -1132,6 +1132,19 @@ def _typabon_to_category(typabon: str) -> tuple[str, str] | None:
     return None
 
 
+def _is_subscriber_counted_for_evolution(abonne_rec: dict[str, str] | None, type_abon: str | None = None) -> bool:
+    if abonne_rec is None:
+        return False
+    typabon = str(abonne_rec.get('TYPABON') or '').strip()
+    if not typabon:
+        return False
+    if type_abon and str(type_abon).strip() and typabon != str(type_abon).strip():
+        return False
+    if _typabon_to_category(typabon) is None:
+        return False
+    return True
+
+
 def _resolve_subscriber_join_date(numab: str, abonne_rec: dict[str, str] | None, abonment_dates: dict[str, str]) -> str | None:
     candidates = [
         str(abonne_rec.get('DATEPRISE') or '').strip() if abonne_rec else '',
@@ -1312,9 +1325,8 @@ def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abo
             if _abonne_codcom(numab) != str(commune).strip():
                 continue
 
-        if type_abon and str(type_abon).strip():
-            if str(r.get('TYPABON') or '').strip() != str(type_abon).strip():
-                continue
+        if not _is_subscriber_counted_for_evolution(r, type_abon):
+            continue
 
         dp = str(r.get('DATEPRISE') or '').strip()
         dc = str(r.get('DATECRE') or '').strip()

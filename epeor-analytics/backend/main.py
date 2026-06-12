@@ -387,6 +387,7 @@ def compute_dashboard_stats(secteur: str | None = None):
         "resigned_subscribers": 0,
         "stopped_subscribers": 0,
         "no_meter_subscribers": 0,
+        "invoice_stopped_subscribers": 0,
         "total_revenue": 0,
         "recovery_rate": 0,
         "recent_invoices_count": 0,
@@ -421,10 +422,18 @@ def compute_dashboard_stats(secteur: str | None = None):
         if not _abonne_in_centre(numab, allowed_communes):
             continue
         t = str(record.get('TYPABON', '')).strip()
+        # Count all unit subscribers that have a non-empty TYPABON
         if t == '':
             continue
+        stats["total_subscribers"] += 1
 
-        # Check if TYPABON maps to a category (only count mapped subscribers)
+        # Aggregate counts grouped by TYPABON (mimics SQL GROUP BY behavior)
+        if t not in type_counts:
+            type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
+        type_counts[t]["total"] += 1
+
+        # Check if TYPABON maps to a category (only include mapped subscribers
+        # in the commune/category breakdowns below)
         try:
             typ_num = int(t)
         except Exception:
@@ -442,11 +451,6 @@ def compute_dashboard_stats(secteur: str | None = None):
         # Skip subscribers with TYPABON not mapped to any category
         if not is_mapped:
             continue
-
-        stats["total_subscribers"] += 1
-        if t not in type_counts:
-            type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
-        type_counts[t]["total"] += 1
 
         codcom = _abonne_codcom(numab)
         if codcom not in commune_map:
@@ -636,6 +640,7 @@ def compute_dashboard_stats(secteur: str | None = None):
             stats["subscriber_sectors"].append(s_data)
     stats["subscriber_sectors"].sort(key=lambda x: x['value'], reverse=True)
 
+    stats["invoice_stopped_subscribers"] = count_latest_invoice_etatcpt(allowed_communes, '20')
 
     months = {
         "01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril",
@@ -838,6 +843,9 @@ def load_all_data_to_memory():
             if unite and cod:
                 instit_by_unite_cod[(unite, cod)] = r
 
+        print(f"[INFO] Building invoice indexes...")
+        build_invoice_indexes()
+        
         print(f"[INFO] Computing dashboard statistics...")
         cached_dashboard_stats = compute_dashboard_stats()
         is_db_ready = True
@@ -846,7 +854,6 @@ def load_all_data_to_memory():
             f"({cached_dashboard_stats['total_subscribers']} abonnés, "
             f"{len(MEM_FACTURES)} factures)"
         )
-        threading.Thread(target=build_invoice_indexes, daemon=True).start()
     except Exception as e:
         db_loading_status = f"Erreur lors du chargement : {e}"
         print(f"[ERROR] {db_loading_status}")
@@ -954,6 +961,40 @@ def _invoices_newest_first(invoices: list) -> list:
         if prev is None or str(inv.get('DATFACT', '')).strip() >= str(prev.get('DATFACT', '')).strip():
             by_period[key] = inv
     return sorted(by_period.values(), key=_invoice_period_key, reverse=True)
+
+
+def _latest_invoice_etatcpt_for_numab(numab: str) -> str | None:
+    """Latest non-empty ETATCPT for a subscriber based on invoice date."""
+    if not numab:
+        return None
+    invoices = factures_by_numab.get(numab)
+    if invoices is None:
+        invoices = [r for r in MEM_FACTURES if str(r.get('NUMAB', '')).strip().upper() == numab]
+    ordered = sorted(invoices, key=_invoice_period_key, reverse=True)
+    for inv in ordered:
+        etat = _normalize_etatcpt_code(inv.get('ETATCPT'))
+        if etat:
+            return etat
+    return None
+
+
+def count_latest_invoice_etatcpt(allowed_communes: set[str] | None = None, target_etat: str = '20') -> int:
+    """Count distinct subscribers whose latest invoice ETATCPT equals the target state.
+    Uses prebuilt factures_by_numab index (one invoice list per subscriber, sorted by date DESC)."""
+    target = _normalize_etatcpt_code(target_etat)
+    if not target:
+        return 0
+
+    count = 0
+    for numab, invoices in factures_by_numab.items():
+        if not _abonne_in_centre(numab, allowed_communes):
+            continue
+        # invoices are already sorted by date DESC, so invoices[0] is the latest
+        if invoices:
+            etat = _normalize_etatcpt_code(invoices[0].get('ETATCPT'))
+            if etat == target:
+                count += 1
+    return count
 
 
 def count_consecutive_etatcpt(invoices: list, target_etat: str = '20') -> int:
@@ -3045,133 +3086,7 @@ def get_creance_subscribers(start_date: str = None, end_date: str = None, target
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/api/nin_stats")
-def get_nin_stats(secteur: str = None, date_from: str = None, date_to: str = None):
-    """
-    Statistiques des abonnés ayant le champ NIN renseigné (non vide).
-    - total avec NIN
-    - répartition par type d'abonné (TYPABON)
-    - répartition mensuelle par date de saisie (DATEMAJ)
-    Filtre optionnel par centre (secteur) et par plage de dates (date_from, date_to au format YYYY-MM).
-    """
-    if not is_db_ready or len(MEM_ABONNES) == 0:
-        return {"ready": False, "total_with_nin": 0, "by_type": [], "by_month": []}
-
-    allowed_communes = _commune_codcoms_for_centre(secteur) if secteur and str(secteur).strip() else None
-
-    # Parse date filters (format: YYYY-MM)
-    date_from_period = None
-    date_to_period = None
-    if date_from and str(date_from).strip():
-        try:
-            date_from_period = str(date_from).strip()
-            if len(date_from_period) == 10:  # YYYY-MM-DD format
-                date_from_period = date_from_period[:7]  # Convert to YYYY-MM
-        except Exception:
-            pass
-    if date_to and str(date_to).strip():
-        try:
-            date_to_period = str(date_to).strip()
-            if len(date_to_period) == 10:  # YYYY-MM-DD format
-                date_to_period = date_to_period[:7]  # Convert to YYYY-MM
-        except Exception:
-            pass
-
-    # Build type label mapping from TABCODE
-    type_label_map = {}
-    for code_affec, r in tabcodes_by_code.items():
-        if code_affec.startswith('T'):
-            type_label_map[code_affec[1:]] = str(r.get('LIBELLE', '')).strip()
-
-    total_with_nin = 0
-    type_counts: dict = {}   # typabon_code -> {"label": str, "count": int}
-    month_counts: dict = {}  # "YYYY-MM" -> int
-
-    for record in MEM_ABONNES:
-        numab = str(record.get('NUMAB', '') or '').strip()
-        if not _abonne_in_centre(numab, allowed_communes):
-            continue
-
-        nin = str(record.get('NIN', '') or '').strip()
-        if not nin:
-            continue
-
-        # --- Par mois de saisie (DATEMAJ) - Extraction d'abord pour filtrage ---
-        datemaj = str(record.get('DATEMAJ', '') or '').strip()
-        period = None
-        if datemaj:
-            # handle datetime.date objects (dbfread converts date fields)
-            if hasattr(datemaj, 'year'):
-                period = f"{datemaj.year}-{datemaj.month:02d}"
-            elif len(datemaj) >= 6 and datemaj[:4].isdigit():
-                yr = int(datemaj[:4])
-                mo = int(datemaj[4:6]) if len(datemaj) >= 6 else 1
-                if 1980 <= yr <= 2030 and 1 <= mo <= 12:
-                    period = f"{yr}-{mo:02d}"
-
-        # Re-check: datemaj might be a date object from dbfread (not a string)
-        raw_datemaj = record.get('DATEMAJ')
-        if raw_datemaj and hasattr(raw_datemaj, 'year'):
-            try:
-                period = f"{raw_datemaj.year}-{raw_datemaj.month:02d}"
-            except Exception:
-                pass
-
-        # Apply date range filter if specified
-        # Skip if date filters are specified but we don't have a valid period
-        if date_from_period or date_to_period:
-            if not period:
-                continue
-            if date_from_period and period < date_from_period:
-                continue
-            if date_to_period and period > date_to_period:
-                continue
-        
-        # At this point, the subscriber has passed all filters (date filter if specified)
-        total_with_nin += 1
-
-        # --- Par type ---
-        typabon = str(record.get('TYPABON', '') or '').strip()
-        label = type_label_map.get(typabon, f"Autre ({typabon})" if typabon else "Inconnu")
-        if typabon not in type_counts:
-            type_counts[typabon] = {"label": label, "count": 0}
-        type_counts[typabon]["count"] += 1
-
-        # --- Add to monthly counts ---
-        if period:
-            month_counts[period] = month_counts.get(period, 0) + 1
-
-    # Format by_type
-    by_type = []
-    for code, info in type_counts.items():
-        by_type.append({
-            "code": code,
-            "label": info["label"],
-            "count": info["count"],
-            "percentage": round((info["count"] / total_with_nin) * 100, 1) if total_with_nin > 0 else 0
-        })
-    by_type.sort(key=lambda x: x["count"], reverse=True)
-
-    # Format by_month (sorted chronologically)
-    by_month = []
-    for period in sorted(month_counts.keys()):
-        yr, mo = period.split("-")
-        months_fr = {
-            "01": "Jan", "02": "Fev", "03": "Mar", "04": "Avr",
-            "05": "Mai", "06": "Juin", "07": "Juil", "08": "Aou",
-            "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
-        }
-        label = f"{months_fr.get(mo, mo)} {yr}"
-        by_month.append({"period": period, "label": label, "count": month_counts[period]})
-
-    return {
-        "ready": True,
-        "total_with_nin": total_with_nin,
-        "by_type": by_type,
-        "by_month": by_month,
-        "date_from": date_from_period,
-        "date_to": date_to_period,
-    }
+# /api/nin_stats endpoint removed (NIN feature deprecated)
 
 
 if __name__ == "__main__":

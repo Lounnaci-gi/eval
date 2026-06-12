@@ -963,6 +963,22 @@ def _invoices_newest_first(invoices: list) -> list:
     return sorted(by_period.values(), key=_invoice_period_key, reverse=True)
 
 
+def _invoice_state_history_by_period(numab: str) -> dict[tuple[int, int], str]:
+    """Returns the latest ETATCPT value for each invoice period of a subscriber."""
+    invoices = factures_by_numab.get(numab, [])
+    if not invoices:
+        return {}
+    state_by_period: dict[tuple[int, int], str] = {}
+    for inv in _invoices_newest_first(invoices):
+        key = _invoice_period_key(inv)
+        if key == (0, 0):
+            continue
+        etat = _normalize_etatcpt_code(inv.get('ETATCPT'))
+        if etat:
+            state_by_period[key] = etat
+    return state_by_period
+
+
 def _latest_invoice_etatcpt_for_numab(numab: str) -> str | None:
     """Latest non-empty ETATCPT for a subscriber based on invoice date."""
     if not numab:
@@ -1447,6 +1463,23 @@ def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abo
     if first_period in monthly_resigned_counts:
         monthly_resigned_counts[first_period] += missing_resigned_count
 
+    monthly_stopped_counts = { period: 0 for period in monthly_counts }
+    period_list = sorted(monthly_stopped_counts.keys())
+    period_key_list = [tuple(map(int, p.split('-'))) for p in period_list]
+
+    for numab, invoices in factures_by_numab.items():
+        if not _abonne_in_centre(numab, allowed_communes):
+            continue
+        state_history = _invoice_state_history_by_period(numab)
+        if not state_history:
+            continue
+        current_state = None
+        for period_key, period_str in zip(period_key_list, period_list):
+            if period_key in state_history:
+                current_state = state_history[period_key]
+            if current_state == '20':
+                monthly_stopped_counts[period_str] += 1
+
     evolution = []
     cumulative = 0
     resigned_cumulative = 0
@@ -1459,7 +1492,8 @@ def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abo
             "period": period,
             "count": cumulative,
             "new_registrations": new_regs,
-            "resigned_count": resigned_cumulative
+            "resigned_count": resigned_cumulative,
+            "stopped_count": monthly_stopped_counts.get(period, 0)
         })
 
     return {

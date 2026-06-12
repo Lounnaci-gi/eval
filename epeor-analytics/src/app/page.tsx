@@ -2059,7 +2059,7 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
             )}
             {stats?.invoice_stopped_subscribers != null && (
               <p className="text-xs text-[#667085] font-medium">
-                Abonnés factures à l'arrêt : <span className="font-black text-amber-600">{stats.invoice_stopped_subscribers.toLocaleString('fr-FR')}</span>
+                Abonnés factures à l'arrêt : <span className="font-black text-amber-600">{(calculatorResult?.stopped_count ?? stats.invoice_stopped_subscribers).toLocaleString('fr-FR')}</span>
               </p>
             )}
             {calculatorResult && calculatorResult.new_registrations > 0 && (

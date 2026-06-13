@@ -11296,6 +11296,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
             ca_recouvre: 0,
             recouvre: 0,
             creance: 0,
+            children: []
           };
         }
         grouped[groupKey].ca_eau += Number(row.ca_eau || 0);
@@ -11304,6 +11305,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
         grouped[groupKey].ca_recouvre += Number(row.ca_recouvre || 0);
         grouped[groupKey].recouvre += Number(row.recouvre || row.encaissement || row.encaisse || row.encaissement_total || 0);
         grouped[groupKey].creance += Number(row.creance || 0);
+        grouped[groupKey].children.push({ ...row });
       } else {
         result.push({ ...row });
       }
@@ -11313,6 +11315,14 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
       const g = grouped["AUTRES_TRAVAUX"];
       const totCa = g.ca;
       g.taux = totCa > 0 ? (g.ca_recouvre / totCa) * 100 : 0;
+      g.children.sort((x: any, y: any) => {
+        const ordX = Number(x.ordre || 0);
+        const ordY = Number(y.ordre || 0);
+        if (ordX !== ordY) return ordX - ordY;
+        const nameX = String(x.name || "");
+        const nameY = String(y.name || "");
+        return nameX.localeCompare(nameY);
+      });
       result.push(g);
     }
 
@@ -11335,6 +11345,13 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
   const toggleCommune = (communeId: string) => {
     setExpandedCommunes((prev) =>
       prev.includes(communeId) ? prev.filter((id) => id !== communeId) : [...prev, communeId]
+    );
+  };
+
+  const [expandedGroupedTypes, setExpandedGroupedTypes] = useState<string[]>([]);
+  const toggleGroupedType = (key: string) => {
+    setExpandedGroupedTypes((prev) =>
+      prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key]
     );
   };
 
@@ -11476,17 +11493,91 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                           const typeEncaisse = Number(type.recouvre || type.encaissement || type.encaisse || type.encaissement_total || 0);
                           const typeCreance = Number(type.creance || 0);
                           const typeTaux = typeCaTotal > 0 ? (typeCaRecouvre / typeCaTotal) * 100 : 0;
+
+                          const isGroupedRow = type.type_code === "2/4/6/7/X/B/G/D/C/A";
+                          const groupKey = `${communeId}-AUTRES_TRAVAUX`;
+                          const isGroupExpanded = isGroupedRow && expandedGroupedTypes.includes(groupKey);
+
+                          if (isGroupedRow) {
+                            return (
+                              <Fragment key={`${communeId}-type-${tIndex}`}>
+                                <tr className="bg-slate-50 hover:bg-slate-100/80 transition-colors">
+                                  <td className="px-8 py-3"></td>
+                                  <td className="px-6 py-3 text-xs font-semibold text-[#475467]">
+                                    <div
+                                      className="flex items-center gap-2 cursor-pointer"
+                                      onClick={() => toggleGroupedType(groupKey)}
+                                    >
+                                      <ChevronRight
+                                        size={12}
+                                        className={`text-[#98A2B3] transition-transform ${isGroupExpanded ? 'rotate-90' : ''}`}
+                                      />
+                                      <span>↳ </span>
+                                      {type.type_code && (
+                                        <span className="inline-flex items-center font-mono text-[9px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                          {type.type_code}
+                                        </span>
+                                      )}
+                                      <span className="font-bold text-[#101828] hover:text-brand-600 transition-colors underline decoration-dotted">{type.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
+                                  <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
+                                  <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
+                                  <td className="px-6 py-3 text-right font-medium text-[12px] text-teal-600 bg-teal-50/10">{fmt(typeCaRecouvre)}</td>
+                                  <td className="px-6 py-3 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/10">{fmt(typeEncaisse)}</td>
+                                  <td className="px-6 py-3 text-right font-bold text-[12px] text-rose-600 bg-rose-50/30">{fmt(typeCreance)}</td>
+                                  <td className="px-8 py-3 text-right font-bold text-[12px] text-[#475467]">{typeTaux.toFixed(2)}%</td>
+                                </tr>
+                                {isGroupExpanded && Array.isArray(type.children) && type.children.map((child: any, cIdx: number) => {
+                                  const childCaEau = Number(child.ca_eau || 0);
+                                  const childCaPrest = Number(child.ca_prestation || 0);
+                                  const childCaTotal = Number(child.ca || child.ca_total || ((child.ca_eau || 0) + (child.ca_prestation || 0)) || 0);
+                                  const childCaRecouvre = Number(child.ca_recouvre || 0);
+                                  const childEncaisse = Number(child.recouvre || child.encaissement || child.encaisse || child.encaissement_total || 0);
+                                  const childCreance = Number(child.creance || 0);
+                                  const childTaux = childCaTotal > 0 ? (childCaRecouvre / childCaTotal) * 100 : 0;
+                                  return (
+                                    <tr key={`${communeId}-child-${cIdx}`} className="bg-slate-100/30 hover:bg-slate-200/20 transition-colors">
+                                      <td className="px-8 py-2.5"></td>
+                                      <td className="px-6 py-2.5 pl-14 text-xs font-semibold text-[#475467]">
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-slate-400 mr-2">↳ ↳</span>
+                                          {child.type_code && (
+                                            <span className="inline-flex items-center font-mono text-[9px] font-black text-slate-500 bg-slate-200/50 px-1.5 py-0.5 rounded border border-slate-300/50">
+                                              {child.type_code}
+                                            </span>
+                                          )}
+                                          <span>{child.name || child.label || child.type || 'Type d\'Abonné'}</span>
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
+                                      <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
+                                      <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
+                                      <td className="px-6 py-2.5 text-right font-medium text-[11px] text-teal-600/80 bg-teal-50/5">{fmt(childCaRecouvre)}</td>
+                                      <td className="px-6 py-2.5 text-right font-medium text-[11px] text-emerald-600/80 bg-emerald-50/5">{fmt(childEncaisse)}</td>
+                                      <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600/80 bg-rose-50/10">{fmt(childCreance)}</td>
+                                      <td className="px-8 py-2.5 text-right font-bold text-[11px] text-[#475467]/80">{childTaux.toFixed(2)}%</td>
+                                    </tr>
+                                  );
+                                })}
+                              </Fragment>
+                            );
+                          }
+
                           return (
-                            <tr key={`${communeId}-type-${tIndex}`} className="bg-slate-50">
+                            <tr key={`${communeId}-type-${tIndex}`} className="bg-slate-50 hover:bg-slate-100/50 transition-colors">
                               <td className="px-8 py-3"></td>
                               <td className="px-6 py-3 text-xs font-semibold text-[#475467]">
-                                ↳{' '}
-                                {type.type_code && (
-                                  <span className="inline-flex items-center font-mono text-[10px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mr-2">
-                                    {type.type_code}
-                                  </span>
-                                )}
-                                {type.name || type.label || type.type || 'Type d\'Abonné'}
+                                <div className="flex items-center gap-1">
+                                  <span>↳ </span>
+                                  {type.type_code && (
+                                    <span className="inline-flex items-center font-mono text-[10px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mr-2">
+                                      {type.type_code}
+                                    </span>
+                                  )}
+                                  <span>{type.name || type.label || type.type || 'Type d\'Abonné'}</span>
+                                </div>
                               </td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>

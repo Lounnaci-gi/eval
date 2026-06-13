@@ -1828,6 +1828,7 @@ def get_creance(
         total_ca_recouvre   = 0.0
         commune_ca          = {}   # codcom -> {ca_eau, ca_prestation, creance, recouvre, ca_recouvre}
         type_ca             = {}   # typabon -> {label, ca_eau, ca_prestation, creance, recouvre, ca_recouvre}
+        commune_type_ca     = {}   # codcom -> {cat_key -> {section, ordre, type_code, label, ca_eau, ca_prestation, creance, recouvre, ca_recouvre}}
         raw_type_ca         = {}   # type -> {creance, count}
 
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
@@ -1952,6 +1953,10 @@ def get_creance(
                     "ca_recouvre_eau": 0.0,
                     "ca_recouvre_prestation": 0.0
                 }
+            if codcom not in commune_type_ca:
+                commune_type_ca[codcom] = {}
+            if section and cat_key not in commune_type_ca[codcom]:
+                commune_type_ca[codcom][cat_key] = {"section": section, "ordre": ordre, "type_code": type_code, "label": categorie, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
             if section and cat_key not in type_ca:
                 type_ca[cat_key] = {"section": section, "ordre": ordre, "type_code": type_code, "label": categorie, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
 
@@ -1962,11 +1967,13 @@ def get_creance(
                     commune_ca[codcom]["ca_eau"] += monttc
                     if section:
                         type_ca[cat_key]["ca_eau"] += monttc
+                        commune_type_ca[codcom][cat_key]["ca_eau"] += monttc
                 else:
                     total_ca_prestation += monttc
                     commune_ca[codcom]["ca_prestation"] += monttc
                     if section:
                         type_ca[cat_key]["ca_prestation"] += monttc
+                        commune_type_ca[codcom][cat_key]["ca_prestation"] += monttc
 
             # Recouvrement logic (within range)
             if is_in_reg and not is_avoir:
@@ -1979,6 +1986,7 @@ def get_creance(
                     commune_ca[codcom]["recouvre_prestation"] += m_rec
                 if section:
                     type_ca[cat_key]["recouvre"] += m_rec
+                    commune_type_ca[codcom][cat_key]["recouvre"] += m_rec
 
             # CA Recouvré logic (portion of current CA that is paid by target_date)
             if is_in_saisie and not is_avoir:
@@ -1992,6 +2000,7 @@ def get_creance(
                         commune_ca[codcom]["ca_recouvre_prestation"] += monttc
                     if section:
                         type_ca[cat_key]["ca_recouvre"] += monttc
+                        commune_type_ca[codcom][cat_key]["ca_recouvre"] += monttc
 
             # Créance arrêtée logic
             if is_creance_arretee:
@@ -2003,6 +2012,7 @@ def get_creance(
                     commune_ca[codcom]["creance_prestation"] += monttc
                 if section:
                     type_ca[cat_key]["creance"] += monttc
+                    commune_type_ca[codcom][cat_key]["creance"] += monttc
                 
                 if tp not in raw_type_ca:
                     raw_type_ca[tp] = {"creance": 0.0, "count": 0}
@@ -2038,6 +2048,26 @@ def get_creance(
             tot_ca_prest = d["ca_prestation"]
             taux_prest = (ca_rec_prest / tot_ca_prest * 100) if tot_ca_prest > 0 else 0
 
+            commune_types = []
+            if codcom in commune_type_ca:
+                for type_key, td in commune_type_ca[codcom].items():
+                    tot_ca_type = td["ca_eau"] + td["ca_prestation"]
+                    if tot_ca_type != 0 or td["recouvre"] != 0 or td["ca_recouvre"] != 0 or td["creance"] != 0:
+                        commune_types.append({
+                            "section": td["section"],
+                            "ordre": td["ordre"],
+                            "type_code": td["type_code"],
+                            "name": td["label"],
+                            "ca_eau": round(td["ca_eau"], 2),
+                            "ca_prestation": round(td["ca_prestation"], 2),
+                            "ca": round(tot_ca_type, 2),
+                            "ca_recouvre": round(td["ca_recouvre"], 2),
+                            "recouvre": round(td["recouvre"], 2),
+                            "creance": round(td["creance"], 2),
+                            "taux": round((td["ca_recouvre"] / tot_ca_type * 100) if tot_ca_type > 0 else 0, 2)
+                        })
+                commune_types.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
+
             communes_list.append({
                 "id": codcom,
                 "name": label,
@@ -2057,7 +2087,8 @@ def get_creance(
                 "creance_prestation": round(d.get("creance_prestation", 0.0), 2),
                 "recouvre_prestation": round(d.get("recouvre_prestation", 0.0), 2),
                 "ca_recouvre_prestation": round(ca_rec_prest, 2),
-                "taux_prestation": round(taux_prest, 2)
+                "taux_prestation": round(taux_prest, 2),
+                "by_type": commune_types
             })
         communes_list.sort(key=lambda x: x["creance"], reverse=True)
 

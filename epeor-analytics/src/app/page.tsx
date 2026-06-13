@@ -11276,6 +11276,61 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
     ? communeRows.filter((row: any) => secteurFieldNames.some((field) => String(row[field] ?? '').trim() === selectedSecteur))
     : communeRows;
 
+  const processTypeRows = (rows: any[]) => {
+    const grouped: Record<string, any> = {};
+    const result: any[] = [];
+    const autresTravauxCodes = new Set(["2", "4", "6", "7", "X", "B", "G", "D", "C", "A"]);
+
+    for (const row of rows) {
+      const code = String(row.type_code || row.type || "").trim().toUpperCase();
+      if (autresTravauxCodes.has(code)) {
+        const groupKey = "AUTRES_TRAVAUX";
+        if (!grouped[groupKey]) {
+          grouped[groupKey] = {
+            ...row,
+            type_code: "2/4/6/7/X/B/G/D/C/A",
+            name: "AUTRES TRAVAUX",
+            ca_eau: 0,
+            ca_prestation: 0,
+            ca: 0,
+            ca_recouvre: 0,
+            recouvre: 0,
+            creance: 0,
+          };
+        }
+        grouped[groupKey].ca_eau += Number(row.ca_eau || 0);
+        grouped[groupKey].ca_prestation += Number(row.ca_prestation || 0);
+        grouped[groupKey].ca += Number(row.ca || row.ca_total || ((row.ca_eau || 0) + (row.ca_prestation || 0)) || 0);
+        grouped[groupKey].ca_recouvre += Number(row.ca_recouvre || 0);
+        grouped[groupKey].recouvre += Number(row.recouvre || row.encaissement || row.encaisse || row.encaissement_total || 0);
+        grouped[groupKey].creance += Number(row.creance || 0);
+      } else {
+        result.push({ ...row });
+      }
+    }
+
+    if (grouped["AUTRES_TRAVAUX"]) {
+      const g = grouped["AUTRES_TRAVAUX"];
+      const totCa = g.ca;
+      g.taux = totCa > 0 ? (g.ca_recouvre / totCa) * 100 : 0;
+      result.push(g);
+    }
+
+    result.sort((x: any, y: any) => {
+      const secX = x.section === 'EAU' ? 0 : 1;
+      const secY = y.section === 'EAU' ? 0 : 1;
+      if (secX !== secY) return secX - secY;
+      const ordX = Number(x.ordre || 0);
+      const ordY = Number(y.ordre || 0);
+      if (ordX !== ordY) return ordX - ordY;
+      const nameX = String(x.name || "");
+      const nameY = String(y.name || "");
+      return nameX.localeCompare(nameY);
+    });
+
+    return result;
+  };
+
   const [expandedCommunes, setExpandedCommunes] = useState<string[]>([]);
   const toggleCommune = (communeId: string) => {
     setExpandedCommunes((prev) =>
@@ -11284,7 +11339,8 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
   };
 
   const communesWithTypes = filteredCommunes.filter((c: any) => {
-    const typeRows = Array.isArray(c.by_type) ? c.by_type : Array.isArray(c.types) ? c.types : [];
+    const rawTypeRows = Array.isArray(c.by_type) ? c.by_type : Array.isArray(c.types) ? c.types : [];
+    const typeRows = processTypeRows(rawTypeRows);
     return typeRows.length > 0;
   });
   const hasCommuneTypes = communesWithTypes.length > 0;
@@ -11365,93 +11421,99 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
                     <th className="px-8 py-5">Commune</th>
-                  <th className="px-6 py-5 text-right">CA Eau (DA)</th>
-                  <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
-                  <th className="px-6 py-5 text-right">Total CA (DA)</th>
-                  <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
-                  <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
-                  <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
-                  <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F2F4F7]">
-                {filteredCommunes.map((c: any, i: number) => {
-                  const communeId = c.id || String(i);
-                  const typeRows = Array.isArray(c.by_type) ? c.by_type : Array.isArray(c.types) ? c.types : [];
-                  const isExpanded = typeRows.length > 0 && expandedCommunes.includes(communeId);
-                  const totCa = Number(c.ca || c.CA || c.ca_total || ((c.ca_eau || 0) + (c.ca_prestation || 0)) || 0);
-                  const totCaRecouvre = Number(c.ca_recouvre || 0);
-                  const taux = totCa > 0 ? (totCaRecouvre / totCa) * 100 : 0;
-                  return (
-                    <Fragment key={communeId}>
-                      <tr className="hover:bg-[#F9FAFB] transition-colors">
-                        <td className="px-8 py-4 font-black text-sm text-[#101828]">
-                          <div
-                            className={`flex items-center gap-2 ${typeRows.length > 0 ? 'cursor-pointer' : ''}`}
-                            onClick={() => typeRows.length > 0 && toggleCommune(communeId)}
-                          >
-                            {typeRows.length > 0 && (
-                              <ChevronRight
-                                size={14}
-                                className={`text-[#98A2B3] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                              />
-                            )}
-                            <span>{c.name || c.commune || c.NOM || '—'}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(Number(c.ca_eau || 0))}</td>
-                        <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(Number(c.ca_prestation || 0))}</td>
-                        <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600">{fmt(totCa)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(totCaRecouvre)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(Number(c.recouvre || c.encaissement || c.encaisse || c.encaissement_total || 0))}</td>
-                        <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(Number(c.creance || c.CREANCE || 0))}</td>
-                        <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{taux.toFixed(2)}%</td>
-                      </tr>
-                      {isExpanded && typeRows.map((type: any, tIndex: number) => {
-                        const typeCaEau = Number(type.ca_eau || 0);
-                        const typeCaPrest = Number(type.ca_prestation || 0);
-                        const typeCaTotal = Number(type.ca || type.ca_total || ((type.ca_eau || 0) + (type.ca_prestation || 0)) || 0);
-                        const typeCaRecouvre = Number(type.ca_recouvre || 0);
-                        const typeEncaisse = Number(type.recouvre || type.encaissement || type.encaisse || type.encaissement_total || 0);
-                        const typeCreance = Number(type.creance || 0);
-                        const typeTaux = typeCaTotal > 0 ? (typeCaRecouvre / typeCaTotal) * 100 : 0;
-                        return (
-                          <tr key={`${communeId}-type-${tIndex}`} className="bg-slate-50">
-                            <td className="px-8 py-3 pl-14 text-xs font-semibold text-[#475467]">
-                              ↳{' '}
-                              {type.type_code && (
-                                <span className="inline-flex items-center font-mono text-[10px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mr-2">
-                                  {type.type_code}
-                                </span>
+                    <th className="px-6 py-5">Type d'abonné</th>
+                    <th className="px-6 py-5 text-right">CA Eau (DA)</th>
+                    <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
+                    <th className="px-6 py-5 text-right">Total CA (DA)</th>
+                    <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
+                    <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
+                    <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
+                    <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F2F4F7]">
+                  {filteredCommunes.map((c: any, i: number) => {
+                    const communeId = c.id || String(i);
+                    const rawTypeRows = Array.isArray(c.by_type) ? c.by_type : Array.isArray(c.types) ? c.types : [];
+                    const typeRows = processTypeRows(rawTypeRows);
+                    const isExpanded = typeRows.length > 0 && expandedCommunes.includes(communeId);
+                    const totCa = Number(c.ca || c.CA || c.ca_total || ((c.ca_eau || 0) + (c.ca_prestation || 0)) || 0);
+                    const totCaRecouvre = Number(c.ca_recouvre || 0);
+                    const taux = totCa > 0 ? (totCaRecouvre / totCa) * 100 : 0;
+                    return (
+                      <Fragment key={communeId}>
+                        <tr className="hover:bg-[#F9FAFB] transition-colors">
+                          <td className="px-8 py-4 font-black text-sm text-[#101828]">
+                            <div
+                              className={`flex items-center gap-2 ${typeRows.length > 0 ? 'cursor-pointer' : ''}`}
+                              onClick={() => typeRows.length > 0 && toggleCommune(communeId)}
+                            >
+                              {typeRows.length > 0 && (
+                                <ChevronRight
+                                  size={14}
+                                  className={`text-[#98A2B3] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                                />
                               )}
-                              {type.name || type.label || type.type || 'Type d\'Abonné'}
-                            </td>
-                            <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
-                            <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
-                            <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
-                            <td className="px-6 py-3 text-right font-medium text-[12px] text-teal-600 bg-teal-50/10">{fmt(typeCaRecouvre)}</td>
-                            <td className="px-6 py-3 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/10">{fmt(typeEncaisse)}</td>
-                            <td className="px-6 py-3 text-right font-bold text-[12px] text-rose-600 bg-rose-50/30">{fmt(typeCreance)}</td>
-                            <td className="px-8 py-3 text-right font-bold text-[12px] text-[#475467]">{typeTaux.toFixed(2)}%</td>
-                          </tr>
-                        );
-                      })}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-              <tfoot className="sticky bottom-0 z-10">
-                <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
-                  <td className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
-                  <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(totals.ca_eau)}</td>
-                  <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(totals.ca_prestation)}</td>
-                  <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(totals.ca)}</td>
-                  <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5">{fmt(totals.recouvre)}</td>
-                  <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5">{fmt(totals.encaissement)}</td>
-                  <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(totals.creance)}</td>
-                  <td className="px-8 py-5 text-right text-slate-300 font-mono">{(totals.ca > 0 ? ((totals.recouvre / totals.ca) * 100) : 0).toFixed(2)}%</td>
-                </tr>
-              </tfoot>
+                              <span>{c.name || c.commune || c.NOM || '—'}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-semibold text-[#475467]">
+                            {/* Empty for the main commune row */}
+                          </td>
+                          <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(Number(c.ca_eau || 0))}</td>
+                          <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(Number(c.ca_prestation || 0))}</td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600">{fmt(totCa)}</td>
+                          <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(totCaRecouvre)}</td>
+                          <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(Number(c.recouvre || c.encaissement || c.encaisse || c.encaissement_total || 0))}</td>
+                          <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(Number(c.creance || c.CREANCE || 0))}</td>
+                          <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{taux.toFixed(2)}%</td>
+                        </tr>
+                        {isExpanded && typeRows.map((type: any, tIndex: number) => {
+                          const typeCaEau = Number(type.ca_eau || 0);
+                          const typeCaPrest = Number(type.ca_prestation || 0);
+                          const typeCaTotal = Number(type.ca || type.ca_total || ((type.ca_eau || 0) + (type.ca_prestation || 0)) || 0);
+                          const typeCaRecouvre = Number(type.ca_recouvre || 0);
+                          const typeEncaisse = Number(type.recouvre || type.encaissement || type.encaisse || type.encaissement_total || 0);
+                          const typeCreance = Number(type.creance || 0);
+                          const typeTaux = typeCaTotal > 0 ? (typeCaRecouvre / typeCaTotal) * 100 : 0;
+                          return (
+                            <tr key={`${communeId}-type-${tIndex}`} className="bg-slate-50">
+                              <td className="px-8 py-3"></td>
+                              <td className="px-6 py-3 text-xs font-semibold text-[#475467]">
+                                ↳{' '}
+                                {type.type_code && (
+                                  <span className="inline-flex items-center font-mono text-[10px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mr-2">
+                                    {type.type_code}
+                                  </span>
+                                )}
+                                {type.name || type.label || type.type || 'Type d\'Abonné'}
+                              </td>
+                              <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
+                              <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
+                              <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
+                              <td className="px-6 py-3 text-right font-medium text-[12px] text-teal-600 bg-teal-50/10">{fmt(typeCaRecouvre)}</td>
+                              <td className="px-6 py-3 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/10">{fmt(typeEncaisse)}</td>
+                              <td className="px-6 py-3 text-right font-bold text-[12px] text-rose-600 bg-rose-50/30">{fmt(typeCreance)}</td>
+                              <td className="px-8 py-3 text-right font-bold text-[12px] text-[#475467]">{typeTaux.toFixed(2)}%</td>
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="sticky bottom-0 z-10">
+                  <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                    <td colSpan={2} className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                    <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(totals.ca_eau)}</td>
+                    <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(totals.ca_prestation)}</td>
+                    <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(totals.ca)}</td>
+                    <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5">{fmt(totals.recouvre)}</td>
+                    <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5">{fmt(totals.encaissement)}</td>
+                    <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(totals.creance)}</td>
+                    <td className="px-8 py-5 text-right text-slate-300 font-mono">{(totals.ca > 0 ? ((totals.recouvre / totals.ca) * 100) : 0).toFixed(2)}%</td>
+                  </tr>
+                </tfoot>
             </table>
           </div>
           </>

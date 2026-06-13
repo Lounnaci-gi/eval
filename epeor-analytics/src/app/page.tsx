@@ -404,8 +404,20 @@ function buildSubscribersUrl(quartier: string, options?: { etat?: string; secteu
   return url.toString();
 }
 
+function formatPeriodLabel(start: string, end: string) {
+  const normalize = (value: string) => value.replace(/-/g, '').trim();
+  const s = normalize(start);
+  const e = normalize(end);
+  const format = (raw: string) => raw.length === 8 ? `${raw.slice(6, 8)}/${raw.slice(4, 6)}/${raw.slice(0, 4)}` : raw;
+
+  if (s && e) return `Période : du ${format(s)} au ${format(e)}`;
+  if (s) return `Période : à partir du ${format(s)}`;
+  if (e) return `Période : jusqu'au ${format(e)}`;
+  return '';
+}
+
 export default function Dashboard() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'bilan' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1201,7 +1213,7 @@ export default function Dashboard() {
           />
         ) : currentView === 'settings' ? (
           <SettingsView onBack={() => setCurrentView('dashboard')} />
-        ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan'].includes(currentView) ? (
+        ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
             <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print no-print-charts-only">
@@ -1220,6 +1232,9 @@ export default function Dashboard() {
                       ? `Calculs limités au centre : ${sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur}`
                       : 'Facturation, recouvrement et ventilation — toute l\'unité'}
                   </p>
+                  {formatPeriodLabel(calcDateRange.start, calcDateRange.end) && (
+                    <p className="text-sm text-[#334155] mt-2 font-medium">{formatPeriodLabel(calcDateRange.start, calcDateRange.end)}</p>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
@@ -1238,7 +1253,7 @@ export default function Dashboard() {
                         { id: 'ventilation', label: 'Ventilation Créances' },
                         { id: 'repartition', label: "Répartition par Type" },
                         { id: 'commune', label: 'Répartition par Commune' },
-                        { id: 'bilan', label: 'Bilan' }
+                        { id: 'bilan_activite', label: "Bilan d'activité" }
                     ].map(tab => (
                       <button
                         key={tab.id}
@@ -1312,8 +1327,14 @@ export default function Dashboard() {
                 startDate={calcDateRange.start}
                 endDate={calcDateRange.end}
               />
-            ) : currentView === 'bilan' ? (
-              <BilanView selectedSecteur={selectedSecteur} sectors={sectors} startDate={calcDateRange.start} endDate={calcDateRange.end} />
+            ) : currentView === 'bilan_activite' ? (
+              <BilanActiviteView
+                data={creanceData}
+                startDate={calcDateRange.start}
+                endDate={calcDateRange.end}
+                selectedSecteur={selectedSecteur}
+                sectors={sectors}
+              />
             ) : null}
           </div>
         ) : null}
@@ -8845,6 +8866,9 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
               ? `Centre ${secteurLabel} — cliquez sur un montant pour le détail abonnés`
               : "Cliquez sur un montant pour voir le détail des abonnés concernés"}
           </p>
+          {formatPeriodLabel(startDate, endDate) && (
+            <p className="text-sm text-[#334155] mt-2 font-medium">{formatPeriodLabel(startDate, endDate)}</p>
+          )}
         </div>
         
         {/* Modern Tab Filters & Print Button */}
@@ -9395,271 +9419,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
 }
 
 
-function BilanView({ selectedSecteur = '', sectors = [], startDate = '', endDate = '' }: any) {
-  const [communes, setCommunes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [periodCommuneCounts, setPeriodCommuneCounts] = useState<any[]>([]);
-  const [periodCountsLoading, setPeriodCountsLoading] = useState(false);
-  const [periodLabel, setPeriodLabel] = useState('Période calculée');
-  const [periodSubscriberTotal, setPeriodSubscriberTotal] = useState<number | null>(null);
 
-  const periodCategoryTotals = useMemo(() => {
-    const totals = {
-      menages: 0,
-      administrations: 0,
-      commerce: 0,
-      industriel: 0,
-      vente_en_gros: 0,
-    };
-
-    periodCommuneCounts.forEach((c: any) => {
-      const cats = c.categories || {};
-      totals.menages += Number(cats.menages || 0);
-      totals.administrations += Number(cats.administrations || 0);
-      totals.commerce += Number(cats.commerce || 0);
-      totals.industriel += Number(cats.industriel || 0);
-      totals.vente_en_gros += Number(cats.vente_en_gros || 0);
-    });
-
-    return [
-      { id: 'menages', label: 'Cat I', value: totals.menages },
-      { id: 'administrations', label: 'Cat II', value: totals.administrations },
-      { id: 'commerce', label: 'Cat III', value: totals.commerce },
-      { id: 'industriel', label: 'Cat IV', value: totals.industriel },
-      { id: 'vente_en_gros', label: 'Cat V', value: totals.vente_en_gros },
-    ];
-  }, [periodCommuneCounts]);
-
-  const formatPeriodLabel = (start: string, end: string) => {
-    const months: Record<string, string> = {
-      '01': 'Janvier', '02': 'Février', '03': 'Mars', '04': 'Avril',
-      '05': 'Mai', '06': 'Juin', '07': 'Juillet', '08': 'Août',
-      '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
-    };
-    const norm = (value: string) => value.replace(/-/g, '').trim();
-    const s = norm(start);
-    const e = norm(end);
-    if (s && e && s.length >= 6 && e.length >= 6) {
-      const startLabel = `${months[s.slice(4, 6)] || s.slice(4, 6)} ${s.slice(0, 4)}`;
-      const endLabel = `${months[e.slice(4, 6)] || e.slice(4, 6)} ${e.slice(0, 4)}`;
-      return startLabel === endLabel ? startLabel : `${startLabel} → ${endLabel}`;
-    }
-    if (e && e.length >= 6) {
-      return `Jusqu'au ${months[e.slice(4, 6)] || e.slice(4, 6)} ${e.slice(0, 4)}`;
-    }
-    if (s && s.length >= 6) {
-      return `À partir de ${months[s.slice(4, 6)] || s.slice(4, 6)} ${s.slice(0, 4)}`;
-    }
-    return 'Période calculée';
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const url = new URL('http://127.0.0.1:8000/stats');
-        if (selectedSecteur) url.searchParams.set('secteur', selectedSecteur);
-        const res = await fetch(url.toString());
-        const d = await res.json();
-        if (!cancelled) {
-          setCommunes(d?.subscriber_communes || []);
-        }
-      } catch (e) {
-        if (!cancelled) setCommunes([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [selectedSecteur]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!startDate && !endDate) {
-      setPeriodCommuneCounts([]);
-      setPeriodLabel('Période calculée');
-      setPeriodSubscriberTotal(null);
-      return;
-    }
-
-    const loadPeriodCounts = async () => {
-      setPeriodCountsLoading(true);
-      try {
-        const url = new URL('http://127.0.0.1:8000/subscriber_category_counts');
-        if (startDate) url.searchParams.set('start_date', startDate.replace(/-/g, ''));
-        if (endDate) url.searchParams.set('end_date', endDate.replace(/-/g, ''));
-        if (selectedSecteur) url.searchParams.set('secteur', selectedSecteur);
-        const res = await fetch(url.toString());
-        const json = await res.json();
-        if (cancelled) return;
-        if (json?.ready) {
-          setPeriodCommuneCounts(json?.communes || []);
-          const resolvedLabel = json?.period_label && json.period_label !== 'Période calculée'
-            ? json.period_label
-            : formatPeriodLabel(startDate, endDate);
-          setPeriodLabel(resolvedLabel);
-          setPeriodSubscriberTotal(json?.total != null ? Number(json.total) : null);
-        }
-      } catch (e) {
-        if (!cancelled) setPeriodCommuneCounts([]);
-      } finally {
-        if (!cancelled) setPeriodCountsLoading(false);
-      }
-    };
-
-    loadPeriodCounts();
-    return () => { cancelled = true; };
-  }, [selectedSecteur, startDate, endDate]);
-
-  const secteurLabel = selectedSecteur
-    ? (sectors.find((s: any) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
-    : 'Toute l\'unité';
-
-  const showPeriodNotice = Boolean(startDate || endDate);
-  const displayCommunes = (showPeriodNotice ? periodCommuneCounts : communes) || [];
-
-  // Grand totals — summed from the 5 displayed categories only (TYPABON-mapped subscribers)
-  const totalSubscribers = displayCommunes.reduce((sum: number, c: any) => {
-    const cats = c.categories || {};
-    return sum + (cats.menages || 0) + (cats.administrations || 0) + (cats.commerce || 0) + (cats.industriel || 0) + (cats.vente_en_gros || 0);
-  }, 0);
-  const totalResigned = displayCommunes.reduce((sum: number, c: any) => {
-    const rcats = c.resigned_categories || {};
-    return sum + (rcats.menages || 0) + (rcats.administrations || 0) + (rcats.commerce || 0) + (rcats.industriel || 0) + (rcats.vente_en_gros || 0);
-  }, 0);
-  const totalStopped = displayCommunes.reduce((sum: number, c: any) => sum + (c.stopped || 0), 0);
-  const totalRate = totalSubscribers > 0 ? (totalStopped / totalSubscribers) * 100 : 0;
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Bilan</h3>
-            <p className="text-sm text-[#667085] mt-1">Communes associées au centre : <strong>{secteurLabel}</strong></p>
-          </div>
-        </div>
-        <div className="mt-6">
-          <div className="mb-4 rounded-2xl border border-[#E4E7EC] bg-[#F9FAFB] p-4 text-sm text-[#334155] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="space-y-2">
-              <div>
-                <span className="font-black">Période calculée :</span> {periodLabel}
-              </div>
-              {periodSubscriberTotal !== null && (
-                <div className="text-[#101828] font-black">Abonnés période : {periodSubscriberTotal.toLocaleString('fr-FR')}</div>
-              )}
-            </div>
-            {periodCountsLoading && (
-              <span className="text-[#667085] font-bold">Chargement des abonnés par catégorie…</span>
-            )}
-          </div>
-
-          {(periodCategoryTotals.some(cat => cat.value > 0) || periodSubscriberTotal !== null) && (
-            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-6 mt-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#98A2B3]">Abonnés par catégorie</p>
-                  <p className="text-sm text-[#667085] mt-1">Période : {periodLabel}</p>
-                  {periodSubscriberTotal !== null && (
-                    <p className="text-sm text-[#101828] font-black mt-1">Abonnés période : {periodSubscriberTotal.toLocaleString('fr-FR')}</p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-                {periodCategoryTotals.map((category) => (
-                  <div key={category.id} className="p-4 bg-[#F9FAFB] rounded-[2rem] border border-[#F2F4F7]">
-                    <p className="text-[10px] font-black text-[#98A2B3] uppercase tracking-widest mb-2">{category.label}</p>
-                    <p className="text-3xl font-black text-[#101828] tabular-nums">{category.value.toLocaleString('fr-FR')}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="text-sm text-[#667085]">Chargement des communes…</div>
-          ) : displayCommunes.length === 0 ? (
-            <div className="text-sm text-[#667085]">
-              {showPeriodNotice
-                ? 'Aucune commune trouvée pour cette période.'
-                : 'Aucune commune trouvée pour ce centre.'}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-[#F9FAFB]">
-                    <th className="text-left px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Commune</th>
-                    <th className="text-left px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Catégorie</th>
-                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Nbrs Abonnés</th>
-                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Nbrs Résiliés</th>
-                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Forfait</th>
-                    <th className="text-right px-6 py-3 text-xs font-black text-[#98A2B3] uppercase">Taux</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayCommunes.map((c: any, index: number) => {
-                    const cats = c.categories || {};
-                    const categories = [
-                      { id: 'menages', label: 'Cat I', value: cats.menages || 0 },
-                      { id: 'administrations', label: 'Cat II', value: cats.administrations || 0 },
-                      { id: 'commerce', label: 'Cat III', value: cats.commerce || 0 },
-                      { id: 'industriel', label: 'Cat IV', value: cats.industriel || 0 },
-                      { id: 'vente_en_gros', label: 'Cat V', value: cats.vente_en_gros || 0 },
-                    ];
-                    // Compute totals as sum of the 5 displayed categories (not c.value which includes unmapped TYPABON)
-                    const res_cats = c.resigned_categories || {};
-                    const total = categories.reduce((s: number, cat: any) => s + cat.value, 0);
-                    const resigned = categories.reduce((s: number, cat: any) => s + (res_cats[cat.id] || 0), 0);
-                    const stopped = c.stopped || 0;
-                    const stoppedRate = total > 0 ? (stopped / total) * 100 : 0;
-
-                    return (
-                      <Fragment key={`${c.code ?? c.name ?? 'commune'}-${index}`}> 
-                        {categories.map((category, rowIndex) => (
-                          <tr key={`${c.code ?? c.name ?? 'commune'}-${category.id}-${rowIndex}`} className="border-b border-[#F2F4F7] hover:bg-[#F9FAFB]">
-                            {rowIndex === 0 ? (
-                              <td rowSpan={categories.length + 1} className="px-6 py-4 text-sm text-[#101828] align-middle text-center font-black">
-                                <span style={{ transform: 'rotate(45deg)', display: 'inline-block' }} className="whitespace-nowrap">
-                                  {c.name}
-                                </span>
-                              </td>
-                            ) : null}
-                            <td className="px-6 py-4 text-sm text-[#101828]">{category.label}</td>
-                            <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{category.value.toLocaleString('fr-FR')}</td>
-                            <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{((c.resigned_categories || {})[category.id] || 0).toLocaleString('fr-FR')}</td>
-                            <td className="px-6 py-4 text-right text-sm text-[#667085] tabular-nums">—</td>
-                            <td className="px-6 py-4 text-right text-sm text-[#667085] tabular-nums">—</td>
-                          </tr>
-                        ))}
-                        <tr className="bg-[#F3F4F6] border-b border-[#D1D5DB] font-black">
-                          <td className="px-6 py-4 text-sm text-[#101828]">Total</td>
-                          <td className="px-6 py-4 text-right text-[#101828] tabular-nums">{total.toLocaleString('fr-FR')}</td>
-                          <td className="px-6 py-4 text-right text-[#101828] tabular-nums">{resigned.toLocaleString('fr-FR')}</td>
-                          <td className="px-6 py-4 text-right text-[#101828] tabular-nums">—</td>
-                          <td className="px-6 py-4 text-right text-[#101828] tabular-nums">{stoppedRate.toFixed(2)}%</td>
-                        </tr>
-                      </Fragment>
-                    );
-                  })}
-                  <tr className="bg-[#E4E7EC] font-black">
-                    <td colSpan={2} className="px-6 py-4 text-sm text-[#101828]">Total général</td>
-                    <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{totalSubscribers.toLocaleString('fr-FR')}</td>
-                    <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{totalResigned.toLocaleString('fr-FR')}</td>
-                    <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">—</td>
-                    <td className="px-6 py-4 text-right text-sm text-[#101828] tabular-nums">{totalRate.toFixed(2)}%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const NUMERIC_SORT_KEYS = new Set(['montant_creance', 'nombre_creance']);
 
@@ -11493,6 +11253,117 @@ function CreancesAbonnesView({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur = '', sectors = [] }: any) {
+  const secteurLabel = selectedSecteur
+    ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : 'Toute l\'unité';
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n)
+      .replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+
+  const communeRows = Array.isArray(data?.by_commune) ? data.by_commune : [];
+  const secteurFieldNames = ['secteur', 'centre', 'center', 'SECTEUR', 'CENTRE', 'center_code'];
+  const hasSecteurInfo = communeRows.some((row: any) =>
+    secteurFieldNames.some((field) => String(row[field] ?? '').trim() !== '')
+  );
+  const filteredCommunes = selectedSecteur && hasSecteurInfo
+    ? communeRows.filter((row: any) => secteurFieldNames.some((field) => String(row[field] ?? '').trim() === selectedSecteur))
+    : communeRows;
+
+  // Use global totals from data object, same as Synthèse Globale
+  const totals = {
+    ca_eau: data?.total_ca_eau || 0,
+    ca_prestation: data?.total_ca_prestation || 0,
+    ca: data?.total_ca || 0,
+    encaissement: data?.total_recouvre || 0,
+    recouvre: data?.total_ca_recouvre || 0,
+    creance: data?.total_creance || 0,
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-12 text-center">
+        <h3 className="text-3xl font-black tracking-tight text-[#101828]">Bilan d'activité</h3>
+        <p className="text-sm text-[#667085] mt-4 max-w-2xl mx-auto">
+          {selectedSecteur ? `Centre : ${secteurLabel}` : 'Vue d’ensemble de l’activité financière.'}
+        </p>
+        {formatPeriodLabel(startDate, endDate) && (
+          <p className="text-sm text-[#334155] mt-3 font-medium">{formatPeriodLabel(startDate, endDate)}</p>
+        )}
+      </div>
+
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h4 className="text-xl font-black text-[#101828]">Communes associées</h4>
+            <p className="text-sm text-[#667085] mt-2">
+              {selectedSecteur
+                ? 'Liste des communes du centre sélectionné.'
+                : 'Liste des communes couvertes par l’analyse.'}
+            </p>
+          </div>
+          <div className="text-right text-xs uppercase tracking-[0.24em] text-[#94A3B8] font-black">
+            {filteredCommunes.length} commune{filteredCommunes.length > 1 ? 's' : ''}
+          </div>
+        </div>
+
+        {filteredCommunes.length === 0 ? (
+          <div className="rounded-[1.5rem] border border-dashed border-[#E4E7EC] bg-[#F8FAFC] p-8 text-center text-sm text-[#667085]">
+            {selectedSecteur
+              ? 'Aucune commune associée à ce centre dans les données disponibles.'
+              : 'Aucune commune disponible pour le bilan d’activité.'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                  <th className="px-8 py-5">Commune</th>
+                  <th className="px-6 py-5 text-right">CA Eau (DA)</th>
+                  <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
+                  <th className="px-6 py-5 text-right">Total CA (DA)</th>
+                  <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
+                  <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
+                  <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
+                  <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {filteredCommunes.map((c: any, i: number) => (
+                  <tr key={c.id || i} className="hover:bg-[#F9FAFB] transition-colors">
+                    <td className="px-8 py-4 font-black text-sm text-[#101828]">{c.name || c.commune || c.NOM || '—'}</td>
+                    <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(Number(c.ca_eau || 0))}</td>
+                    <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(Number(c.ca_prestation || 0))}</td>
+                    <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600">{fmt(Number(c.ca || c.CA || c.ca_total || ((c.ca_eau || 0) + (c.ca_prestation || 0)) || 0))}</td>
+                    <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(Number(c.ca_recouvre || 0))}</td>
+                    <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(Number(c.recouvre || c.encaissement || c.encaisse || c.encaissement_total || 0))}</td>
+                    <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(Number(c.creance || c.CREANCE || 0))}</td>
+                    <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{(Number(c.ca || c.CA || c.ca_total || ((c.ca_eau || 0) + (c.ca_prestation || 0)) || 0) > 0 ? ((Number(c.ca_recouvre || 0) / Number(c.ca || c.CA || c.ca_total || ((c.ca_eau || 0) + (c.ca_prestation || 0)) || 1)) * 100) : 0).toFixed(2)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="sticky bottom-0 z-10">
+                <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                  <td className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                  <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(totals.ca_eau)}</td>
+                  <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(totals.ca_prestation)}</td>
+                  <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(totals.ca)}</td>
+                  <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5">{fmt(totals.recouvre)}</td>
+                  <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5">{fmt(totals.encaissement)}</td>
+                  <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono">{fmt(totals.creance)}</td>
+                  <td className="px-8 py-5 text-right text-slate-300 font-mono">{(totals.ca > 0 ? ((totals.recouvre / totals.ca) * 100) : 0).toFixed(2)}%</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

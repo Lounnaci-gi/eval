@@ -9287,24 +9287,6 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
             {isTableCollapsed ? 'Déplier le Tableau' : 'Plier le Tableau'}
           </button>
 
-          {!isTableCollapsed && (
-            <>
-              <div className="w-[1px] h-6 bg-[#E4E7EC] mx-1 hidden sm:block"></div>
-              <button
-                onClick={expandAllCommunes}
-                className="flex items-center gap-2 px-4 py-2.5 bg-brand-50 text-brand-600 border border-brand-100 rounded-xl text-xs font-black hover:bg-brand-100 hover:text-brand-700 transition-all shadow-sm active:scale-95 cursor-pointer"
-              >
-                Déplier Tout
-              </button>
-              <button
-                onClick={collapseAllCommunes}
-                className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-black hover:bg-slate-100 hover:text-slate-700 transition-all shadow-sm active:scale-95 cursor-pointer"
-              >
-                Plier Tout
-              </button>
-            </>
-          )}
-
           <div className="w-[1px] h-6 bg-[#E4E7EC] mx-1 hidden sm:block"></div>
           <button
             onClick={handlePrint}
@@ -9324,7 +9306,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
-                  <th className="px-8 py-5">Commune</th>
+                  <th className="px-8 py-5 text-center">Commune</th>
                   <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                   <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
                   <th className="px-6 py-5 text-right">Total CA (DA)</th>
@@ -9336,65 +9318,19 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
                 {data.by_commune.map((c: any, i: number) => {
-                  const isCollapsed = collapsedCommunes.includes(c.id);
                   return (
-                    <Fragment key={c.id || i}>
-                      {/* Main Commune Row */}
-                      <tr className="hover:bg-[#F9FAFB] transition-colors group">
-                        <td className="px-8 py-4 font-black text-sm text-[#101828] text-center align-middle">
-                          <div
-                            className="flex items-center justify-center gap-2 cursor-pointer select-none group-hover:text-brand-600 transition-colors"
-                            onClick={() => toggleCommune(c.id)}
-                          >
-                            <div className={`transition-transform duration-200 ${!isCollapsed ? 'rotate-90' : ''}`}>
-                              <ChevronRight size={14} className="text-[#98A2B3]" />
-                            </div>
-                            <span style={{ transform: 'rotate(45deg)', display: 'inline-block' }} className="whitespace-nowrap">
-                              {c.name}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
-                        <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600">{fmt(c.ca)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(c.ca_recouvre || 0)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(c.recouvre)}</td>
-                        <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(c.creance)}</td>
-                        <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{c.taux.toFixed(2)}%</td>
-                      </tr>
-
-                      {/* Eau Sub-row */}
-                      {!isCollapsed && (
-                        <tr className="bg-blue-50/5 hover:bg-blue-50/15 transition-colors border-b border-[#F2F4F7]">
-                          <td className="px-8 py-2.5 pl-14 text-xs font-bold text-blue-600">
-                            <span className="text-[#98A2B3] mr-2">↳</span>Eau
-                          </td>
-                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-blue-600 font-mono">{fmt(c.ca_eau)}</td>
-                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-slate-300 font-mono">-</td>
-                          <td className="px-6 py-2.5 text-right font-bold text-[12px] text-blue-800 font-mono">{fmt(c.ca_eau)}</td>
-                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-teal-600 bg-teal-50/5 font-mono">{fmt(c.ca_recouvre_eau || 0)}</td>
-                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/5 font-mono">{fmt(c.recouvre_eau || 0)}</td>
-                          <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600 bg-rose-50/10 font-mono">{fmt(c.creance_eau || 0)}</td>
-                          <td className="px-8 py-2.5 text-right font-black text-[12px] text-blue-700 font-mono">{c.taux_eau.toFixed(2)}%</td>
-                        </tr>
-                      )}
-
-                      {/* Prestations Sub-row */}
-                      {!isCollapsed && (
-                        <tr className="bg-cyan-50/5 hover:bg-cyan-50/15 transition-colors border-b border-[#F2F4F7]">
-                          <td className="px-8 py-2.5 pl-14 text-xs font-bold text-cyan-600">
-                            <span className="text-[#98A2B3] mr-2">↳</span>Prestations
-                          </td>
-                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-slate-300 font-mono">-</td>
-                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-cyan-600 font-mono">{fmt(c.ca_prestation)}</td>
-                          <td className="px-6 py-2.5 text-right font-bold text-[12px] text-cyan-800 font-mono">{fmt(c.ca_prestation)}</td>
-                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-teal-600 bg-teal-50/5 font-mono">{fmt(c.ca_recouvre_prestation || 0)}</td>
-                          <td className="px-6 py-2.5 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/5 font-mono">{fmt(c.recouvre_prestation || 0)}</td>
-                          <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600 bg-rose-50/10 font-mono">{fmt(c.creance_prestation || 0)}</td>
-                          <td className="px-8 py-2.5 text-right font-black text-[12px] text-cyan-700 font-mono">{c.taux_prestation.toFixed(2)}%</td>
-                        </tr>
-                      )}
-                    </Fragment>
+                    <tr key={c.id || i} className="hover:bg-[#F9FAFB] transition-colors group">
+                      <td className="px-8 py-4 font-black text-sm text-[#101828] text-center">
+                        {c.name}
+                      </td>
+                      <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
+                      <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600">{fmt(c.ca)}</td>
+                      <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(c.ca_recouvre || 0)}</td>
+                      <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(c.recouvre)}</td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(c.creance)}</td>
+                      <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{c.taux.toFixed(2)}%</td>
+                    </tr>
                   );
                 })}
               </tbody>
@@ -11409,35 +11345,11 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
           </div>
         ) : (
           <>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-              <div>
-                <p className="text-sm font-semibold text-[#101828]">Affichage inspiré de la répartition par type d’abonné.</p>
-                <p className="text-xs text-[#667085] mt-1">Certaines communes peuvent être développées pour afficher les montants par type lorsqu’ils sont disponibles.</p>
-              </div>
-              {hasCommuneTypes && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={expandAllCommunes}
-                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                  >
-                    Afficher tout
-                  </button>
-                  <button
-                    type="button"
-                    onClick={collapseAllCommunes}
-                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                  >
-                    Masquer tout
-                  </button>
-                </div>
-              )}
-            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
-                    <th className="px-8 py-5">Commune</th>
+                    <th className="px-8 py-5 text-center">Commune</th>
                     <th className="px-6 py-5">Type d'abonné</th>
                     <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                     <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
@@ -11453,39 +11365,83 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                     const communeId = c.id || String(i);
                     const rawTypeRows = Array.isArray(c.by_type) ? c.by_type : Array.isArray(c.types) ? c.types : [];
                     const typeRows = processTypeRows(rawTypeRows);
-                    const isExpanded = typeRows.length > 0 && expandedCommunes.includes(communeId);
                     const totCa = Number(c.ca || c.CA || c.ca_total || ((c.ca_eau || 0) + (c.ca_prestation || 0)) || 0);
                     const totCaRecouvre = Number(c.ca_recouvre || 0);
                     const taux = totCa > 0 ? (totCaRecouvre / totCa) * 100 : 0;
+
+                    const totalRowsInGroup = 1 + typeRows.reduce((acc: number, type: any) => {
+                      const isGrouped = type.type_code === "2/4/6/7/X/B/G/D/C/A";
+                      const isExpanded = isGrouped && expandedGroupedTypes.includes(`${communeId}-AUTRES_TRAVAUX`);
+                      const childCount = isExpanded && Array.isArray(type.children) ? type.children.length : 0;
+                      return acc + 1 + childCount;
+                    }, 0);
+
                     return (
                       <Fragment key={communeId}>
+                        {/* Commune name row – spans all sub-rows + the Total row at the bottom */}
                         <tr className="hover:bg-[#F9FAFB] transition-colors">
-                          <td className="px-8 py-4 font-black text-sm text-[#101828]">
-                            <div
-                              className={`flex items-center gap-2 ${typeRows.length > 0 ? 'cursor-pointer' : ''}`}
-                              onClick={() => typeRows.length > 0 && toggleCommune(communeId)}
-                            >
-                              {typeRows.length > 0 && (
-                                <ChevronRight
-                                  size={14}
-                                  className={`text-[#98A2B3] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                                />
-                              )}
-                              <span>{c.name || c.commune || c.NOM || '—'}</span>
-                            </div>
+                          <td
+                            rowSpan={totalRowsInGroup}
+                            className="px-8 py-4 font-black text-sm text-[#101828] text-center align-middle bg-white border-r border-[#F2F4F7]"
+                          >
+                            {c.name || c.commune || c.NOM || '—'}
                           </td>
-                          <td className="px-6 py-4 text-xs font-semibold text-[#475467]">
-                            {/* Empty for the main commune row */}
-                          </td>
-                          <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(Number(c.ca_eau || 0))}</td>
-                          <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(Number(c.ca_prestation || 0))}</td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600">{fmt(totCa)}</td>
-                          <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/10">{fmt(totCaRecouvre)}</td>
-                          <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/10">{fmt(Number(c.recouvre || c.encaissement || c.encaisse || c.encaissement_total || 0))}</td>
-                          <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/30">{fmt(Number(c.creance || c.CREANCE || 0))}</td>
-                          <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467]">{taux.toFixed(2)}%</td>
+                          {/* First type row cells inline (first type, if any) */}
+                          {typeRows.length === 0 ? (
+                            /* No types: show Total directly on the commune row */
+                            <>
+                              <td className="px-6 py-4 text-xs font-semibold text-sky-700 bg-sky-50">Total</td>
+                              <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 bg-sky-50">{fmt(Number(c.ca_eau || 0))}</td>
+                              <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 bg-sky-50">{fmt(Number(c.ca_prestation || 0))}</td>
+                              <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 bg-sky-50">{fmt(totCa)}</td>
+                              <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-sky-50">{fmt(totCaRecouvre)}</td>
+                              <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-sky-50">{fmt(Number(c.recouvre || c.encaissement || c.encaisse || c.encaissement_total || 0))}</td>
+                              <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-sky-50">{fmt(Number(c.creance || c.CREANCE || 0))}</td>
+                              <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] bg-sky-50">{taux.toFixed(2)}%</td>
+                            </>
+                          ) : (() => {
+                            /* Render first type row inline (shares the commune row) */
+                            const type = typeRows[0];
+                            const typeCaEau = Number(type.ca_eau || 0);
+                            const typeCaPrest = Number(type.ca_prestation || 0);
+                            const typeCaTotal = Number(type.ca || type.ca_total || ((type.ca_eau || 0) + (type.ca_prestation || 0)) || 0);
+                            const typeCaRecouvre = Number(type.ca_recouvre || 0);
+                            const typeEncaisse = Number(type.recouvre || type.encaissement || type.encaisse || type.encaissement_total || 0);
+                            const typeCreance = Number(type.creance || 0);
+                            const typeTaux = typeCaTotal > 0 ? (typeCaRecouvre / typeCaTotal) * 100 : 0;
+                            const isGroupedRow = type.type_code === "2/4/6/7/X/B/G/D/C/A";
+                            const groupKey = `${communeId}-AUTRES_TRAVAUX`;
+                            const isGroupExpanded = expandedGroupedTypes.includes(groupKey);
+                            return (
+                              <>
+                                <td className="px-6 py-3 text-xs font-semibold text-[#475467]">
+                                  <div className={`flex items-center gap-1${isGroupedRow ? ' gap-2 cursor-pointer select-none' : ''}`}
+                                    onClick={isGroupedRow ? () => toggleGroupedType(groupKey) : undefined}>
+                                    {isGroupedRow && <ChevronRight size={12} className={`text-[#98A2B3] transition-transform ${isGroupExpanded ? 'rotate-90' : ''}`} />}
+                                    <span>↳ </span>
+                                    {type.type_code && (
+                                      <span className="inline-flex items-center font-mono text-[10px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mr-2">
+                                        {type.type_code}
+                                      </span>
+                                    )}
+                                    <span className={isGroupedRow ? 'font-bold text-[#101828] hover:text-brand-600 transition-colors underline decoration-dotted' : ''}>
+                                      {type.name || type.label || type.type || "Type d'Abonné"}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
+                                <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
+                                <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
+                                <td className="px-6 py-3 text-right font-medium text-[12px] text-teal-600 bg-teal-50/10">{fmt(typeCaRecouvre)}</td>
+                                <td className="px-6 py-3 text-right font-medium text-[12px] text-emerald-600 bg-emerald-50/10">{fmt(typeEncaisse)}</td>
+                                <td className="px-6 py-3 text-right font-bold text-[12px] text-rose-600 bg-rose-50/30">{fmt(typeCreance)}</td>
+                                <td className="px-8 py-3 text-right font-bold text-[12px] text-[#475467]">{typeTaux.toFixed(2)}%</td>
+                              </>
+                            );
+                          })()}
                         </tr>
-                        {isExpanded && typeRows.map((type: any, tIndex: number) => {
+                        {/* Remaining type rows (index >= 1) */}
+                        {typeRows.slice(1).map((type: any, tIndex: number) => {
                           const typeCaEau = Number(type.ca_eau || 0);
                           const typeCaPrest = Number(type.ca_prestation || 0);
                           const typeCaTotal = Number(type.ca || type.ca_total || ((type.ca_eau || 0) + (type.ca_prestation || 0)) || 0);
@@ -11493,25 +11449,16 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                           const typeEncaisse = Number(type.recouvre || type.encaissement || type.encaisse || type.encaissement_total || 0);
                           const typeCreance = Number(type.creance || 0);
                           const typeTaux = typeCaTotal > 0 ? (typeCaRecouvre / typeCaTotal) * 100 : 0;
-
                           const isGroupedRow = type.type_code === "2/4/6/7/X/B/G/D/C/A";
                           const groupKey = `${communeId}-AUTRES_TRAVAUX`;
-                          const isGroupExpanded = isGroupedRow && expandedGroupedTypes.includes(groupKey);
-
+                          const isGroupExpanded = expandedGroupedTypes.includes(groupKey);
                           if (isGroupedRow) {
                             return (
-                              <Fragment key={`${communeId}-type-${tIndex}`}>
+                              <Fragment key={`${communeId}-type-${tIndex + 1}`}>
                                 <tr className="bg-slate-50 hover:bg-slate-100/80 transition-colors">
-                                  <td className="px-8 py-3"></td>
                                   <td className="px-6 py-3 text-xs font-semibold text-[#475467]">
-                                    <div
-                                      className="flex items-center gap-2 cursor-pointer"
-                                      onClick={() => toggleGroupedType(groupKey)}
-                                    >
-                                      <ChevronRight
-                                        size={12}
-                                        className={`text-[#98A2B3] transition-transform ${isGroupExpanded ? 'rotate-90' : ''}`}
-                                      />
+                                    <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => toggleGroupedType(groupKey)}>
+                                      <ChevronRight size={12} className={`text-[#98A2B3] transition-transform ${isGroupExpanded ? 'rotate-90' : ''}`} />
                                       <span>↳ </span>
                                       {type.type_code && (
                                         <span className="inline-flex items-center font-mono text-[9px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
@@ -11539,7 +11486,6 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                   const childTaux = childCaTotal > 0 ? (childCaRecouvre / childCaTotal) * 100 : 0;
                                   return (
                                     <tr key={`${communeId}-child-${cIdx}`} className="bg-slate-100/30 hover:bg-slate-200/20 transition-colors">
-                                      <td className="px-8 py-2.5"></td>
                                       <td className="px-6 py-2.5 pl-14 text-xs font-semibold text-[#475467]">
                                         <div className="flex items-center gap-1">
                                           <span className="text-slate-400 mr-2">↳ ↳</span>
@@ -11548,7 +11494,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                               {child.type_code}
                                             </span>
                                           )}
-                                          <span>{child.name || child.label || child.type || 'Type d\'Abonné'}</span>
+                                          <span>{child.name || child.label || child.type || "Type d'Abonné"}</span>
                                         </div>
                                       </td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
@@ -11564,10 +11510,8 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                               </Fragment>
                             );
                           }
-
                           return (
-                            <tr key={`${communeId}-type-${tIndex}`} className="bg-slate-50 hover:bg-slate-100/50 transition-colors">
-                              <td className="px-8 py-3"></td>
+                            <tr key={`${communeId}-type-${tIndex + 1}`} className="bg-slate-50 hover:bg-slate-100/50 transition-colors">
                               <td className="px-6 py-3 text-xs font-semibold text-[#475467]">
                                 <div className="flex items-center gap-1">
                                   <span>↳ </span>
@@ -11576,7 +11520,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                       {type.type_code}
                                     </span>
                                   )}
-                                  <span>{type.name || type.label || type.type || 'Type d\'Abonné'}</span>
+                                  <span>{type.name || type.label || type.type || "Type d'Abonné"}</span>
                                 </div>
                               </td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
@@ -11589,6 +11533,58 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                             </tr>
                           );
                         })}
+                        {/* Also render first type's expanded children if it was grouped */}
+                        {typeRows.length > 0 && (() => {
+                          const type = typeRows[0];
+                          const isGroupedRow = type.type_code === "2/4/6/7/X/B/G/D/C/A";
+                          const groupKey = `${communeId}-AUTRES_TRAVAUX`;
+                          const isGroupExpanded = expandedGroupedTypes.includes(groupKey);
+                          if (!isGroupedRow || !isGroupExpanded || !Array.isArray(type.children)) return null;
+                          return type.children.map((child: any, cIdx: number) => {
+                            const childCaEau = Number(child.ca_eau || 0);
+                            const childCaPrest = Number(child.ca_prestation || 0);
+                            const childCaTotal = Number(child.ca || child.ca_total || ((child.ca_eau || 0) + (child.ca_prestation || 0)) || 0);
+                            const childCaRecouvre = Number(child.ca_recouvre || 0);
+                            const childEncaisse = Number(child.recouvre || child.encaissement || child.encaisse || child.encaissement_total || 0);
+                            const childCreance = Number(child.creance || 0);
+                            const childTaux = childCaTotal > 0 ? (childCaRecouvre / childCaTotal) * 100 : 0;
+                            return (
+                              <tr key={`${communeId}-child0-${cIdx}`} className="bg-slate-100/30 hover:bg-slate-200/20 transition-colors">
+                                <td className="px-6 py-2.5 pl-14 text-xs font-semibold text-[#475467]">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-400 mr-2">↳ ↳</span>
+                                    {child.type_code && (
+                                      <span className="inline-flex items-center font-mono text-[9px] font-black text-slate-500 bg-slate-200/50 px-1.5 py-0.5 rounded border border-slate-300/50">
+                                        {child.type_code}
+                                      </span>
+                                    )}
+                                    <span>{child.name || child.label || child.type || "Type d'Abonné"}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
+                                <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
+                                <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
+                                <td className="px-6 py-2.5 text-right font-medium text-[11px] text-teal-600/80 bg-teal-50/5">{fmt(childCaRecouvre)}</td>
+                                <td className="px-6 py-2.5 text-right font-medium text-[11px] text-emerald-600/80 bg-emerald-50/5">{fmt(childEncaisse)}</td>
+                                <td className="px-6 py-2.5 text-right font-bold text-[12px] text-rose-600/80 bg-rose-50/10">{fmt(childCreance)}</td>
+                                <td className="px-8 py-2.5 text-right font-bold text-[11px] text-[#475467]/80">{childTaux.toFixed(2)}%</td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                        {/* Total row – at the bottom with sky-blue background */}
+                        {typeRows.length > 0 && (
+                          <tr className="bg-sky-100 hover:bg-sky-200/70 transition-colors border-t-2 border-sky-300">
+                            <td className="px-6 py-4 text-xs font-black text-sky-700 uppercase tracking-wide">Total</td>
+                            <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-700">{fmt(Number(c.ca_eau || 0))}</td>
+                            <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-700">{fmt(Number(c.ca_prestation || 0))}</td>
+                            <td className="px-6 py-4 text-right font-black text-[13px] text-brand-700">{fmt(totCa)}</td>
+                            <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-700">{fmt(totCaRecouvre)}</td>
+                            <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-700">{fmt(Number(c.recouvre || c.encaissement || c.encaisse || c.encaissement_total || 0))}</td>
+                            <td className="px-6 py-4 text-right font-black text-[13px] text-rose-700">{fmt(Number(c.creance || c.CREANCE || 0))}</td>
+                            <td className="px-8 py-4 text-right font-black text-[13px] text-sky-700">{taux.toFixed(2)}%</td>
+                          </tr>
+                        )}
                       </Fragment>
                     );
                   })}

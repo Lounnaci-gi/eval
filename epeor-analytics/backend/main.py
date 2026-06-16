@@ -1797,6 +1797,38 @@ def get_official_ca(period_name: str):
     return None
 
 
+def get_forfait_date_bounds(target_date_str: str) -> tuple[str | None, str | None]:
+    import calendar
+    if not target_date_str or len(target_date_str) != 8 or not target_date_str.isdigit():
+        return None, None
+    try:
+        y = int(target_date_str[:4])
+        m = int(target_date_str[4:6])
+        
+        # Lower bound is target_date - 1 month (end of previous month)
+        if m == 1:
+            prev_y = y - 1
+            prev_m = 12
+        else:
+            prev_y = y
+            prev_m = m - 1
+        _, last_day_prev = calendar.monthrange(prev_y, prev_m)
+        lower_bound = f"{prev_y:04d}{prev_m:02d}{last_day_prev:02d}"
+        
+        # Upper bound is target_date + 3 months (end of target_date + 3 months)
+        next_m = m + 3
+        next_y = y
+        if next_m > 12:
+            next_y += 1
+            next_m -= 12
+        _, last_day_next = calendar.monthrange(next_y, next_m)
+        upper_bound = f"{next_y:04d}{next_m:02d}{last_day_next:02d}"
+        
+        return lower_bound, upper_bound
+    except Exception:
+        return None, None
+
+
 @app.get("/creance")
 def get_creance(
     start_date: str = None,
@@ -1858,17 +1890,16 @@ def get_creance(
         sub_counts_commune = {}       # codcom -> set((numab, typabon))
         sub_counts_global = set()     # set((numab, typabon))
 
+        # Forfait (à l'arrêt) parallel counters
+        forfait_counts_commune_type = {}  # (codcom, cat_key) -> set((numab, typabon))
+        forfait_counts_type = {}          # cat_key -> set((numab, typabon))
+        forfait_counts_commune = {}       # codcom -> set((numab, typabon))
+        forfait_counts_global = set()     # set((numab, typabon))
+
         secteur_zfill = str(secteur).strip().zfill(2) if secteur else None
 
-        for (centre, numab, typabon), min_datfact in min_datfact_map.items():
-            if secteur_zfill is not None and centre != secteur_zfill:
-                continue
-            if min_datfact > target_date:
-                continue
-
-            codcom = _abonne_codcom(numab)
-            
-            # Resolve category key
+        # Helper to resolve category key from typabon
+        def _resolve_cat_key(typabon):
             section = 'EAU'
             type_code = 'E'
             if typabon == '15':
@@ -1889,8 +1920,16 @@ def get_creance(
             else:
                 ordre = 6
                 categorie = f'AUTRE EAU ({typabon})'
-                
-            cat_key = (section, ordre, type_code, categorie)
+            return (section, ordre, type_code, categorie)
+
+        for (centre, numab, typabon), min_datfact in min_datfact_map.items():
+            if secteur_zfill is not None and centre != secteur_zfill:
+                continue
+            if min_datfact > target_date:
+                continue
+
+            codcom = _abonne_codcom(numab)
+            cat_key = _resolve_cat_key(typabon)
             
             sub_tuple = (numab, typabon)
 
@@ -1907,6 +1946,68 @@ def get_creance(
             sub_counts_commune[codcom].add(sub_tuple)
             
             sub_counts_global.add(sub_tuple)
+
+        # Count forfait subscribers (ETATCPT = '20') using the new priority-based method
+        lower_bound, upper_bound = get_forfait_date_bounds(target_date)
+        if not lower_bound or not upper_bound:
+            lower_bound = '19000101'
+            upper_bound = target_date
+
+        winning_forfait_records = []
+        for numab, r_list in factures_by_numab.items():
+            candidates = []
+            for r in r_list:
+                etatcpt = str(r.get('ETATCPT') or '').strip()
+                if etatcpt != '20':
+                    continue
+                datfact = str(r.get('DATFACT') or '').strip()
+                if not (lower_bound <= datfact <= upper_bound):
+                    continue
+                typabon = str(r.get('TYPABON') or '').strip()
+                if not typabon:
+                    continue
+                candidates.append(r)
+            
+            if candidates:
+                def get_prio_key(rec):
+                    df = str(rec.get('DATFACT') or '').strip()
+                    if df == target_date:
+                        prio = 0
+                    elif df > target_date:
+                        prio = 1
+                    else:
+                        prio = 2
+                    return (prio, df)
+                
+                winning_rec = min(candidates, key=get_prio_key)
+                winning_forfait_records.append(winning_rec)
+
+        for r in winning_forfait_records:
+            numab = str(r.get('NUMAB') or '').strip().upper()
+            typabon = str(r.get('TYPABON') or '').strip()
+            centre = str(r.get('CENTRE') or '').strip().zfill(2)
+            
+            if secteur_zfill is not None and centre != secteur_zfill:
+                continue
+
+            codcom = _abonne_codcom(numab)
+            cat_key = _resolve_cat_key(typabon)
+            
+            sub_tuple = (numab, typabon)
+
+            if (codcom, cat_key) not in forfait_counts_commune_type:
+                forfait_counts_commune_type[(codcom, cat_key)] = set()
+            forfait_counts_commune_type[(codcom, cat_key)].add(sub_tuple)
+            
+            if cat_key not in forfait_counts_type:
+                forfait_counts_type[cat_key] = set()
+            forfait_counts_type[cat_key].add(sub_tuple)
+            
+            if codcom not in forfait_counts_commune:
+                forfait_counts_commune[codcom] = set()
+            forfait_counts_commune[codcom].add(sub_tuple)
+            
+            forfait_counts_global.add(sub_tuple)
 
         # Chain all records in memory
         records = itertools.chain(
@@ -2126,6 +2227,7 @@ def get_creance(
                     tot_ca_type = td["ca_eau"] + td["ca_prestation"]
                     if tot_ca_type != 0 or td["recouvre"] != 0 or td["ca_recouvre"] != 0 or td["creance"] != 0:
                         sub_count = len(sub_counts_commune_type.get((codcom, type_key), set()))
+                        forfait_count = len(forfait_counts_commune_type.get((codcom, type_key), set()))
                         commune_types.append({
                             "section": td["section"],
                             "ordre": td["ordre"],
@@ -2138,7 +2240,8 @@ def get_creance(
                             "recouvre": round(td["recouvre"], 2),
                             "creance": round(td["creance"], 2),
                             "taux": round((td["ca_recouvre"] / tot_ca_type * 100) if tot_ca_type > 0 else 0, 2),
-                            "sub_count": sub_count
+                            "sub_count": sub_count,
+                            "forfait_count": forfait_count
                         })
                 commune_types.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
@@ -2163,7 +2266,8 @@ def get_creance(
                 "ca_recouvre_prestation": round(ca_rec_prest, 2),
                 "taux_prestation": round(taux_prest, 2),
                 "by_type": commune_types,
-                "sub_count": len(sub_counts_commune.get(codcom, set()))
+                "sub_count": len(sub_counts_commune.get(codcom, set())),
+                "forfait_count": len(forfait_counts_commune.get(codcom, set()))
             })
         communes_list.sort(key=lambda x: x["creance"], reverse=True)
 
@@ -2175,6 +2279,7 @@ def get_creance(
             ca_rec = d.get("ca_recouvre", 0.0)
             taux = (ca_rec / tot_ca * 100) if tot_ca > 0 else 0
             sub_count = len(sub_counts_type.get(cat_key, set()))
+            forfait_count = len(forfait_counts_type.get(cat_key, set()))
             types_list.append({
                 "section": d["section"],
                 "ordre": d["ordre"],
@@ -2187,7 +2292,8 @@ def get_creance(
                 "recouvre": round(d["recouvre"], 2),
                 "ca_recouvre": round(ca_rec, 2),
                 "taux": round(taux, 2),
-                "sub_count": sub_count
+                "sub_count": sub_count,
+                "forfait_count": forfait_count
             })
         types_list.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
@@ -2410,6 +2516,7 @@ def get_creance(
             "total_recouvre": round(total_recouvre, 2),
             "total_ca_recouvre": round(total_ca_recouvre, 2),
             "total_sub_count": len(sub_counts_global),
+            "total_forfait_count": len(forfait_counts_global),
             "by_commune": communes_list,
             "by_type": types_list,
             "by_raw_type": raw_types_list,

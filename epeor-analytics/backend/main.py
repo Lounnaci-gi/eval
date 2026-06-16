@@ -1836,6 +1836,78 @@ def get_creance(
 
         secteur_numabs = _secteur_numabs_set(secteur)
 
+        # Precompute active subscribers count inspired by SQL:
+        # Select CENTRE, Min(DATFACT) as Min_DATFACT, NUMAB From FACTURES.DBF
+        # Where TYPABON <> ''
+        # Group By CENTRE, NUMAB, TYPABON
+        # Having Min(DATFACT) <= target_date
+        min_datfact_map = {}
+        for r in MEM_FACTURES:
+            numab = str(r.get('NUMAB') or '').strip().upper()
+            typabon = str(r.get('TYPABON') or '').strip()
+            centre = str(r.get('CENTRE') or '').strip().zfill(2)
+            datfact = str(r.get('DATFACT') or '').strip()
+            
+            if numab and typabon and datfact and len(datfact) == 8 and datfact.isdigit():
+                key = (centre, numab, typabon)
+                if key not in min_datfact_map or datfact < min_datfact_map[key]:
+                    min_datfact_map[key] = datfact
+
+        sub_counts_commune_type = {}  # (codcom, cat_key) -> set((numab, typabon))
+        sub_counts_type = {}          # cat_key -> set((numab, typabon))
+        sub_counts_commune = {}       # codcom -> set((numab, typabon))
+        sub_counts_global = set()     # set((numab, typabon))
+
+        secteur_zfill = str(secteur).strip().zfill(2) if secteur else None
+
+        for (centre, numab, typabon), min_datfact in min_datfact_map.items():
+            if secteur_zfill is not None and centre != secteur_zfill:
+                continue
+            if min_datfact > target_date:
+                continue
+
+            codcom = _abonne_codcom(numab)
+            
+            # Resolve category key
+            section = 'EAU'
+            type_code = 'E'
+            if typabon == '15':
+                ordre = 5
+                categorie = 'VENTE EN GROS'
+            elif '10' <= typabon <= '19':
+                ordre = 1
+                categorie = 'MENAGES'
+            elif '20' <= typabon <= '29':
+                ordre = 2
+                categorie = 'ADMINISTRATIONS'
+            elif '30' <= typabon <= '39':
+                ordre = 3
+                categorie = 'SERVICES'
+            elif '40' <= typabon <= '49':
+                ordre = 4
+                categorie = 'INDUSTRIE & TOURISME'
+            else:
+                ordre = 6
+                categorie = f'AUTRE EAU ({typabon})'
+                
+            cat_key = (section, ordre, type_code, categorie)
+            
+            sub_tuple = (numab, typabon)
+
+            if (codcom, cat_key) not in sub_counts_commune_type:
+                sub_counts_commune_type[(codcom, cat_key)] = set()
+            sub_counts_commune_type[(codcom, cat_key)].add(sub_tuple)
+            
+            if cat_key not in sub_counts_type:
+                sub_counts_type[cat_key] = set()
+            sub_counts_type[cat_key].add(sub_tuple)
+            
+            if codcom not in sub_counts_commune:
+                sub_counts_commune[codcom] = set()
+            sub_counts_commune[codcom].add(sub_tuple)
+            
+            sub_counts_global.add(sub_tuple)
+
         # Chain all records in memory
         records = itertools.chain(
             ((r, False) for r in MEM_FACTURES),
@@ -2053,6 +2125,7 @@ def get_creance(
                 for type_key, td in commune_type_ca[codcom].items():
                     tot_ca_type = td["ca_eau"] + td["ca_prestation"]
                     if tot_ca_type != 0 or td["recouvre"] != 0 or td["ca_recouvre"] != 0 or td["creance"] != 0:
+                        sub_count = len(sub_counts_commune_type.get((codcom, type_key), set()))
                         commune_types.append({
                             "section": td["section"],
                             "ordre": td["ordre"],
@@ -2064,7 +2137,8 @@ def get_creance(
                             "ca_recouvre": round(td["ca_recouvre"], 2),
                             "recouvre": round(td["recouvre"], 2),
                             "creance": round(td["creance"], 2),
-                            "taux": round((td["ca_recouvre"] / tot_ca_type * 100) if tot_ca_type > 0 else 0, 2)
+                            "taux": round((td["ca_recouvre"] / tot_ca_type * 100) if tot_ca_type > 0 else 0, 2),
+                            "sub_count": sub_count
                         })
                 commune_types.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
@@ -2088,7 +2162,8 @@ def get_creance(
                 "recouvre_prestation": round(d.get("recouvre_prestation", 0.0), 2),
                 "ca_recouvre_prestation": round(ca_rec_prest, 2),
                 "taux_prestation": round(taux_prest, 2),
-                "by_type": commune_types
+                "by_type": commune_types,
+                "sub_count": len(sub_counts_commune.get(codcom, set()))
             })
         communes_list.sort(key=lambda x: x["creance"], reverse=True)
 
@@ -2099,6 +2174,7 @@ def get_creance(
             if tot_ca < 100 and d["recouvre"] < 100 and d["creance"] < 100: continue
             ca_rec = d.get("ca_recouvre", 0.0)
             taux = (ca_rec / tot_ca * 100) if tot_ca > 0 else 0
+            sub_count = len(sub_counts_type.get(cat_key, set()))
             types_list.append({
                 "section": d["section"],
                 "ordre": d["ordre"],
@@ -2110,7 +2186,8 @@ def get_creance(
                 "creance": round(d["creance"], 2),
                 "recouvre": round(d["recouvre"], 2),
                 "ca_recouvre": round(ca_rec, 2),
-                "taux": round(taux, 2)
+                "taux": round(taux, 2),
+                "sub_count": sub_count
             })
         types_list.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
@@ -2332,6 +2409,7 @@ def get_creance(
             "total_creance": round(total_creance, 2),
             "total_recouvre": round(total_recouvre, 2),
             "total_ca_recouvre": round(total_ca_recouvre, 2),
+            "total_sub_count": len(sub_counts_global),
             "by_commune": communes_list,
             "by_type": types_list,
             "by_raw_type": raw_types_list,

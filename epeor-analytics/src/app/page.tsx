@@ -8548,13 +8548,14 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
       const subTotalCaRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + (curr.ca_recouvre || 0), 0);
       const subTotalRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + curr.recouvre, 0);
       const subTotalCreance = sectionRows.reduce((acc: number, curr: any) => acc + curr.creance, 0);
+      const subTotalSubCount = sectionRows.reduce((acc: number, curr: any) => acc + (curr.sub_count || 0), 0);
       const subTotalTaux = subTotalCa > 0 ? (subTotalCaRecouvre / subTotalCa * 100) : 0;
 
       const isEau = section === 'EAU';
 
       tableRowsHtml += `
         <tr class="group-header">
-          <td colspan="9" style="padding: 8px 12px; font-weight: bold; background: ${isEau ? '#eff6ff' : '#f0fdf4'};">
+          <td colspan="10" style="padding: 8px 12px; font-weight: bold; background: ${isEau ? '#eff6ff' : '#f0fdf4'};">
             <span class="badge ${isEau ? 'badge-blue' : 'badge-green'}">${section}</span>
             <span style="margin-left: 6px; font-size: 9px; color: #475467;">(${sectionRows.length} types d'abonnés)</span>
           </td>
@@ -8566,6 +8567,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
           <tr>
             <td style="padding: 5px 12px; font-family: monospace; font-size: 9px; font-weight: bold; color: #475467;">${t.type_code}</td>
             <td style="padding: 5px 12px; font-weight: bold;">${t.name}</td>
+            <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #475467;">${t.sub_count || 0}</td>
             <td style="padding: 5px 12px; text-align: right; color: #2563eb;">${fmt(t.ca_eau)}</td>
             <td style="padding: 5px 12px; text-align: right; color: #0891b2;">${fmt(t.ca_prestation)}</td>
             <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #4f46e5;">${fmt(t.ca)}</td>
@@ -8580,6 +8582,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
       tableRowsHtml += `
         <tr class="subtotal-row" style="background: #f8fafc; font-weight: bold; border-top: 1px solid #e2e8f0; border-bottom: 2px solid #cbd5e1;">
           <td colspan="2" style="padding: 8px 12px; text-transform: uppercase; font-size: 9px;">Sous-total ${section}</td>
+          <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #475467;">${subTotalSubCount}</td>
           <td style="padding: 8px 12px; text-align: right; color: #2563eb;">${fmt(subTotalCaEau)}</td>
           <td style="padding: 8px 12px; text-align: right; color: #0891b2;">${fmt(subTotalCaPrest)}</td>
           <td style="padding: 8px 12px; text-align: right; color: #4f46e5;">${fmt(subTotalCa)}</td>
@@ -8596,6 +8599,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
       tableRowsHtml += `
         <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
           <td colspan="2" style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
+          <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${data.total_sub_count || 0}</td>
           <td style="padding: 9px 12px; text-align: right; color: #93c5fd; border-bottom: none;">${fmt(data.total_ca_eau)}</td>
           <td style="padding: 9px 12px; text-align: right; color: #a5f3fc; border-bottom: none;">${fmt(data.total_ca_prestation)}</td>
           <td style="padding: 9px 12px; text-align: right; color: #c7d2fe; border-bottom: none;">${fmt(data.total_ca)}</td>
@@ -8788,6 +8792,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
               <tr>
                 <th style="width: 50px;">Code</th>
                 <th>Type d'Abonné</th>
+                <th style="text-align: right;">Nombre d'abonnés</th>
                 <th style="text-align: right;">CA Eau</th>
                 <th style="text-align: right;">CA Prest.</th>
                 <th style="text-align: right;">Total CA</th>
@@ -8913,6 +8918,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                 <th className="px-8 py-5">Section</th>
                 <th className="px-6 py-5">Type</th>
                 <th className="px-8 py-5">Type d'Abonné</th>
+                <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
                 <th className="px-6 py-5 text-right">CA Eau</th>
                 <th className="px-6 py-5 text-right">CA Prest.</th>
                 <th className="px-6 py-5 text-right">Total CA</th>
@@ -8945,7 +8951,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                       onClick={() => toggleTypeSection(section)}
                       className={`${isEau ? 'bg-blue-50/10' : 'bg-teal-50/10'} cursor-pointer hover:bg-slate-50/50 transition-colors border-y border-[#F2F4F7]`}
                     >
-                      <td colSpan={10} className="px-8 py-4">
+                      <td colSpan={11} className="px-8 py-4">
                         <div className="flex items-center gap-3">
                           <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
                             <ChevronRight size={16} className="text-[#98A2B3]" />
@@ -8978,6 +8984,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                           </span>
                         </td>
                         <td className="px-8 py-4 font-black text-sm text-[#101828]">{t.name}</td>
+                        <td className="px-6 py-4 text-right font-bold text-[13px] text-[#475467]">{t.sub_count || 0}</td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 whitespace-nowrap">
                           <span className="cursor-pointer hover:bg-blue-50/60 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_eau' })} title="Voir les abonnés concernés">{fmt(t.ca_eau)}</span>
                         </td>
@@ -9008,6 +9015,9 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                           <span className="font-black text-[12px] text-[#101828] uppercase tracking-wider">Sous-total {section}</span>
                         </div>
                       </td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-[#475467] font-mono whitespace-nowrap">
+                        {sectionRows.reduce((acc: number, curr: any) => acc + (curr.sub_count || 0), 0)}
+                      </td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-blue-600 font-mono whitespace-nowrap">{fmt(subTotalCaEau)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-cyan-600 font-mono whitespace-nowrap">{fmt(subTotalCaPrest)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 font-mono whitespace-nowrap">{fmt(subTotalCa)}</td>
@@ -9024,6 +9034,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
               <tfoot className="sticky bottom-0 z-10">
                 <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
                   <td colSpan={3} className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                  <td className="px-6 py-5 text-right text-slate-300 font-mono whitespace-nowrap">{data.total_sub_count || 0}</td>
                   <td className="px-6 py-5 text-right text-blue-400 font-mono whitespace-nowrap">{fmt(data.total_ca_eau)}</td>
                   <td className="px-6 py-5 text-right text-cyan-400 font-mono whitespace-nowrap">{fmt(data.total_ca_prestation)}</td>
                   <td className="px-6 py-5 text-right text-brand-400 font-mono whitespace-nowrap">{fmt(data.total_ca)}</td>
@@ -9090,6 +9101,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
       tableRowsHtml += `
         <tr class="commune-row">
           <td style="padding:5px 8px;font-weight:700;color:#101828;">${c.name}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#475467;">${c.sub_count || 0}</td>
           <td style="padding:5px 8px;text-align:right;color:#2563eb;">${fmtP(c.ca_eau)}</td>
           <td style="padding:5px 8px;text-align:right;color:#0891b2;">${fmtP(c.ca_prestation)}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#0D83DE;">${fmtP(c.ca)}</td>
@@ -9100,6 +9112,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
         </tr>
         <tr class="sub-row">
           <td style="padding:3px 8px 3px 22px;font-size:8px;color:#2563eb;">\u21b3\u00a0Eau</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#475467;">${c.sub_count || 0}</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#2563eb;">${fmtP(c.ca_eau)}</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#1e40af;">${fmtP(c.ca_eau)}</td>
@@ -9110,6 +9123,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
         </tr>
         <tr class="sub-row">
           <td style="padding:3px 8px 3px 22px;font-size:8px;color:#0891b2;">\u21b3\u00a0Prestations</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#0891b2;">${fmtP(c.ca_prestation)}</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#164e63;">${fmtP(c.ca_prestation)}</td>
@@ -9125,6 +9139,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
     tableRowsHtml += `
       <tr style="background:#0f172a;color:white;font-weight:700;font-size:9px;">
         <td style="padding:8px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:none;">Total G\u00e9n\u00e9ral</td>
+        <td style="padding:8px;text-align:right;color:#e2e8f0;border-bottom:none;">${data.total_sub_count || 0}</td>
         <td style="padding:8px;text-align:right;color:#93c5fd;border-bottom:none;">${fmtP(data.total_ca_eau)}</td>
         <td style="padding:8px;text-align:right;color:#67e8f9;border-bottom:none;">${fmtP(data.total_ca_prestation)}</td>
         <td style="padding:8px;text-align:right;color:#60a5fa;border-bottom:none;">${fmtP(data.total_ca)}</td>
@@ -9203,6 +9218,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
             <thead>
               <tr>
                 <th>Commune</th>
+                <th style="text-align:right;color:#475467;">Nombre d'abonnés</th>
                 <th style="text-align:right;color:#2563eb;">CA Eau (DA)</th>
                 <th style="text-align:right;color:#0891b2;">CA Prest. (DA)</th>
                 <th style="text-align:right;">Total CA (DA)</th>
@@ -9307,6 +9323,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
               <thead>
                 <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
                   <th className="px-8 py-5 text-center">Commune</th>
+                  <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
                   <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                   <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
                   <th className="px-6 py-5 text-right">Total CA (DA)</th>
@@ -9317,12 +9334,13 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
-                {data.by_commune.map((c: any, i: number) => {
+                 {data.by_commune.map((c: any, i: number) => {
                   return (
                     <tr key={c.id || i} className="hover:bg-[#F9FAFB] transition-colors group">
                       <td className="px-8 py-4 font-black text-sm text-[#101828] text-center">
                         {c.name}
                       </td>
+                      <td className="px-6 py-4 text-right font-bold text-[13px] text-[#475467]">{c.sub_count || 0}</td>
                       <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
                       <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600">{fmt(c.ca)}</td>
@@ -9337,6 +9355,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
               <tfoot className="sticky bottom-0 z-10">
                 <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
                   <td className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                  <td className="px-6 py-5 text-right text-slate-300 font-mono">{data.total_sub_count || 0}</td>
                   <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
                   <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
                   <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(data.total_ca)}</td>
@@ -11351,6 +11370,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
                     <th className="px-8 py-5 text-center">Commune</th>
                     <th className="px-6 py-5">Type d'abonné</th>
+                    <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
                     <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                     <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
                     <th className="px-6 py-5 text-right">Total CA (DA)</th>
@@ -11391,6 +11411,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                             /* No types: show Total directly on the commune row */
                             <>
                               <td className="px-6 py-4 text-xs font-semibold text-sky-700 bg-sky-50">Total</td>
+                              <td className="px-6 py-4 text-right font-bold text-[13px] text-[#475467] bg-sky-50">{c.sub_count || 0}</td>
                               <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 bg-sky-50">{fmt(Number(c.ca_eau || 0))}</td>
                               <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 bg-sky-50">{fmt(Number(c.ca_prestation || 0))}</td>
                               <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 bg-sky-50">{fmt(totCa)}</td>
@@ -11429,6 +11450,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                     </span>
                                   </div>
                                 </td>
+                                <td className="px-6 py-3 text-right font-bold text-[12px] text-[#475467]">{type.sub_count || 0}</td>
                                 <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                                 <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11468,6 +11490,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                       <span className="font-bold text-[#101828] hover:text-brand-600 transition-colors underline decoration-dotted">{type.name}</span>
                                     </div>
                                   </td>
+                                  <td className="px-6 py-3 text-right font-bold text-[12px] text-[#475467]">{type.sub_count || 0}</td>
                                   <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                                   <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                                   <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11497,6 +11520,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                           <span>{child.name || child.label || child.type || "Type d'Abonné"}</span>
                                         </div>
                                       </td>
+                                      <td className="px-6 py-2.5 text-right font-medium text-[11px] text-[#475467]/80">{child.sub_count || 0}</td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
                                       <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
@@ -11523,6 +11547,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                   <span>{type.name || type.label || type.type || "Type d'Abonné"}</span>
                                 </div>
                               </td>
+                              <td className="px-6 py-3 text-right font-bold text-[12px] text-[#475467]">{type.sub_count || 0}</td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                               <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11561,6 +11586,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                     <span>{child.name || child.label || child.type || "Type d'Abonné"}</span>
                                   </div>
                                 </td>
+                                <td className="px-6 py-2.5 text-right font-medium text-[11px] text-[#475467]/80">{child.sub_count || 0}</td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
                                 <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
@@ -11576,6 +11602,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                         {typeRows.length > 0 && (
                           <tr className="bg-sky-100 hover:bg-sky-200/70 transition-colors border-t-2 border-sky-300">
                             <td className="px-6 py-4 text-xs font-black text-sky-700 uppercase tracking-wide">Total</td>
+                            <td className="px-6 py-4 text-right font-black text-[13px] text-sky-700">{c.sub_count || 0}</td>
                             <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-700">{fmt(Number(c.ca_eau || 0))}</td>
                             <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-700">{fmt(Number(c.ca_prestation || 0))}</td>
                             <td className="px-6 py-4 text-right font-black text-[13px] text-brand-700">{fmt(totCa)}</td>
@@ -11592,6 +11619,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                 <tfoot className="sticky bottom-0 z-10">
                   <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
                     <td colSpan={2} className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                    <td className="px-6 py-5 text-right text-slate-300 font-mono">{data.total_sub_count || 0}</td>
                     <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(totals.ca_eau)}</td>
                     <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(totals.ca_prestation)}</td>
                     <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(totals.ca)}</td>

@@ -1928,6 +1928,12 @@ def get_creance(
         forfait_counts_commune = {}       # codcom -> set((numab, typabon))
         forfait_counts_global = set()     # set((numab, typabon))
 
+        # Sans Compteur (ETATCPT = '30') parallel counters
+        sc_counts_commune_type = {}  # (codcom, cat_key) -> set((numab, typabon))
+        sc_counts_type = {}          # cat_key -> set((numab, typabon))
+        sc_counts_commune = {}       # codcom -> set((numab, typabon))
+        sc_counts_global = set()     # set((numab, typabon))
+
         secteur_zfill = str(secteur).strip().zfill(2) if secteur else None
 
         # Helper to resolve category key from typabon
@@ -2013,6 +2019,63 @@ def get_creance(
                 
                 winning_rec = min(candidates, key=get_prio_key)
                 winning_forfait_records.append(winning_rec)
+
+        # Count sans compteur subscribers (ETATCPT = '30') using the same priority-based method
+        winning_sc_records = []
+        for numab, r_list in factures_by_numab.items():
+            candidates = []
+            for r in r_list:
+                etatcpt = str(r.get('ETATCPT') or '').strip()
+                if etatcpt != '30':
+                    continue
+                datsaisie = str(r.get('DATSAISIE') or '').strip()
+                if not (lower_bound <= datsaisie <= upper_bound):
+                    continue
+                typabon = str(r.get('TYPABON') or '').strip()
+                if not typabon:
+                    continue
+                candidates.append(r)
+            
+            if candidates:
+                def get_prio_key(rec):
+                    ds = str(rec.get('DATSAISIE') or '').strip()
+                    if ds == target_date:
+                        prio = 0
+                    elif ds > target_date:
+                        prio = 1
+                    else:
+                        prio = 2
+                    return (prio, ds)
+                
+                winning_rec = min(candidates, key=get_prio_key)
+                winning_sc_records.append(winning_rec)
+
+        for r in winning_sc_records:
+            numab = str(r.get('NUMAB') or '').strip().upper()
+            typabon = str(r.get('TYPABON') or '').strip()
+            centre = str(r.get('CENTRE') or '').strip().zfill(2)
+            
+            if secteur_zfill is not None and centre != secteur_zfill:
+                continue
+
+            codcom = _abonne_codcom(numab)
+            cat_key = _resolve_cat_key(typabon)
+            
+            sub_tuple = (numab, typabon)
+
+            if (codcom, cat_key) not in sc_counts_commune_type:
+                sc_counts_commune_type[(codcom, cat_key)] = set()
+            sc_counts_commune_type[(codcom, cat_key)].add(sub_tuple)
+            
+            if cat_key not in sc_counts_type:
+                sc_counts_type[cat_key] = set()
+            sc_counts_type[cat_key].add(sub_tuple)
+            
+            if codcom not in sc_counts_commune:
+                sc_counts_commune[codcom] = set()
+            sc_counts_commune[codcom].add(sub_tuple)
+            
+            sc_counts_global.add(sub_tuple)
 
         for r in winning_forfait_records:
             numab = str(r.get('NUMAB') or '').strip().upper()
@@ -2260,6 +2323,7 @@ def get_creance(
                     if tot_ca_type != 0 or td["recouvre"] != 0 or td["ca_recouvre"] != 0 or td["creance"] != 0:
                         sub_count = len(sub_counts_commune_type.get((codcom, type_key), set()))
                         forfait_count = len(forfait_counts_commune_type.get((codcom, type_key), set()))
+                        sc_count = len(sc_counts_commune_type.get((codcom, type_key), set()))
                         commune_types.append({
                             "section": td["section"],
                             "ordre": td["ordre"],
@@ -2273,7 +2337,8 @@ def get_creance(
                             "creance": round(td["creance"], 2),
                             "taux": round((td["ca_recouvre"] / tot_ca_type * 100) if tot_ca_type > 0 else 0, 2),
                             "sub_count": sub_count,
-                            "forfait_count": forfait_count
+                            "forfait_count": forfait_count,
+                            "sc_count": sc_count
                         })
                 commune_types.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
@@ -2299,7 +2364,8 @@ def get_creance(
                 "taux_prestation": round(taux_prest, 2),
                 "by_type": commune_types,
                 "sub_count": len(sub_counts_commune.get(codcom, set())),
-                "forfait_count": len(forfait_counts_commune.get(codcom, set()))
+                "forfait_count": len(forfait_counts_commune.get(codcom, set())),
+                "sc_count": len(sc_counts_commune.get(codcom, set()))
             })
         communes_list.sort(key=lambda x: x["creance"], reverse=True)
 
@@ -2312,6 +2378,7 @@ def get_creance(
             taux = (ca_rec / tot_ca * 100) if tot_ca > 0 else 0
             sub_count = len(sub_counts_type.get(cat_key, set()))
             forfait_count = len(forfait_counts_type.get(cat_key, set()))
+            sc_count = len(sc_counts_type.get(cat_key, set()))
             types_list.append({
                 "section": d["section"],
                 "ordre": d["ordre"],
@@ -2325,7 +2392,8 @@ def get_creance(
                 "ca_recouvre": round(ca_rec, 2),
                 "taux": round(taux, 2),
                 "sub_count": sub_count,
-                "forfait_count": forfait_count
+                "forfait_count": forfait_count,
+                "sc_count": sc_count
             })
         types_list.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
@@ -2549,6 +2617,7 @@ def get_creance(
             "total_ca_recouvre": round(total_ca_recouvre, 2),
             "total_sub_count": len(sub_counts_global),
             "total_forfait_count": len(forfait_counts_global),
+            "total_sc_count": len(sc_counts_global),
             "by_commune": communes_list,
             "by_type": types_list,
             "by_raw_type": raw_types_list,

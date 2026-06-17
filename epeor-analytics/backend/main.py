@@ -1805,24 +1805,56 @@ def get_forfait_date_bounds(target_date_str: str) -> tuple[str | None, str | Non
         y = int(target_date_str[:4])
         m = int(target_date_str[4:6])
         
-        # Lower bound is target_date - 1 month (end of previous month)
-        if m == 1:
-            prev_y = y - 1
-            prev_m = 12
+        # 1. Lower bound (end of previous quarter)
+        if m in [1, 2, 3]:
+            prev_q_y = y - 1
+            prev_q_m = 12
+        elif m in [4, 5, 6]:
+            prev_q_y = y
+            prev_q_m = 3
+        elif m in [7, 8, 9]:
+            prev_q_y = y
+            prev_q_m = 6
         else:
-            prev_y = y
-            prev_m = m - 1
-        _, last_day_prev = calendar.monthrange(prev_y, prev_m)
-        lower_bound = f"{prev_y:04d}{prev_m:02d}{last_day_prev:02d}"
-        
-        # Upper bound is target_date + 3 months (end of target_date + 3 months)
-        next_m = m + 3
-        next_y = y
-        if next_m > 12:
-            next_y += 1
-            next_m -= 12
-        _, last_day_next = calendar.monthrange(next_y, next_m)
-        upper_bound = f"{next_y:04d}{next_m:02d}{last_day_next:02d}"
+            prev_q_y = y
+            prev_q_m = 9
+        _, prev_q_last_day = calendar.monthrange(prev_q_y, prev_q_m)
+        lower_bound = f"{prev_q_y:04d}{prev_q_m:02d}{prev_q_last_day:02d}"
+
+        # 2. Upper bound (max of next_month_end and quarter_end)
+        next_m_y = y
+        next_m_m = m + 1
+        if next_m_m > 12:
+            next_m_y += 1
+            next_m_m = 1
+        _, next_m_last_day = calendar.monthrange(next_m_y, next_m_m)
+        next_month_end = f"{next_m_y:04d}{next_m_m:02d}{next_m_last_day:02d}"
+
+        is_q_end = (m in [3, 6, 9, 12])
+        if is_q_end:
+            if m == 3:
+                q_y, q_m = y, 6
+            elif m == 6:
+                q_y, q_m = y, 9
+            elif m == 9:
+                q_y, q_m = y, 12
+            else:
+                q_y, q_m = y + 1, 3
+        else:
+            if m in [1, 2]:
+                q_y, q_m = y, 3
+            elif m in [4, 5]:
+                q_y, z_q_m = y, 6  # wait, let's keep name standard
+                q_y, q_m = y, 6
+            elif m in [7, 8]:
+                q_y, q_m = y, 9
+            else:
+                q_y, q_m = y, 12
+                
+        _, q_last_day = calendar.monthrange(q_y, q_m)
+        quarter_end = f"{q_y:04d}{q_m:02d}{q_last_day:02d}"
+
+        upper_bound = max(next_month_end, quarter_end)
         
         return lower_bound, upper_bound
     except Exception:
@@ -1960,8 +1992,8 @@ def get_creance(
                 etatcpt = str(r.get('ETATCPT') or '').strip()
                 if etatcpt != '20':
                     continue
-                datfact = str(r.get('DATFACT') or '').strip()
-                if not (lower_bound <= datfact <= upper_bound):
+                datsaisie = str(r.get('DATSAISIE') or '').strip()
+                if not (lower_bound <= datsaisie <= upper_bound):
                     continue
                 typabon = str(r.get('TYPABON') or '').strip()
                 if not typabon:
@@ -1970,14 +2002,14 @@ def get_creance(
             
             if candidates:
                 def get_prio_key(rec):
-                    df = str(rec.get('DATFACT') or '').strip()
-                    if df == target_date:
+                    ds = str(rec.get('DATSAISIE') or '').strip()
+                    if ds == target_date:
                         prio = 0
-                    elif df > target_date:
+                    elif ds > target_date:
                         prio = 1
                     else:
                         prio = 2
-                    return (prio, df)
+                    return (prio, ds)
                 
                 winning_rec = min(candidates, key=get_prio_key)
                 winning_forfait_records.append(winning_rec)

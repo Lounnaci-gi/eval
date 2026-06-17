@@ -8557,7 +8557,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
 
       tableRowsHtml += `
         <tr class="group-header">
-          <td colspan="12" style="padding: 8px 12px; font-weight: bold; background: ${isEau ? '#eff6ff' : '#f0fdf4'};">
+          <td colspan="13" style="padding: 8px 12px; font-weight: bold; background: ${isEau ? '#eff6ff' : '#f0fdf4'};">
             <span class="badge ${isEau ? 'badge-blue' : 'badge-green'}">${section}</span>
             <span style="margin-left: 6px; font-size: 9px; color: #475467;">(${sectionRows.length} types d'abonnés)</span>
           </td>
@@ -8572,6 +8572,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
             <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #475467;">${t.sub_count || 0}</td>
             <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #e67e22;">${t.forfait_count || 0}</td>
             <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #7c3aed;">${t.sc_count || 0}</td>
+            <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #e67e22;">${(t.sub_count > 0 ? (t.forfait_count / t.sub_count * 100) : 0).toFixed(2)}%</td>
             <td style="padding: 5px 12px; text-align: right; color: #2563eb;">${fmt(t.ca_eau)}</td>
             <td style="padding: 5px 12px; text-align: right; color: #0891b2;">${fmt(t.ca_prestation)}</td>
             <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #4f46e5;">${fmt(t.ca)}</td>
@@ -8589,6 +8590,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
           <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #475467;">${subTotalSubCount}</td>
           <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #e67e22;">${subTotalForfaitCount}</td>
           <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #7c3aed;">${subTotalScCount}</td>
+          <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #e67e22;">${(subTotalSubCount > 0 ? (subTotalForfaitCount / subTotalSubCount * 100) : 0).toFixed(2)}%</td>
           <td style="padding: 8px 12px; text-align: right; color: #2563eb;">${fmt(subTotalCaEau)}</td>
           <td style="padding: 8px 12px; text-align: right; color: #0891b2;">${fmt(subTotalCaPrest)}</td>
           <td style="padding: 8px 12px; text-align: right; color: #4f46e5;">${fmt(subTotalCa)}</td>
@@ -8608,6 +8610,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
           <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${data.total_sub_count || 0}</td>
           <td style="padding: 9px 12px; text-align: right; color: #f0b27a; border-bottom: none;">${data.total_forfait_count || 0}</td>
           <td style="padding: 9px 12px; text-align: right; color: #c4b5fd; border-bottom: none;">${data.total_sc_count || 0}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #f0b27a; border-bottom: none;">${(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
           <td style="padding: 9px 12px; text-align: right; color: #93c5fd; border-bottom: none;">${fmt(data.total_ca_eau)}</td>
           <td style="padding: 9px 12px; text-align: right; color: #a5f3fc; border-bottom: none;">${fmt(data.total_ca_prestation)}</td>
           <td style="padding: 9px 12px; text-align: right; color: #c7d2fe; border-bottom: none;">${fmt(data.total_ca)}</td>
@@ -8803,6 +8806,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                 <th style="text-align: right;">Nombre d'abonnés</th>
                 <th style="text-align: right; color: #e67e22;">Forfait</th>
                 <th style="text-align: right; color: #7c3aed;">Sans Compteur</th>
+                <th style="text-align: right; color: #e67e22;">Taux Forfait</th>
                 <th style="text-align: right;">CA Eau</th>
                 <th style="text-align: right;">CA Prest.</th>
                 <th style="text-align: right;">Total CA</th>
@@ -8931,6 +8935,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                 <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
                 <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                 <th className="px-6 py-5 text-right text-violet-600">Sans Compteur</th>
+                <th className="px-6 py-5 text-right text-orange-500">Taux Forfait</th>
                 <th className="px-6 py-5 text-right">CA Eau</th>
                 <th className="px-6 py-5 text-right">CA Prest.</th>
                 <th className="px-6 py-5 text-right">Total CA</th>
@@ -8953,6 +8958,9 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                 const subTotalRecouvre = sectionRows.reduce((acc: number, curr: any) => acc + curr.recouvre, 0);
                 const subTotalCreance = sectionRows.reduce((acc: number, curr: any) => acc + curr.creance, 0);
                 const subTotalTaux = subTotalCa > 0 ? (subTotalCaRecouvre / subTotalCa * 100) : 0;
+                const subTotalSubCount = sectionRows.reduce((acc: number, curr: any) => acc + (curr.sub_count || 0), 0);
+                const subTotalForfaitCount = sectionRows.reduce((acc: number, curr: any) => acc + (curr.forfait_count || 0), 0);
+                const subTotalScCount = sectionRows.reduce((acc: number, curr: any) => acc + (curr.sc_count || 0), 0);
 
                 const isEau = section === 'EAU';
 
@@ -8963,7 +8971,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                       onClick={() => toggleTypeSection(section)}
                       className={`${isEau ? 'bg-blue-50/10' : 'bg-teal-50/10'} cursor-pointer hover:bg-slate-50/50 transition-colors border-y border-[#F2F4F7]`}
                     >
-                      <td colSpan={12} className="px-8 py-4">
+                      <td colSpan={13} className="px-8 py-4">
                         <div className="flex items-center gap-3">
                           <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
                             <ChevronRight size={16} className="text-[#98A2B3]" />
@@ -8978,27 +8986,18 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                       </td>
                     </tr>
 
-                    {isExpanded && sectionRows.map((t: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50/40 transition-colors group">
-                        {i === 0 && (
-                          <td
-                            rowSpan={sectionRows.length}
-                            className="px-8 py-4 align-middle border-r border-[#F2F4F7]"
-                          >
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase ${isEau ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-teal-50 text-teal-600 border border-teal-100/50'}`}>
-                              {t.section}
-                            </span>
-                          </td>
-                        )}
-                        <td className="px-6 py-4">
-                          <span className="font-mono text-[10px] font-medium text-[#667085] bg-[#F9FAFB] px-2 py-0.5 rounded border border-[#E4E7EC]">
-                            {t.type_code}
-                          </span>
+                    {/* Detail Rows */}
+                    {isExpanded && sectionRows.map((t: any) => (
+                      <tr key={t.name} className={`${isEau ? 'hover:bg-blue-50/30' : 'hover:bg-teal-50/30'} transition-colors`}>
+                        <td colSpan={3} className="px-8 py-4">
+                          <span className="text-[12px] font-medium text-[#344054] pl-8">{t.name}</span>
                         </td>
-                        <td className="px-8 py-4 font-black text-sm text-[#101828]">{t.name}</td>
                         <td className="px-6 py-4 text-right font-bold text-[13px] text-[#475467]">{t.sub_count || 0}</td>
                         <td className="px-6 py-4 text-right font-bold text-[13px] text-orange-500">{t.forfait_count || 0}</td>
                         <td className="px-6 py-4 text-right font-bold text-[13px] text-violet-600">{t.sc_count || 0}</td>
+                        <td className="px-6 py-4 text-right font-bold text-[13px] text-orange-500">
+                          {(t.sub_count > 0 ? (t.forfait_count / t.sub_count * 100) : 0).toFixed(2)}%
+                        </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 whitespace-nowrap">
                           <span className="cursor-pointer hover:bg-blue-50/60 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_eau' })} title="Voir les abonnés concernés">{fmt(t.ca_eau)}</span>
                         </td>
@@ -9020,7 +9019,7 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                         <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] whitespace-nowrap">{t.taux.toFixed(2)}%</td>
                       </tr>
                     ))}
-
+ 
                     {/* Section Subtotal Row */}
                     <tr className={`${isEau ? 'bg-blue-50/40' : 'bg-teal-50/40'} border-y border-[#F2F4F7]/50`}>
                       <td colSpan={3} className="px-8 py-4">
@@ -9030,13 +9029,16 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-[#475467] font-mono whitespace-nowrap">
-                        {sectionRows.reduce((acc: number, curr: any) => acc + (curr.sub_count || 0), 0)}
+                        {subTotalSubCount}
                       </td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-orange-500 font-mono whitespace-nowrap">
-                        {sectionRows.reduce((acc: number, curr: any) => acc + (curr.forfait_count || 0), 0)}
+                        {subTotalForfaitCount}
                       </td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-violet-600 font-mono whitespace-nowrap">
-                        {sectionRows.reduce((acc: number, curr: any) => acc + (curr.sc_count || 0), 0)}
+                        {subTotalScCount}
+                      </td>
+                      <td className="px-6 py-4 text-right font-black text-[13px] text-orange-500 font-mono whitespace-nowrap">
+                        {(subTotalSubCount > 0 ? (subTotalForfaitCount / subTotalSubCount * 100) : 0).toFixed(2)}%
                       </td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-blue-600 font-mono whitespace-nowrap">{fmt(subTotalCaEau)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-cyan-600 font-mono whitespace-nowrap">{fmt(subTotalCaPrest)}</td>
@@ -9053,17 +9055,20 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
             {typeSectionFilter === 'ALL' && (
               <tfoot className="sticky bottom-0 z-10">
                 <tr className="bg-slate-900 text-white font-black shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
-                  <td colSpan={3} className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
-                  <td className="px-6 py-5 text-right text-slate-300 font-mono whitespace-nowrap">{data.total_sub_count || 0}</td>
-                  <td className="px-6 py-5 text-right text-orange-400 font-mono whitespace-nowrap">{data.total_forfait_count || 0}</td>
-                  <td className="px-6 py-5 text-right text-violet-400 font-mono whitespace-nowrap">{data.total_sc_count || 0}</td>
-                  <td className="px-6 py-5 text-right text-blue-400 font-mono whitespace-nowrap">{fmt(data.total_ca_eau)}</td>
-                  <td className="px-6 py-5 text-right text-cyan-400 font-mono whitespace-nowrap">{fmt(data.total_ca_prestation)}</td>
-                  <td className="px-6 py-5 text-right text-brand-400 font-mono whitespace-nowrap">{fmt(data.total_ca)}</td>
-                  <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_ca_recouvre || 0)}</td>
-                  <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_recouvre)}</td>
-                  <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono whitespace-nowrap">{fmt(data.total_creance)}</td>
-                  <td className="px-8 py-5 text-right text-slate-300 font-mono whitespace-nowrap">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
+                   <td colSpan={3} className="px-8 py-5 text-sm uppercase tracking-widest">TOTAL GÉNÉRAL</td>
+                   <td className="px-6 py-5 text-right text-slate-300 font-mono whitespace-nowrap">{data.total_sub_count || 0}</td>
+                   <td className="px-6 py-5 text-right text-orange-400 font-mono whitespace-nowrap">{data.total_forfait_count || 0}</td>
+                   <td className="px-6 py-5 text-right text-violet-400 font-mono whitespace-nowrap">{data.total_sc_count || 0}</td>
+                   <td className="px-6 py-5 text-right text-orange-400 font-mono whitespace-nowrap">
+                     {(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%
+                   </td>
+                   <td className="px-6 py-5 text-right text-blue-400 font-mono whitespace-nowrap">{fmt(data.total_ca_eau)}</td>
+                   <td className="px-6 py-5 text-right text-cyan-400 font-mono whitespace-nowrap">{fmt(data.total_ca_prestation)}</td>
+                   <td className="px-6 py-5 text-right text-brand-400 font-mono whitespace-nowrap">{fmt(data.total_ca)}</td>
+                   <td className="px-6 py-5 text-right text-teal-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_ca_recouvre || 0)}</td>
+                   <td className="px-6 py-5 text-right text-emerald-400 font-mono bg-white/5 whitespace-nowrap">{fmt(data.total_recouvre)}</td>
+                   <td className="px-6 py-5 text-right text-rose-400 bg-white/5 font-mono whitespace-nowrap">{fmt(data.total_creance)}</td>
+                   <td className="px-8 py-5 text-right text-slate-300 font-mono whitespace-nowrap">{(data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0).toFixed(2)}%</td>
                 </tr>
               </tfoot>
             )}
@@ -9126,6 +9131,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#475467;">${c.sub_count || 0}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#e67e22;">${c.forfait_count || 0}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#7c3aed;">${c.sc_count || 0}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#e67e22;">${(c.sub_count > 0 ? (c.forfait_count / c.sub_count * 100) : 0).toFixed(2)}%</td>
           <td style="padding:5px 8px;text-align:right;color:#2563eb;">${fmtP(c.ca_eau)}</td>
           <td style="padding:5px 8px;text-align:right;color:#0891b2;">${fmtP(c.ca_prestation)}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#0D83DE;">${fmtP(c.ca)}</td>
@@ -9139,6 +9145,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#475467;">${c.sub_count || 0}</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#2563eb;">${fmtP(c.ca_eau)}</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#1e40af;">${fmtP(c.ca_eau)}</td>
@@ -9149,6 +9156,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
         </tr>
         <tr class="sub-row">
           <td style="padding:3px 8px 3px 22px;font-size:8px;color:#0891b2;">\u21b3\u00a0Prestations</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
@@ -9170,6 +9178,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
         <td style="padding:8px;text-align:right;color:#e2e8f0;border-bottom:none;">${data.total_sub_count || 0}</td>
         <td style="padding:8px;text-align:right;color:#f0b27a;border-bottom:none;">${data.total_forfait_count || 0}</td>
         <td style="padding:8px;text-align:right;color:#a78bfa;border-bottom:none;">${data.total_sc_count || 0}</td>
+        <td style="padding:8px;text-align:right;color:#f0b27a;border-bottom:none;">${(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
         <td style="padding:8px;text-align:right;color:#93c5fd;border-bottom:none;">${fmtP(data.total_ca_eau)}</td>
         <td style="padding:8px;text-align:right;color:#67e8f9;border-bottom:none;">${fmtP(data.total_ca_prestation)}</td>
         <td style="padding:8px;text-align:right;color:#60a5fa;border-bottom:none;">${fmtP(data.total_ca)}</td>
@@ -9251,6 +9260,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
                 <th style="text-align:right;color:#475467;">Nombre d'abonnés</th>
                 <th style="text-align:right;color:#e67e22;">Forfait</th>
                 <th style="text-align:right;color:#7c3aed;">Sans Compteur</th>
+                <th style="text-align:right;color:#e67e22;">Taux Forfait</th>
                 <th style="text-align:right;color:#2563eb;">CA Eau (DA)</th>
                 <th style="text-align:right;color:#0891b2;">CA Prest. (DA)</th>
                 <th style="text-align:right;">Total CA (DA)</th>
@@ -9358,6 +9368,7 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
                   <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
                   <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                   <th className="px-6 py-5 text-right text-violet-600">Sans Compteur</th>
+                  <th className="px-6 py-5 text-right text-orange-500">Taux Forfait</th>
                   <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                   <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
                   <th className="px-6 py-5 text-right">Total CA (DA)</th>
@@ -9377,6 +9388,9 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
                       <td className="px-6 py-4 text-right font-bold text-[13px] text-[#475467]">{c.sub_count || 0}</td>
                       <td className="px-6 py-4 text-right font-bold text-[13px] text-orange-500">{c.forfait_count || 0}</td>
                       <td className="px-6 py-4 text-right font-bold text-[13px] text-violet-600">{c.sc_count || 0}</td>
+                      <td className="px-6 py-4 text-right font-bold text-[13px] text-orange-500">
+                        {(c.sub_count > 0 ? (c.forfait_count / c.sub_count * 100) : 0).toFixed(2)}%
+                      </td>
                       <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600">{fmt(c.ca_eau)}</td>
                       <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600">{fmt(c.ca_prestation)}</td>
                       <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600">{fmt(c.ca)}</td>
@@ -9394,6 +9408,9 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
                   <td className="px-6 py-5 text-right text-slate-300 font-mono">{data.total_sub_count || 0}</td>
                   <td className="px-6 py-5 text-right text-orange-400 font-mono">{data.total_forfait_count || 0}</td>
                   <td className="px-6 py-5 text-right text-violet-400 font-mono">{data.total_sc_count || 0}</td>
+                  <td className="px-6 py-5 text-right text-orange-400 font-mono">
+                    {(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%
+                  </td>
                   <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(data.total_ca_eau)}</td>
                   <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(data.total_ca_prestation)}</td>
                   <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(data.total_ca)}</td>
@@ -11411,6 +11428,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                     <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
                     <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                     <th className="px-6 py-5 text-right text-violet-600">Sans Compteur</th>
+                    <th className="px-6 py-5 text-right text-orange-500">Taux Forfait</th>
                     <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                     <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
                     <th className="px-6 py-5 text-right">Total CA (DA)</th>
@@ -11454,6 +11472,9 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                               <td className="px-6 py-4 text-right font-bold text-[13px] text-[#475467] bg-sky-50">{c.sub_count || 0}</td>
                               <td className="px-6 py-4 text-right font-bold text-[13px] text-orange-500 bg-sky-50">{c.forfait_count || 0}</td>
                               <td className="px-6 py-4 text-right font-bold text-[13px] text-violet-600 bg-sky-50">{c.sc_count || 0}</td>
+                              <td className="px-6 py-4 text-right font-bold text-[13px] text-orange-500 bg-sky-50">
+                                {(c.sub_count > 0 ? (c.forfait_count / c.sub_count * 100) : 0).toFixed(2)}%
+                              </td>
                               <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 bg-sky-50">{fmt(Number(c.ca_eau || 0))}</td>
                               <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 bg-sky-50">{fmt(Number(c.ca_prestation || 0))}</td>
                               <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 bg-sky-50">{fmt(totCa)}</td>
@@ -11495,6 +11516,9 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-[#475467]">{type.sub_count || 0}</td>
                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-orange-500">{type.forfait_count || 0}</td>
                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-violet-600">{type.sc_count || 0}</td>
+                                <td className="px-6 py-3 text-right font-bold text-[12px] text-orange-500">
+                                  {(type.sub_count > 0 ? (type.forfait_count / type.sub_count * 100) : 0).toFixed(2)}%
+                                </td>
                                 <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                                 <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11537,6 +11561,9 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                   <td className="px-6 py-3 text-right font-bold text-[12px] text-[#475467]">{type.sub_count || 0}</td>
                                   <td className="px-6 py-3 text-right font-bold text-[12px] text-orange-500">{type.forfait_count || 0}</td>
                                   <td className="px-6 py-3 text-right font-bold text-[12px] text-violet-600">{type.sc_count || 0}</td>
+                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-orange-500">
+                                   {(type.sub_count > 0 ? (type.forfait_count / type.sub_count * 100) : 0).toFixed(2)}%
+                                 </td>
                                   <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                                   <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                                   <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11569,6 +11596,9 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-[#475467]/80">{child.sub_count || 0}</td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-orange-500/80">{child.forfait_count || 0}</td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-violet-600/80">{child.sc_count || 0}</td>
+                                      <td className="px-6 py-2.5 text-right font-medium text-[11px] text-orange-500/80">
+                                        {(child.sub_count > 0 ? (child.forfait_count / child.sub_count * 100) : 0).toFixed(2)}%
+                                      </td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
                                       <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
@@ -11598,6 +11628,9 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                               <td className="px-6 py-3 text-right font-bold text-[12px] text-[#475467]">{type.sub_count || 0}</td>
                               <td className="px-6 py-3 text-right font-bold text-[12px] text-orange-500">{type.forfait_count || 0}</td>
                               <td className="px-6 py-3 text-right font-bold text-[12px] text-violet-600">{type.sc_count || 0}</td>
+                              <td className="px-6 py-3 text-right font-bold text-[12px] text-orange-500">
+                                {(type.sub_count > 0 ? (type.forfait_count / type.sub_count * 100) : 0).toFixed(2)}%
+                              </td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                               <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11639,6 +11672,9 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-[#475467]/80">{child.sub_count || 0}</td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-orange-500/80">{child.forfait_count || 0}</td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-violet-600/80">{child.sc_count || 0}</td>
+                                <td className="px-6 py-2.5 text-right font-medium text-[11px] text-orange-500/80">
+                                  {(child.sub_count > 0 ? (child.forfait_count / child.sub_count * 100) : 0).toFixed(2)}%
+                                </td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
                                 <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
@@ -11657,6 +11693,9 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                             <td className="px-6 py-4 text-right font-black text-[13px] text-sky-700">{c.sub_count || 0}</td>
                             <td className="px-6 py-4 text-right font-black text-[13px] text-orange-600">{c.forfait_count || 0}</td>
                             <td className="px-6 py-4 text-right font-black text-[13px] text-violet-700">{c.sc_count || 0}</td>
+                            <td className="px-6 py-4 text-right font-black text-[13px] text-orange-600">
+                              {(c.sub_count > 0 ? (c.forfait_count / c.sub_count * 100) : 0).toFixed(2)}%
+                            </td>
                             <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-700">{fmt(Number(c.ca_eau || 0))}</td>
                             <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-700">{fmt(Number(c.ca_prestation || 0))}</td>
                             <td className="px-6 py-4 text-right font-black text-[13px] text-brand-700">{fmt(totCa)}</td>
@@ -11676,6 +11715,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                     <td className="px-6 py-5 text-right text-slate-300 font-mono">{data.total_sub_count || 0}</td>
                     <td className="px-6 py-5 text-right text-orange-400 font-mono">{data.total_forfait_count || 0}</td>
                     <td className="px-6 py-5 text-right text-violet-400 font-mono">{data.total_sc_count || 0}</td>
+                    <td className="px-6 py-5 text-right text-orange-400 font-mono">{(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
                     <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(totals.ca_eau)}</td>
                     <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(totals.ca_prestation)}</td>
                     <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(totals.ca)}</td>

@@ -11429,6 +11429,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                     <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                     <th className="px-6 py-5 text-right text-violet-600">Sans Compteur</th>
                     <th className="px-6 py-5 text-right text-orange-500">Taux Forfait</th>
+                    <th className="px-6 py-5 text-right text-red-500">Nb. Résiliés</th>
                     <th className="px-6 py-5 text-right">CA Eau (DA)</th>
                     <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
                     <th className="px-6 py-5 text-right">Total CA (DA)</th>
@@ -11475,6 +11476,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                               <td className="px-6 py-4 text-right font-bold text-[13px] text-orange-500 bg-sky-50">
                                 {(c.sub_count > 0 ? (c.forfait_count / c.sub_count * 100) : 0).toFixed(2)}%
                               </td>
+                              <td className="px-6 py-4 text-right font-bold text-[13px] text-red-500 bg-sky-50">{c.resigned_count || 0}</td>
                               <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 bg-sky-50">{fmt(Number(c.ca_eau || 0))}</td>
                               <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 bg-sky-50">{fmt(Number(c.ca_prestation || 0))}</td>
                               <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 bg-sky-50">{fmt(totCa)}</td>
@@ -11519,6 +11521,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-orange-500">
                                   {(type.sub_count > 0 ? (type.forfait_count / type.sub_count * 100) : 0).toFixed(2)}%
                                 </td>
+                                <td className="px-6 py-3 text-right font-bold text-[12px] text-red-500">{type.resigned_count || 0}</td>
                                 <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                                 <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11564,6 +11567,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                  <td className="px-6 py-3 text-right font-bold text-[12px] text-orange-500">
                                    {(type.sub_count > 0 ? (type.forfait_count / type.sub_count * 100) : 0).toFixed(2)}%
                                  </td>
+                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-red-500">{type.resigned_count || 0}</td>
                                   <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                                   <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                                   <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11599,6 +11603,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-orange-500/80">
                                         {(child.sub_count > 0 ? (child.forfait_count / child.sub_count * 100) : 0).toFixed(2)}%
                                       </td>
+                                      <td className="px-6 py-2.5 text-right font-medium text-[11px] text-red-500/80">{child.resigned_count || 0}</td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
                                       <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
@@ -11631,6 +11636,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                               <td className="px-6 py-3 text-right font-bold text-[12px] text-orange-500">
                                 {(type.sub_count > 0 ? (type.forfait_count / type.sub_count * 100) : 0).toFixed(2)}%
                               </td>
+                              <td className="px-6 py-3 text-right font-bold text-[12px] text-red-500">{type.resigned_count || 0}</td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                               <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11675,6 +11681,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-orange-500/80">
                                   {(child.sub_count > 0 ? (child.forfait_count / child.sub_count * 100) : 0).toFixed(2)}%
                                 </td>
+                                <td className="px-6 py-2.5 text-right font-medium text-[11px] text-red-500/80">{child.resigned_count || 0}</td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
                                 <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
@@ -11696,6 +11703,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                             <td className="px-6 py-4 text-right font-black text-[13px] text-orange-600">
                               {(c.sub_count > 0 ? (c.forfait_count / c.sub_count * 100) : 0).toFixed(2)}%
                             </td>
+                            <td className="px-6 py-4 text-right font-black text-[13px] text-red-600">{c.resigned_count || 0}</td>
                             <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-700">{fmt(Number(c.ca_eau || 0))}</td>
                             <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-700">{fmt(Number(c.ca_prestation || 0))}</td>
                             <td className="px-6 py-4 text-right font-black text-[13px] text-brand-700">{fmt(totCa)}</td>
@@ -11716,6 +11724,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                     <td className="px-6 py-5 text-right text-orange-400 font-mono">{data.total_forfait_count || 0}</td>
                     <td className="px-6 py-5 text-right text-violet-400 font-mono">{data.total_sc_count || 0}</td>
                     <td className="px-6 py-5 text-right text-orange-400 font-mono">{(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
+                    <td className="px-6 py-5 text-right text-red-400 font-mono">{data.total_resigned_count || 0}</td>
                     <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(totals.ca_eau)}</td>
                     <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(totals.ca_prestation)}</td>
                     <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(totals.ca)}</td>

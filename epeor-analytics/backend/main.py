@@ -1934,6 +1934,12 @@ def get_creance(
         sc_counts_commune = {}       # codcom -> set((numab, typabon))
         sc_counts_global = set()     # set((numab, typabon))
 
+        # Résiliés (ETATCPT = '40') parallel counters
+        resigned_counts_commune_type = {}  # (codcom, cat_key) -> set((numab, typabon))
+        resigned_counts_type = {}          # cat_key -> set((numab, typabon))
+        resigned_counts_commune = {}       # codcom -> set((numab, typabon))
+        resigned_counts_global = set()     # set((numab, typabon))
+
         secteur_zfill = str(secteur).strip().zfill(2) if secteur else None
 
         # Helper to resolve category key from typabon
@@ -2050,6 +2056,43 @@ def get_creance(
                 winning_rec = min(candidates, key=get_prio_key)
                 winning_sc_records.append(winning_rec)
 
+        # Count résiliés subscribers (ETATCPT = '40'):
+        # SQL logic:
+        #   ABONNE Inner Join ABONMENT (ETATCPT='40')
+        #   Left Join FACTURES on NUMAB
+        #   Having Max(DATSAISIE) <= target_date OR Max(DATSAISIE) IS NULL
+        # "Left Join" means abonnés with NO invoices at all are included (counted as resigned).
+        # "IS NULL" means: if the abonné has no valid DATSAISIE, they are still resigned.
+        winning_resigned_records = []
+        # Iterate over all abonnés with ETATCPT='40' in ABONMENT (not just those with invoices)
+        for numab, abonment in abonments_by_numab.items():
+            # Check ETATCPT from ABONMENT
+            etatcpt = str(abonment.get('ETATCPT') or '').strip()
+            if etatcpt != '40':
+                continue
+            abonne = abonnes_by_numab.get(numab)
+            if not abonne:
+                continue
+
+            # Left Join: get invoices if they exist, otherwise treat as NULL
+            r_list = factures_by_numab.get(numab, [])
+            datsaisies = [str(r.get('DATSAISIE') or '').strip() for r in r_list]
+            valid_datsaisies = [ds for ds in datsaisies if len(ds) == 8 and ds.isdigit()]
+
+            if valid_datsaisies:
+                max_datsaisie = max(valid_datsaisies)
+                # Having Max(DATSAISIE) <= target_date
+                if max_datsaisie > target_date:
+                    continue
+            # else: Max(DATSAISIE) IS NULL → include (Left Join with no invoices)
+
+            # Keep this record for resigned subscriber count
+            winning_resigned_records.append({
+                'NUMAB': numab,
+                'TYPABON': str(abonne.get('TYPABON') or '').strip(),
+                'CENTRE': str(abonne.get('SECTEUR') or '').strip()
+            })
+
         for r in winning_sc_records:
             numab = str(r.get('NUMAB') or '').strip().upper()
             typabon = str(r.get('TYPABON') or '').strip()
@@ -2076,6 +2119,33 @@ def get_creance(
             sc_counts_commune[codcom].add(sub_tuple)
             
             sc_counts_global.add(sub_tuple)
+
+        for r in winning_resigned_records:
+            numab = str(r.get('NUMAB') or '').strip().upper()
+            typabon = str(r.get('TYPABON') or '').strip()
+            centre = str(r.get('CENTRE') or '').strip().zfill(2)
+            
+            if secteur_zfill is not None and centre != secteur_zfill:
+                continue
+
+            codcom = _abonne_codcom(numab)
+            cat_key = _resolve_cat_key(typabon)
+            
+            sub_tuple = (numab, typabon)
+
+            if (codcom, cat_key) not in resigned_counts_commune_type:
+                resigned_counts_commune_type[(codcom, cat_key)] = set()
+            resigned_counts_commune_type[(codcom, cat_key)].add(sub_tuple)
+            
+            if cat_key not in resigned_counts_type:
+                resigned_counts_type[cat_key] = set()
+            resigned_counts_type[cat_key].add(sub_tuple)
+            
+            if codcom not in resigned_counts_commune:
+                resigned_counts_commune[codcom] = set()
+            resigned_counts_commune[codcom].add(sub_tuple)
+            
+            resigned_counts_global.add(sub_tuple)
 
         for r in winning_forfait_records:
             numab = str(r.get('NUMAB') or '').strip().upper()
@@ -2324,6 +2394,7 @@ def get_creance(
                         sub_count = len(sub_counts_commune_type.get((codcom, type_key), set()))
                         forfait_count = len(forfait_counts_commune_type.get((codcom, type_key), set()))
                         sc_count = len(sc_counts_commune_type.get((codcom, type_key), set()))
+                        resigned_count = len(resigned_counts_commune_type.get((codcom, type_key), set()))
                         commune_types.append({
                             "section": td["section"],
                             "ordre": td["ordre"],
@@ -2338,7 +2409,8 @@ def get_creance(
                             "taux": round((td["ca_recouvre"] / tot_ca_type * 100) if tot_ca_type > 0 else 0, 2),
                             "sub_count": sub_count,
                             "forfait_count": forfait_count,
-                            "sc_count": sc_count
+                            "sc_count": sc_count,
+                            "resigned_count": resigned_count
                         })
                 commune_types.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
@@ -2365,7 +2437,8 @@ def get_creance(
                 "by_type": commune_types,
                 "sub_count": len(sub_counts_commune.get(codcom, set())),
                 "forfait_count": len(forfait_counts_commune.get(codcom, set())),
-                "sc_count": len(sc_counts_commune.get(codcom, set()))
+                "sc_count": len(sc_counts_commune.get(codcom, set())),
+                "resigned_count": len(resigned_counts_commune.get(codcom, set()))
             })
         communes_list.sort(key=lambda x: x["creance"], reverse=True)
 
@@ -2379,6 +2452,7 @@ def get_creance(
             sub_count = len(sub_counts_type.get(cat_key, set()))
             forfait_count = len(forfait_counts_type.get(cat_key, set()))
             sc_count = len(sc_counts_type.get(cat_key, set()))
+            resigned_count = len(resigned_counts_type.get(cat_key, set()))
             types_list.append({
                 "section": d["section"],
                 "ordre": d["ordre"],
@@ -2393,7 +2467,8 @@ def get_creance(
                 "taux": round(taux, 2),
                 "sub_count": sub_count,
                 "forfait_count": forfait_count,
-                "sc_count": sc_count
+                "sc_count": sc_count,
+                "resigned_count": resigned_count
             })
         types_list.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
@@ -2618,6 +2693,7 @@ def get_creance(
             "total_sub_count": len(sub_counts_global),
             "total_forfait_count": len(forfait_counts_global),
             "total_sc_count": len(sc_counts_global),
+            "total_resigned_count": len(resigned_counts_global),
             "by_commune": communes_list,
             "by_type": types_list,
             "by_raw_type": raw_types_list,

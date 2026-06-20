@@ -8,7 +8,7 @@ const eslintConfig = defineConfig([
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": "error",
       "react/no-unescaped-entities": "off",
       "prefer-const": "off",
       "react-hooks/static-components": "off",

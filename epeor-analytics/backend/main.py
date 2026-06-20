@@ -979,20 +979,6 @@ def _invoice_state_history_by_period(numab: str) -> dict[tuple[int, int], str]:
     return state_by_period
 
 
-def _latest_invoice_etatcpt_for_numab(numab: str) -> str | None:
-    """Latest non-empty ETATCPT for a subscriber based on invoice date."""
-    if not numab:
-        return None
-    invoices = factures_by_numab.get(numab)
-    if invoices is None:
-        invoices = [r for r in MEM_FACTURES if str(r.get('NUMAB', '')).strip().upper() == numab]
-    ordered = sorted(invoices, key=_invoice_period_key, reverse=True)
-    for inv in ordered:
-        etat = _normalize_etatcpt_code(inv.get('ETATCPT'))
-        if etat:
-            return etat
-    return None
-
 
 def count_latest_invoice_etatcpt(allowed_communes: set[str] | None = None, target_etat: str = '20') -> int:
     """Count distinct subscribers whose latest invoice ETATCPT equals the target state.

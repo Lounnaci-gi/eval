@@ -420,13 +420,6 @@ export default function Dashboard() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [filteredResults, setFilteredResults] = useState<any[]>([]);
-  const [filterQuery, setFilterQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hoveredAbonne, setHoveredAbonne] = useState<any>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [creanceData, setCreanceData] = useState<any>(null);
   const [ventilationData, setVentilationData] = useState<any[]>([]);
   const [lastVentDate, setLastVentDate] = useState('');
@@ -434,7 +427,6 @@ export default function Dashboard() {
   const [repartitionFilter, setRepartitionFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [calcDateRange, setCalcDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
   const [reloadPending, setReloadPending] = useState(false);
-  const itemsPerPage = 20;
   // Secteur/centre filter
   const [selectedSecteur, setSelectedSecteur] = useState('');
   const [sectors, setSectors] = useState<{ code: string; libelle: string }[]>([]);
@@ -553,50 +545,6 @@ export default function Dashboard() {
     stats,
     dataPathInfo,
     backendReachable
-  );
-
-  const getEtatBadge = (etat: string) => {
-    switch (etat) {
-      case '10': return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">En marche</span>;
-      case '20': return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-100">À l'arrêt</span>;
-      case '30': return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-50 text-cyan-600 border border-cyan-100">Sans compteur</span>;
-      case '40': return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100">Résilié</span>;
-      default: return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-100">Code: {etat}</span>;
-    }
-  };
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery) return;
-    const res = await fetch(`http://127.0.0.1:8000/search?query=${searchQuery}`);
-    const data = await res.json();
-    setSearchResults(data);
-    setFilteredResults(data);
-    setCurrentPage(1);
-  };
-
-  const handleFilter = (query: string) => {
-    setFilterQuery(query);
-    const lowQuery = query.toLowerCase();
-    const filtered = searchResults.filter(r =>
-      r.NOM?.toLowerCase().includes(lowQuery) ||
-      r.ADRESSE?.toLowerCase().includes(lowQuery) ||
-      r.TOURNEE?.toLowerCase().includes(lowQuery) ||
-      r.TYPE_LABEL?.toLowerCase().includes(lowQuery) ||
-      r.NUMSER?.toLowerCase().includes(lowQuery) ||
-      r.NUMAB?.toLowerCase().includes(lowQuery) ||
-      r.NUMORDRE?.toLowerCase().includes(lowQuery) ||
-      r.BLOC?.toLowerCase().includes(lowQuery) ||
-      r.NDOM?.toLowerCase().includes(lowQuery)
-    );
-    setFilteredResults(filtered);
-    setCurrentPage(1);
-  };
-
-  const totalPages = Math.ceil(filteredResults.length / itemsPerPage);
-  const currentItems = filteredResults.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
   );
 
   const totalSubs = stats?.total_subscribers || 0;
@@ -728,57 +676,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F9FAFB] text-[#101828] relative" onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}>
-
-      {/* Floating Hover Card - Obat Style */}
-      {hoveredAbonne && (
-        <div
-          className="fixed z-50 w-80 bg-white border border-[#E4E7EC] shadow-2xl rounded-[2rem] p-6 pointer-events-none animate-in fade-in zoom-in duration-200 no-print"
-          style={{
-            left: `${Math.min(mousePos.x + 20, window.innerWidth - 340)}px`,
-            top: `${Math.min(mousePos.y + 20, window.innerHeight - 400)}px`
-          }}
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-[#0D83DE]">
-              <Users size={24} />
-            </div>
-            <div>
-              <h4 className="text-sm font-black uppercase text-[#101828] leading-tight">{hoveredAbonne.NOM}</h4>
-              <p className="text-xs text-[#475467] font-mono">{hoveredAbonne.NUMAB}</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="p-3 bg-[#F9FAFB] rounded-xl">
-              <p className="text-[10px] font-black text-[#98A2B3] uppercase mb-1">Adresse complète</p>
-              <p className="text-xs font-bold">{hoveredAbonne.ADRESSE}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-[#F9FAFB] rounded-xl">
-                <p className="text-[10px] font-black text-[#98A2B3] uppercase mb-1">Tournée</p>
-                <p className="text-xs font-bold text-[#0D83DE]">Zone {hoveredAbonne.TOURNEE}</p>
-              </div>
-              <div className="p-3 bg-[#F9FAFB] rounded-xl">
-                <p className="text-[10px] font-black text-[#98A2B3] uppercase mb-1">N° Ordre</p>
-                <p className="text-xs font-bold">{hoveredAbonne.NUMORDRE}</p>
-              </div>
-            </div>
-
-            <div className="p-3 bg-[#F9FAFB] rounded-xl">
-              <p className="text-[10px] font-black text-[#98A2B3] uppercase mb-1">Compteur Série</p>
-              <p className="text-xs font-mono font-bold text-slate-600">{hoveredAbonne.NUMSER || "---"}</p>
-            </div>
-
-            <div className="pt-2 border-t border-[#F2F4F7]">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase">
-                {hoveredAbonne.TYPE_LABEL}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="flex min-h-screen bg-[#F9FAFB] text-[#101828] relative">
       {/* Sidebar - Obat Style */}
       <aside className="w-72 bg-white border-r border-[#E4E7EC] p-6 flex flex-col gap-10 hidden md:flex no-print no-print-charts-only">
         <div className="flex items-center gap-3 px-2">
@@ -1083,103 +981,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Search Results - Obat List Style */}
-            {searchResults.length > 0 && (
-              <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-                <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                  <div>
-                    <h3 className="text-xl font-black tracking-tight">Résultats de la Recherche</h3>
-                    <p className="text-xs text-[#667085] mt-1">{filteredResults.length} résultats / Page {currentPage} sur {totalPages || 1}</p>
-                  </div>
 
-                  {/* Advanced Filters */}
-                  <div className="flex gap-4 items-center">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" size={14} />
-                      <input
-                        type="text"
-                        placeholder="Nom, Adresse, Série, Tournée..."
-                        className="text-xs border-[#D0D5DD] border rounded-xl pl-9 pr-4 py-2 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 w-64"
-                        value={filterQuery}
-                        onChange={(e) => handleFilter(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                        <th className="px-8 py-5">Identifiant</th>
-                        <th className="px-6 py-5">Nom & Prénom</th>
-                        <th className="px-6 py-5">Adresse / Emplacement</th>
-                        <th className="px-6 py-5">Zone / Tournée</th>
-                        <th className="px-6 py-5">Compteur (Série & État)</th>
-                        <th className="px-6 py-5">Catégorie</th>
-                        <th className="px-8 py-5 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F2F4F7]">
-                      {currentItems.map((row, i) => (
-                        <tr
-                          key={i}
-                          className="hover:bg-[#F9FAFB] transition-colors group cursor-help"
-                          onMouseEnter={() => setHoveredAbonne(row)}
-                          onMouseLeave={() => setHoveredAbonne(null)}
-                        >
-                          <td className="px-8 py-6">
-                            <span className="text-xs font-bold text-[#101828] block">{row.NUMAB}</span>
-                            <span className="text-[10px] text-[#667085]">Ordre: {row.NUMORDRE}</span>
-                          </td>
-                          <td className="px-6 py-6 font-black text-sm text-[#101828] uppercase">{row.NOM}</td>
-                          <td className="px-6 py-6 text-sm text-[#475467]">{row.ADRESSE}</td>
-                          <td className="px-6 py-6 text-xs text-[#101828]">
-                            T- <span className="font-bold">{row.TOURNEE}</span>
-                          </td>
-                          <td className="px-6 py-6 flex flex-col gap-1 items-start">
-                            <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{row.NUMSER}</span>
-                            {getEtatBadge(row.ETATCPT)}
-                          </td>
-                          <td className="px-6 py-6">
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black bg-blue-50 text-[#0D83DE] border border-blue-100 uppercase">
-                              {row.TYPE_LABEL}
-                            </span>
-                          </td>
-                          <td className="px-8 py-6 text-right">
-                            <button className="w-10 h-10 rounded-xl bg-white border border-[#D0D5DD] flex items-center justify-center text-[#667085] group-hover:bg-[#0D83DE] group-hover:text-white group-hover:border-[#0D83DE] transition-all shadow-sm">
-                              <ChevronRight size={20} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {/* Pagination Controls */}
-                <div className="p-6 bg-[#F9FAFB] border-t border-[#F2F4F7] flex justify-between items-center">
-                  <p className="text-xs font-bold text-[#667085]">Affichage de {currentItems.length} résultats sur {filteredResults.length}</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-50 hover:bg-[#F2F4F7] transition-colors"
-                    >
-                      Précédent
-                    </button>
-                    <div className="flex items-center px-4 text-xs font-bold">
-                      Page {currentPage} / {totalPages || 1}
-                    </div>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages || totalPages === 0}
-                      className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-50 hover:bg-[#F2F4F7] transition-colors"
-                    >
-                      Suivant
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         ) : ['details', 'evolution', 'resigned', 'stopped', 'no_meter'].includes(currentView) ? (
           <GestionAbonnesShell
@@ -1545,7 +1347,7 @@ function GestionAbonnesShell({
   );
 }
 
-function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel }: any) {
+function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1632,31 +1434,6 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
     return result;
   }, [data]);
 
-  const resignedCommunes = useMemo(() => {
-    const communes = stats?.subscriber_communes || [];
-    return communes
-      .map((c: any) => ({
-        name: c.name,
-        total: c.value,
-        resigned: c.resigned || 0,
-        rate: c.value > 0 ? ((c.resigned || 0) / c.value) * 100 : 0
-      }))
-      .filter((c: any) => c.resigned > 0)
-      .sort((a: any, b: any) => b.resigned - a.resigned);
-  }, [stats?.subscriber_communes]);
-
-  const resignedTypes = useMemo(() => {
-    const types = stats?.subscriber_types || [];
-    return types
-      .map((t: any) => ({
-        name: t.name,
-        total: t.value,
-        resigned: t.resigned || 0,
-        rate: t.value > 0 ? ((t.resigned || 0) / t.value) * 100 : 0
-      }))
-      .filter((t: any) => t.resigned > 0)
-      .sort((a: any, b: any) => b.resigned - a.resigned);
-  }, [stats?.subscriber_types]);
 
   // Find simulated count
   const calculatorResult = useMemo(() => {
@@ -2189,7 +1966,7 @@ function SubscribersEvolutionView({ stats, onBack, selectedSecteur, secteurLabel
   );
 }
 
-function DetailedStatsView({ stats, onBack, selectedSecteur = '', secteurLabel }: any) {
+function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
@@ -6479,7 +6256,6 @@ function CreanceDetailView({
   const [categoryCountsPeriod, setCategoryCountsPeriod] = useState('');
   const [periodSubscriberTotal, setPeriodSubscriberTotal] = useState<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre'>('creance');
 
   const [histType, setHistType] = useState<'monthly_12' | 'years' | 'months'>('monthly_12');
@@ -6563,12 +6339,6 @@ function CreanceDetailView({
 
   const recoveryRate = data ? (data.total_ca > 0 ? ((data.total_ca_recouvre || 0) / data.total_ca) * 100 : 0) : 0;
 
-
-  const toggleTypeSection = (section: string) => {
-    setExpandedTypes(prev =>
-      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
-    );
-  };
 
   const fetchData = async (start = '', end = '') => {
     if (abortControllerRef.current) {
@@ -8492,10 +8262,6 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
       .format(n)
       .replace(/[\u202F\u00A0]/g, ' ') + " DA";
 
-  const fmtNum = (n: number) =>
-    new Intl.NumberFormat("fr-DZ", { maximumFractionDigits: 0 })
-      .format(n)
-      .replace(/[\u202F\u00A0]/g, ' ');
 
   const toggleTypeSection = (section: string) => {
     setExpandedTypes(prev =>
@@ -9082,7 +8848,6 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
 
 
 function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sectors = [], startDate = '', endDate = '' }: any) {
-  const [collapsedCommunes, setCollapsedCommunes] = useState<string[]>([]);
   const [isTableCollapsed, setIsTableCollapsed] = useState(false);
   const secteurLabel = selectedSecteur
     ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
@@ -9283,22 +9048,6 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
     `;
     printWindow.document.write(htmlContent);
     printWindow.document.close();
-  };
-
-  const toggleCommune = (communeId: string) => {
-    setCollapsedCommunes(prev =>
-      prev.includes(communeId) ? prev.filter(id => id !== communeId) : [...prev, communeId]
-    );
-  };
-
-  const expandAllCommunes = () => {
-    setCollapsedCommunes([]);
-  };
-
-  const collapseAllCommunes = () => {
-    if (data?.by_commune) {
-      setCollapsedCommunes(data.by_commune.map((c: any) => c.id));
-    }
   };
 
   if (!data || !data.by_commune) {
@@ -10444,7 +10193,6 @@ function CreancesAbonnesView({
             <tbody>
               ${matrixRows.map((mr, mi) => {
                 const monthLabels = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-                const qLabels = ["1° Trim", "2° Trim", "3° Trim", "4° Trim"];
                 const resilieClass = mr.etat_cpt === 'RESILIE' ? 'resilie-row' : '';
                 const infoCellClass = mr.etat_cpt === 'RESILIE' ? 'info-cell resilie' : 'info-cell';
                 const orderNumber = String(mi + 1).padStart(2, '0');
@@ -10486,20 +10234,7 @@ function CreancesAbonnesView({
                     </td>
                   ` : '';
 
-                  let periodTotal = 0;
-                  if (mr.isMonthlySolo) {
-                    const monthKey = period.keys[0];
-                    periodTotal = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-M${monthKey}`] || 0), 0);
-                    if (hasAntecedents) {
-                      periodTotal += (mr.cellAmounts[`Ant-M${monthKey}`] || 0);
-                    }
-                  } else {
-                    const q = parseInt(period.label.charAt(0));
-                    periodTotal = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
-                    if (hasAntecedents) {
-                      periodTotal += (mr.cellAmounts[`Ant-Q${q}`] || 0);
-                    }
-                  }
+
 
                   const antCellHtml = hasAntecedents ? (() => {
                     let antVal = 0;
@@ -11355,13 +11090,6 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
     return result;
   };
 
-  const [expandedCommunes, setExpandedCommunes] = useState<string[]>([]);
-  const toggleCommune = (communeId: string) => {
-    setExpandedCommunes((prev) =>
-      prev.includes(communeId) ? prev.filter((id) => id !== communeId) : [...prev, communeId]
-    );
-  };
-
   const [expandedGroupedTypes, setExpandedGroupedTypes] = useState<string[]>([]);
   const toggleGroupedType = (key: string) => {
     setExpandedGroupedTypes((prev) =>
@@ -11369,14 +11097,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
     );
   };
 
-  const communesWithTypes = filteredCommunes.filter((c: any) => {
-    const rawTypeRows = Array.isArray(c.by_type) ? c.by_type : Array.isArray(c.types) ? c.types : [];
-    const typeRows = processTypeRows(rawTypeRows);
-    return typeRows.length > 0;
-  });
-  const hasCommuneTypes = communesWithTypes.length > 0;
-  const expandAllCommunes = () => setExpandedCommunes(communesWithTypes.map((c: any, i: number) => c.id || String(i)));
-  const collapseAllCommunes = () => setExpandedCommunes([]);
+
 
   // Use global totals from data object, same as Synthèse Globale
   const totals = {
@@ -12320,30 +12041,7 @@ function parseAmountInput(input: string): number | null {
   return Math.round(n * 100) / 100;
 }
 
-function findMinSubsetSum(
-  items: { id: string; amountCents: number }[],
-  targetCents: number
-): string[] | null {
-  const n = items.length;
-  if (n === 0) return null;
-  let best: string[] | null = null;
-  let bestSize = Infinity;
-  for (let mask = 1; mask < 1 << n; mask++) {
-    let sum = 0;
-    const ids: string[] = [];
-    for (let i = 0; i < n; i++) {
-      if (mask & (1 << i)) {
-        sum += items[i].amountCents;
-        ids.push(items[i].id);
-      }
-    }
-    if (sum === targetCents && ids.length < bestSize) {
-      best = ids;
-      bestSize = ids.length;
-    }
-  }
-  return best;
-}
+
 
 type QuarterPick = {
   numab: string;
@@ -12403,50 +12101,7 @@ function combinationKeyFromPicks(picks: QuarterPick[]): string {
     .join('|');
 }
 
-type ComboSearchState = {
-  picks: QuarterPick[];
-  subscriberCount: number;
-  pickCount: number;
-};
 
-function buildQuarterItemsFromRows(
-  rowQuarterMaps: { row: any; quarters: Record<string, number> }[],
-  refYear: number,
-  yearsBack = 10
-): QuarterPick[] {
-  const minYear = refYear - yearsBack;
-  const items: QuarterPick[] = [];
-  for (const { row, quarters } of rowQuarterMaps) {
-    for (const [key, amount] of Object.entries(quarters)) {
-      if (amount <= 0) continue;
-      const match = key.match(/^(\d+)-Q(\d+)$/);
-      if (!match) continue;
-      const year = parseInt(match[1], 10);
-      const quarter = parseInt(match[2], 10);
-      if (year < minYear || year > refYear) continue;
-      items.push({
-        numab: row.numab,
-        year,
-        quarter,
-        quarterKey: key,
-        amount,
-        amountCents: Math.round(amount * 100),
-        row,
-        itemIndex: items.length,
-      });
-    }
-  }
-  const quarterOrder = buildQuarterSearchOrder(refYear, yearsBack);
-  const orderIndex = new Map<string, number>();
-  quarterOrder.forEach(({ year, q }, i) => orderIndex.set(`${year}-Q${q}`, i));
-  items.sort((a, b) => {
-    const oa = orderIndex.get(a.quarterKey) ?? 9999;
-    const ob = orderIndex.get(b.quarterKey) ?? 9999;
-    if (oa !== ob) return oa - ob;
-    return b.amountCents - a.amountCents;
-  });
-  return items;
-}
 
 function shiftLeftBits(words: Uint32Array, shift: number, wordCount: number): Uint32Array {
   const out = new Uint32Array(wordCount);
@@ -12522,44 +12177,7 @@ function runBitsetSubsetSum(
   return { reachable, prevItemIdx, bits };
 }
 
-function reconstructPicksFromBitset(
-  items: QuarterPick[],
-  targetCents: number,
-  prevItemIdx: Int32Array,
-  reachable: Uint8Array
-): QuarterPick[] | null {
-  if (!isSumReachable(reachable, targetCents)) return null;
 
-  const picks: QuarterPick[] = [];
-  let s = targetCents;
-  const used = new Set<number>();
-
-  while (s > 0) {
-    let idx = prevItemIdx[s];
-    if (idx >= 0 && !used.has(idx)) {
-      used.add(idx);
-      picks.push(items[idx]);
-      s -= items[idx].amountCents;
-      continue;
-    }
-    let found = false;
-    for (let i = items.length - 1; i >= 0; i--) {
-      if (used.has(i)) continue;
-      const amt = items[i].amountCents;
-      if (amt > 0 && amt <= s && isSumReachable(reachable, s - amt)) {
-        used.add(i);
-        picks.push(items[i]);
-        s -= amt;
-        found = true;
-        break;
-      }
-    }
-    if (!found) return null;
-  }
-
-  picks.reverse();
-  return picks.reduce((a, p) => a + p.amountCents, 0) === targetCents ? picks : null;
-}
 
 const MAX_COMBINATIONS = 100;
 
@@ -12673,33 +12291,6 @@ async function findAllCombinationIndicesAsync(
   };
 }
 
-function findMinSubsetSumIds(
-  items: { id: string; amountCents: number }[],
-  targetCents: number
-): string[] | null {
-  if (items.length === 0) return null;
-  if (items.length <= 22) return findMinSubsetSum(items, targetCents);
-  const pseudoPicks: QuarterPick[] = items.map((it, i) => ({
-    numab: it.id,
-    year: 0,
-    quarter: 0,
-    quarterKey: '',
-    amount: it.amountCents / 100,
-    amountCents: it.amountCents,
-    row: { numab: it.id },
-    itemIndex: i,
-  }));
-  const result = runBitsetSubsetSum(pseudoPicks, targetCents);
-  if (!result || !isSumReachable(result.reachable, targetCents)) return null;
-  const picks = reconstructPicksFromBitset(
-    pseudoPicks,
-    targetCents,
-    result.prevItemIdx,
-    result.reachable
-  );
-  if (!picks) return null;
-  return [...new Set(picks.map(p => p.numab))];
-}
 
 function buildInvoiceItemsFromRows(
   rowQuarterMaps: { row: any; quarters: Record<string, number> }[],
@@ -14192,7 +13783,6 @@ function CreancesInstitutionsView({
             <tbody>
               ${matrixRows.map((mr, mi) => {
                 const monthLabels = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-                const qLabels = ["1° Trim", "2° Trim", "3° Trim", "4° Trim"];
                 const resilieClass = mr.etat_cpt === 'RESILIE' ? 'resilie-row' : '';
                 const infoCellClass = mr.etat_cpt === 'RESILIE' ? 'info-cell resilie' : 'info-cell';
                 const orderNumber = String(mi + 1).padStart(2, '0');
@@ -14234,20 +13824,6 @@ function CreancesInstitutionsView({
                   ` : '';
 
                   // For monthly: sum the month, for quarterly: sum by quarter
-                  let periodTotal = 0;
-                  if (mr.isMonthlySolo) {
-                    const monthKey = period.keys[0];
-                    periodTotal = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-M${monthKey}`] || 0), 0);
-                    if (hasAntecedents) {
-                      periodTotal += (mr.cellAmounts[`Ant-M${monthKey}`] || 0);
-                    }
-                  } else {
-                    const q = parseInt(period.label.charAt(0));
-                    periodTotal = years.reduce((sum, y) => sum + (mr.cellAmounts[`${y}-Q${q}`] || 0), 0);
-                    if (hasAntecedents) {
-                      periodTotal += (mr.cellAmounts[`Ant-Q${q}`] || 0);
-                    }
-                  }
 
                   // Antecedent cell
                   const antCellHtml = hasAntecedents ? (() => {
@@ -14615,7 +14191,6 @@ function CreancesInstitutionsView({
   };
 
   const inputCls = 'pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 transition-all w-72';
-  const selectCls = 'py-2 pl-4 pr-8 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] outline-none focus:border-brand-300 transition-all min-w-[180px]';
  
 
   return (

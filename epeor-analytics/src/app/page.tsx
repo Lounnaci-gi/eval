@@ -2478,12 +2478,12 @@ function DetailedStatsView({ stats, onBack, selectedSecteur = '', secteurLabel }
     const totalPct = communes.reduce((acc: number, curr: any) => acc + (curr.percentage || 0), 0);
 
     tableRowsHtml += `
-      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
-        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-        <td style="padding: 9px 12px; text-align: right; color: #93c5fd; border-bottom: none;">${totalVal.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #a7f3d0; border-bottom: none;">${totalActifs.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #fca5a5; border-bottom: none;">${totalResigned.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalPct.toFixed(0)}%</td>
+      <tr style="background: #f1f5f9; color: #101828; font-weight: bold; font-size: 9.5px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #1d4ed8; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #047857; border-bottom: none;">${totalActifs.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #b91c1c; border-bottom: none;">${totalResigned.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalPct.toFixed(0)}%</td>
       </tr>
     `;
 
@@ -2706,12 +2706,12 @@ function DetailedStatsView({ stats, onBack, selectedSecteur = '', secteurLabel }
     const totalPct = types.reduce((acc: number, curr: any) => acc + (curr.percentage || 0), 0);
 
     tableRowsHtml += `
-      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
-        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-        <td style="padding: 9px 12px; text-align: right; color: #93c5fd; border-bottom: none;">${totalVal.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #a7f3d0; border-bottom: none;">${totalActifs.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #fca5a5; border-bottom: none;">${totalResigned.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalPct.toFixed(0)}%</td>
+      <tr style="background: #f1f5f9; color: #101828; font-weight: bold; font-size: 9.5px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #1d4ed8; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #047857; border-bottom: none;">${totalActifs.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #b91c1c; border-bottom: none;">${totalResigned.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalPct.toFixed(0)}%</td>
       </tr>
     `;
 
@@ -3399,11 +3399,11 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
     const totalTaux = totalVal > 0 ? (totalResigned / totalVal) * 100 : 0;
 
     tableRowsHtml += `
-      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
-        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-        <td style="padding: 9px 12px; text-align: right; color: #fca5a5; border-bottom: none;">${totalResigned.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalVal.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
+      <tr style="background: #f1f5f9; color: #101828; font-weight: bold; font-size: 9.5px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #b91c1c; border-bottom: none;">${totalResigned.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
       </tr>
     `;
 
@@ -3618,11 +3618,11 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
     const totalTaux = totalVal > 0 ? (totalResigned / totalVal) * 100 : 0;
 
     tableRowsHtml += `
-      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
-        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-        <td style="padding: 9px 12px; text-align: right; color: #fca5a5; border-bottom: none;">${totalResigned.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalVal.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
+      <tr style="background: #f1f5f9; color: #101828; font-weight: bold; font-size: 9.5px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #b91c1c; border-bottom: none;">${totalResigned.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
       </tr>
     `;
 
@@ -4272,11 +4272,11 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
     const totalTaux = totalVal > 0 ? (totalStopped / totalVal) * 100 : 0;
 
     tableRowsHtml += `
-      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
-        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-        <td style="padding: 9px 12px; text-align: right; color: #fcd34d; border-bottom: none;">${totalStopped.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalVal.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
+      <tr style="background: #f1f5f9; color: #101828; font-weight: bold; font-size: 9.5px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #b45309; border-bottom: none;">${totalStopped.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
       </tr>
     `;
 
@@ -4491,11 +4491,11 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
     const totalTaux = totalVal > 0 ? (totalStopped / totalVal) * 100 : 0;
 
     tableRowsHtml += `
-      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
-        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-        <td style="padding: 9px 12px; text-align: right; color: #fcd34d; border-bottom: none;">${totalStopped.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalVal.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
+      <tr style="background: #f1f5f9; color: #101828; font-weight: bold; font-size: 9.5px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #b45309; border-bottom: none;">${totalStopped.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
       </tr>
     `;
 
@@ -5149,11 +5149,11 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
     const totalTaux = totalVal > 0 ? (totalNoMeter / totalVal) * 100 : 0;
 
     tableRowsHtml += `
-      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
-        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-        <td style="padding: 9px 12px; text-align: right; color: #67e8f9; border-bottom: none;">${totalNoMeter.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalVal.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
+      <tr style="background: #f1f5f9; color: #101828; font-weight: bold; font-size: 9.5px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #0891b2; border-bottom: none;">${totalNoMeter.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
       </tr>
     `;
 
@@ -5368,11 +5368,11 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
     const totalTaux = totalVal > 0 ? (totalNoMeter / totalVal) * 100 : 0;
 
     tableRowsHtml += `
-      <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
-        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-        <td style="padding: 9px 12px; text-align: right; color: #67e8f9; border-bottom: none;">${totalNoMeter.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalVal.toLocaleString()}</td>
-        <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
+      <tr style="background: #f1f5f9; color: #101828; font-weight: bold; font-size: 9.5px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8;">
+        <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
+        <td style="padding: 9px 12px; text-align: right; color: #0891b2; border-bottom: none;">${totalNoMeter.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalVal.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
       </tr>
     `;
 
@@ -8606,19 +8606,19 @@ function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter,
     if (typeSectionFilter === 'ALL') {
       const totalTaux = data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0;
       tableRowsHtml += `
-        <tr style="background: #0f172a; color: white; font-weight: bold; font-size: 9.5px;">
-          <td colspan="2" style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none;">Total Général</td>
-          <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${data.total_sub_count || 0}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #f0b27a; border-bottom: none;">${data.total_forfait_count || 0}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #c4b5fd; border-bottom: none;">${data.total_sc_count || 0}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #f0b27a; border-bottom: none;">${(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
-          <td style="padding: 9px 12px; text-align: right; color: #93c5fd; border-bottom: none;">${fmt(data.total_ca_eau)}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #a5f3fc; border-bottom: none;">${fmt(data.total_ca_prestation)}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #c7d2fe; border-bottom: none;">${fmt(data.total_ca)}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #99f6e4; border-bottom: none;">${fmt(data.total_ca_recouvre || 0)}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #a7f3d0; border-bottom: none;">${fmt(data.total_recouvre)}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #fca5a5; border-bottom: none;">${fmt(data.total_creance)}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #e2e8f0; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
+        <tr style="background: #f1f5f9; color: #101828; font-weight: bold; font-size: 9.5px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8;">
+          <td colspan="2" style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
+          <td style="padding: 9px 12px; text-align: right; color: #475467; border-bottom: none;">${data.total_sub_count || 0}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #c2410c; border-bottom: none;">${data.total_forfait_count || 0}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #6d28d9; border-bottom: none;">${data.total_sc_count || 0}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #c2410c; border-bottom: none;">${(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
+          <td style="padding: 9px 12px; text-align: right; color: #1d4ed8; border-bottom: none;">${fmt(data.total_ca_eau)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #0e7490; border-bottom: none;">${fmt(data.total_ca_prestation)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #0d83de; border-bottom: none;">${fmt(data.total_ca)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #0f766e; border-bottom: none;">${fmt(data.total_ca_recouvre || 0)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #065f46; border-bottom: none;">${fmt(data.total_recouvre)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #b91c1c; border-bottom: none;">${fmt(data.total_creance)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #475467; border-bottom: none;">${totalTaux.toFixed(2)}%</td>
         </tr>
       `;
     }
@@ -9174,19 +9174,19 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
 
     const totalTaux = data.total_ca > 0 ? (((data.total_ca_recouvre || 0) / data.total_ca) * 100) : 0;
     tableRowsHtml += `
-      <tr style="background:#0f172a;color:white;font-weight:700;font-size:9px;">
-        <td style="padding:8px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:none;">Total G\u00e9n\u00e9ral</td>
-        <td style="padding:8px;text-align:right;color:#e2e8f0;border-bottom:none;">${data.total_sub_count || 0}</td>
-        <td style="padding:8px;text-align:right;color:#f0b27a;border-bottom:none;">${data.total_forfait_count || 0}</td>
-        <td style="padding:8px;text-align:right;color:#a78bfa;border-bottom:none;">${data.total_sc_count || 0}</td>
-        <td style="padding:8px;text-align:right;color:#f0b27a;border-bottom:none;">${(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
-        <td style="padding:8px;text-align:right;color:#93c5fd;border-bottom:none;">${fmtP(data.total_ca_eau)}</td>
-        <td style="padding:8px;text-align:right;color:#67e8f9;border-bottom:none;">${fmtP(data.total_ca_prestation)}</td>
-        <td style="padding:8px;text-align:right;color:#60a5fa;border-bottom:none;">${fmtP(data.total_ca)}</td>
-        <td style="padding:8px;text-align:right;color:#5eead4;border-bottom:none;">${fmtP(data.total_ca_recouvre || 0)}</td>
-        <td style="padding:8px;text-align:right;color:#6ee7b7;border-bottom:none;">${fmtP(data.total_recouvre)}</td>
-        <td style="padding:8px;text-align:right;color:#fca5a5;border-bottom:none;">${fmtP(data.total_creance)}</td>
-        <td style="padding:8px;text-align:right;color:#e2e8f0;border-bottom:none;">${totalTaux.toFixed(2)}%</td>
+      <tr style="background:#f1f5f9;color:#101828;font-weight:700;font-size:9px;border-top:1px solid #94a3b8;border-bottom:1px solid #94a3b8;">
+        <td style="padding:8px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:none;color:#101828;">Total Général</td>
+        <td style="padding:8px;text-align:right;color:#475467;border-bottom:none;">${data.total_sub_count || 0}</td>
+        <td style="padding:8px;text-align:right;color:#c2410c;border-bottom:none;">${data.total_forfait_count || 0}</td>
+        <td style="padding:8px;text-align:right;color:#6d28d9;border-bottom:none;">${data.total_sc_count || 0}</td>
+        <td style="padding:8px;text-align:right;color:#c2410c;border-bottom:none;">${(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
+        <td style="padding:8px;text-align:right;color:#1d4ed8;border-bottom:none;">${fmtP(data.total_ca_eau)}</td>
+        <td style="padding:8px;text-align:right;color:#0e7490;border-bottom:none;">${fmtP(data.total_ca_prestation)}</td>
+        <td style="padding:8px;text-align:right;color:#0d83de;border-bottom:none;">${fmtP(data.total_ca)}</td>
+        <td style="padding:8px;text-align:right;color:#0f766e;border-bottom:none;">${fmtP(data.total_ca_recouvre || 0)}</td>
+        <td style="padding:8px;text-align:right;color:#065f46;border-bottom:none;">${fmtP(data.total_recouvre)}</td>
+        <td style="padding:8px;text-align:right;color:#b91c1c;border-bottom:none;">${fmtP(data.total_creance)}</td>
+        <td style="padding:8px;text-align:right;color:#475467;border-bottom:none;">${totalTaux.toFixed(2)}%</td>
       </tr>
     `;
 
@@ -9262,12 +9262,12 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
                 <th style="text-align:right;color:#e67e22;">Forfait</th>
                 <th style="text-align:right;color:#7c3aed;">Sans Compteur</th>
                 <th style="text-align:right;color:#e67e22;">Taux Forfait</th>
-                <th style="text-align:right;color:#2563eb;">CA Eau (DA)</th>
-                <th style="text-align:right;color:#0891b2;">CA Prest. (DA)</th>
-                <th style="text-align:right;">Total CA (DA)</th>
-                <th style="text-align:right;color:#0d9488;">CA Recouv. (DA)</th>
-                <th style="text-align:right;color:#059669;">Encaissement (DA)</th>
-                <th style="text-align:right;color:#e11d48;">Cr\u00e9ance (DA)</th>
+                <th style="text-align:right;color:#2563eb;">CA Eau</th>
+                <th style="text-align:right;color:#0891b2;">CA Prest.</th>
+                <th style="text-align:right;">Total CA</th>
+                <th style="text-align:right;color:#0d9488;">CA Recouv.</th>
+                <th style="text-align:right;color:#059669;">Encaissement</th>
+                <th style="text-align:right;color:#e11d48;">Cr\u00e9ance</th>
                 <th style="text-align:right;">Taux Recov. (%)</th>
               </tr>
             </thead>
@@ -9370,12 +9370,12 @@ function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = '', sec
                   <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                   <th className="px-6 py-5 text-right text-violet-600">Sans Compteur</th>
                   <th className="px-6 py-5 text-right text-orange-500">Taux Forfait</th>
-                  <th className="px-6 py-5 text-right">CA Eau (DA)</th>
-                  <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
-                  <th className="px-6 py-5 text-right">Total CA (DA)</th>
-                  <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
-                  <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
-                  <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
+                  <th className="px-6 py-5 text-right">CA Eau</th>
+                  <th className="px-6 py-5 text-right">CA Prest.</th>
+                  <th className="px-6 py-5 text-right">Total CA</th>
+                  <th className="px-6 py-5 text-right text-teal-600">CA Recouvré</th>
+                  <th className="px-6 py-5 text-right text-emerald-600">Encaissement</th>
+                  <th className="px-6 py-5 text-right text-rose-600">Créance</th>
                   <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
                 </tr>
               </thead>
@@ -9942,10 +9942,11 @@ function CreancesAbonnesView({
               background-color: #fff;
             }
             tfoot td {
-              background-color: #0F172A;
-              color: #fff;
+              background-color: #f1f5f9;
+              color: #101828;
               font-weight: 700;
-              border: none;
+              border-top: 1px solid #94a3b8;
+              border-bottom: 1px solid #94a3b8;
               padding: 12px 6px;
             }
             @page {
@@ -10004,7 +10005,7 @@ function CreancesAbonnesView({
               <tr>
                 <td colspan="11" style="text-transform:uppercase;letter-spacing:0.05em;">TOTAL GÉNÉRAL — ${printTotals.count} abonné${printTotals.count !== 1 ? 's' : ''}</td>
                 <td style="text-align:center;">${printTotals.factures.toLocaleString('fr-FR')}</td>
-                <td style="text-align:right;color:#FCA5A5;">${montantFmt(printTotals.montant)}</td>
+                <td style="text-align:right;color:#e11d48;">${montantFmt(printTotals.montant)}</td>
                 <td class="observation-cell"></td>
               </tr>
             </tfoot>
@@ -11276,7 +11277,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
   const fmt = (n: number) =>
     new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(n)
-      .replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+      .replace(/[\u202F\u00A0]/g, ' ');
 
   const communeRows = Array.isArray(data?.by_commune) ? data.by_commune : [];
   const secteurFieldNames = ['secteur', 'centre', 'center', 'SECTEUR', 'CENTRE', 'center_code'];
@@ -11307,6 +11308,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
             ca_recouvre: 0,
             recouvre: 0,
             creance: 0,
+            creance_resilie: 0,
             children: []
           };
         }
@@ -11316,6 +11318,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
         grouped[groupKey].ca_recouvre += Number(row.ca_recouvre || 0);
         grouped[groupKey].recouvre += Number(row.recouvre || row.encaissement || row.encaisse || row.encaissement_total || 0);
         grouped[groupKey].creance += Number(row.creance || 0);
+        grouped[groupKey].creance_resilie += Number(row.creance_resilie || 0);
         grouped[groupKey].children.push({ ...row });
       } else {
         result.push({ ...row });
@@ -11383,6 +11386,466 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
     encaissement: data?.total_recouvre || 0,
     recouvre: data?.total_ca_recouvre || 0,
     creance: data?.total_creance || 0,
+    creance_resilie: data?.total_creance_resilie || 0,
+  };
+
+  const handlePrint = () => {
+    if (!filteredCommunes.length) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Veuillez autoriser les fen\u00eatres pop-up pour pouvoir imprimer.');
+      return;
+    }
+
+    const fmtP = (n: number) =>
+      new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        .format(n).replace(/[\u202F\u00A0]/g, '\u00a0');
+
+    const escapeHtml = (s: string) =>
+      String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const formatDateStr = (d: string) => {
+      if (!d) return '';
+      const cleaned = d.trim();
+      if (/^\d{8}$/.test(cleaned))
+        return cleaned.substring(6, 8) + '-' + cleaned.substring(4, 6) + '-' + cleaned.substring(0, 4);
+      const parts = cleaned.split(/[-/]/);
+      if (parts.length === 3 && parts[0].length === 4)
+        return parts[2] + '-' + parts[1] + '-' + parts[0];
+      return d;
+    };
+
+    const buildDataCells = (row: any, opts: { bg?: string; fontSize?: string } = {}) => {
+      const totCa = Number(row.ca || row.ca_total || row.CA || ((row.ca_eau || 0) + (row.ca_prestation || 0)) || 0);
+      const totCaRecouvre = Number(row.ca_recouvre || 0);
+      const encaisse = Number(row.recouvre || row.encaissement || row.encaisse || row.encaissement_total || 0);
+      const creance = Number(row.creance || row.CREANCE || 0);
+      const taux = totCa > 0 ? (totCaRecouvre / totCa) * 100 : 0;
+      const subCount = row.sub_count || 0;
+      const forfaitPct = subCount > 0 ? ((row.forfait_count || 0) / subCount * 100).toFixed(2) : '0.00';
+      const fs = opts.fontSize || '7px';
+      const bg = opts.bg || '';
+      const base = `padding:2px 4px;text-align:right;font-size:${fs};white-space:nowrap;${bg}`;
+      return `
+        <td style="${base}font-weight:700;color:#475467;">${subCount}</td>
+        <td style="${base}font-weight:700;color:#e67e22;">${row.forfait_count || 0}</td>
+        <td style="${base}font-weight:700;color:#7c3aed;">${row.sc_count || 0}</td>
+        <td style="${base}font-weight:700;color:#e67e22;">${forfaitPct}%</td>
+        <td style="${base}font-weight:700;color:#ef4444;">${row.resigned_count || 0}</td>
+        <td style="${base}font-weight:700;color:#b91c1c;">${fmtP(Number(row.creance_resilie || 0))}</td>
+        <td style="${base}color:#2563eb;">${fmtP(Number(row.ca_eau || 0))}</td>
+        <td style="${base}color:#0891b2;">${fmtP(Number(row.ca_prestation || 0))}</td>
+        <td style="${base}font-weight:700;color:#0D83DE;">${fmtP(totCa)}</td>
+        <td style="${base}color:#0d9488;">${fmtP(totCaRecouvre)}</td>
+        <td style="${base}color:#059669;">${fmtP(encaisse)}</td>
+        <td style="${base}font-weight:700;color:#e11d48;">${fmtP(creance)}</td>
+        <td style="${base}font-weight:700;color:#475467;">${taux.toFixed(2)}%</td>
+      `;
+    };
+
+    const buildTypeCell = (type: any, level: 1 | 2 = 1) => {
+      const name = escapeHtml(type.name || type.label || type.type || "Type d'Abonn\u00e9");
+      const code = type.type_code
+        ? `<span style="font-family:monospace;font-size:5.5px;font-weight:700;color:#475467;background:#f1f5f9;padding:1px 3px;border-radius:2px;margin-right:2px;border:1px solid #e2e8f0;">${escapeHtml(type.type_code)}</span>`
+        : '';
+      const prefix = level === 2 ? '\u21b3 \u21b3' : '\u21b3';
+      const pl = level === 2 ? 12 : 4;
+      return `<td style="padding:2px 4px;font-size:6.5px;color:#475467;white-space:nowrap;padding-left:${pl}px;">${prefix} ${code}${name}</td>`;
+    };
+
+    let tableRowsHtml = '';
+    filteredCommunes.forEach((c: any, i: number) => {
+      const communeId = c.id || String(i);
+      const communeName = escapeHtml(c.name || c.commune || c.NOM || '\u2014');
+      const rawTypeRows = Array.isArray(c.by_type) ? c.by_type : Array.isArray(c.types) ? c.types : [];
+      const typeRows = processTypeRows(rawTypeRows);
+
+      const rowSpan = typeRows.length === 0
+        ? 1
+        : 1 + typeRows.reduce((acc: number, type: any) => {
+            const isGrouped = type.type_code === '2/4/6/7/X/B/G/D/C/A';
+            const isExpanded = isGrouped && expandedGroupedTypes.includes(`${communeId}-AUTRES_TRAVAUX`);
+            const childCount = isExpanded && Array.isArray(type.children) ? type.children.length : 0;
+            return acc + 1 + childCount;
+          }, 0);
+
+      const communeTd = (rs: number) =>
+        `<td rowspan="${rs}" style="padding:4px 5px;font-weight:700;color:#101828;text-align:center;vertical-align:middle;border-right:1px solid #E4E7EC;background:#fff;font-size:7.5px;white-space:nowrap;">${communeName}</td>`;
+
+      if (typeRows.length === 0) {
+        tableRowsHtml += `<tr class="commune-row">${communeTd(1)}<td style="padding:2px 4px;font-size:7px;font-weight:700;color:#0369a1;background:#e0f2fe;">Total</td>${buildDataCells(c, { bg: 'background:#f0f9ff;', fontSize: '7px' })}</tr>`;
+        return;
+      }
+
+      const isFirstGrouped = typeRows[0].type_code === '2/4/6/7/X/B/G/D/C/A';
+      const isFirstExpanded = isFirstGrouped && expandedGroupedTypes.includes(`${communeId}-AUTRES_TRAVAUX`);
+
+      tableRowsHtml += `<tr class="commune-row">${communeTd(rowSpan)}${buildTypeCell(typeRows[0])}${buildDataCells(typeRows[0])}</tr>`;
+      if (isFirstExpanded && Array.isArray(typeRows[0].children)) {
+        typeRows[0].children.forEach((child: any) => {
+          tableRowsHtml += `<tr class="sub-row">${buildTypeCell(child, 2)}${buildDataCells(child, { fontSize: '6.5px' })}</tr>`;
+        });
+      }
+      typeRows.slice(1).forEach((type: any) => {
+        const isGrouped = type.type_code === '2/4/6/7/X/B/G/D/C/A';
+        const isExpanded = isGrouped && expandedGroupedTypes.includes(`${communeId}-AUTRES_TRAVAUX`);
+
+        tableRowsHtml += `<tr class="type-row">${buildTypeCell(type)}${buildDataCells(type)}</tr>`;
+        if (isExpanded && Array.isArray(type.children)) {
+          type.children.forEach((child: any) => {
+            tableRowsHtml += `<tr class="sub-row">${buildTypeCell(child, 2)}${buildDataCells(child, { fontSize: '6.5px' })}</tr>`;
+          });
+        }
+      });
+      tableRowsHtml += `<tr class="total-row"><td style="padding:2px 4px;font-size:7px;font-weight:700;color:#0369a1;background:#e0f2fe;text-transform:uppercase;">Total</td>${buildDataCells(c, { bg: 'background:#e0f2fe;', fontSize: '7px' })}</tr>`;
+    });
+
+    const totalTaux = totals.ca > 0 ? ((totals.recouvre / totals.ca) * 100) : 0;
+    const totalForfaitPct = (data?.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2);
+    tableRowsHtml += `
+      <tr style="background:#f1f5f9;color:#101828;font-weight:700;font-size:7px;border-top:1px solid #94a3b8;border-bottom:1px solid #94a3b8;">
+        <td colspan="2" style="padding:6px 5px;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;color:#101828;">Total G\u00e9n\u00e9ral</td>
+        <td style="padding:6px 4px;text-align:right;color:#475467;">${data?.total_sub_count || 0}</td>
+        <td style="padding:6px 4px;text-align:right;color:#c2410c;">${data?.total_forfait_count || 0}</td>
+        <td style="padding:6px 4px;text-align:right;color:#6d28d9;">${data?.total_sc_count || 0}</td>
+        <td style="padding:6px 4px;text-align:right;color:#c2410c;">${totalForfaitPct}%</td>
+        <td style="padding:6px 4px;text-align:right;color:#b91c1c;">${data?.total_resigned_count || 0}</td>
+        <td style="padding:6px 4px;text-align:right;color:#b91c1c;">${fmtP(totals.creance_resilie)}</td>
+        <td style="padding:6px 4px;text-align:right;color:#1d4ed8;">${fmtP(totals.ca_eau)}</td>
+        <td style="padding:6px 4px;text-align:right;color:#0e7490;">${fmtP(totals.ca_prestation)}</td>
+        <td style="padding:6px 4px;text-align:right;color:#0d83de;">${fmtP(totals.ca)}</td>
+        <td style="padding:6px 4px;text-align:right;color:#0f766e;">${fmtP(totals.recouvre)}</td>
+        <td style="padding:6px 4px;text-align:right;color:#065f46;">${fmtP(totals.encaissement)}</td>
+        <td style="padding:6px 4px;text-align:right;color:#9f1239;">${fmtP(totals.creance)}</td>
+        <td style="padding:6px 4px;text-align:right;color:#475467;">${totalTaux.toFixed(2)}%</td>
+      </tr>
+    `;
+
+    const titleStr = "Bilan d'activit\u00e9 \u2014 Communes associ\u00e9es";
+    const subTitleStr = selectedSecteur ? 'Centre\u00a0: ' + secteurLabel : "Toute l'unit\u00e9";
+    const formattedStart = formatDateStr(startDate);
+    const formattedEnd = formatDateStr(endDate);
+    const dateStr = formattedStart && formattedEnd ? 'P\u00e9riode du ' + formattedStart + ' au ' + formattedEnd : '';
+    const printDate = new Date().toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${titleStr}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @page { size: A4 landscape; margin: 8mm 10mm; }
+            * { box-sizing: border-box; }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              color: #101828; margin: 0; font-size: 7px; line-height: 1.3;
+              -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            }
+            .header {
+              display: flex; justify-content: space-between; align-items: center;
+              border-bottom: 2px solid #F2F4F7; padding-bottom: 6px; margin-bottom: 8px;
+            }
+            .logo-section { display: flex; align-items: center; gap: 8px; }
+            .logo-text { font-size: 12px; font-weight: 900; color: #0D83DE; letter-spacing: -0.5px; margin: 0; }
+            .company-name { font-size: 7px; font-weight: 700; color: #667085; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+            .title-section { text-align: right; }
+            .title { font-size: 13px; font-weight: 900; color: #101828; margin: 0; }
+            .subtitle { font-size: 7.5px; color: #667085; margin: 2px 0 0 0; font-weight: 500; }
+            .meta-grid {
+              display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+              margin-bottom: 8px; background: #F9FAFB; border: 1px solid #E4E7EC;
+              border-radius: 6px; padding: 5px 8px;
+            }
+            .meta-item { display: flex; flex-direction: column; }
+            .meta-label { font-size: 6px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: 0.4px; margin-bottom: 1px; }
+            .meta-value { font-size: 7.5px; font-weight: 700; color: #101828; }
+            table { width: 100%; border-collapse: collapse; text-align: left; table-layout: auto; }
+            th {
+              background: #F9FAFB; color: #475467; font-size: 5.5px; font-weight: 700;
+              text-transform: uppercase; letter-spacing: 0.3px; padding: 4px 4px;
+              border-bottom: 1px solid #E4E7EC; white-space: nowrap;
+            }
+            td { border-bottom: 1px solid #F2F4F7; }
+            .commune-row td { border-top: 1px solid #E4E7EC; }
+            .sub-row { background: #fafafa; }
+            .sub-row td { border-bottom: none; }
+            .total-row td { background: #e0f2fe; border-top: 1px solid #7dd3fc; }
+            .footer-info {
+              display: flex; justify-content: space-between; align-items: center;
+              color: #667085; font-size: 6.5px; border-top: 1px solid #F2F4F7;
+              padding-top: 6px; margin-top: 10px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 25px; width: auto;" />
+              <div style="display: flex; flex-direction: column;">
+                <div class="logo-text">EPEOR ANALYTICS</div>
+                <div class="company-name">Alg\u00e9rienne des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <div class="title">${titleStr}</div>
+              <div class="subtitle">Analyses Financi\u00e8res</div>
+            </div>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-item"><span class="meta-label">P\u00e9rim\u00e8tre</span><span class="meta-value">${escapeHtml(subTitleStr)}</span></div>
+            <div class="meta-item"><span class="meta-label">P\u00e9riode</span><span class="meta-value">${dateStr || '\u2014'}</span></div>
+            <div class="meta-item"><span class="meta-label">Date d'\u00e9dition</span><span class="meta-value">${printDate}</span></div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Commune</th>
+                <th>Type d'abonn\u00e9</th>
+                <th style="text-align:right;">Nb. abonn\u00e9s</th>
+                <th style="text-align:right;color:#e67e22;">Forfait</th>
+                <th style="text-align:right;color:#7c3aed;">Sans Cpt.</th>
+                <th style="text-align:right;color:#e67e22;">Taux Forf.</th>
+                <th style="text-align:right;color:#ef4444;">R\u00e9sili\u00e9s</th>
+                <th style="text-align:right;color:#b91c1c;">Cr\u00e9. R\u00e9s.</th>
+                <th style="text-align:right;color:#2563eb;">CA Eau</th>
+                <th style="text-align:right;color:#0891b2;">CA Prest.</th>
+                <th style="text-align:right;">Total CA</th>
+                <th style="text-align:right;color:#0d9488;">CA Recouv.</th>
+                <th style="text-align:right;color:#059669;">Encaissement</th>
+                <th style="text-align:right;color:#e11d48;">Cr\u00e9ance</th>
+                <th style="text-align:right;">Taux Recov.</th>
+              </tr>
+            </thead>
+            <tbody>${tableRowsHtml}</tbody>
+          </table>
+          <div class="footer-info">
+            <span>EPEOR Analytics \u2014 Bilan d'activit\u00e9 / Communes associ\u00e9es \u2014 ${filteredCommunes.length} commune${filteredCommunes.length > 1 ? 's' : ''}</span>
+            <span>${printDate}</span>
+          </div>
+          <script>window.onload=function(){setTimeout(function(){window.print();},500);};<\/script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
+  const formatPDFInt = (n: number) => {
+    return new Intl.NumberFormat('fr-DZ', { maximumFractionDigits: 0 })
+      .format(n)
+      .replace(/[\u202F\u00A0\s]/g, ' ');
+  };
+
+  const formatPDFDec = (n: number) => {
+    return new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n)
+      .replace(/[\u202F\u00A0\s]/g, ' ');
+  };
+
+  const buildPdfDataCells = (row: any, isTotal: boolean = false, isChild: boolean = false) => {
+    const totCa = Number(row.ca || row.ca_total || row.CA || ((row.ca_eau || 0) + (row.ca_prestation || 0)) || 0);
+    const totCaRecouvre = Number(row.ca_recouvre || 0);
+    const encaisse = Number(row.recouvre || row.encaissement || row.encaisse || row.encaissement_total || 0);
+    const creance = Number(row.creance || row.CREANCE || 0);
+    const taux = totCa > 0 ? (totCaRecouvre / totCa) * 100 : 0;
+    const subCount = row.sub_count || 0;
+    const forfaitPct = subCount > 0 ? ((row.forfait_count || 0) / subCount * 100).toFixed(2) : '0.00';
+
+    const bgStyles = isTotal 
+      ? { fillColor: [224, 242, 254] as [number, number, number] } // light blue #e0f2fe
+      : isChild 
+        ? { fillColor: [250, 250, 250] as [number, number, number] } // very light gray
+        : {};
+
+    return [
+      { content: formatPDFInt(subCount), styles: { halign: 'right', fontStyle: 'bold', textColor: [71, 84, 103], ...bgStyles } },
+      { content: formatPDFInt(row.forfait_count || 0), styles: { halign: 'right', fontStyle: 'bold', textColor: [194, 65, 12], ...bgStyles } },
+      { content: formatPDFInt(row.sc_count || 0), styles: { halign: 'right', fontStyle: 'bold', textColor: [109, 40, 217], ...bgStyles } },
+      { content: `${forfaitPct}%`, styles: { halign: 'right', fontStyle: 'bold', textColor: [194, 65, 12], ...bgStyles } },
+      { content: formatPDFInt(row.resigned_count || 0), styles: { halign: 'right', fontStyle: 'bold', textColor: [185, 28, 28], ...bgStyles } },
+      { content: formatPDFDec(Number(row.creance_resilie || 0)), styles: { halign: 'right', fontStyle: 'bold', textColor: [185, 28, 28], ...bgStyles } },
+      { content: formatPDFDec(Number(row.ca_eau || 0)), styles: { halign: 'right', textColor: [29, 78, 216], ...bgStyles } },
+      { content: formatPDFDec(Number(row.ca_prestation || 0)), styles: { halign: 'right', textColor: [14, 116, 144], ...bgStyles } },
+      { content: formatPDFDec(totCa), styles: { halign: 'right', fontStyle: 'bold', textColor: [13, 131, 222], ...bgStyles } },
+      { content: formatPDFDec(totCaRecouvre), styles: { halign: 'right', textColor: [15, 118, 110], ...bgStyles } },
+      { content: formatPDFDec(encaisse), styles: { halign: 'right', textColor: [6, 95, 70], ...bgStyles } },
+      { content: formatPDFDec(creance), styles: { halign: 'right', fontStyle: 'bold', textColor: [159, 18, 57], ...bgStyles } },
+      { content: `${taux.toFixed(2)}%`, styles: { halign: 'right', fontStyle: 'bold', textColor: [71, 84, 103], ...bgStyles } }
+    ];
+  };
+
+  const exportToPDF = async () => {
+    try {
+      const doc = new jsPDF("l", "pt", "a4");
+      const pageWidth = doc.internal.pageSize.width;
+      
+      // Title
+      doc.setFontSize(12);
+      doc.setTextColor(16, 24, 40);
+      doc.text("Bilan d'activité — Communes associées", pageWidth / 2, 25, { align: "center" });
+      
+      doc.setFontSize(8.5);
+      doc.setTextColor(102, 112, 133);
+      const subTitleStr = selectedSecteur
+        ? "Centre : " + (sectors.find((s: any) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+        : "Toute l'unité";
+      
+      const formatPeriodLabelText = (start: string, end: string) => {
+        if (!start || !end) return '';
+        return `Période du ${start} au ${end}`;
+      };
+      const periodStr = formatPeriodLabelText(startDate, endDate);
+      const headerSub = periodStr ? `${subTitleStr} | ${periodStr}` : subTitleStr;
+      doc.text(headerSub, pageWidth / 2, 40, { align: "center" });
+
+      const bodyData: any[] = [];
+
+      filteredCommunes.forEach((c: any, cIdx: number) => {
+        const communeId = c.id || String(cIdx);
+        const communeName = c.name || c.commune || c.NOM || '—';
+        const rawTypeRows = Array.isArray(c.by_type) ? c.by_type : Array.isArray(c.types) ? c.types : [];
+        const typeRows = processTypeRows(rawTypeRows);
+
+        if (typeRows.length === 0) {
+          bodyData.push([
+            { content: communeName, styles: { fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+            { content: "Total", styles: { fontStyle: 'bold', fillColor: [240, 249, 255] } },
+            ...buildPdfDataCells(c, true)
+          ]);
+          return;
+        }
+
+        let totalRows = 0;
+        typeRows.forEach((type: any) => {
+          const isGrouped = type.type_code === '2/4/6/7/X/B/G/D/C/A';
+          const isExpanded = isGrouped && expandedGroupedTypes.includes(`${communeId}-AUTRES_TRAVAUX`);
+          const childCount = isExpanded && Array.isArray(type.children) ? type.children.length : 0;
+          totalRows += 1 + childCount;
+        });
+        totalRows += 1; // for total row
+
+        const firstType = typeRows[0];
+        const isFirstGrouped = firstType.type_code === '2/4/6/7/X/B/G/D/C/A';
+        const isFirstExpanded = isFirstGrouped && expandedGroupedTypes.includes(`${communeId}-AUTRES_TRAVAUX`);
+
+        const firstRowCells = [
+          { content: communeName, rowSpan: totalRows, styles: { fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+          { content: (firstType.type_code ? `[${firstType.type_code}] ` : '') + (firstType.name || "Type d'Abonné"), styles: { fontStyle: isFirstGrouped ? 'bold' : 'normal' } },
+          ...buildPdfDataCells(firstType)
+        ];
+        bodyData.push(firstRowCells);
+
+        if (isFirstExpanded && Array.isArray(firstType.children)) {
+          firstType.children.forEach((child: any) => {
+            bodyData.push([
+              { content: `   ↳ [${child.type_code}] ${child.name || "Type d'Abonné"}`, styles: { textColor: [102, 112, 133], fontSize: 7.5 } },
+              ...buildPdfDataCells(child, false, true)
+            ]);
+          });
+        }
+
+        typeRows.slice(1).forEach((type: any) => {
+          const isGrouped = type.type_code === '2/4/6/7/X/B/G/D/C/A';
+          const isExpanded = isGrouped && expandedGroupedTypes.includes(`${communeId}-AUTRES_TRAVAUX`);
+
+          bodyData.push([
+            { content: (type.type_code ? `[${type.type_code}] ` : '') + (type.name || "Type d'Abonné"), styles: { fontStyle: isGrouped ? 'bold' : 'normal' } },
+            ...buildPdfDataCells(type)
+          ]);
+
+          if (isExpanded && Array.isArray(type.children)) {
+            type.children.forEach((child: any) => {
+              bodyData.push([
+                { content: `   ↳ [${child.type_code}] ${child.name || "Type d'Abonné"}`, styles: { textColor: [102, 112, 133], fontSize: 7.5 } },
+                ...buildPdfDataCells(child, false, true)
+              ]);
+            });
+          }
+        });
+
+        bodyData.push([
+          { content: "TOTAL", styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
+          ...buildPdfDataCells(c, true)
+        ]);
+      });
+
+      const totalTaux = totals.ca > 0 ? ((totals.recouvre / totals.ca) * 100) : 0;
+      const totalForfaitPct = (data?.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2);
+      const totalFill: [number, number, number] = [241, 245, 249];
+      
+      bodyData.push([
+        { content: "TOTAL GÉNÉRAL", colSpan: 2, styles: { fontStyle: 'bold', fillColor: totalFill } },
+        { content: formatPDFInt(data?.total_sub_count || 0), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [71, 84, 103] } },
+        { content: formatPDFInt(data?.total_forfait_count || 0), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [194, 65, 12] } },
+        { content: formatPDFInt(data?.total_sc_count || 0), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [109, 40, 217] } },
+        { content: `${totalForfaitPct}%`, styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [194, 65, 12] } },
+        { content: formatPDFInt(data?.total_resigned_count || 0), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [185, 28, 28] } },
+        { content: formatPDFDec(totals.creance_resilie), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [185, 28, 28] } },
+        { content: formatPDFDec(totals.ca_eau), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [29, 78, 216] } },
+        { content: formatPDFDec(totals.ca_prestation), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [14, 116, 144] } },
+        { content: formatPDFDec(totals.ca), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [13, 131, 222] } },
+        { content: formatPDFDec(totals.recouvre), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [15, 118, 110] } },
+        { content: formatPDFDec(totals.encaissement), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [6, 95, 70] } },
+        { content: formatPDFDec(totals.creance), styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [159, 18, 57] } },
+        { content: `${totalTaux.toFixed(2)}%`, styles: { fontStyle: 'bold', halign: 'right', fillColor: totalFill, textColor: [71, 84, 103] } }
+      ]);
+
+      autoTable(doc, {
+        startY: 55,
+        margin: { top: 40, bottom: 25, left: 15, right: 15 },
+        head: [[
+          { content: 'Commune', styles: { halign: 'center' } },
+          'Type d\'abonné',
+          { content: 'Nb. abonnés', styles: { halign: 'right' } },
+          { content: 'Forfait', styles: { halign: 'right', textColor: [194, 65, 12] } },
+          { content: 'Sans Cpt.', styles: { halign: 'right', textColor: [109, 40, 217] } },
+          { content: 'Taux Forf.', styles: { halign: 'right', textColor: [194, 65, 12] } },
+          { content: 'Résiliés', styles: { halign: 'right', textColor: [185, 28, 28] } },
+          { content: 'Cré. Rés.', styles: { halign: 'right', textColor: [185, 28, 28] } },
+          { content: 'CA Eau', styles: { halign: 'right', textColor: [29, 78, 216] } },
+          { content: 'CA Prest.', styles: { halign: 'right', textColor: [14, 116, 144] } },
+          { content: 'Total CA', styles: { halign: 'right', textColor: [13, 131, 222] } },
+          { content: 'CA Recouv.', styles: { halign: 'right', textColor: [15, 118, 110] } },
+          { content: 'Encaissement', styles: { halign: 'right', textColor: [6, 95, 70] } },
+          { content: 'Créance', styles: { halign: 'right', textColor: [159, 18, 57] } },
+          { content: 'Taux Recov.', styles: { halign: 'right' } }
+        ]],
+        body: bodyData,
+        theme: 'grid',
+        headStyles: { fillColor: [249, 250, 251], textColor: [71, 84, 103], fontStyle: 'bold', fontSize: 6.5, cellPadding: 3, lineWidth: 0.5, lineColor: [228, 231, 236] },
+        styles: { fontSize: 6.8, cellPadding: 2.2, lineColor: [242, 244, 247], lineWidth: 0.5 },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 90 },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 35 },
+          4: { cellWidth: 35 },
+          5: { cellWidth: 35 },
+          6: { cellWidth: 35 },
+          7: { cellWidth: 50 },
+          8: { cellWidth: 50 },
+          9: { cellWidth: 50 },
+          10: { cellWidth: 55 },
+          11: { cellWidth: 50 },
+          12: { cellWidth: 50 },
+          13: { cellWidth: 55 },
+          14: { cellWidth: 40 }
+        },
+        didDrawPage: (dataDraw) => {
+          doc.setFontSize(6.5);
+          doc.setTextColor(102, 112, 133);
+          const pageCount = doc.getNumberOfPages();
+          doc.text(`Page ${dataDraw.pageNumber} sur ${pageCount}`, pageWidth - 40, doc.internal.pageSize.height - 15, { align: 'right' });
+          doc.text(`EPEOR Analytics — Bilan d'activité — Généré le ${new Date().toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`, 25, doc.internal.pageSize.height - 15);
+        }
+      });
+
+      doc.save(`bilan_activite_${selectedSecteur || 'tout'}_${new Date().toISOString().slice(0,10)}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert("Une erreur est survenue lors de l'exportation PDF.");
+    }
   };
 
   return (
@@ -11397,8 +11860,8 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
         )}
       </div>
 
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
           <div>
             <h4 className="text-xl font-black text-[#101828]">Communes associées</h4>
             <p className="text-sm text-[#667085] mt-2">
@@ -11407,8 +11870,33 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                 : 'Liste des communes couvertes par l’analyse.'}
             </p>
           </div>
-          <div className="text-right text-xs uppercase tracking-[0.24em] text-[#94A3B8] font-black">
-            {filteredCommunes.length} commune{filteredCommunes.length > 1 ? 's' : ''}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="text-right text-xs uppercase tracking-[0.24em] text-[#94A3B8] font-black">
+              {filteredCommunes.length} commune{filteredCommunes.length > 1 ? 's' : ''}
+            </div>
+            {filteredCommunes.length > 0 && (
+              <>
+                <div className="w-[1px] h-6 bg-[#E4E7EC] hidden sm:block" />
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-[#0D83DE] hover:bg-[#0a6ab8] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10"
+                  title="Imprimer le tableau (A4 paysage)"
+                >
+                  <Printer size={13} />
+                  <span>Imprimer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={exportToPDF}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-100 rounded-xl text-xs font-black transition-all shadow-sm"
+                  title="Exporter au format PDF"
+                >
+                  <FileText size={13} />
+                  <span>Exporter PDF</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -11421,22 +11909,23 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-max min-w-full text-left border-collapse text-[11px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap [&_td>div]:flex-nowrap [&_td]:tabular-nums [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-2">
                 <thead>
-                  <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
-                    <th className="px-8 py-5 text-center">Commune</th>
+                  <tr className="bg-[#F9FAFB] text-[#475467] text-[9px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                    <th className="px-3 py-2 text-center">Commune</th>
                     <th className="px-6 py-5">Type d'abonné</th>
                     <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
                     <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                     <th className="px-6 py-5 text-right text-violet-600">Sans Compteur</th>
                     <th className="px-6 py-5 text-right text-orange-500">Taux Forfait</th>
                     <th className="px-6 py-5 text-right text-red-500">Nb. Résiliés</th>
-                    <th className="px-6 py-5 text-right">CA Eau (DA)</th>
-                    <th className="px-6 py-5 text-right">CA Prest. (DA)</th>
-                    <th className="px-6 py-5 text-right">Total CA (DA)</th>
-                    <th className="px-6 py-5 text-right text-teal-600">CA Recouvré (DA)</th>
-                    <th className="px-6 py-5 text-right text-emerald-600">Encaissement (DA)</th>
-                    <th className="px-6 py-5 text-right text-rose-600">Créance (DA)</th>
+                    <th className="px-6 py-5 text-right text-red-700">Créance Résilié</th>
+                    <th className="px-6 py-5 text-right">CA Eau</th>
+                    <th className="px-6 py-5 text-right">CA Prest.</th>
+                    <th className="px-6 py-5 text-right">Total CA</th>
+                    <th className="px-6 py-5 text-right text-teal-600">CA Recouvré</th>
+                    <th className="px-6 py-5 text-right text-emerald-600">Encaissement</th>
+                    <th className="px-6 py-5 text-right text-rose-600">Créance</th>
                     <th className="px-8 py-5 text-right">Taux Recov. (%)</th>
                   </tr>
                 </thead>
@@ -11478,6 +11967,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                 {(c.sub_count > 0 ? (c.forfait_count / c.sub_count * 100) : 0).toFixed(2)}%
                               </td>
                               <td className="px-6 py-4 text-right font-bold text-[13px] text-red-500 bg-sky-50">{c.resigned_count || 0}</td>
+                              <td className="px-6 py-4 text-right font-bold text-[13px] text-red-700 bg-sky-50">{fmt(Number(c.creance_resilie || 0))}</td>
                               <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 bg-sky-50">{fmt(Number(c.ca_eau || 0))}</td>
                               <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 bg-sky-50">{fmt(Number(c.ca_prestation || 0))}</td>
                               <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 bg-sky-50">{fmt(totCa)}</td>
@@ -11523,6 +12013,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                   {(type.sub_count > 0 ? (type.forfait_count / type.sub_count * 100) : 0).toFixed(2)}%
                                 </td>
                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-red-500">{type.resigned_count || 0}</td>
+                                <td className="px-6 py-3 text-right font-bold text-[12px] text-red-700">{fmt(Number(type.creance_resilie || 0))}</td>
                                 <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                                 <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11569,6 +12060,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                    {(type.sub_count > 0 ? (type.forfait_count / type.sub_count * 100) : 0).toFixed(2)}%
                                  </td>
                                  <td className="px-6 py-3 text-right font-bold text-[12px] text-red-500">{type.resigned_count || 0}</td>
+                                 <td className="px-6 py-3 text-right font-bold text-[12px] text-red-700">{fmt(Number(type.creance_resilie || 0))}</td>
                                   <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                                   <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                                   <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11605,6 +12097,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                         {(child.sub_count > 0 ? (child.forfait_count / child.sub_count * 100) : 0).toFixed(2)}%
                                       </td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-red-500/80">{child.resigned_count || 0}</td>
+                                      <td className="px-6 py-2.5 text-right font-medium text-[11px] text-red-700/80">{fmt(Number(child.creance_resilie || 0))}</td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
                                       <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
                                       <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
@@ -11638,6 +12131,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                 {(type.sub_count > 0 ? (type.forfait_count / type.sub_count * 100) : 0).toFixed(2)}%
                               </td>
                               <td className="px-6 py-3 text-right font-bold text-[12px] text-red-500">{type.resigned_count || 0}</td>
+                              <td className="px-6 py-3 text-right font-bold text-[12px] text-red-700">{fmt(Number(type.creance_resilie || 0))}</td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-blue-600">{fmt(typeCaEau)}</td>
                               <td className="px-6 py-3 text-right font-medium text-[12px] text-cyan-600">{fmt(typeCaPrest)}</td>
                               <td className="px-6 py-3 text-right font-bold text-[12px] text-brand-600">{fmt(typeCaTotal)}</td>
@@ -11683,6 +12177,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                                   {(child.sub_count > 0 ? (child.forfait_count / child.sub_count * 100) : 0).toFixed(2)}%
                                 </td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-red-500/80">{child.resigned_count || 0}</td>
+                                <td className="px-6 py-2.5 text-right font-medium text-[11px] text-red-700/80">{fmt(Number(child.creance_resilie || 0))}</td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-blue-600/80">{fmt(childCaEau)}</td>
                                 <td className="px-6 py-2.5 text-right font-medium text-[11px] text-cyan-600/80">{fmt(childCaPrest)}</td>
                                 <td className="px-6 py-2.5 text-right font-bold text-[11px] text-brand-600/80">{fmt(childCaTotal)}</td>
@@ -11705,6 +12200,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                               {(c.sub_count > 0 ? (c.forfait_count / c.sub_count * 100) : 0).toFixed(2)}%
                             </td>
                             <td className="px-6 py-4 text-right font-black text-[13px] text-red-600">{c.resigned_count || 0}</td>
+                            <td className="px-6 py-4 text-right font-black text-[13px] text-red-700">{fmt(Number(c.creance_resilie || 0))}</td>
                             <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-700">{fmt(Number(c.ca_eau || 0))}</td>
                             <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-700">{fmt(Number(c.ca_prestation || 0))}</td>
                             <td className="px-6 py-4 text-right font-black text-[13px] text-brand-700">{fmt(totCa)}</td>
@@ -11726,6 +12222,7 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
                     <td className="px-6 py-5 text-right text-violet-400 font-mono">{data.total_sc_count || 0}</td>
                     <td className="px-6 py-5 text-right text-orange-400 font-mono">{(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
                     <td className="px-6 py-5 text-right text-red-400 font-mono">{data.total_resigned_count || 0}</td>
+                    <td className="px-6 py-5 text-right text-red-300 font-mono">{fmt(totals.creance_resilie)}</td>
                     <td className="px-6 py-5 text-right text-blue-400 font-mono">{fmt(totals.ca_eau)}</td>
                     <td className="px-6 py-5 text-right text-cyan-400 font-mono">{fmt(totals.ca_prestation)}</td>
                     <td className="px-6 py-5 text-right text-brand-400 font-mono">{fmt(totals.ca)}</td>

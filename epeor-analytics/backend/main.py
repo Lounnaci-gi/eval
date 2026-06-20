@@ -2283,6 +2283,7 @@ def get_creance(
                     "ca_eau": 0.0,
                     "ca_prestation": 0.0,
                     "creance": 0.0,
+                    "creance_resilie": 0.0,
                     "creance_eau": 0.0,
                     "creance_prestation": 0.0,
                     "recouvre": 0.0,
@@ -2295,9 +2296,9 @@ def get_creance(
             if codcom not in commune_type_ca:
                 commune_type_ca[codcom] = {}
             if section and cat_key not in commune_type_ca[codcom]:
-                commune_type_ca[codcom][cat_key] = {"section": section, "ordre": ordre, "type_code": type_code, "label": categorie, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
+                commune_type_ca[codcom][cat_key] = {"section": section, "ordre": ordre, "type_code": type_code, "label": categorie, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "creance_resilie": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
             if section and cat_key not in type_ca:
-                type_ca[cat_key] = {"section": section, "ordre": ordre, "type_code": type_code, "label": categorie, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
+                type_ca[cat_key] = {"section": section, "ordre": ordre, "type_code": type_code, "label": categorie, "ca_eau": 0.0, "ca_prestation": 0.0, "creance": 0.0, "creance_resilie": 0.0, "recouvre": 0.0, "ca_recouvre": 0.0}
 
             # CA logic (within range)
             if is_in_saisie:
@@ -2363,6 +2364,10 @@ def get_creance(
                 etatcpt = str(abonment_rec.get('ETATCPT') or '').strip() if abonment_rec else ''
                 if etatcpt == '40':
                     total_creance_resilie += monttc
+                    commune_ca[codcom]["creance_resilie"] += monttc
+                    if section:
+                        type_ca[cat_key]["creance_resilie"] += monttc
+                        commune_type_ca[codcom][cat_key]["creance_resilie"] += monttc
 
         # Format communes
         communes_list = []
@@ -2371,6 +2376,7 @@ def get_creance(
                 "ca_eau": 0.0,
                 "ca_prestation": 0.0,
                 "creance": 0.0,
+                "creance_resilie": 0.0,
                 "creance_eau": 0.0,
                 "creance_prestation": 0.0,
                 "recouvre": 0.0,
@@ -2413,6 +2419,7 @@ def get_creance(
                             "ca_recouvre": round(td["ca_recouvre"], 2),
                             "recouvre": round(td["recouvre"], 2),
                             "creance": round(td["creance"], 2),
+                            "creance_resilie": round(td.get("creance_resilie", 0.0), 2),
                             "taux": round((td["ca_recouvre"] / tot_ca_type * 100) if tot_ca_type > 0 else 0, 2),
                             "sub_count": sub_count,
                             "forfait_count": forfait_count,
@@ -2428,6 +2435,7 @@ def get_creance(
                 "ca_prestation": round(d["ca_prestation"], 2),
                 "ca": round(tot_ca, 2),
                 "creance": round(d["creance"], 2),
+                "creance_resilie": round(d.get("creance_resilie", 0.0), 2),
                 "recouvre": round(d["recouvre"], 2),
                 "ca_recouvre": round(ca_rec, 2),
                 "taux": round(taux, 2),
@@ -2469,6 +2477,7 @@ def get_creance(
                 "ca_prestation": round(d["ca_prestation"], 2),
                 "ca": round(tot_ca, 2),
                 "creance": round(d["creance"], 2),
+                "creance_resilie": round(d.get("creance_resilie", 0.0), 2),
                 "recouvre": round(d["recouvre"], 2),
                 "ca_recouvre": round(ca_rec, 2),
                 "taux": round(taux, 2),

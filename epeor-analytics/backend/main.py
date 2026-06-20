@@ -1888,6 +1888,7 @@ def get_creance(
         total_ca_eau        = 0.0
         total_ca_prestation = 0.0
         total_creance       = 0.0
+        total_creance_resilie = 0.0
         total_recouvre      = 0.0
         total_ca_recouvre   = 0.0
         commune_ca          = {}   # codcom -> {ca_eau, ca_prestation, creance, recouvre, ca_recouvre}
@@ -2357,6 +2358,12 @@ def get_creance(
                 raw_type_ca[tp]["creance"] += monttc
                 raw_type_ca[tp]["count"] += 1
 
+                # Créance résilié : même condition + ETATCPT='40' dans ABONMENT
+                abonment_rec = abonments_by_numab.get(numab_r)
+                etatcpt = str(abonment_rec.get('ETATCPT') or '').strip() if abonment_rec else ''
+                if etatcpt == '40':
+                    total_creance_resilie += monttc
+
         # Format communes
         communes_list = []
         for codcom, label in commune_map.items():
@@ -2688,6 +2695,7 @@ def get_creance(
             "total_ca_prestation": round(total_ca_prestation, 2),
             "total_ca": round(total_ca, 2),
             "total_creance": round(total_creance, 2),
+            "total_creance_resilie": round(total_creance_resilie, 2),
             "total_recouvre": round(total_recouvre, 2),
             "total_ca_recouvre": round(total_ca_recouvre, 2),
             "total_sub_count": len(sub_counts_global),

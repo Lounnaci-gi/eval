@@ -337,15 +337,26 @@ def _centre_code_zfill(secteur: str | None) -> str | None:
 
 
 def _commune_codcoms_for_centre(secteur: str | None) -> set[str] | None:
-    """CODCOM des communes rattachées au centre (COMMUNE.SECTEUR = code centre TABCODE)."""
+    """CODCOM des communes rattachées au centre (COMMUNE.SECTEUR = code centre, ou ayant un quartier rattaché au secteur)."""
     centre = _centre_code_zfill(secteur)
     if centre is None:
         return None
-    return {
-        codcom
-        for codcom, r in communes_by_code.items()
-        if str(r.get('SECTEUR', '')).strip().zfill(2) == centre
-    }
+    
+    allowed = set()
+    # 1. Rattachement direct
+    for codcom, r in communes_by_code.items():
+        if str(r.get('SECTEUR', '')).strip().zfill(2) == centre:
+            allowed.add(codcom)
+            
+    # 2. Rattachement via les quartiers
+    for r in MEM_QUARTIERS:
+        q_secteur = str(r.get('SECTEUR', '')).strip().zfill(2)
+        if q_secteur == centre:
+            q_commune = str(r.get('COMMUNE', '')).strip().zfill(2)
+            if q_commune in communes_by_code:
+                allowed.add(q_commune)
+                
+    return allowed
 
 
 def _commune_map_for_centre(secteur: str | None) -> dict[str, str]:
@@ -356,10 +367,11 @@ def _commune_map_for_centre(secteur: str | None) -> dict[str, str]:
             codcom: str(r.get('LIBCOM', '')).strip()
             for codcom, r in communes_by_code.items()
         }
+    allowed_codcoms = _commune_codcoms_for_centre(secteur)
     return {
         codcom: str(r.get('LIBCOM', '')).strip()
         for codcom, r in communes_by_code.items()
-        if str(r.get('SECTEUR', '')).strip().zfill(2) == centre
+        if codcom in allowed_codcoms
     }
 
 

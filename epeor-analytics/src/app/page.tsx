@@ -7003,7 +7003,20 @@ function CreanceDetailView({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="flex flex-wrap gap-2 items-center pt-2">
+                  {lastVentDate && (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand-50 rounded-full border border-brand-100 text-xs font-bold text-brand-600">
+                      <Calendar size={12} />
+                      <span>Arrêtée au {lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1')}</span>
+                    </div>
+                  )}
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 text-xs font-bold text-slate-600">
+                    <MapPin size={12} />
+                    <span>{secteurLabel ? `Centre ${secteurLabel}` : 'Toute l\'unité'}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div className="p-4 bg-[#F9FAFB] rounded-[2rem] border border-[#F2F4F7] group hover:border-brand-200 transition-colors">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-brand-500"></div>
@@ -7031,6 +7044,13 @@ function CreanceDetailView({
                       <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Créance Restante</p>
                     </div>
                     <p className="text-lg font-black text-rose-700 font-mono tracking-tighter">{fmt(data.total_creance)}</p>
+                  </div>
+                  <div className="p-4 bg-red-50/50 rounded-[2rem] border border-red-100 group hover:border-red-200 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-600"></div>
+                      <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">Créance Résilié</p>
+                    </div>
+                    <p className="text-lg font-black text-red-700 font-mono tracking-tighter">{fmt(data.total_creance_resilie || 0)}</p>
                   </div>
                 </div>
 

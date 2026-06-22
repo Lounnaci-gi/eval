@@ -6546,33 +6546,85 @@ function CreanceDetailView({
   const printTable = () => {
     try {
       const table = document.getElementById('retrospective-table');
-      if (!table) {
-        window.print();
-        return;
-      }
+      if (!table) { window.print(); return; }
+      const hwObj = (data?.history || []).map((row: any) => ({
+        ...row,
+        taux_objectif_atteint: row.taux_objectif_atteint != null
+          ? row.taux_objectif_atteint
+          : (row.creance_total + row.ca_eau) > 0
+            ? (row.encaissement_total * 12 * 100) / (row.creance_total + row.ca_eau)
+            : 0,
+      }));
+      const fmtDA = (n: number) =>
+        new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          .format(n).replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+      const centreSuffix = secteurLabel ? ` — centre ${secteurLabel}` : '';
+      const periodLabel = histType === 'monthly_12'
+        ? `12 derniers mois${centreSuffix}`
+        : histType === 'years'
+          ? `${histStartYear} → ${histEndYear}${centreSuffix}`
+          : `${formatMonthFr(histStartMonth)} ${histStartYear} → ${formatMonthFr(histEndMonth)} ${histEndYear}${centreSuffix}`;
+      const today = new Date();
+      const dateStr = `${today.getDate().toString().padStart(2,'0')}/${(today.getMonth()+1).toString().padStart(2,'0')}/${today.getFullYear()}`;
+      const origin = window.location.origin;
+      const rows = hwObj.map((row: any) => {
+        const tauxRecov = Number(row.ca_total) > 0
+          ? (Number(row.ca_recouvre_total || 0) / Number(row.ca_total)) * 100 : 0;
+        const bgColor = Number(row.taux_objectif_atteint) >= 90 ? '#F0FDF4' : '#FFF7ED';
+        return `<tr style="background:${bgColor};">
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;white-space:nowrap;font-weight:700;">${row.label || row.month}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_eau||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_prest||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_total||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_recouvre_total||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.encaissement_total||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.creance_total||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${tauxRecov.toFixed(2)}%</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;color:${Number(row.taux_objectif_atteint)>=90?'#16A34A':'#D97706'};font-weight:700;">${Number(row.taux_objectif_atteint).toFixed(2)}%</td>
+        </tr>`;
+      }).join('');
+      const tableHtml = `<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:10px;">
+        <thead><tr style="background:#F2F4F7;">
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:left;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Période</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Eau</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Prestation</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Total</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Recouvré</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Encaissement</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Créance</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Taux Recov.</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Objectif atteint</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
       const w = window.open('', '_blank');
       if (!w) return;
-      const styles = `
-        @page { size: A4 landscape; margin: 12mm; }
-        body{font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; padding:8px; color:#111827; font-size:12px}
-        table{width:100%;border-collapse:collapse; border-spacing:0}
-        thead{display: table-row-group} /* prevent repeating header on each printed page */
-        th{background:#F2F4F7;text-align:left;padding:4px 6px;border:1px solid #E6E9EE; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-        td{padding:4px 6px;border:1px solid #E6E9EE;text-align:right; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-        tr{page-break-inside: avoid}
-        @media print {
-          body{padding:0}
-          table { page-break-after: auto }
-          tr    { page-break-inside: avoid; page-break-after: auto }
-          td, th { font-size: 10px; white-space: nowrap }
-        }
-      `;
-      w.document.write(`<html><head><title>Tableau Rétrospectif</title><style>${styles}</style></head><body>${table.outerHTML}</body></html>`);
+      w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tableau Rétrospectif</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+        <style>
+          *{box-sizing:border-box;margin:0;padding:0;}
+          @page{size:A4 landscape;margin:12mm;}
+          body{font-family:'Inter',sans-serif;background:white;color:#101828;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+          .hdr{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #E4E7EC;margin-bottom:14px;}
+        </style></head><body>
+        <div class="hdr">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <img src="${origin}/ade.png" style="height:40px;width:auto;object-fit:contain;">
+            <div>
+              <div style="font-size:13px;font-weight:900;color:#101828;">Tableau Détaillé des Indicateurs</div>
+              <div style="font-size:9px;font-weight:600;color:#667085;margin-top:3px;">Période : ${periodLabel}</div>
+              ${secteurLabel ? `<div style="display:inline-block;margin-top:5px;padding:2px 10px;background:#EBF5FF;border:1px solid #BFDBFE;border-radius:20px;font-size:9px;font-weight:800;color:#1D4ED8;letter-spacing:0.02em;">&#128205; Secteur : ${secteurLabel}</div>` : ''}
+            </div>
+          </div>
+          <div style="text-align:right;font-size:8.5px;color:#98A2B3;font-weight:600;line-height:1.7;">
+            <div>Édité le : ${dateStr}</div>
+            <div>Unité : 26 — MEDEA | EPEOR Analytics</div>
+          </div>
+        </div>
+        ${tableHtml}
+        <script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script>
+      </body></html>`);
       w.document.close();
-      w.focus();
-      w.print();
-      // optionally close window after printing
-      // w.close();
     } catch (err) {
       console.error('Print failed', err);
       window.print();
@@ -6601,8 +6653,8 @@ function CreanceDetailView({
       keyPrest: string,
       keyTotal: string
     ) => {
-      const W = 490, H = 230;
-      const PAD = { top: 24, right: 18, bottom: 46, left: 68 };
+      const W = 490, H = 210;
+      const PAD = { top: 22, right: 16, bottom: 42, left: 62 };
       const chartW = W - PAD.left - PAD.right;
       const chartH = H - PAD.top - PAD.bottom;
       const n = history.length;
@@ -6626,33 +6678,29 @@ function CreanceDetailView({
         history.map((d: any, i: number) => {
           const cx = xOf(i).toFixed(1);
           const cy = yOf(Number(d[key] ?? 0)).toFixed(1);
-          return `<circle cx="${cx}" cy="${cy}" r="3.2" fill="white" stroke="${stroke}" stroke-width="2" />`;
+          return `<circle cx="${cx}" cy="${cy}" r="3" fill="white" stroke="${stroke}" stroke-width="2" />`;
         }).join('');
 
-      // Y-axis: 5 evenly spaced ticks
       const yTicksSvg = Array.from({ length: 5 }, (_, i) => {
         const v = (maxV / 4) * i;
         const y = yOf(v).toFixed(1);
-        return `
-          <line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" stroke="#F2F4F7" stroke-width="1"/>
-          <text x="${PAD.left - 6}" y="${Number(y) + 3.5}" text-anchor="end" font-size="8" fill="#98A2B3" font-family="Inter,sans-serif">${fmtV(v)}</text>`;
+        return `<line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" stroke="#F2F4F7" stroke-width="1"/>
+          <text x="${PAD.left - 5}" y="${Number(y) + 3}" text-anchor="end" font-size="7.5" fill="#98A2B3" font-family="Inter,sans-serif">${fmtV(v)}</text>`;
       }).join('');
 
-      // X-axis: show labels every step ticks
       const step = n <= 14 ? 1 : n <= 30 ? 2 : n <= 60 ? 4 : Math.ceil(n / 14);
       const xTicksSvg = history.map((d: any, i: number) => {
         if (i % step !== 0 && i !== n - 1) return '';
-        return `<text x="${xOf(i).toFixed(1)}" y="${H - PAD.bottom + 12}" text-anchor="middle" font-size="8" fill="#667085" font-family="Inter,sans-serif" font-weight="600">${d.month}</text>`;
+        return `<text x="${xOf(i).toFixed(1)}" y="${H - PAD.bottom + 11}" text-anchor="middle" font-size="7.5" fill="#667085" font-family="Inter,sans-serif" font-weight="600">${d.month}</text>`;
       }).join('');
 
-      return `
-        <div style="background:#fff;border:1.2px solid #E4E7EC;border-radius:14px;padding:14px 18px 10px;break-inside:avoid;">
-          <div style="font-family:Inter,sans-serif;font-size:10.5px;font-weight:900;color:#101828;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+      return `<div style="background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:10px 14px 8px;page-break-inside:avoid;">
+          <div style="font-family:Inter,sans-serif;font-size:10px;font-weight:900;color:#101828;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
             <span>${title}</span>
-            <span style="display:flex;gap:10px;font-size:8.5px;font-weight:700;color:#667085;align-items:center;">
-              <span style="display:flex;align-items:center;gap:3px;"><span style="display:inline-block;width:16px;height:2.5px;background:#0D83DE;border-radius:2px;"></span>Eau</span>
-              <span style="display:flex;align-items:center;gap:3px;"><span style="display:inline-block;width:16px;height:2.5px;background:${colorPrest};border-radius:2px;"></span>Prestations</span>
-              <span style="display:flex;align-items:center;gap:3px;"><span style="display:inline-block;width:16px;height:0;border-top:2.5px dashed #10B981;"></span>Total</span>
+            <span style="display:flex;gap:8px;font-size:8px;font-weight:700;color:#667085;align-items:center;">
+              <span style="display:flex;align-items:center;gap:2px;"><span style="display:inline-block;width:14px;height:2px;background:#0D83DE;border-radius:2px;"></span>Eau</span>
+              <span style="display:flex;align-items:center;gap:2px;"><span style="display:inline-block;width:14px;height:2px;background:${colorPrest};border-radius:2px;"></span>Prestations</span>
+              <span style="display:flex;align-items:center;gap:2px;"><span style="display:inline-block;width:14px;height:0;border-top:2px dashed #10B981;"></span>Total</span>
             </span>
           </div>
           <svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible;display:block;">
@@ -6668,6 +6716,115 @@ function CreanceDetailView({
         </div>`;
     };
 
+    const buildSvgTauxObjectifChart = () => {
+      const hwObj = (data?.history || []).map((row: any) => ({
+        ...row,
+        taux_objectif_atteint: row.taux_objectif_atteint != null
+          ? row.taux_objectif_atteint
+          : (row.creance_total + row.ca_eau) > 0
+            ? (row.encaissement_total * 12 * 100) / (row.creance_total + row.ca_eau)
+            : 0,
+      }));
+      const W = 900, H = 300;
+      const PAD = { top: 28, right: 60, bottom: 48, left: 55 };
+      const chartW = W - PAD.left - PAD.right;
+      const chartH = H - PAD.top - PAD.bottom;
+      const n = hwObj.length;
+      const maxV = Math.max(...hwObj.map((d: any) => Number(d.taux_objectif_atteint || 0)), 100);
+
+      const xOf = (i: number) => PAD.left + (n <= 1 ? chartW / 2 : (i / (n - 1)) * chartW);
+      const yOf = (v: number) => PAD.top + chartH - (v / maxV) * chartH;
+
+      const pts = hwObj.map((d: any, i: number) =>
+        `${xOf(i).toFixed(1)},${yOf(Number(d.taux_objectif_atteint || 0)).toFixed(1)}`
+      ).join(' ');
+
+      const dots = hwObj.map((d: any, i: number) => {
+        const cx = xOf(i).toFixed(1);
+        const cy = yOf(Number(d.taux_objectif_atteint || 0)).toFixed(1);
+        return `<circle cx="${cx}" cy="${cy}" r="4" fill="white" stroke="#F59E0B" stroke-width="2.5" />`;
+      }).join('');
+
+      const y90 = yOf(90).toFixed(1);
+      const refLine = `<line x1="${PAD.left}" y1="${y90}" x2="${W - PAD.right}" y2="${y90}" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="${W - PAD.right + 4}" y="${Number(y90) + 4}" font-size="9" fill="#F59E0B" font-weight="700" font-family="Inter,sans-serif">Seuil 90%</text>`;
+
+      const yTicksSvg = Array.from({ length: 6 }, (_, i) => {
+        const v = (maxV / 5) * i;
+        const y = yOf(v).toFixed(1);
+        return `<line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" stroke="#F2F4F7" stroke-width="1"/>
+          <text x="${PAD.left - 6}" y="${Number(y) + 3.5}" text-anchor="end" font-size="9" fill="#98A2B3" font-family="Inter,sans-serif">${v.toFixed(0)}%</text>`;
+      }).join('');
+
+      const step = n <= 14 ? 1 : n <= 30 ? 2 : n <= 60 ? 4 : Math.ceil(n / 14);
+      const xTicksSvg = hwObj.map((d: any, i: number) => {
+        if (i % step !== 0 && i !== n - 1) return '';
+        return `<text x="${xOf(i).toFixed(1)}" y="${H - PAD.bottom + 14}" text-anchor="middle" font-size="9" fill="#667085" font-family="Inter,sans-serif" font-weight="600">${d.month}</text>`;
+      }).join('');
+
+      return `<div style="background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:16px 18px 12px;">
+          <div style="font-family:Inter,sans-serif;font-size:12px;font-weight:900;color:#101828;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Taux Objectif Atteint (%)</span>
+            <span style="display:flex;align-items:center;gap:10px;font-size:9px;font-weight:700;color:#F59E0B;">
+              <span style="display:inline-block;width:20px;height:2.5px;background:#F59E0B;border-radius:2px;"></span>Taux Objectif &nbsp;
+              <span style="display:inline-block;width:20px;height:0;border-top:2px dashed #F59E0B;"></span>Seuil 90%
+            </span>
+          </div>
+          <svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible;display:block;">
+            ${yTicksSvg}
+            ${xTicksSvg}
+            <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + chartH}" stroke="#E4E7EC" stroke-width="1"/>
+            ${refLine}
+            <polyline points="${pts}" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            ${dots}
+          </svg>
+        </div>`;
+    };
+
+    const buildTableHtml = () => {
+      const hwObj = (data?.history || []).map((row: any) => ({
+        ...row,
+        taux_objectif_atteint: row.taux_objectif_atteint != null
+          ? row.taux_objectif_atteint
+          : (row.creance_total + row.ca_eau) > 0
+            ? (row.encaissement_total * 12 * 100) / (row.creance_total + row.ca_eau)
+            : 0,
+      }));
+      const fmtDA = (n: number) =>
+        new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          .format(n).replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+      const rows = hwObj.map((row: any) => {
+        const tauxRecov = Number(row.ca_total) > 0
+          ? (Number(row.ca_recouvre_total || 0) / Number(row.ca_total)) * 100 : 0;
+        const bgColor = Number(row.taux_objectif_atteint) >= 90 ? '#F0FDF4' : '#FFF7ED';
+        return `<tr style="background:${bgColor};">
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;white-space:nowrap;font-weight:700;">${row.label || row.month}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_eau||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_prest||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_total||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_recouvre_total||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.encaissement_total||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.creance_total||0))}</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${tauxRecov.toFixed(2)}%</td>
+          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;color:${Number(row.taux_objectif_atteint)>=90?'#16A34A':'#D97706'};font-weight:700;">${Number(row.taux_objectif_atteint).toFixed(2)}%</td>
+        </tr>`;
+      }).join('');
+      return `<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:10px;">
+        <thead><tr style="background:#F2F4F7;">
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:left;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Période</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Eau</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Prestation</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Total</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Recouvré</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Encaissement</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Créance</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Taux Recov.</th>
+          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Objectif atteint</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    };
+
     const centreSuffix = secteurLabel ? ` — centre ${secteurLabel}` : '';
     const periodLabel = histType === 'monthly_12'
       ? `12 derniers mois (arrêtés au ${lastVentDate ? lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1') : '...'})${centreSuffix}`
@@ -6677,11 +6834,30 @@ function CreanceDetailView({
 
     const today = new Date();
     const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    const origin = window.location.origin;
 
     const chartCA      = buildSvgChart("Chiffre d'Affaires", '#F59E0B', 'ca_eau', 'ca_prest', 'ca_total');
     const chartCreance = buildSvgChart("Créances", '#E11D48', 'creance_eau', 'creance_prest', 'creance_total');
     const chartEnc     = buildSvgChart("Encaissements", '#10B981', 'encaissement_eau', 'encaissement_prest', 'encaissement_total');
     const chartCARec   = buildSvgChart("CA Recouvré", '#8B5CF6', 'ca_recouvre_eau', 'ca_recouvre_prest', 'ca_recouvre_total');
+    const chartTaux    = buildSvgTauxObjectifChart();
+    const tableHtml    = buildTableHtml();
+
+    const mkHeader = (pageTitle: string) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #E4E7EC;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <img src="${origin}/ade.png" style="height:42px;width:auto;object-fit:contain;">
+          <div>
+            <div style="font-family:Inter,sans-serif;font-size:13px;font-weight:900;color:#101828;">${pageTitle}</div>
+            <div style="font-family:Inter,sans-serif;font-size:9px;font-weight:600;color:#667085;margin-top:3px;">Période : ${periodLabel}</div>
+            ${secteurLabel ? `<div style="display:inline-block;margin-top:5px;padding:2px 10px;background:#EBF5FF;border:1px solid #BFDBFE;border-radius:20px;font-family:Inter,sans-serif;font-size:9px;font-weight:800;color:#1D4ED8;letter-spacing:0.02em;">&#128205; Secteur : ${secteurLabel}</div>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;font-family:Inter,sans-serif;font-size:8.5px;color:#98A2B3;font-weight:600;line-height:1.7;">
+          <div>Édité le : ${dateStr}</div>
+          <div>Unité : 26 — MEDEA &nbsp;|&nbsp; EPEOR Analytics</div>
+        </div>
+      </div>`;
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) { alert("Veuillez autoriser les fenêtres pop-up pour imprimer."); return; }
@@ -6694,33 +6870,32 @@ function CreanceDetailView({
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
-    @page{size:A4 landscape;margin:1cm;}
+    @page{size:A4 landscape;margin:12mm;}
     body{font-family:'Inter',sans-serif;background:white;color:#101828;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-    .page-header{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:10px;border-bottom:2px solid #F2F4F7;margin-bottom:14px;}
-    .page-title{font-size:14px;font-weight:900;color:#101828;letter-spacing:-0.02em;}
-    .page-subtitle{font-size:9.5px;color:#667085;font-weight:600;margin-top:3px;}
-    .page-meta{text-align:right;font-size:8.5px;color:#98A2B3;font-weight:600;line-height:1.6;}
-    .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .print-page{width:100%;page-break-after:always;overflow:hidden;}
+    .print-page:last-child{page-break-after:auto;}
+    .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   </style>
 </head>
 <body>
-  <div class="page-header">
-    <div>
-      <div class="page-title">Analyse Rétrospective des Indicateurs Financiers</div>
-      <div class="page-subtitle">Période : ${periodLabel}</div>
-    </div>
-    <div class="page-meta">
-      <div>Édité le : ${dateStr}</div>
-      <div>Unité : 26 — MEDEA &nbsp;|&nbsp; EPEOR Analytics</div>
+  <div class="print-page">
+    ${mkHeader('Analyse Rétrospective des Indicateurs Financiers')}
+    <div class="charts-grid">
+      ${chartCA}
+      ${chartCreance}
+      ${chartEnc}
+      ${chartCARec}
     </div>
   </div>
-  <div class="charts-grid">
-    ${chartCA}
-    ${chartCreance}
-    ${chartEnc}
-    ${chartCARec}
+  <div class="print-page">
+    ${mkHeader('Courbe Taux Objectif Atteint')}
+    ${chartTaux}
   </div>
-  <script>window.onload=function(){setTimeout(function(){window.print();},700);};<\/script>
+  <div class="print-page">
+    ${mkHeader('Tableau Détaillé des Indicateurs')}
+    ${tableHtml}
+  </div>
+  <script>window.onload=function(){setTimeout(function(){window.print();},800);};<\/script>
 </body>
 </html>`);
     printWindow.document.close();

@@ -855,12 +855,14 @@ def load_all_data_to_memory():
             if unite and cod:
                 instit_by_unite_cod[(unite, cod)] = r
 
-        print(f"[INFO] Building invoice indexes...")
-        build_invoice_indexes()
-        
         print(f"[INFO] Computing dashboard statistics...")
         cached_dashboard_stats = compute_dashboard_stats()
         is_db_ready = True
+        print(f"[INFO] Dashboard stats ready, invoice indexation continues in background...")
+
+        print(f"[INFO] Building invoice indexes...")
+        build_invoice_indexes()
+
         print(
             f"[SUCCESS] Dashboard ready in {time.time()-t_start:.2f}s "
             f"({cached_dashboard_stats['total_subscribers']} abonnés, "
@@ -2612,10 +2614,83 @@ def get_creance(
                         "creance_prest": 0.0
                     })
 
-            records_hist = itertools.chain(
+            records_hist = list(itertools.chain(
                 ((r, False) for r in MEM_FACTURES),
                 ((r, True) for r in MEM_AVOIRS)
-            )
+            ))
+
+            def compute_objectif_rate(encaissement_total: float, creance_total: float, ca_eau: float) -> float:
+                denominator = creance_total + ca_eau
+                if denominator <= 0:
+                    return 0.0
+                return round((encaissement_total * 12 * 100) / denominator, 2)
+
+            def compute_yearly_average_objectif(year: int) -> float:
+                monthly_rates = []
+                for month in range(1, 13):
+                    month_last_day = calendar.monthrange(year, month)[1]
+                    month_start = f"{year}{month:02d}01"
+                    month_end = f"{year}{month:02d}{month_last_day:02d}"
+
+                    month_ca_eau = 0.0
+                    month_ca_prest = 0.0
+                    month_recouvre_eau = 0.0
+                    month_recouvre_prest = 0.0
+                    month_creance_eau = 0.0
+                    month_creance_prest = 0.0
+
+                    for r, is_avoir in records_hist:
+                        numab_r = str(r.get('NUMAB', '') or '').strip().upper()
+                        if secteur_numabs is not None and numab_r not in secteur_numabs:
+                            continue
+
+                        datsaisie = str(r.get('DATSAISIE') or '').strip()
+                        datreg = str(r.get('DATREG') or '').strip()
+                        tp = str(r.get('TYPE') or '').strip()
+                        monttc = float(r.get('MONTTC') or 0)
+                        timbre = float(r.get('TIMBRE') or 0)
+
+                        is_eau = tp in ['E', 'C', '6']
+                        m_rec = monttc + timbre
+
+                        if month_start <= datsaisie <= month_end:
+                            if is_eau:
+                                month_ca_eau += monttc
+                            else:
+                                month_ca_prest += monttc
+
+                        if not is_avoir and datreg not in EMPTY_DATE_VALUES and month_start <= datreg <= month_end:
+                            if is_eau:
+                                month_recouvre_eau += m_rec
+                            else:
+                                month_recouvre_prest += m_rec
+
+                        is_creance_arretee = False
+                        if not is_avoir:
+                            if datsaisie and datsaisie <= month_end:
+                                if datreg in EMPTY_DATE_VALUES or datreg > month_end:
+                                    is_creance_arretee = True
+                        else:
+                            datanul = str(r.get('DATANUL') or '').strip()
+                            if datsaisie and datsaisie <= month_end:
+                                if datanul and datanul > month_end:
+                                    if datreg in EMPTY_DATE_VALUES or datreg > month_end:
+                                        is_creance_arretee = True
+
+                        if is_creance_arretee:
+                            if is_eau:
+                                month_creance_eau += monttc
+                            else:
+                                month_creance_prest += monttc
+
+                    month_encaissement_total = month_recouvre_eau + month_recouvre_prest
+                    month_creance_total = month_creance_eau + month_creance_prest
+                    rate = compute_objectif_rate(month_encaissement_total, month_creance_total, month_ca_eau)
+                    monthly_rates.append(rate)
+
+                if not monthly_rates:
+                    return 0.0
+                return round(sum(monthly_rates) / len(monthly_rates), 2)
 
             for r, is_avoir in records_hist:
                 numab_r = str(r.get('NUMAB', '') or '').strip().upper()
@@ -2678,6 +2753,12 @@ def get_creance(
                 ca_recouvre_total = interval["ca_recouvre_eau"] + interval["ca_recouvre_prest"]
                 creance_total = interval["creance_eau"] + interval["creance_prest"]
 
+                taux_objectif_atteint = (
+                    compute_yearly_average_objectif(interval["year"])
+                    if hist_type == "years"
+                    else compute_objectif_rate(recouvre_total, creance_total, interval["ca_eau"])
+                )
+
                 history_list.append({
                     "month": interval["short_label"],
                     "label": interval["label"],
@@ -2692,7 +2773,8 @@ def get_creance(
                     "ca_recouvre_total": round(ca_recouvre_total, 2),
                     "creance_eau": round(interval["creance_eau"], 2),
                     "creance_prest": round(interval["creance_prest"], 2),
-                    "creance_total": round(creance_total, 2)
+                    "creance_total": round(creance_total, 2),
+                    "taux_objectif_atteint": taux_objectif_atteint
                 })
         except Exception as ex:
             print("Error computing history:", ex)

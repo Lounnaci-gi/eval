@@ -6535,10 +6535,49 @@ function CreanceDetailView({
 
   const historyWithObjective = data?.history?.map((row: any) => ({
     ...row,
-    taux_objectif_atteint: (row.creance_total + row.ca_eau) > 0
-      ? (row.encaissement_total * 12 * 100) / (row.creance_total + row.ca_eau)
-      : 0,
+    taux_objectif_atteint: row.taux_objectif_atteint != null
+      ? row.taux_objectif_atteint
+      : (row.creance_total + row.ca_eau) > 0
+        ? (row.encaissement_total * 12 * 100) / (row.creance_total + row.ca_eau)
+        : 0,
   })) || [];
+
+  const [histView, setHistView] = useState<'chart' | 'table'>('chart');
+  const printTable = () => {
+    try {
+      const table = document.getElementById('retrospective-table');
+      if (!table) {
+        window.print();
+        return;
+      }
+      const w = window.open('', '_blank');
+      if (!w) return;
+      const styles = `
+        @page { size: A4 landscape; margin: 12mm; }
+        body{font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; padding:8px; color:#111827; font-size:12px}
+        table{width:100%;border-collapse:collapse; border-spacing:0}
+        thead{display: table-row-group} /* prevent repeating header on each printed page */
+        th{background:#F2F4F7;text-align:left;padding:4px 6px;border:1px solid #E6E9EE; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+        td{padding:4px 6px;border:1px solid #E6E9EE;text-align:right; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+        tr{page-break-inside: avoid}
+        @media print {
+          body{padding:0}
+          table { page-break-after: auto }
+          tr    { page-break-inside: avoid; page-break-after: auto }
+          td, th { font-size: 10px; white-space: nowrap }
+        }
+      `;
+      w.document.write(`<html><head><title>Tableau Rétrospectif</title><style>${styles}</style></head><body>${table.outerHTML}</body></html>`);
+      w.document.close();
+      w.focus();
+      w.print();
+      // optionally close window after printing
+      // w.close();
+    } catch (err) {
+      console.error('Print failed', err);
+      window.print();
+    }
+  };
 
   const handlePrintAllCharts = () => {
     if (!data?.history || data.history.length === 0) {
@@ -7124,6 +7163,21 @@ function CreanceDetailView({
                     {tab.label}
                   </button>
                 ))}
+                <div className="flex items-center gap-2 px-2">
+                  <button
+                    onClick={() => setHistView('chart')}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold ${histView === 'chart' ? 'bg-white border border-[#E4E7EC] text-brand-600' : 'text-[#667085]'}`}
+                  >Graphique</button>
+                  <button
+                    onClick={() => setHistView('table')}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold ${histView === 'table' ? 'bg-white border border-[#E4E7EC] text-brand-600' : 'text-[#667085]'}`}
+                  >Tableau</button>
+                  <button
+                    onClick={printTable}
+                    disabled={histView !== 'table'}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold ${histView === 'table' ? 'bg-white border border-[#E4E7EC] text-[#0D83DE]' : 'text-[#9CA3AF]'} disabled:opacity-50 disabled:cursor-not-allowed ml-2`}
+                  >Imprimer</button>
+                </div>
               </div>
             </div>
 
@@ -7247,110 +7301,148 @@ function CreanceDetailView({
               )}
 
               {data.history && data.history.length > 0 ? (
-                <ChartContainer className="h-[380px] w-full">
-                  <LineChart
-                    data={historyWithObjective}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
-                    <XAxis
-                      dataKey="month"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: '#667085', fontSize: 11, fontWeight: 600 }}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: '#667085', fontSize: 11 }}
-                      tickFormatter={(val) => activeHistoryMetric === 'objectif' ? `${Number(val).toFixed(0)}%` : fmtNum(val) + " DA"}
-                      width={activeHistoryMetric === 'objectif' ? 60 : 100}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#101828",
-                        border: "none",
-                        borderRadius: "16px",
-                        color: "#fff",
-                        fontSize: '12px',
-                        padding: '12px'
-                      }}
-                      itemStyle={{ color: "#fff" }}
-                      labelStyle={{ color: "#98A2B3", fontWeight: 'bold', marginBottom: '4px' }}
-                      formatter={(value: any, name: any) => [
-                        activeHistoryMetric === 'objectif'
-                          ? `${Number(value).toFixed(2)}%`
-                          : fmt(value),
-                        name
-                      ]}
-                    />
-                    <Legend
-                      verticalAlign="top"
-                      align="right"
-                      iconType="circle"
-                      wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '16px' }}
-                    />
-                    {activeHistoryMetric !== 'objectif' ? (
-                      <>
-                        <Line
-                          type="monotone"
-                          dataKey={
-                            activeHistoryMetric === 'creance' ? 'creance_eau' :
-                            activeHistoryMetric === 'ca' ? 'ca_eau' :
-                            activeHistoryMetric === 'encaissement' ? 'encaissement_eau' :
-                            'ca_recouvre_eau'
-                          }
-                          name="Eau"
-                          stroke="#0D83DE"
-                          strokeWidth={3}
-                          dot={{ r: 4, stroke: "#0D83DE", strokeWidth: 2, fill: "#fff" }}
-                          activeDot={{ r: 6, strokeWidth: 0 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey={
-                            activeHistoryMetric === 'creance' ? 'creance_prest' :
-                            activeHistoryMetric === 'ca' ? 'ca_prest' :
-                            activeHistoryMetric === 'encaissement' ? 'encaissement_prest' :
-                            'ca_recouvre_prest'
-                          }
-                          name="Prestations"
-                          stroke="#9333EA"
-                          strokeWidth={3}
-                          dot={{ r: 4, stroke: "#9333EA", strokeWidth: 2, fill: "#fff" }}
-                          activeDot={{ r: 6, strokeWidth: 0 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey={
-                            activeHistoryMetric === 'creance' ? 'creance_total' :
-                            activeHistoryMetric === 'ca' ? 'ca_total' :
-                            activeHistoryMetric === 'encaissement' ? 'encaissement_total' :
-                            'ca_recouvre_total'
-                          }
-                          name="Total"
-                          stroke="#10B981"
-                          strokeWidth={2}
-                          strokeDasharray="5 5"
-                          dot={false}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <ReferenceLine y={90} stroke="#F59E0B" strokeDasharray="4 3" label={{ position: 'insideTopRight', value: 'Seuil 90%', fill: '#F59E0B', fontSize: 10, fontWeight: 700 }} />
-                        <Line
-                          type="monotone"
-                          dataKey="taux_objectif_atteint"
-                          name="Taux Objectif"
-                          stroke="#F59E0B"
-                          strokeWidth={3}
-                          dot={{ r: 4, stroke: "#F59E0B", strokeWidth: 2, fill: "#fff" }}
-                          activeDot={{ r: 6, strokeWidth: 0 }}
-                        />
-                      </>
-                    )}
-                  </LineChart>
-                </ChartContainer>
+                histView === 'chart' ? (
+                  <ChartContainer className="h-[380px] w-full">
+                    <LineChart
+                      data={historyWithObjective}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
+                      <XAxis
+                        dataKey="month"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: '#667085', fontSize: 11, fontWeight: 600 }}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: '#667085', fontSize: 11 }}
+                        tickFormatter={(val) => activeHistoryMetric === 'objectif' ? `${Number(val).toFixed(0)}%` : fmtNum(val) + " DA"}
+                        width={activeHistoryMetric === 'objectif' ? 60 : 100}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#101828",
+                          border: "none",
+                          borderRadius: "16px",
+                          color: "#fff",
+                          fontSize: '12px',
+                          padding: '12px'
+                        }}
+                        itemStyle={{ color: "#fff" }}
+                        labelStyle={{ color: "#98A2B3", fontWeight: 'bold', marginBottom: '4px' }}
+                        formatter={(value: any, name: any) => [
+                          activeHistoryMetric === 'objectif'
+                            ? `${Number(value).toFixed(2)}%`
+                            : fmt(value),
+                          name
+                        ]}
+                      />
+                      <Legend
+                        verticalAlign="top"
+                        align="right"
+                        iconType="circle"
+                        wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '16px' }}
+                      />
+                      {activeHistoryMetric !== 'objectif' ? (
+                        <>
+                          <Line
+                            type="monotone"
+                            dataKey={
+                              activeHistoryMetric === 'creance' ? 'creance_eau' :
+                              activeHistoryMetric === 'ca' ? 'ca_eau' :
+                              activeHistoryMetric === 'encaissement' ? 'encaissement_eau' :
+                              'ca_recouvre_eau'
+                            }
+                            name="Eau"
+                            stroke="#0D83DE"
+                            strokeWidth={3}
+                            dot={{ r: 4, stroke: "#0D83DE", strokeWidth: 2, fill: "#fff" }}
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey={
+                              activeHistoryMetric === 'creance' ? 'creance_prest' :
+                              activeHistoryMetric === 'ca' ? 'ca_prest' :
+                              activeHistoryMetric === 'encaissement' ? 'encaissement_prest' :
+                              'ca_recouvre_prest'
+                            }
+                            name="Prestations"
+                            stroke="#9333EA"
+                            strokeWidth={3}
+                            dot={{ r: 4, stroke: "#9333EA", strokeWidth: 2, fill: "#fff" }}
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey={
+                              activeHistoryMetric === 'creance' ? 'creance_total' :
+                              activeHistoryMetric === 'ca' ? 'ca_total' :
+                              activeHistoryMetric === 'encaissement' ? 'encaissement_total' :
+                              'ca_recouvre_total'
+                            }
+                            name="Total"
+                            stroke="#10B981"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={false}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <ReferenceLine y={90} stroke="#F59E0B" strokeDasharray="4 3" label={{ position: 'insideTopRight', value: 'Seuil 90%', fill: '#F59E0B', fontSize: 10, fontWeight: 700 }} />
+                          <Line
+                            type="monotone"
+                            dataKey="taux_objectif_atteint"
+                            name="Taux Objectif"
+                            stroke="#F59E0B"
+                            strokeWidth={3}
+                            dot={{ r: 4, stroke: "#F59E0B", strokeWidth: 2, fill: "#fff" }}
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                          />
+                        </>
+                      )}
+                    </LineChart>
+                  </ChartContainer>
+                ) : (
+                  <div className="bg-white border border-[#E4E7EC] rounded-2xl p-4 overflow-auto">
+                    <table id="retrospective-table" className="min-w-full divide-y divide-gray-200 text-xs">
+                      <thead>
+                        <tr className="text-left text-xs text-[#667085] uppercase font-bold">
+                          <th className="px-2 py-1 whitespace-nowrap">Période</th>
+                          <th className="px-2 py-1 text-right whitespace-nowrap">CA Eau</th>
+                          <th className="px-2 py-1 text-right whitespace-nowrap">CA Prestation</th>
+                          <th className="px-2 py-1 text-right whitespace-nowrap">CA Total</th>
+                          <th className="px-2 py-1 text-right whitespace-nowrap">CA Recouvré</th>
+                          <th className="px-2 py-1 text-right whitespace-nowrap">Encaissement</th>
+                          <th className="px-2 py-1 text-right whitespace-nowrap">Créance</th>
+                          <th className="px-2 py-1 text-right whitespace-nowrap">Taux Recov.</th>
+                          <th className="px-2 py-1 text-right whitespace-nowrap">Objectif atteint</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historyWithObjective.map((row: any, idx: number) => {
+                          const tauxRecov = row.ca_total > 0 ? (Number(row.ca_recouvre_total || 0) / Number(row.ca_total || 1)) * 100 : 0;
+                          return (
+                            <tr key={row.month || row.label || idx} className="border-t">
+                              <td className="px-2 py-1 align-top whitespace-nowrap">{row.label}</td>
+                              <td className="px-2 py-1 text-right align-top whitespace-nowrap">{fmt(row.ca_eau || 0)}</td>
+                              <td className="px-2 py-1 text-right align-top whitespace-nowrap">{fmt(row.ca_prest || 0)}</td>
+                              <td className="px-2 py-1 text-right align-top whitespace-nowrap">{fmt(row.ca_total || 0)}</td>
+                              <td className="px-2 py-1 text-right align-top whitespace-nowrap">{fmt(row.ca_recouvre_total || 0)}</td>
+                              <td className="px-2 py-1 text-right align-top whitespace-nowrap">{fmt(row.encaissement_total || 0)}</td>
+                              <td className="px-2 py-1 text-right align-top whitespace-nowrap">{fmt(row.creance_total || 0)}</td>
+                              <td className="px-2 py-1 text-right align-top whitespace-nowrap">{tauxRecov.toFixed(2)}%</td>
+                              <td className="px-2 py-1 text-right align-top whitespace-nowrap">{(Number(row.taux_objectif_atteint || 0)).toFixed(2)}%</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
               ) : (
                 <div className="flex flex-col items-center justify-center h-60 gap-2 border-2 border-dashed border-[#E4E7EC] rounded-3xl bg-[#F9FAFB]">
                   <p className="text-sm font-bold text-[#667085]">Aucune donnée historique disponible.</p>

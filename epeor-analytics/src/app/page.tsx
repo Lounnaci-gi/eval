@@ -65,6 +65,7 @@ import {
   RadialBarChart,
   RadialBar,
   PolarAngleAxis,
+  ReferenceLine,
   LabelList,
 } from "recharts";
 
@@ -6256,7 +6257,7 @@ function CreanceDetailView({
   const [categoryCountsPeriod, setCategoryCountsPeriod] = useState('');
   const [periodSubscriberTotal, setPeriodSubscriberTotal] = useState<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre'>('creance');
+  const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre' | 'objectif'>('creance');
 
   const [histType, setHistType] = useState<'monthly_12' | 'years' | 'months'>('monthly_12');
   const [histStartYear, setHistStartYear] = useState('2015');
@@ -6531,6 +6532,13 @@ function CreanceDetailView({
     new Intl.NumberFormat("fr-DZ", { maximumFractionDigits: 0 })
       .format(n)
       .replace(/[\u202F\u00A0]/g, ' ');
+
+  const historyWithObjective = data?.history?.map((row: any) => ({
+    ...row,
+    taux_objectif_atteint: (row.creance_total + row.ca_eau) > 0
+      ? (row.encaissement_total * 12 * 100) / (row.creance_total + row.ca_eau)
+      : 0,
+  })) || [];
 
   const handlePrintAllCharts = () => {
     if (!data?.history || data.history.length === 0) {
@@ -7101,7 +7109,8 @@ function CreanceDetailView({
                   { id: 'creance', label: 'Créances' },
                   { id: 'ca', label: "Chiffre d'Affaires" },
                   { id: 'encaissement', label: 'Encaissements' },
-                  { id: 'ca_recouvre', label: 'CA Recouvré' }
+                  { id: 'ca_recouvre', label: 'CA Recouvré' },
+                  { id: 'objectif', label: 'Taux Objectif' }
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -7240,7 +7249,7 @@ function CreanceDetailView({
               {data.history && data.history.length > 0 ? (
                 <ChartContainer className="h-[380px] w-full">
                   <LineChart
-                    data={data.history}
+                    data={historyWithObjective}
                     margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
@@ -7254,8 +7263,8 @@ function CreanceDetailView({
                       tickLine={false}
                       axisLine={false}
                       tick={{ fill: '#667085', fontSize: 11 }}
-                      tickFormatter={(val) => fmtNum(val) + " DA"}
-                      width={100}
+                      tickFormatter={(val) => activeHistoryMetric === 'objectif' ? `${Number(val).toFixed(0)}%` : fmtNum(val) + " DA"}
+                      width={activeHistoryMetric === 'objectif' ? 60 : 100}
                     />
                     <Tooltip
                       contentStyle={{
@@ -7268,7 +7277,12 @@ function CreanceDetailView({
                       }}
                       itemStyle={{ color: "#fff" }}
                       labelStyle={{ color: "#98A2B3", fontWeight: 'bold', marginBottom: '4px' }}
-                      formatter={(value: any, name: any) => [fmt(value), name]}
+                      formatter={(value: any, name: any) => [
+                        activeHistoryMetric === 'objectif'
+                          ? `${Number(value).toFixed(2)}%`
+                          : fmt(value),
+                        name
+                      ]}
                     />
                     <Legend
                       verticalAlign="top"
@@ -7276,48 +7290,65 @@ function CreanceDetailView({
                       iconType="circle"
                       wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '16px' }}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey={
-                        activeHistoryMetric === 'creance' ? 'creance_eau' :
-                        activeHistoryMetric === 'ca' ? 'ca_eau' :
-                        activeHistoryMetric === 'encaissement' ? 'encaissement_eau' :
-                        'ca_recouvre_eau'
-                      }
-                      name="Eau"
-                      stroke="#0D83DE"
-                      strokeWidth={3}
-                      dot={{ r: 4, stroke: "#0D83DE", strokeWidth: 2, fill: "#fff" }}
-                      activeDot={{ r: 6, strokeWidth: 0 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey={
-                        activeHistoryMetric === 'creance' ? 'creance_prest' :
-                        activeHistoryMetric === 'ca' ? 'ca_prest' :
-                        activeHistoryMetric === 'encaissement' ? 'encaissement_prest' :
-                        'ca_recouvre_prest'
-                      }
-                      name="Prestations"
-                      stroke="#9333EA"
-                      strokeWidth={3}
-                      dot={{ r: 4, stroke: "#9333EA", strokeWidth: 2, fill: "#fff" }}
-                      activeDot={{ r: 6, strokeWidth: 0 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey={
-                        activeHistoryMetric === 'creance' ? 'creance_total' :
-                        activeHistoryMetric === 'ca' ? 'ca_total' :
-                        activeHistoryMetric === 'encaissement' ? 'encaissement_total' :
-                        'ca_recouvre_total'
-                      }
-                      name="Total"
-                      stroke="#10B981"
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                      dot={false}
-                    />
+                    {activeHistoryMetric !== 'objectif' ? (
+                      <>
+                        <Line
+                          type="monotone"
+                          dataKey={
+                            activeHistoryMetric === 'creance' ? 'creance_eau' :
+                            activeHistoryMetric === 'ca' ? 'ca_eau' :
+                            activeHistoryMetric === 'encaissement' ? 'encaissement_eau' :
+                            'ca_recouvre_eau'
+                          }
+                          name="Eau"
+                          stroke="#0D83DE"
+                          strokeWidth={3}
+                          dot={{ r: 4, stroke: "#0D83DE", strokeWidth: 2, fill: "#fff" }}
+                          activeDot={{ r: 6, strokeWidth: 0 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey={
+                            activeHistoryMetric === 'creance' ? 'creance_prest' :
+                            activeHistoryMetric === 'ca' ? 'ca_prest' :
+                            activeHistoryMetric === 'encaissement' ? 'encaissement_prest' :
+                            'ca_recouvre_prest'
+                          }
+                          name="Prestations"
+                          stroke="#9333EA"
+                          strokeWidth={3}
+                          dot={{ r: 4, stroke: "#9333EA", strokeWidth: 2, fill: "#fff" }}
+                          activeDot={{ r: 6, strokeWidth: 0 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey={
+                            activeHistoryMetric === 'creance' ? 'creance_total' :
+                            activeHistoryMetric === 'ca' ? 'ca_total' :
+                            activeHistoryMetric === 'encaissement' ? 'encaissement_total' :
+                            'ca_recouvre_total'
+                          }
+                          name="Total"
+                          stroke="#10B981"
+                          strokeWidth={2}
+                          strokeDasharray="5 5"
+                          dot={false}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <ReferenceLine y={90} stroke="#F59E0B" strokeDasharray="4 3" label={{ position: 'insideTopRight', value: 'Seuil 90%', fill: '#F59E0B', fontSize: 10, fontWeight: 700 }} />
+                        <Line
+                          type="monotone"
+                          dataKey="taux_objectif_atteint"
+                          name="Taux Objectif"
+                          stroke="#F59E0B"
+                          strokeWidth={3}
+                          dot={{ r: 4, stroke: "#F59E0B", strokeWidth: 2, fill: "#fff" }}
+                          activeDot={{ r: 6, strokeWidth: 0 }}
+                        />
+                      </>
+                    )}
                   </LineChart>
                 </ChartContainer>
               ) : (

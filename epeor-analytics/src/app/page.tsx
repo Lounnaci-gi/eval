@@ -6257,7 +6257,7 @@ function CreanceDetailView({
   const [categoryCountsPeriod, setCategoryCountsPeriod] = useState('');
   const [periodSubscriberTotal, setPeriodSubscriberTotal] = useState<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre' | 'objectif'>('creance');
+  const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre' | 'objectif' | 'tableau'>('creance');
 
   const [histType, setHistType] = useState<'monthly_12' | 'years' | 'months'>('monthly_12');
   const [histStartYear, setHistStartYear] = useState('2015');
@@ -7324,11 +7324,14 @@ function CreanceDetailView({
                   { id: 'ca', label: "Chiffre d'Affaires" },
                   { id: 'encaissement', label: 'Encaissements' },
                   { id: 'ca_recouvre', label: 'CA Recouvré' },
-                  { id: 'objectif', label: 'Taux Objectif' }
+                  { id: 'objectif', label: 'Taux Objectif' },
+                  { id: 'tableau', label: 'Tableau' }
                 ].map(tab => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveHistoryMetric(tab.id as any)}
+                    onClick={() => {
+                      setActiveHistoryMetric(tab.id as any);
+                    }}
                     className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 border ${
                       activeHistoryMetric === tab.id
                         ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
@@ -7338,12 +7341,6 @@ function CreanceDetailView({
                     {tab.label}
                   </button>
                 ))}
-                <div className="flex items-center gap-2 px-2">
-                  <button
-                    onClick={() => setHistView('table')}
-                    className={`px-3 py-1 rounded-lg text-[11px] font-bold ${histView === 'table' ? 'bg-white border border-[#E4E7EC] text-brand-600' : 'text-[#667085]'}`}
-                  >Tableau</button>
-                </div>
               </div>
             </div>
 
@@ -7467,7 +7464,7 @@ function CreanceDetailView({
               )}
 
               {data.history && data.history.length > 0 ? (
-                histView === 'chart' ? (
+                activeHistoryMetric !== 'tableau' ? (
                   <ChartContainer className="h-[380px] w-full">
                     <LineChart
                       data={historyWithObjective}

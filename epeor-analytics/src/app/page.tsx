@@ -7340,18 +7340,9 @@ function CreanceDetailView({
                 ))}
                 <div className="flex items-center gap-2 px-2">
                   <button
-                    onClick={() => setHistView('chart')}
-                    className={`px-3 py-1 rounded-lg text-[11px] font-bold ${histView === 'chart' ? 'bg-white border border-[#E4E7EC] text-brand-600' : 'text-[#667085]'}`}
-                  >Graphique</button>
-                  <button
                     onClick={() => setHistView('table')}
                     className={`px-3 py-1 rounded-lg text-[11px] font-bold ${histView === 'table' ? 'bg-white border border-[#E4E7EC] text-brand-600' : 'text-[#667085]'}`}
                   >Tableau</button>
-                  <button
-                    onClick={printTable}
-                    disabled={histView !== 'table'}
-                    className={`px-3 py-1 rounded-lg text-[11px] font-bold ${histView === 'table' ? 'bg-white border border-[#E4E7EC] text-[#0D83DE]' : 'text-[#9CA3AF]'} disabled:opacity-50 disabled:cursor-not-allowed ml-2`}
-                  >Imprimer</button>
                 </div>
               </div>
             </div>

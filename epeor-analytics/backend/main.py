@@ -855,13 +855,13 @@ def load_all_data_to_memory():
             if unite and cod:
                 instit_by_unite_cod[(unite, cod)] = r
 
+        print(f"[INFO] Building invoice indexes...")
+        build_invoice_indexes()
+
         print(f"[INFO] Computing dashboard statistics...")
         cached_dashboard_stats = compute_dashboard_stats()
         is_db_ready = True
-        print(f"[INFO] Dashboard stats ready, invoice indexation continues in background...")
-
-        print(f"[INFO] Building invoice indexes...")
-        build_invoice_indexes()
+        print(f"[INFO] Dashboard stats ready.")
 
         print(
             f"[SUCCESS] Dashboard ready in {time.time()-t_start:.2f}s "
@@ -1353,7 +1353,7 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
 
 @app.get("/api/subscribers_evolution")
 def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abon: str = None):
-    if not is_db_ready or len(MEM_ABONNES) == 0:
+    if not is_db_ready or not indexes_ready or len(MEM_ABONNES) == 0:
         return {"ready": False, "evolution": [], "total": 0, "missing_dates_handled": 0}
 
     allowed_communes = _commune_codcoms_for_centre(secteur) if secteur and str(secteur).strip() else None

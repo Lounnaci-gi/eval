@@ -6259,11 +6259,17 @@ function CreanceDetailView({
   const abortControllerRef = useRef<AbortController | null>(null);
   const [activeHistoryMetric, setActiveHistoryMetric] = useState<'creance' | 'ca' | 'encaissement' | 'ca_recouvre' | 'objectif' | 'tableau'>('creance');
 
-  const [histType, setHistType] = useState<'monthly_12' | 'years' | 'months'>('monthly_12');
+  const [histType, setHistType] = useState<'monthly_12' | 'years' | 'months' | 'days'>('monthly_12');
   const [histStartYear, setHistStartYear] = useState('2015');
   const [histEndYear, setHistEndYear] = useState(new Date().getFullYear().toString());
   const [histStartMonth, setHistStartMonth] = useState('01');
   const [histEndMonth, setHistEndMonth] = useState('12');
+  const [histStartDate, setHistStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [histEndDate, setHistEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const formatMonthFr = (m: string) => {
@@ -6378,6 +6384,9 @@ function CreanceDetailView({
       } else if (histType === 'months') {
         url.searchParams.append("hist_start", `${histStartYear}${histStartMonth}`);
         url.searchParams.append("hist_end", `${histEndYear}${histEndMonth}`);
+      } else if (histType === 'days') {
+        url.searchParams.append("hist_start", histStartDate.replace(/-/g, ''));
+        url.searchParams.append("hist_end", histEndDate.replace(/-/g, ''));
       }
 
       // We run them in sequence to show "real" progress as requested
@@ -6470,6 +6479,9 @@ function CreanceDetailView({
       } else if (histType === 'months') {
         url.searchParams.append("hist_start", `${histStartYear}${histStartMonth}`);
         url.searchParams.append("hist_end", `${histEndYear}${histEndMonth}`);
+      } else if (histType === 'days') {
+        url.searchParams.append("hist_start", histStartDate.replace(/-/g, ''));
+        url.searchParams.append("hist_end", histEndDate.replace(/-/g, ''));
       }
 
       const res = await fetch(url.toString());
@@ -7308,6 +7320,7 @@ function CreanceDetailView({
                 <h4 className="text-xl font-black tracking-tight text-[#101828]">
                   {histType === 'monthly_12' ? "Analyse Rétrospective des 12 Derniers Mois" : 
                    histType === 'years' ? `Analyse Rétrospective (${histStartYear} → ${histEndYear})` : 
+                   histType === 'days' ? `Analyse Rétrospective du ${histStartDate.split('-').reverse().join('/')} au ${histEndDate.split('-').reverse().join('/')}` :
                    `Analyse Rétrospective (${formatMonthFr(histStartMonth)} ${histStartYear} → ${formatMonthFr(histEndMonth)} ${histEndYear})`}
                 </h4>
                 <p className="text-xs text-[#667085] mt-0.5 font-medium">
@@ -7356,6 +7369,7 @@ function CreanceDetailView({
                   <option value="monthly_12">12 Derniers Mois</option>
                   <option value="years">Par Intervalle d'Années</option>
                   <option value="months">Par Intervalle de Mois</option>
+                  <option value="days">Par Jour (Max 31 jours)</option>
                 </select>
               </div>
 
@@ -7365,31 +7379,54 @@ function CreanceDetailView({
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-[#98A2B3] uppercase px-1">Du</label>
                     <div className="flex gap-2">
-                      {histType === 'months' && (
-                        <select
-                          value={histStartMonth}
-                          onChange={(e) => setHistStartMonth(e.target.value)}
-                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-28 shadow-sm cursor-pointer"
-                        >
-                          {[
-                            {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
-                            {v: '04', l: 'Avril'}, {v: '05', l: 'Mai'}, {v: '06', l: 'Juin'},
-                            {v: '07', l: 'Juillet'}, {v: '08', l: 'Août'}, {v: '09', l: 'Septembre'},
-                            {v: '10', l: 'Octobre'}, {v: '11', l: 'Novembre'}, {v: '12', l: 'Décembre'}
-                          ].map(m => (
-                            <option key={m.v} value={m.v}>{m.l}</option>
-                          ))}
-                        </select>
+                      {histType === 'days' ? (
+                        <input
+                          type="date"
+                          value={histStartDate}
+                          onChange={(e) => {
+                            const newDate = e.target.value;
+                            setHistStartDate(newDate);
+                            if (newDate && histEndDate) {
+                              const start = new Date(newDate);
+                              const end = new Date(histEndDate);
+                              if ((end.getTime() - start.getTime()) / (1000 * 3600 * 24) > 31) {
+                                const newEnd = new Date(start);
+                                newEnd.setDate(start.getDate() + 31);
+                                setHistEndDate(newEnd.toISOString().split('T')[0]);
+                              }
+                            }
+                          }}
+                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-36 shadow-sm cursor-pointer"
+                        />
+                      ) : (
+                        <>
+                          {histType === 'months' && (
+                            <select
+                              value={histStartMonth}
+                              onChange={(e) => setHistStartMonth(e.target.value)}
+                              className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-28 shadow-sm cursor-pointer"
+                            >
+                              {[
+                                {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
+                                {v: '04', l: 'Avril'}, {v: '05', l: 'Mai'}, {v: '06', l: 'Juin'},
+                                {v: '07', l: 'Juillet'}, {v: '08', l: 'Août'}, {v: '09', l: 'Septembre'},
+                                {v: '10', l: 'Octobre'}, {v: '11', l: 'Novembre'}, {v: '12', l: 'Décembre'}
+                              ].map(m => (
+                                <option key={m.v} value={m.v}>{m.l}</option>
+                              ))}
+                            </select>
+                          )}
+                          <select
+                            value={histStartYear}
+                            onChange={(e) => setHistStartYear(e.target.value)}
+                            className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-24 shadow-sm cursor-pointer"
+                          >
+                            {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                              <option key={year} value={year}>{year}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
-                      <select
-                        value={histStartYear}
-                        onChange={(e) => setHistStartYear(e.target.value)}
-                        className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-24 shadow-sm cursor-pointer"
-                      >
-                        {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                          <option key={year} value={year}>{year}</option>
-                        ))}
-                      </select>
                     </div>
                   </div>
 
@@ -7399,31 +7436,54 @@ function CreanceDetailView({
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-[#98A2B3] uppercase px-1">Au</label>
                     <div className="flex gap-2">
-                      {histType === 'months' && (
-                        <select
-                          value={histEndMonth}
-                          onChange={(e) => setHistEndMonth(e.target.value)}
-                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-28 shadow-sm cursor-pointer"
-                        >
-                          {[
-                            {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
-                            {v: '04', l: 'Avril'}, {v: '05', l: 'Mai'}, {v: '06', l: 'Juin'},
-                            {v: '07', l: 'Juillet'}, {v: '08', l: 'Août'}, {v: '09', l: 'Septembre'},
-                            {v: '10', l: 'Octobre'}, {v: '11', l: 'Novembre'}, {v: '12', l: 'Décembre'}
-                          ].map(m => (
-                            <option key={m.v} value={m.v}>{m.l}</option>
-                          ))}
-                        </select>
+                      {histType === 'days' ? (
+                        <input
+                          type="date"
+                          value={histEndDate}
+                          onChange={(e) => {
+                            const newDate = e.target.value;
+                            setHistEndDate(newDate);
+                            if (newDate && histStartDate) {
+                              const start = new Date(histStartDate);
+                              const end = new Date(newDate);
+                              if ((end.getTime() - start.getTime()) / (1000 * 3600 * 24) > 31) {
+                                const newStart = new Date(end);
+                                newStart.setDate(end.getDate() - 31);
+                                setHistStartDate(newStart.toISOString().split('T')[0]);
+                              }
+                            }
+                          }}
+                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-36 shadow-sm cursor-pointer"
+                        />
+                      ) : (
+                        <>
+                          {histType === 'months' && (
+                            <select
+                              value={histEndMonth}
+                              onChange={(e) => setHistEndMonth(e.target.value)}
+                              className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-28 shadow-sm cursor-pointer"
+                            >
+                              {[
+                                {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
+                                {v: '04', l: 'Avril'}, {v: '05', l: 'Mai'}, {v: '06', l: 'Juin'},
+                                {v: '07', l: 'Juillet'}, {v: '08', l: 'Août'}, {v: '09', l: 'Septembre'},
+                                {v: '10', l: 'Octobre'}, {v: '11', l: 'Novembre'}, {v: '12', l: 'Décembre'}
+                              ].map(m => (
+                                <option key={m.v} value={m.v}>{m.l}</option>
+                              ))}
+                            </select>
+                          )}
+                          <select
+                            value={histEndYear}
+                            onChange={(e) => setHistEndYear(e.target.value)}
+                            className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-24 shadow-sm cursor-pointer"
+                          >
+                            {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                              <option key={year} value={year}>{year}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
-                      <select
-                        value={histEndYear}
-                        onChange={(e) => setHistEndYear(e.target.value)}
-                        className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-24 shadow-sm cursor-pointer"
-                      >
-                        {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                          <option key={year} value={year}>{year}</option>
-                        ))}
-                      </select>
                     </div>
                   </div>
                 </div>

@@ -2539,6 +2539,53 @@ def get_creance(
                         "creance_eau": 0.0,
                         "creance_prest": 0.0
                     })
+            elif hist_type == "days":
+                # Day interval, max 31 days
+                from datetime import datetime, timedelta
+                
+                if hist_start and len(hist_start) == 8:
+                    try:
+                        d_start = datetime.strptime(hist_start, "%Y%m%d")
+                    except ValueError:
+                        d_start = datetime.now() - timedelta(days=30)
+                else:
+                    d_start = datetime.now() - timedelta(days=30)
+
+                if hist_end and len(hist_end) == 8:
+                    try:
+                        d_end = datetime.strptime(hist_end, "%Y%m%d")
+                    except ValueError:
+                        d_end = datetime.now()
+                else:
+                    d_end = datetime.now()
+
+                if d_start > d_end:
+                    d_start, d_end = d_end, d_start
+                    
+                # Max 31 days
+                if (d_end - d_start).days > 31:
+                    d_end = d_start + timedelta(days=31)
+                    
+                cur_d = d_start
+                while cur_d <= d_end:
+                    ds_str = cur_d.strftime("%Y%m%d")
+                    intervals.append({
+                        "year": cur_d.year,
+                        "month": cur_d.month,
+                        "start": ds_str,
+                        "end": ds_str,
+                        "label": cur_d.strftime("%d/%m/%Y"),
+                        "short_label": cur_d.strftime("%d/%m"),
+                        "ca_eau": 0.0,
+                        "ca_prest": 0.0,
+                        "recouvre_eau": 0.0,
+                        "recouvre_prest": 0.0,
+                        "ca_recouvre_eau": 0.0,
+                        "ca_recouvre_prest": 0.0,
+                        "creance_eau": 0.0,
+                        "creance_prest": 0.0
+                    })
+                    cur_d += timedelta(days=1)
             elif hist_type == "months":
                 # Month interval, e.g. Mars 2015 (201503) to Avril 2020 (202004)
                 if hist_start and len(hist_start) == 6:

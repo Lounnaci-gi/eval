@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from dbfread import DBF
 import os
@@ -9,13 +10,17 @@ from datetime import datetime, timedelta
 import pickle
 import time
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = FastAPI()
 
+# Compression gzip for all JSON responses
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -224,6 +229,42 @@ classe_map = {}             # (CLASSE, S_CLASSE) -> DESIGN
 instit_by_codinstit = {}    # CODINSTIT (upper) -> INSTIT record
 instit_by_unite_cod = {}    # (UNITE, CODINSTIT upper) -> INSTIT record
 
+# Caches invalidated on each data reload
+_secteur_stats_cache: dict = {}
+_subscribers_evolution_cache: dict = {}
+_invoice_state_history_cache: dict[str, dict[tuple[int, int], str]] = {}
+_commune_codcoms_cache: dict[str | None, set[str] | None] = {}
+_abonment_dates_by_numab: dict[str, str] = {}
+_abonment_state_by_numab: dict[str, str] = {}
+
+
+def _invalidate_runtime_caches() -> None:
+    global _secteur_stats_cache, _subscribers_evolution_cache, _invoice_state_history_cache
+    global _commune_codcoms_cache, _abonment_dates_by_numab, _abonment_state_by_numab
+    _secteur_stats_cache = {}
+    _subscribers_evolution_cache = {}
+    _invoice_state_history_cache = {}
+    _commune_codcoms_cache = {}
+    _abonment_dates_by_numab = {}
+    _abonment_state_by_numab = {}
+
+
+def _build_abonment_lookup_maps() -> None:
+    global _abonment_dates_by_numab, _abonment_state_by_numab
+    dates: dict[str, str] = {}
+    states: dict[str, str] = {}
+    for numab, record in abonments_by_numab.items():
+        install_date = str(record.get('DATEINST') or '').strip()
+        dates[numab] = install_date if install_date and len(install_date) == 8 and install_date.isdigit() else ''
+        states[numab] = str(record.get('ETATCPT') or '').strip()
+    _abonment_dates_by_numab = dates
+    _abonment_state_by_numab = states
+
+
+def _current_period_bounds() -> tuple[int, int]:
+    now = datetime.now()
+    return now.year, now.month
+
 def load_table_cached(filename, encoding='cp1256'):
     """Checks cache validation and loads DBF or Pickle binary for maximum speed"""
     global db_loading_status
@@ -339,7 +380,12 @@ def _centre_code_zfill(secteur: str | None) -> str | None:
 def _commune_codcoms_for_centre(secteur: str | None) -> set[str] | None:
     """CODCOM des communes rattachées au centre (COMMUNE.SECTEUR = code centre, ou ayant un quartier rattaché au secteur)."""
     centre = _centre_code_zfill(secteur)
+    cache_key = centre
+    if cache_key in _commune_codcoms_cache:
+        return _commune_codcoms_cache[cache_key]
+
     if centre is None:
+        _commune_codcoms_cache[cache_key] = None
         return None
     
     allowed = set()
@@ -355,7 +401,8 @@ def _commune_codcoms_for_centre(secteur: str | None) -> set[str] | None:
             q_commune = str(r.get('COMMUNE', '')).strip().zfill(2)
             if q_commune in communes_by_code:
                 allowed.add(q_commune)
-                
+
+    _commune_codcoms_cache[cache_key] = allowed
     return allowed
 
 
@@ -668,19 +715,19 @@ def compute_dashboard_stats(secteur: str | None = None):
         return f"{months.get(month, month)} {year}"
 
     latest_period = ''
-    total_rev = 0
     count = 0
     paid_count = 0
+    period_revenue: dict[str, float] = {}
 
     def _facture_in_scope(r):
         numab_r = str(r.get('NUMAB', '') or '').strip()
         return _abonne_in_centre(numab_r, allowed_communes)
 
-    for r in MEM_FACTURES:
+    # Single pass: latest period, invoice count, recovery rate, and revenue by period
+    _all_billing = [(r, False) for r in MEM_FACTURES] + [(r, True) for r in MEM_AVOIRS]
+    for r, _is_avoir in _all_billing:
         if not _facture_in_scope(r):
             continue
-        tp = str(r.get('TYPE') or '').strip()
-        monttc = float(r.get('MONTTC') or 0)
         df = str(r.get('DATFACT') or '').strip()
         count += 1
         if r.get('DATREG'):
@@ -689,38 +736,15 @@ def compute_dashboard_stats(secteur: str | None = None):
             p = df[:6]
             if p > latest_period:
                 latest_period = p
+            tp = str(r.get('TYPE') or '').strip()
+            if tp in ('E', 'C', '6'):
+                try:
+                    monttc = float(r.get('MONTTC') or 0)
+                except (TypeError, ValueError):
+                    monttc = 0.0
+                period_revenue[p] = period_revenue.get(p, 0.0) + monttc
 
-    for r in MEM_AVOIRS:
-        if not _facture_in_scope(r):
-            continue
-        tp = str(r.get('TYPE') or '').strip()
-        monttc = float(r.get('MONTTC') or 0)
-        df = str(r.get('DATFACT') or '').strip()
-        count += 1
-        if r.get('DATREG'):
-            paid_count += 1
-        if len(df) >= 6:
-            p = df[:6]
-            if p > latest_period:
-                latest_period = p
-
-    for r in MEM_FACTURES:
-        if not _facture_in_scope(r):
-            continue
-        tp = str(r.get('TYPE') or '').strip()
-        monttc = float(r.get('MONTTC') or 0)
-        df = str(r.get('DATFACT') or '').strip()
-        if latest_period and df.startswith(latest_period) and tp in ['E', 'C', '6']:
-            total_rev += monttc
-
-    for r in MEM_AVOIRS:
-        if not _facture_in_scope(r):
-            continue
-        tp = str(r.get('TYPE') or '').strip()
-        monttc = float(r.get('MONTTC') or 0)
-        df = str(r.get('DATFACT') or '').strip()
-        if latest_period and df.startswith(latest_period) and tp in ['E', 'C', '6']:
-            total_rev += monttc
+    total_rev = period_revenue.get(latest_period, 0.0) if latest_period else 0.0
 
     stats["total_revenue"] = round(total_rev, 2)
     stats["revenue_period"] = format_period(latest_period) if latest_period else "Période en cours"
@@ -740,6 +764,7 @@ def load_all_data_to_memory():
     global communes_by_code, quartier_to_commune, quartier_names, classe_map
     global is_db_ready, indexes_ready, db_loading_status, cached_dashboard_stats
     global _load_retry_count
+    _invalidate_runtime_caches()
 
     acquired = _data_load_lock.acquire(blocking=True, timeout=900)
     if not acquired:
@@ -755,19 +780,47 @@ def load_all_data_to_memory():
         print(f"[INFO] Initializing EPEOR database from {DATA_DIR}")
         t_start = time.time()
 
-        MEM_ABONNES = load_table_cached("ABONNE.DBF", encoding='cp1256')
-        MEM_FACTURES = load_table_cached("FACTURES.DBF", encoding='cp1256')
-        MEM_AVOIRS = load_table_cached("AVOIR.DBF", encoding='cp1256')
-        MEM_ABONMENTS = load_table_cached("ABONMENT.DBF", encoding='cp1256')
-        MEM_TABCODES = load_table_cached("TABCODE.DBF", encoding='cp1256')
-        MEM_COMMUNES = load_table_cached("COMMUNE.DBF", encoding='cp1256')
-        MEM_QUARTIERS = load_table_cached("QUARTIER.DBF", encoding='cp1256')
-        MEM_RUES = load_table_cached("RUE.DBF", encoding='cp1256')
-        MEM_CLASSES = load_table_cached("CLASSE.DBF", encoding='cp1256')
-        MEM_UNITES = load_table_cached("UNITE.DBF", encoding='cp1256')
-        MEM_CAISSES = load_table_cached("CAISSE.DBF", encoding='cp1256')
-        MEM_ABINSTIT = load_table_cached("ABINSTIT.DBF", encoding='cp1256')
-        MEM_INSTIT = load_table_cached("INSTIT.DBF", encoding='cp1256')
+        # Parallel DBF loading with ThreadPoolExecutor for faster startup
+        _dbf_files = [
+            ("ABONNE.DBF",   'cp1256'),
+            ("FACTURES.DBF", 'cp1256'),
+            ("AVOIR.DBF",    'cp1256'),
+            ("ABONMENT.DBF", 'cp1256'),
+            ("TABCODE.DBF",  'cp1256'),
+            ("COMMUNE.DBF",  'cp1256'),
+            ("QUARTIER.DBF", 'cp1256'),
+            ("RUE.DBF",      'cp1256'),
+            ("CLASSE.DBF",   'cp1256'),
+            ("UNITE.DBF",    'cp1256'),
+            ("CAISSE.DBF",   'cp1256'),
+            ("ABINSTIT.DBF", 'cp1256'),
+            ("INSTIT.DBF",   'cp1256'),
+        ]
+        _dbf_results = {}
+        _set_loading_status("Chargement parallèle des données...")
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            _futures = {executor.submit(load_table_cached, fname, enc): fname for fname, enc in _dbf_files}
+            for future in as_completed(_futures):
+                fname = _futures[future]
+                try:
+                    _dbf_results[fname] = future.result()
+                except Exception as exc:
+                    print(f"[ERROR] Failed loading {fname}: {exc}")
+                    _dbf_results[fname] = []
+
+        MEM_ABONNES   = _dbf_results.get("ABONNE.DBF",   [])
+        MEM_FACTURES  = _dbf_results.get("FACTURES.DBF", [])
+        MEM_AVOIRS    = _dbf_results.get("AVOIR.DBF",    [])
+        MEM_ABONMENTS = _dbf_results.get("ABONMENT.DBF", [])
+        MEM_TABCODES  = _dbf_results.get("TABCODE.DBF",  [])
+        MEM_COMMUNES  = _dbf_results.get("COMMUNE.DBF",  [])
+        MEM_QUARTIERS = _dbf_results.get("QUARTIER.DBF", [])
+        MEM_RUES      = _dbf_results.get("RUE.DBF",      [])
+        MEM_CLASSES   = _dbf_results.get("CLASSE.DBF",   [])
+        MEM_UNITES    = _dbf_results.get("UNITE.DBF",    [])
+        MEM_CAISSES   = _dbf_results.get("CAISSE.DBF",   [])
+        MEM_ABINSTIT  = _dbf_results.get("ABINSTIT.DBF", [])
+        MEM_INSTIT    = _dbf_results.get("INSTIT.DBF",   [])
 
         if len(MEM_ABONNES) == 0:
             detail = diagnose_data_dir()
@@ -811,6 +864,7 @@ def load_all_data_to_memory():
             numab = str(r.get('NUMAB', '')).strip().upper()
             if numab:
                 abonments_by_numab[numab] = r
+        _build_abonment_lookup_maps()
 
         unites_by_code = {}
         for r in MEM_UNITES:
@@ -908,6 +962,7 @@ def clear_cache_endpoint():
     is_db_ready = False
     cached_dashboard_stats = None
     indexes_ready = False
+    _invalidate_runtime_caches()
     threading.Thread(target=load_all_data_to_memory, daemon=True).start()
     return {"status": "success", "message": "Cache vidé, rechargement en cours..."}
 
@@ -979,17 +1034,25 @@ def _invoices_newest_first(invoices: list) -> list:
 
 def _invoice_state_history_by_period(numab: str) -> dict[tuple[int, int], str]:
     """Returns the latest ETATCPT value for each invoice period of a subscriber."""
-    invoices = factures_by_numab.get(numab, [])
+    key = str(numab or '').strip().upper()
+    cached = _invoice_state_history_cache.get(key)
+    if cached is not None:
+        return cached
+
+    invoices = factures_by_numab.get(key, [])
     if not invoices:
+        _invoice_state_history_cache[key] = {}
         return {}
+
     state_by_period: dict[tuple[int, int], str] = {}
     for inv in _invoices_newest_first(invoices):
-        key = _invoice_period_key(inv)
-        if key == (0, 0):
+        period_key = _invoice_period_key(inv)
+        if period_key == (0, 0):
             continue
         etat = _normalize_etatcpt_code(inv.get('ETATCPT'))
         if etat:
-            state_by_period[key] = etat
+            state_by_period[period_key] = etat
+    _invoice_state_history_cache[key] = state_by_period
     return state_by_period
 
 
@@ -1138,8 +1201,11 @@ def get_stats(secteur: str = None):
             "can_reload": True,
         }
     if secteur and str(secteur).strip():
-        scoped = compute_dashboard_stats(secteur=str(secteur).strip())
-        return {**scoped, "ready": True, "data_dir": DATA_DIR, "secteur": str(secteur).strip()}
+        _sec_key = str(secteur).strip()
+        if _sec_key not in _secteur_stats_cache:
+            _secteur_stats_cache[_sec_key] = compute_dashboard_stats(secteur=_sec_key)
+        scoped = _secteur_stats_cache[_sec_key]
+        return {**scoped, "ready": True, "data_dir": DATA_DIR, "secteur": _sec_key}
     if cached_dashboard_stats.get("total_subscribers", 0) == 0:
         return {
             "status": "error",
@@ -1212,7 +1278,8 @@ def _resolve_subscriber_join_date(numab: str, abonne_rec: dict[str, str] | None,
     for date_value in candidates:
         if date_value and len(date_value) == 8 and date_value.isdigit():
             year = int(date_value[:4])
-            if 1980 <= year <= 2026:
+            max_year, _ = _current_period_bounds()
+            if 1980 <= year <= max_year:
                 return date_value
     return None
 
@@ -1351,60 +1418,40 @@ def get_subscriber_category_counts(start_date: str = None, end_date: str = None,
     }
 
 
-@app.get("/api/subscribers_evolution")
-def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abon: str = None):
-    if not is_db_ready or not indexes_ready or len(MEM_ABONNES) == 0:
-        return {"ready": False, "evolution": [], "total": 0, "missing_dates_handled": 0}
+def _evolution_cache_key(secteur: str | None, commune: str | None, type_abon: str | None) -> tuple[str, str, str]:
+    return (
+        str(secteur or '').strip(),
+        str(commune or '').strip(),
+        str(type_abon or '').strip(),
+    )
 
+
+def _compute_subscribers_evolution(secteur: str | None = None, commune: str | None = None, type_abon: str | None = None):
     allowed_communes = _commune_codcoms_for_centre(secteur) if secteur and str(secteur).strip() else None
+    commune_filter = str(commune).strip() if commune and str(commune).strip() else ''
+    current_year, current_month = _current_period_bounds()
 
-    abonment_dates = {}
-    abonment_state_map = {}
-    for r in MEM_ABONMENTS:
-        numab = str(r.get('NUMAB') or '').strip().upper()
-        if not numab:
-            continue
-        di = str(r.get('DATEINST') or '').strip()
-        abonment_dates[numab] = di if di and len(di) == 8 and di.isdigit() else ''
-        abonment_state_map[numab] = str(r.get('ETATCPT') or '').strip()
-
-    join_dates = []
+    join_dates: list[str] = []
     missing_count = 0
-    resigned_join_dates = []
+    resigned_join_dates: list[str] = []
     missing_resigned_count = 0
 
-    for r in MEM_ABONNES:
-        numab = str(r.get('NUMAB') or '').strip().upper()
-        if not _abonne_in_centre(numab, allowed_communes):
+    for record in MEM_ABONNES:
+        numab = str(record.get('NUMAB') or '').strip().upper()
+        if not numab or not _abonne_in_centre(numab, allowed_communes):
+            continue
+        if commune_filter and _abonne_codcom(numab) != commune_filter:
+            continue
+        if not _is_subscriber_counted_for_evolution(record, type_abon):
             continue
 
-        if commune and str(commune).strip():
-            if _abonne_codcom(numab) != str(commune).strip():
-                continue
-
-        if not _is_subscriber_counted_for_evolution(r, type_abon):
-            continue
-
-        dp = str(r.get('DATEPRISE') or '').strip()
-        dc = str(r.get('DATECRE') or '').strip()
-        ff = str(r.get('FIRSTFACT') or '').strip()
-        di = abonment_dates.get(numab, '')
-
-        resolved_date = None
-        for d in [dp, dc, ff, di]:
-            if d and len(d) == 8 and d.isdigit():
-                y = int(d[:4])
-                if 1980 <= y <= 2026:
-                    resolved_date = d
-                    break
-
+        resolved_date = _resolve_subscriber_join_date(numab, record, _abonment_dates_by_numab)
         if resolved_date:
             join_dates.append(resolved_date)
         else:
             missing_count += 1
 
-        state = abonment_state_map.get(numab)
-        if state == '40':
+        if _abonment_state_by_numab.get(numab) == '40':
             if resolved_date:
                 resigned_join_dates.append(resolved_date)
             else:
@@ -1418,11 +1465,8 @@ def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abo
     if min_year < 2000:
         min_year = 2000
 
-    monthly_counts = {}
-    monthly_resigned_counts = {}
-    current_year = 2026
-    current_month = 6
-
+    monthly_counts: dict[str, int] = {}
+    monthly_resigned_counts: dict[str, int] = {}
     year_ptr = min_year
     month_ptr = 1
     while year_ptr < current_year or (year_ptr == current_year and month_ptr <= current_month):
@@ -1443,15 +1487,15 @@ def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abo
             return f"{current_year}-{current_month:02d}"
         return f"{yr}-{mo:02d}"
 
-    for d in join_dates:
-        period_str = normalize_period(d)
+    for date_value in join_dates:
+        period_str = normalize_period(date_value)
         if period_str in monthly_counts:
             monthly_counts[period_str] += 1
         else:
             monthly_counts[f"{min_year}-01"] += 1
 
-    for d in resigned_join_dates:
-        period_str = normalize_period(d)
+    for date_value in resigned_join_dates:
+        period_str = normalize_period(date_value)
         if period_str in monthly_resigned_counts:
             monthly_resigned_counts[period_str] += 1
         else:
@@ -1463,11 +1507,11 @@ def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abo
     if first_period in monthly_resigned_counts:
         monthly_resigned_counts[first_period] += missing_resigned_count
 
-    monthly_stopped_counts = { period: 0 for period in monthly_counts }
+    monthly_stopped_counts = {period: 0 for period in monthly_counts}
     period_list = sorted(monthly_stopped_counts.keys())
-    period_key_list = [tuple(map(int, p.split('-'))) for p in period_list]
+    period_key_list = [tuple(map(int, period.split('-'))) for period in period_list]
 
-    for numab, invoices in factures_by_numab.items():
+    for numab in factures_by_numab:
         if not _abonne_in_centre(numab, allowed_communes):
             continue
         state_history = _invoice_state_history_by_period(numab)
@@ -1483,8 +1527,7 @@ def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abo
     evolution = []
     cumulative = 0
     resigned_cumulative = 0
-    sorted_periods = sorted(monthly_counts.keys())
-    for period in sorted_periods:
+    for period in sorted(monthly_counts.keys()):
         new_regs = monthly_counts[period]
         cumulative += new_regs
         resigned_cumulative += monthly_resigned_counts.get(period, 0)
@@ -1493,15 +1536,30 @@ def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abo
             "count": cumulative,
             "new_registrations": new_regs,
             "resigned_count": resigned_cumulative,
-            "stopped_count": monthly_stopped_counts.get(period, 0)
+            "stopped_count": monthly_stopped_counts.get(period, 0),
         })
 
     return {
         "ready": True,
         "evolution": evolution,
         "total": cumulative,
-        "missing_dates_handled": missing_count
+        "missing_dates_handled": missing_count,
     }
+
+
+@app.get("/api/subscribers_evolution")
+def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abon: str = None):
+    if not is_db_ready or not indexes_ready or len(MEM_ABONNES) == 0:
+        return {"ready": False, "evolution": [], "total": 0, "missing_dates_handled": 0}
+
+    cache_key = _evolution_cache_key(secteur, commune, type_abon)
+    cached = _subscribers_evolution_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    result = _compute_subscribers_evolution(secteur, commune, type_abon)
+    _subscribers_evolution_cache[cache_key] = result
+    return result
 
 
 class DataDirUpdate(BaseModel):

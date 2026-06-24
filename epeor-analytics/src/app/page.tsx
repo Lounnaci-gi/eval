@@ -16,6 +16,21 @@ if (typeof window !== "undefined") {
 
 import { useEffect, useState, Fragment, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
+import { apiUrl } from "./lib/api";
+import { StatsCard, NavItem } from "./components/dashboard-ui";
+import { SettingsView } from "./components/SettingsView";
+
+const SubscribersEvolutionView = dynamic(
+  () => import("./components/EvolutionView").then((mod) => ({ default: mod.SubscribersEvolutionView })),
+  {
+    loading: () => (
+      <div className="p-12 flex justify-center">
+        <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+      </div>
+    ),
+  }
+);
 import {
   Users,
   UserX,
@@ -42,9 +57,7 @@ import {
   Building2,
   RefreshCw,
 } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import ExcelJS from "exceljs";
+// jsPDF, ExcelJS : lazy-loaded at export time to reduce initial bundle size
 import { saveAs } from "file-saver";
 import {
   BarChart,
@@ -440,7 +453,7 @@ export default function Dashboard() {
   const loadSectors = async () => {
     setSectorsLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/unites_settings');
+      const res = await fetch(apiUrl('/api/unites_settings'));
       const data = await res.json();
       if (data?.error) return;
       if (!Array.isArray(data) || data.length === 0) return;
@@ -471,7 +484,7 @@ export default function Dashboard() {
     setReloadPending(true);
     setStats({ status: 'loading', message: 'Rechargement des données en cours…', ready: false });
     try {
-      await fetch('http://127.0.0.1:8000/api/reload_data', { method: 'POST' });
+      await fetch(apiUrl('/api/reload_data'), { method: 'POST' });
     } catch {
       setStats({ status: 'error', message: 'Impossible de joindre le backend pour le rechargement.', ready: false });
     } finally {
@@ -480,15 +493,18 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    let intervalId: any;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let pollDelayMs = 2000;
+    let cancelled = false;
 
     const checkDataPath = () => {
-      fetch("http://127.0.0.1:8000/api/data_dir")
+      fetch(apiUrl("/api/data_dir"))
         .then((res) => {
           if (!res.ok) throw new Error("Erreur réseau");
           return res.json();
         })
         .then((data) => {
+          if (cancelled) return;
           setBackendReachable(true);
           setDataPathInfo(data);
         })
@@ -497,14 +513,21 @@ export default function Dashboard() {
         });
     };
 
+    const schedulePoll = () => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(checkStats, pollDelayMs);
+      pollDelayMs = Math.min(pollDelayMs + 1000, 5000);
+    };
+
     const checkStats = () => {
       checkDataPath();
-      fetch("http://127.0.0.1:8000/stats")
+      fetch(apiUrl("/stats"))
         .then((res) => {
           if (!res.ok) throw new Error("Erreur réseau");
           return res.json();
         })
         .then((data) => {
+          if (cancelled) return;
           setBackendReachable(true);
           if (data?.error || data?.status === 'error') {
             setStats({
@@ -515,29 +538,27 @@ export default function Dashboard() {
           } else {
             setStats(data);
           }
-          if (data && (data.status === 'loading' || data.ready === false)) {
-            if (!intervalId) {
-              intervalId = setInterval(checkStats, 2000);
-            }
-          } else if (data?.ready !== false && !data?.error) {
+          if (data?.ready === true && !data?.error) {
             if (intervalId) {
               clearInterval(intervalId);
               intervalId = null;
             }
+          } else if (data && (data.status === 'loading' || data.ready === false)) {
+            if (!intervalId) schedulePoll();
           }
         })
         .catch((err) => {
+          if (cancelled) return;
           console.error("Erreur de chargement des stats:", err);
           setStats({ error: "Impossible de contacter le serveur backend (Port 8000)" });
-          if (!intervalId) {
-            intervalId = setInterval(checkStats, 3000);
-          }
+          if (!intervalId) schedulePoll();
         });
     };
 
     checkStats();
 
     return () => {
+      cancelled = true;
       if (intervalId) clearInterval(intervalId);
     };
   }, []);
@@ -1146,50 +1167,6 @@ export default function Dashboard() {
   );
 }
 
-function StatsCard({ title, value, icon, trend, color, onClick }: any) {
-  const colorMap: any = {
-    blue: "bg-blue-50 text-[#0D83DE]",
-    rose: "bg-rose-50 text-rose-600",
-    amber: "bg-amber-50 text-amber-600",
-    cyan: "bg-cyan-50 text-cyan-600",
-    brand: "bg-brand-50 text-brand-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    indigo: "bg-slate-50 text-slate-600",
-  };
-
-  return (
-    <div
-      onClick={onClick}
-      className={`bg-white border border-[#E4E7EC] p-6 rounded-[2rem] shadow-sm hover:shadow-md hover:border-[#D0D5DD] transition-all group ${onClick ? 'cursor-pointer' : ''}`}
-    >
-      <div className="flex justify-between items-start mb-6">
-        <div className={`p-4 rounded-2xl transition-transform group-hover:scale-110 ${colorMap[color] || "bg-slate-50"}`}>
-          {icon}
-        </div>
-        <span className="text-[11px] font-black uppercase tracking-widest text-[#98A2B3]">{trend}</span>
-      </div>
-      <div>
-        <p className="text-[#475467] text-sm font-bold mb-1">{title}</p>
-        <p className="text-2xl font-black text-[#101828] tracking-tight">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function NavItem({ icon, label, active = false, onClick }: any) {
-  return (
-    <div
-      onClick={onClick}
-      className={`
-      flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer transition-all
-      ${active ? 'bg-blue-50 text-[#0D83DE] shadow-sm' : 'text-[#475467] hover:bg-[#F9FAFB] hover:text-[#101828]'}
-    `}>
-      <span className={active ? "text-[#0D83DE]" : ""}>{icon}</span>
-      <span className={`font-bold text-sm ${active ? 'text-[#101828]' : ''}`}>{label}</span>
-      {active && <div className="ml-auto w-1.5 h-1.5 bg-[#0D83DE] rounded-full"></div>}
-    </div>
-  );
-}
 
 function GestionAbonnesShell({
   currentView,
@@ -1227,7 +1204,7 @@ function GestionAbonnesShell({
     }
     let cancelled = false;
     setStatsLoading(true);
-    const url = new URL('http://127.0.0.1:8000/stats');
+    const url = new URL(apiUrl('/stats'));
     appendSecteurParam(url, selectedSecteur);
     fetch(url.toString())
       .then(r => r.json())
@@ -1348,624 +1325,6 @@ function GestionAbonnesShell({
   );
 }
 
-function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<string>('2015');
-
-  // Filtering states
-  const [selectedFilterCommune, setSelectedFilterCommune] = useState<string>("");
-  const [selectedFilterType, setSelectedFilterType] = useState<string>("");
-
-  // Interactive date calculator states
-  const [selectedYear, setSelectedYear] = useState<number>(2020);
-  const [selectedMonth, setSelectedMonth] = useState<number>(7);
-  // Compact panels open state (remplace <details>) — visibles par défaut
-  const [simOpen, setSimOpen] = useState<boolean>(true);
-  const [milestonesOpen, setMilestonesOpen] = useState<boolean>(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    
-    const url = new URL('http://127.0.0.1:8000/api/subscribers_evolution');
-    if (selectedSecteur) {
-      url.searchParams.set('secteur', selectedSecteur);
-    }
-    if (selectedFilterCommune) {
-      url.searchParams.set('commune', selectedFilterCommune);
-    }
-    if (selectedFilterType) {
-      url.searchParams.set('type_abon', selectedFilterType);
-    }
-    
-    fetch(url.toString())
-      .then(res => {
-        if (!res.ok) throw new Error("Erreur serveur");
-        return res.json();
-      })
-      .then(resData => {
-        if (cancelled) return;
-        if (resData.ready) {
-          setData(resData.evolution);
-        } else {
-          setError(resData.message || "Les données ne sont pas prêtes");
-        }
-      })
-      .catch(err => {
-        if (cancelled) return;
-        setError("Impossible de charger l'historique des abonnés.");
-        console.error(err);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedSecteur, selectedFilterCommune, selectedFilterType]);
-
-  const filteredData = useMemo(() => {
-    if (!data) return [];
-    if (timeRange === 'all') return data;
-    const startYear = parseInt(timeRange);
-    return data.filter(d => {
-      const y = parseInt(d.period.split('-')[0]);
-      return y >= startYear;
-    });
-  }, [data, timeRange]);
-
-  const milestones = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    const targets = ['2000-12', '2005-12', '2010-12', '2015-12', '2020-12', '2021-12', '2022-12', '2023-12', '2024-12', '2025-12'];
-    const result: any[] = [];
-    targets.forEach(t => {
-      const found = data.find(d => d.period === t);
-      if (found) {
-        result.push({ period: t, count: found.count });
-      }
-    });
-    const latest = data[data.length - 1];
-    if (latest && !targets.includes(latest.period)) {
-      result.push({ period: latest.period, count: latest.count, isLatest: true });
-    }
-    return result;
-  }, [data]);
-
-
-  // Find simulated count
-  const calculatorResult = useMemo(() => {
-    if (!data || data.length === 0) return null;
-    const periodKey = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
-    const found = data.find(d => d.period === periodKey);
-    if (found) return found;
-    
-    // Fallback: if selected date is before data starts, return first record
-    const targetInt = selectedYear * 100 + selectedMonth;
-    const firstPeriod = data[0].period;
-    const [fy, fm] = firstPeriod.split('-').map(Number);
-    const firstInt = fy * 100 + fm;
-    if (targetInt < firstInt) {
-      return { period: periodKey, count: 0, new_registrations: 0, resigned_count: 0, isBefore: true };
-    }
-    
-    // If selected date is after data ends, return last record
-    const lastPeriod = data[data.length - 1].period;
-    const [ly, lm] = lastPeriod.split('-').map(Number);
-    const lastInt = ly * 100 + lm;
-    if (targetInt > lastInt) {
-      return { period: periodKey, count: data[data.length - 1].count, new_registrations: 0, resigned_count: data[data.length - 1].resigned_count ?? 0, isAfter: true };
-    }
-    
-    return null;
-  }, [data, selectedYear, selectedMonth]);
-
-  // Calculate annual growth stats
-  const growthStats = useMemo(() => {
-    if (!data || data.length < 13) return null;
-    const latestCount = data[data.length - 1].count;
-    // Count 12 months ago
-    const oneYearAgoIndex = data.length - 13;
-    const countOneYearAgo = data[oneYearAgoIndex].count;
-    const growth12m = latestCount - countOneYearAgo;
-    const pct12m = ((growth12m) / countOneYearAgo) * 100;
-    
-    // Average new registrations per month
-    const totalNewLast12m = data.slice(data.length - 12).reduce((sum, d) => sum + d.new_registrations, 0);
-    const avgMonthlyNew = totalNewLast12m / 12;
-
-    return {
-      growth12m,
-      pct12m: pct12m.toFixed(2),
-      avgMonthlyNew: Math.round(avgMonthlyNew)
-    };
-  }, [data]);
-
-  const monthsList = [
-    { value: 1, label: "Janvier" },
-    { value: 2, label: "Février" },
-    { value: 3, label: "Mars" },
-    { value: 4, label: "Avril" },
-    { value: 5, label: "Mai" },
-    { value: 6, label: "Juin" },
-    { value: 7, label: "Juillet" },
-    { value: 8, label: "Août" },
-    { value: 9, label: "Septembre" },
-    { value: 10, label: "Octobre" },
-    { value: 11, label: "Novembre" },
-    { value: 12, label: "Décembre" }
-  ];
-
-  const yearsList = useMemo(() => {
-    if (!data || data.length === 0) return Array.from({ length: 27 }, (_, i) => 2000 + i);
-    const firstYear = parseInt(data[0].period.split('-')[0]);
-    const lastYear = parseInt(data[data.length - 1].period.split('-')[0]);
-    const list = [];
-    for (let y = firstYear; y <= lastYear; y++) {
-      list.push(y);
-    }
-    return list;
-  }, [data]);
-
-  const minYear = yearsList[0] ?? 2000;
-  const maxYear = yearsList[yearsList.length - 1] ?? 2026;
-
-  const formatPeriodFrench = (periodStr: string) => {
-    if (!periodStr) return '';
-    const [y, m] = periodStr.split('-');
-    const mIdx = parseInt(m) - 1;
-    return `${monthsList[mIdx]?.label || ''} ${y || ''}`.trim();
-  };
-
-  const { xAxisTicks, formatTick } = useMemo(() => {
-    if (!filteredData || filteredData.length === 0) {
-      return { xAxisTicks: [], formatTick: (v: string) => v };
-    }
-    
-    const N = filteredData.length;
-    let type: '10years' | '5years' | '1year' | 'semester' | 'quarter' | 'month';
-    if (N > 240) {
-      type = '10years';
-    } else if (N > 120) {
-      type = '5years';
-    } else if (N > 24) {
-      type = '1year';
-    } else if (N > 12) {
-      type = 'semester';
-    } else if (N > 6) {
-      type = 'quarter';
-    } else {
-      type = 'month';
-    }
-
-    const generatedTicks: string[] = [];
-    
-    filteredData.forEach((d) => {
-      if (!d || !d.period) return;
-      const parts = d.period.split('-');
-      const y = parseInt(parts[0]);
-      const m = parseInt(parts[1]);
-      
-      if (type === '10years') {
-        if (y % 10 === 0 && m === 1) {
-          generatedTicks.push(d.period);
-        }
-      } else if (type === '5years') {
-        if (y % 5 === 0 && m === 1) {
-          generatedTicks.push(d.period);
-        }
-      } else if (type === '1year') {
-        if (m === 1) {
-          generatedTicks.push(d.period);
-        }
-      } else if (type === 'semester') {
-        if (m === 1 || m === 7) {
-          generatedTicks.push(d.period);
-        }
-      } else if (type === 'quarter') {
-        if (m === 1 || m === 4 || m === 7 || m === 10) {
-          generatedTicks.push(d.period);
-        }
-      } else {
-        generatedTicks.push(d.period);
-      }
-    });
-
-    if (generatedTicks.length === 0) {
-      if (filteredData[0]?.period) {
-        generatedTicks.push(filteredData[0].period);
-      }
-      if (filteredData.length > 1 && filteredData[filteredData.length - 1]?.period) {
-        generatedTicks.push(filteredData[filteredData.length - 1].period);
-      }
-    }
-
-    const formatTick = (tick: string) => {
-      if (!tick) return '';
-      const parts = tick.split('-');
-      const y = parts[0];
-      const m = parseInt(parts[1]);
-      const monthsShort = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jui", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
-      const monthsFull = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-      
-      if (type === '10years' || type === '5years' || type === '1year') {
-        return y;
-      } else if (type === 'semester') {
-        return `${m === 1 ? 'Jan' : 'Juil'} ${y}`;
-      } else if (type === 'quarter') {
-        return `${monthsShort[m - 1]} ${y.slice(-2)}`;
-      } else {
-        return `${monthsFull[m - 1]} ${y}`;
-      }
-    };
-
-    return { xAxisTicks: generatedTicks, formatTick };
-  }, [filteredData]);
-
-  if (loading) {
-    return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center justify-center gap-4 min-h-[400px]">
-        <div className="w-12 h-12 border-4 border-blue-100 border-t-[#0D83DE] rounded-full animate-spin" />
-        <p className="text-base font-bold text-[#475467] animate-pulse">Calcul de l'évolution des abonnés...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-12 text-center text-rose-600">
-        <p className="font-bold">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="mt-4 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold border border-blue-100 hover:bg-blue-100 transition-all"
-        >
-          Réessayer
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-8">
-      {/* KPI Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white border border-[#E4E7EC] p-6 rounded-[2rem] shadow-sm">
-          <div className="flex justify-between items-start mb-6">
-            <div className="p-4 rounded-2xl bg-blue-50 text-[#0D83DE]">
-              <Users size={24} />
-            </div>
-            <span className="text-[11px] font-black uppercase tracking-widest text-[#98A2B3]">Cumul</span>
-          </div>
-          <div>
-            <p className="text-[#475467] text-sm font-bold mb-1">Total Abonnés Actuels</p>
-            <p className="text-3xl font-black text-[#101828] tracking-tight">
-              {(data[data.length - 1]?.count ?? 0).toLocaleString('fr-FR')}
-            </p>
-            <p className="text-xs text-[#667085] mt-1 font-medium">À fin {formatPeriodFrench(data[data.length - 1]?.period)}</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#E4E7EC] p-6 rounded-[2rem] shadow-sm">
-          <div className="flex justify-between items-start mb-6">
-            <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600">
-              <TrendingUp size={24} />
-            </div>
-            <span className="text-[11px] font-black uppercase tracking-widest text-emerald-600">
-              {growthStats ? `+${growthStats.pct12m}%` : ''}
-            </span>
-          </div>
-          <div>
-            <p className="text-[#475467] text-sm font-bold mb-1">Croissance (12 mois)</p>
-            <p className="text-3xl font-black text-[#101828] tracking-tight">
-              {growthStats ? `+${growthStats.growth12m.toLocaleString('fr-FR')}` : '---'}
-            </p>
-            <p className="text-xs text-[#667085] mt-1 font-medium">Nouveaux abonnés sur la dernière année</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#E4E7EC] p-6 rounded-[2rem] shadow-sm">
-          <div className="flex justify-between items-start mb-6">
-            <div className="p-4 rounded-2xl bg-purple-50 text-purple-600">
-              <Calendar size={24} />
-            </div>
-            <span className="text-[11px] font-black uppercase tracking-widest text-purple-600">Rythme</span>
-          </div>
-          <div>
-            <p className="text-[#475467] text-sm font-bold mb-1">Moyenne Mensuelle</p>
-            <p className="text-3xl font-black text-[#101828] tracking-tight">
-              {growthStats ? `+${growthStats.avgMonthlyNew}` : '---'}
-            </p>
-            <p className="text-xs text-[#667085] mt-1 font-medium">Inscriptions moyennes par mois</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Chart Area */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8">
-          <div>
-            <h3 className="text-xl font-black tracking-tight text-[#101828]">Courbe de Croissance Temporelle</h3>
-            <p className="text-xs text-[#667085] mt-1">Évolution cumulative des abonnés enregistrés</p>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Commune Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Commune :</span>
-              <div className="relative">
-                <select
-                  value={selectedFilterCommune}
-                  onChange={(e) => setSelectedFilterCommune(e.target.value)}
-                  className="text-xs font-bold border-[#D0D5DD] border rounded-xl pl-3 pr-8 py-2 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer"
-                >
-                  <option value="">Toutes les communes</option>
-                  {(stats?.subscriber_communes || []).map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#667085] pointer-events-none" size={12} />
-              </div>
-            </div>
-
-            {/* Category Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Catégorie :</span>
-              <div className="relative">
-                <select
-                  value={selectedFilterType}
-                  onChange={(e) => setSelectedFilterType(e.target.value)}
-                  className="text-xs font-bold border-[#D0D5DD] border rounded-xl pl-3 pr-8 py-2 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer w-44 truncate"
-                >
-                  <option value="">Toutes les catégories</option>
-                  {(stats?.subscriber_types || []).map((t: any) => (
-                    <option key={t.code} value={t.code}>{t.name}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#667085] pointer-events-none" size={12} />
-              </div>
-            </div>
-
-            {/* Time range buttons */}
-            <div className="flex bg-[#F2F4F7] p-1 rounded-xl gap-1 border border-[#E4E7EC] self-start xl:self-auto">
-              {[
-                { id: '2000', label: 'Depuis 2000' },
-                { id: '2010', label: 'Depuis 2010' },
-                { id: '2015', label: 'Depuis 2015' },
-                { id: '2020', label: 'Depuis 2020' },
-                { id: 'all', label: 'Tout' }
-              ].map(range => (
-                <button
-                  key={range.id}
-                  onClick={() => setTimeRange(range.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
-                    timeRange === range.id
-                      ? 'bg-white text-[#0D83DE] shadow-sm'
-                      : 'text-[#667085] hover:text-[#101828]'
-                  }`}
-                >
-                  {range.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="h-[350px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={filteredData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0D83DE" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#0D83DE" stopOpacity={0.0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2F4F7" />
-              <XAxis 
-                dataKey="period" 
-                ticks={xAxisTicks}
-                tickLine={false} 
-                axisLine={false}
-                stroke="#98A2B3"
-                style={{ fontSize: '10px', fontWeight: 'bold' } as any}
-                tickFormatter={formatTick}
-              />
-              <YAxis 
-                tickLine={false} 
-                axisLine={false}
-                stroke="#98A2B3"
-                style={{ fontSize: '10px', fontWeight: 'bold' } as any}
-                domain={['dataMin - 1000', 'dataMax + 1000']}
-                tickFormatter={(val) => val.toLocaleString('fr-FR')}
-              />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: "#101828",
-                  border: "none",
-                  borderRadius: "16px",
-                  color: "#fff",
-                  fontSize: '12px',
-                  boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)"
-                }}
-                labelStyle={{ fontWeight: 'black', marginBottom: '4px', color: '#98A2B3' }}
-                labelFormatter={(label) => formatPeriodFrench(label)}
-                formatter={(value: any) => [
-                  <span key="value" className="font-bold text-white">{value.toLocaleString('fr-FR')} abonnés</span>,
-                  'Cumul'
-                ]}
-              />
-              <Area type="monotone" dataKey="count" stroke="#0D83DE" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Simulateur - style professionnel compact */}
-        <div className="group bg-white border border-[#E6EEF9] shadow-sm rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between gap-4 px-5 py-3 bg-gradient-to-r from-white to-slate-50">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#E6F0FF] to-[#F9FBFF] flex items-center justify-center border border-[#DCEFFF]">
-                <Calendar className="text-[#0D6FCC]" size={20} />
-              </div>
-              <div>
-                <div className="text-sm font-extrabold text-[#0F1724]">Contexte — Simulateur Historique</div>
-                <div className="text-[11px] text-[#64748B]">Choisissez mois et année pour contexte temporel.</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-xs text-[#64748B]">Contexte</div>
-              <button
-                onClick={() => setSimOpen(s => !s)}
-                aria-expanded={simOpen}
-                className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-[#E6EEF9] bg-white text-sm font-bold hover:shadow"
-              >
-                {simOpen ? 'Réduire' : 'Étendre'}
-                <ChevronRight className={simOpen ? 'rotate-90' : ''} />
-              </button>
-            </div>
-          </div>
-
-          <div className={`transition-all px-5 ${simOpen ? 'pb-5 pt-4' : 'max-h-0 pb-0 overflow-hidden'}`}>
-            <div className="grid grid-cols-2 gap-4 items-center">
-              <div>
-                <label className="text-[10px] font-semibold text-[#94A3B8]">Mois</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(Math.min(12, Math.max(1, Number(e.target.value || 1))))}
-                  className="mt-1 w-full text-sm font-semibold border border-[#E6EEF9] rounded-lg px-3 py-2 bg-white focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold text-[#94A3B8]">Année</label>
-                <input
-                  type="number"
-                  min={minYear}
-                  max={maxYear}
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(Math.min(maxYear, Math.max(minYear, Number(e.target.value || minYear))))}
-                  className="mt-1 w-full text-sm font-semibold border border-[#E6EEF9] rounded-lg px-3 py-2 bg-white focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 flex gap-4 items-center">
-              <div className="flex-1 p-4 rounded-lg bg-[#F8FAFF] border border-[#EAF3FF]">
-                <div className="text-[11px] text-[#64748B] font-semibold">Abonnés estimés</div>
-                <div className="text-2xl font-extrabold text-[#0F1724] mt-2">{calculatorResult ? (calculatorResult.isBefore ? '0' : calculatorResult.count.toLocaleString('fr-FR')) : '---'}</div>
-                <div className="text-[11px] text-[#94A3B8] mt-1">au 01/{selectedMonth.toString().padStart(2, '0')}/{selectedYear}</div>
-              </div>
-
-              <div className="w-64 p-4 rounded-lg bg-white border border-[#EEF2FF] shadow-xs">
-                <div className="text-[11px] text-[#64748B] font-semibold">Détails</div>
-                <div className="mt-2 text-sm text-[#0F1724]">
-                  <div>Résiliés: <span className="font-bold text-rose-600">{(calculatorResult?.resigned_count ?? 0).toLocaleString('fr-FR')}</span></div>
-                  <div className="mt-1">Factures arrêtées: <span className="font-bold text-amber-600">{(calculatorResult?.stopped_count ?? stats?.invoice_stopped_subscribers ?? 0).toLocaleString('fr-FR')}</span></div>
-                  {calculatorResult?.new_registrations > 0 && (
-                    <div className="mt-2 inline-block text-[12px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">+{calculatorResult.new_registrations} nouvelles</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Milestones - style professionnel compact */}
-        <div className="group bg-white border border-[#E6EEF9] shadow-sm rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between gap-4 px-5 py-3 bg-gradient-to-r from-white to-slate-50">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#FFF7ED] to-[#FFFBF5] flex items-center justify-center border border-[#FFF0E6]">
-                <FileText className="text-[#B45309]" size={20} />
-              </div>
-              <div>
-                <div className="text-sm font-extrabold text-[#0F1724]">Contexte — Jalons & Repères</div>
-                <div className="text-[11px] text-[#64748B]">Repères clés et croissance entre échéances.</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-xs text-[#64748B]">Repères</div>
-              <button
-                onClick={() => setMilestonesOpen(s => !s)}
-                aria-expanded={milestonesOpen}
-                className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-[#E6EEF9] bg-white text-sm font-bold hover:shadow"
-              >
-                {milestonesOpen ? 'Réduire' : 'Étendre'}
-                <ChevronRight className={milestonesOpen ? 'rotate-90' : ''} />
-              </button>
-            </div>
-          </div>
-
-          <div className={`transition-all px-5 ${milestonesOpen ? 'pb-5 pt-4' : 'max-h-0 pb-0 overflow-hidden'}`}>
-            <div className="grid grid-cols-1 gap-3">
-              {milestones.slice(0, 6).map((m: any, idx: number) => (
-                <div key={m.period} className="flex items-center justify-between px-3 py-2 rounded-lg border border-[#F1F5F9] bg-white">
-                  <div>
-                    <div className="text-sm font-semibold text-[#0F1724]">{formatPeriodFrench(m.period)}</div>
-                    <div className="text-xs text-[#64748B]">Période</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-extrabold text-[#0F1724]">{m.count.toLocaleString('fr-FR')}</div>
-                    <div className="text-xs text-[#64748B]">{idx === 0 ? 'Référence' : ''}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="text-[11px] text-[#64748B] mt-3">Volume total d'abonnés par commune — filtrable depuis les menus.</div>
-          </div>
-        </div>
-      </div>
-        <div className="h-[320px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={(stats?.subscriber_communes || []).slice(0, 15).map((c: any) => ({
-                name: c.name?.length > 18 ? c.name.slice(0, 16) + '…' : c.name,
-                fullName: c.name,
-                total: c.value,
-                actifs: c.value - (c.resigned || 0),
-                resiliés: c.resigned || 0,
-              }))}
-              margin={{ top: 5, right: 20, left: 10, bottom: 60 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2F4F7" />
-              <XAxis
-                dataKey="name"
-                tickLine={false}
-                axisLine={false}
-                stroke="#98A2B3"
-                style={{ fontSize: '9px', fontWeight: 'bold' } as any}
-                angle={-35}
-                textAnchor="end"
-                interval={0}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                stroke="#98A2B3"
-                style={{ fontSize: '10px', fontWeight: 'bold' } as any}
-                tickFormatter={(v) => v.toLocaleString('fr-FR')}
-              />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#101828', border: 'none', borderRadius: '14px', color: '#fff', fontSize: '12px' }}
-                labelStyle={{ color: '#98A2B3', fontWeight: 'bold', marginBottom: '4px' }}
-                labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || _}
-                formatter={(value: any, name: any) => [value.toLocaleString('fr-FR'), name === 'actifs' ? 'Actifs' : name === 'resiliés' ? 'Résiliés' : 'Total']}
-              />
-              <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '12px' }} />
-              <Bar dataKey="actifs" name="Actifs" stackId="a" fill="#0D83DE" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="resiliés" name="Résiliés" stackId="a" fill="#f43f5e" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-      
-    </div>
-  );
-}
 
 function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
@@ -5736,6 +5095,8 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
     }, { paidAmount: 0, paidCount: 0, unpaidAmount: 0, unpaidCount: 0 });
 
     const handlePrintInvoices = async () => {
+      const jsPDF = (await import('jspdf')).default;
+      const { default: autoTable } = await import('jspdf-autotable');
       const doc = new jsPDF("p", "pt", "a4");
       const pageWidth = doc.internal.pageSize.width;
 
@@ -7952,6 +7313,7 @@ function CreanceVentilationView({
 
   const exportToExcel = async () => {
     try {
+      const ExcelJS = (await import('exceljs')).default;
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Ventilation");
       const formattedDate = formatVentDate(lastVentDate);
@@ -8029,6 +7391,8 @@ function CreanceVentilationView({
 
   const exportToPDF = async () => {
     try {
+      const jsPDF = (await import('jspdf')).default;
+      const { default: autoTable } = await import('jspdf-autotable');
       const doc = new jsPDF();
       const formattedDate = formatVentDate(lastVentDate);
       const pageWidth = doc.internal.pageSize.width;
@@ -11773,6 +11137,8 @@ function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur
 
   const exportToPDF = async () => {
     try {
+      const jsPDF = (await import('jspdf')).default;
+      const { default: autoTable } = await import('jspdf-autotable');
       const doc = new jsPDF("l", "pt", "a4");
       const pageWidth = doc.internal.pageSize.width;
       
@@ -15089,443 +14455,3 @@ function CreancesInstitutionsView({
   );
 }
 
-function SettingsView({
-  onBack,
-  setupMode = false,
-  showBack = false,
-  onConfigured,
-}: {
-  onBack: () => void;
-  setupMode?: boolean;
-  showBack?: boolean;
-  onConfigured?: () => void;
-}) {
-  const [unites, setUnites] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sectorSearch, setSectorSearch] = useState('');
-  const [clearingCache, setClearingCache] = useState(false);
-  const [cacheMessage, setCacheMessage] = useState<string | null>(null);
-  const [dataDir, setDataDir] = useState('');
-  const [dataDirInfo, setDataDirInfo] = useState<{
-    diagnostic?: string;
-    dbf_count?: number;
-    data_dir_exists?: boolean;
-    locked_by_env?: boolean;
-    is_db_ready?: boolean;
-    loading_status?: string;
-  } | null>(null);
-  const [dataDirLoading, setDataDirLoading] = useState(true);
-  const [savingDataDir, setSavingDataDir] = useState(false);
-  const [dataDirMessage, setDataDirMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-
-  const fetchDataDir = async () => {
-    setDataDirLoading(true);
-    try {
-      const res = await fetch('http://127.0.0.1:8000/api/data_dir');
-      const data = await res.json();
-      setDataDir(data.data_dir || '');
-      setDataDirInfo(data);
-    } catch {
-      setDataDirMessage({ type: 'err', text: 'Impossible de lire la configuration du dossier données.' });
-    } finally {
-      setDataDirLoading(false);
-    }
-  };
-
-  const handleSaveDataDir = async () => {
-    const trimmed = dataDir.trim();
-    if (!trimmed) {
-      setDataDirMessage({ type: 'err', text: 'Indiquez le chemin du dossier contenant les fichiers DBF.' });
-      return;
-    }
-    if (!confirm(`Utiliser ce dossier pour les données EPEOR ?\n\n${trimmed}\n\nLes données seront rechargées (quelques minutes).`)) {
-      return;
-    }
-    setSavingDataDir(true);
-    setDataDirMessage(null);
-    try {
-      const res = await fetch('http://127.0.0.1:8000/api/data_dir', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data_dir: trimmed }),
-      });
-      const data = await res.json();
-      if (data.status === 'error') {
-        setDataDirMessage({ type: 'err', text: data.message || 'Chemin invalide.' });
-        setSavingDataDir(false);
-        return;
-      }
-      setDataDir(data.data_dir || trimmed);
-      setDataDirMessage({ type: 'ok', text: data.message || 'Dossier enregistré.' });
-      await fetchDataDir();
-      if (onConfigured) {
-        setTimeout(() => onConfigured(), 3000);
-      } else {
-        setTimeout(() => window.location.reload(), 5000);
-      }
-    } catch {
-      setDataDirMessage({ type: 'err', text: 'Erreur de communication avec le serveur backend.' });
-      setSavingDataDir(false);
-    }
-  };
-
-  const fetchSettings = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("http://127.0.0.1:8000/api/unites_settings");
-      const data = await res.json();
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setUnites(data);
-      }
-    } catch {
-      setError("Impossible de charger les paramètres depuis le serveur backend.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDataDir();
-    if (!setupMode) {
-      fetchSettings();
-    } else {
-      setLoading(false);
-    }
-  }, [setupMode]);
-
-  const handleClearCache = async () => {
-    if (!confirm("Êtes-vous sûr de vouloir vider le cache et recharger toutes les tables DBF ? Cette opération peut prendre quelques minutes.")) {
-      return;
-    }
-    setClearingCache(true);
-    setCacheMessage("Vidage du cache et rechargement en cours. Veuillez patienter...");
-    try {
-      const res = await fetch("http://127.0.0.1:8000/api/clear_cache");
-      const data = await res.json();
-      setCacheMessage(data.message || "Rechargement lancé avec succès !");
-      setTimeout(() => {
-        window.location.reload();
-      }, 5000);
-    } catch {
-      setCacheMessage("Erreur lors de la communication avec le serveur.");
-      setClearingCache(false);
-    }
-  };
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      {/* Header */}
-      {!setupMode && (
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
-          >
-            <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
-          </button>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <h2 className="text-3xl font-black tracking-tight text-[#101828]">Paramètres du Système</h2>
-              <p className="text-sm text-[#667085] mt-1 font-medium">Consultez la structure organisationnelle d&apos;EPEOR, l&apos;unité de gestion et ses centres associés.</p>
-            </div>
-          </div>
-        </div>
-      )}
-      {setupMode && showBack && (
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-sm font-bold text-[#667085] hover:text-[#101828] flex items-center gap-2"
-        >
-          <ChevronRight className="rotate-180" size={16} /> Retour
-        </button>
-      )}
-
-      {/* Dossier données EPEOR */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
-        <div className="flex items-start gap-4 mb-6">
-          <div className="w-12 h-12 bg-slate-100 text-[#0D83DE] rounded-2xl flex items-center justify-center shrink-0">
-            <Database size={22} />
-          </div>
-          <div>
-            <h3 className="text-lg font-black text-[#101828]">Dossier des données (DBF)</h3>
-            <p className="text-sm text-[#667085] mt-1 font-medium">
-              Chemin du répertoire contenant les fichiers EPEOR (ABONNE.DBF, FACTURES.DBF, etc.). Le changement déclenche un rechargement complet.
-            </p>
-          </div>
-        </div>
-
-        {dataDirLoading ? (
-          <p className="text-xs font-bold text-[#98A2B3]">Lecture de la configuration...</p>
-        ) : (
-          <div className="space-y-4">
-            {dataDirInfo?.locked_by_env && (
-              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold">
-                Chemin verrouillé par la variable d&apos;environnement <span className="font-mono">EPEOR_DATA_DIR</span>.
-                Modifiez-la dans start.bat ou les paramètres Windows, puis redémarrez le backend.
-              </div>
-            )}
-            <div>
-              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">
-                Chemin du dossier
-              </label>
-              <input
-                type="text"
-                value={dataDir}
-                onChange={(e) => setDataDir(e.target.value)}
-                disabled={dataDirInfo?.locked_by_env || savingDataDir}
-                placeholder="Ex. d:\epeor"
-                className="w-full font-mono text-sm font-bold text-[#344054] bg-[#F9FAFB] border border-[#D0D5DD] rounded-xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0D83DE] disabled:opacity-60 disabled:cursor-not-allowed"
-                spellCheck={false}
-              />
-            </div>
-            {dataDirInfo && (
-              <div className="flex flex-wrap gap-3 text-[10px] font-bold">
-                <span
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
-                    dataDirInfo.data_dir_exists
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                      : 'bg-rose-50 text-rose-700 border-rose-100'
-                  }`}
-                >
-                  {dataDirInfo.data_dir_exists ? 'Dossier accessible' : 'Dossier introuvable'}
-                </span>
-                {typeof dataDirInfo.dbf_count === 'number' && (
-                  <span className="inline-flex items-center px-2.5 py-1 bg-slate-50 text-slate-600 border border-slate-200 rounded-full">
-                    {dataDirInfo.dbf_count} fichier(s) DBF
-                  </span>
-                )}
-                {dataDirInfo.is_db_ready && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full">
-                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                    Données chargées
-                  </span>
-                )}
-              </div>
-            )}
-            {dataDirInfo?.diagnostic && (
-              <p className="text-xs font-medium text-[#667085]">{dataDirInfo.diagnostic}</p>
-            )}
-            {dataDirMessage && (
-              <div
-                className={`p-4 rounded-xl text-xs font-bold ${
-                  dataDirMessage.type === 'ok'
-                    ? 'bg-emerald-50 border border-emerald-100 text-emerald-800'
-                    : 'bg-rose-50 border border-rose-100 text-rose-800'
-                }`}
-              >
-                {dataDirMessage.text}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleSaveDataDir}
-                disabled={dataDirInfo?.locked_by_env || savingDataDir || !dataDir.trim()}
-                className={`px-6 py-3 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 flex items-center gap-2 ${
-                  dataDirInfo?.locked_by_env || savingDataDir || !dataDir.trim()
-                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                    : 'bg-[#0D83DE] text-white hover:bg-[#0b72c2] border border-[#0b72c2]'
-                }`}
-              >
-                <RefreshCw size={16} className={savingDataDir ? 'animate-spin' : ''} />
-                {savingDataDir ? 'Enregistrement...' : 'Appliquer et recharger'}
-              </button>
-              <button
-                type="button"
-                onClick={fetchDataDir}
-                disabled={dataDirLoading || savingDataDir}
-                className="px-6 py-3 rounded-2xl font-black text-xs border border-[#D0D5DD] text-[#344054] hover:bg-[#F9FAFB] transition-all"
-              >
-                Actualiser
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {!setupMode && (loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E4E7EC] rounded-[2rem] shadow-sm">
-          <div className="w-12 h-12 border-4 border-slate-200 border-t-[#0D83DE] rounded-full animate-spin"></div>
-          <p className="mt-4 text-sm font-bold text-[#475467]">Chargement de la structure organisationnelle...</p>
-        </div>
-      ) : error ? (
-        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-6 rounded-[2rem] shadow-sm">
-          <p className="font-bold">Une erreur est survenue</p>
-          <p className="text-sm mt-1">{error}</p>
-          <button
-            onClick={fetchSettings}
-            className="mt-4 px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
-          >
-            Réessayer
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {unites.map((u: any) => {
-            const filteredSectors = u.sectors.filter((s: any) => 
-              s.code.toLowerCase().includes(sectorSearch.toLowerCase()) ||
-              s.libelle.toLowerCase().includes(sectorSearch.toLowerCase())
-            );
-
-            return (
-              <div key={u.code} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Unit Card */}
-                <div className="lg:col-span-1 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-black text-lg">
-                        {u.code}
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-black text-[#101828] uppercase">Unité {u.denom}</h3>
-                        <p className="text-xs text-blue-600 font-bold">Unité de Gestion Principale</p>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-[#F2F4F7] pt-6 space-y-4">
-                      <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Adresse</span>
-                        <span className="text-sm font-bold text-[#344054]">{u.adresse || '—'}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Téléphone</span>
-                        <span className="text-sm font-bold text-[#344054]">{u.telephone || '—'}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Identifiant Fiscal (NIF)</span>
-                        <span className="text-sm font-mono font-bold text-[#344054]">{u.identfisc || '—'}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Article d'Imposition</span>
-                        <span className="text-sm font-mono font-bold text-[#344054]">{u.nartfisc || '—'}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Banque</span>
-                        <span className="text-sm font-bold text-[#344054]">{u.ncompte || '—'}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">RIB / Compte Bancaire</span>
-                        <span className="text-sm font-mono font-bold text-slate-700 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 block mt-1 overflow-x-auto select-all">
-                          {u.dombanq || '—'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-8 pt-6 border-t border-[#F2F4F7]">
-                    <div className="flex items-center gap-2.5 text-xs font-bold text-[#667085]">
-                      <span>Statut :</span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full">
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                        Opérationnel
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sectors/Centers Card */}
-                <div className="lg:col-span-2 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                    <div>
-                      <h3 className="text-lg font-black text-[#101828]">Centres & Secteurs Associés</h3>
-                      <p className="text-xs text-[#667085] font-medium mt-0.5">Secteurs géographiques rattachés à l'unité de {u.denom} ({u.sectors.length} centres chargés)</p>
-                    </div>
-                    
-                    {/* Search sector */}
-                    <div className="relative">
-                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3]" size={16} />
-                      <input
-                        type="text"
-                        placeholder="Rechercher un centre..."
-                        className="bg-white border-[#D0D5DD] border rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0D83DE] transition-all placeholder:text-[#98A2B3] w-48 sm:w-64"
-                        value={sectorSearch}
-                        onChange={(e) => setSectorSearch(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden flex-1 max-h-[500px] overflow-y-auto">
-                    <table className="w-full border-collapse text-left">
-                      <thead>
-                        <tr className="bg-[#F9FAFB] border-b border-[#E4E7EC] text-[#475467] text-[10px] uppercase font-black">
-                          <th className="px-6 py-4">Code Centre</th>
-                          <th className="px-6 py-4">Nom du Centre (Secteur)</th>
-                          <th className="px-6 py-4">Code Unité</th>
-                          <th className="px-6 py-4 text-right">Rattachement</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#F2F4F7]">
-                        {filteredSectors.length > 0 ? (
-                          filteredSectors.map((s: any) => (
-                            <tr key={s.code} className="hover:bg-[#F9FAFB] transition-colors group">
-                              <td className="px-6 py-4 font-mono font-black text-sm text-[#0D83DE]">
-                                {s.code}
-                              </td>
-                              <td className="px-6 py-4 font-black text-slate-800 text-sm">
-                                {s.libelle}
-                              </td>
-                              <td className="px-6 py-4 font-mono text-xs text-[#667085]">
-                                {s.unite}
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                <span className="inline-flex items-center px-2.5 py-1 bg-blue-50/50 text-blue-700 border border-blue-100/50 rounded-lg text-[10px] font-bold">
-                                  Lié à {u.denom}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={4} className="px-6 py-12 text-center text-sm font-bold text-[#98A2B3]">
-                              Aucun centre ne correspond à votre recherche.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Cache Settings card */}
-          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                <h3 className="text-lg font-black text-[#101828]">Gestion du Cache de Données</h3>
-                <p className="text-sm text-[#667085] mt-1 font-medium">Forcez la ré-analyse et la mise en cache des tables DBF brutes. Utilisez cette fonction si les fichiers de données sur le disque ont été modifiés.</p>
-              </div>
-              <button
-                onClick={handleClearCache}
-                disabled={clearingCache}
-                className={`px-6 py-3.5 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-2 ${
-                  clearingCache 
-                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed' 
-                    : 'bg-[#0D83DE] text-white hover:bg-[#0b72c2] border border-[#0b72c2] shadow-blue-100'
-                }`}
-              >
-                <RefreshCw size={16} className={clearingCache ? 'animate-spin' : ''} />
-                Réindexer & Recharger les DBF
-              </button>
-            </div>
-            {cacheMessage && (
-              <div className="mt-4 p-4 bg-blue-50 border border-blue-100 text-blue-800 rounded-xl text-xs font-bold animate-in fade-in duration-300">
-                {cacheMessage}
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-
-
-// NinStatsView removed

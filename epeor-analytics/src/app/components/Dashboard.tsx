@@ -103,6 +103,7 @@ export default function Dashboard() {
     display_name: string;
     is_admin: boolean;
     auth_enabled: boolean;
+    allowed_sectors?: string[] | null;
   } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
@@ -148,13 +149,31 @@ export default function Dashboard() {
       if (!Array.isArray(data) || data.length === 0) return;
       const unite = data.find((u: any) => (u.sectors?.length ?? 0) > 0) ?? data[0];
       setUniteLabel(String(unite.denom || '').trim());
-      const list = (unite.sectors || [])
+      let list = (unite.sectors || [])
         .map((s: any) => ({
           code: String(s.code ?? '').trim(),
           libelle: String(s.libelle ?? '').trim(),
         }))
         .filter((s: { code: string }) => s.code);
+
+      const isRestricted = user?.allowed_sectors && !user.is_admin;
+      if (isRestricted) {
+        const allowedClean = (user?.allowed_sectors || []).map((s: string) => String(s).trim().padStart(2, '0'));
+        list = list.filter((s: any) => {
+          const codeClean = s.code.padStart(2, '0');
+          return allowedClean.includes(codeClean) || allowedClean.includes(s.code);
+        });
+      }
+
       setSectors(list);
+
+      if (isRestricted && list.length > 0) {
+        const allowedClean = (user?.allowed_sectors || []).map((s: string) => String(s).trim().padStart(2, '0'));
+        const currentClean = selectedSecteur.padStart(2, '0');
+        if (!selectedSecteur || (!allowedClean.includes(currentClean) && !allowedClean.includes(selectedSecteur))) {
+          setSelectedSecteur(list[0].code);
+        }
+      }
     } catch {
       /* backend indisponible */
     } finally {
@@ -167,7 +186,7 @@ export default function Dashboard() {
     if (stats?.ready) {
       loadSectors();
     }
-  }, [stats?.ready]);
+  }, [stats?.ready, user]);
 
   const requestDataReload = async () => {
     setReloadPending(true);
@@ -215,6 +234,7 @@ export default function Dashboard() {
           display_name: data.display_name || data.username,
           is_admin: !!data.is_admin,
           auth_enabled: !!data.auth_enabled,
+          allowed_sectors: data.allowed_sectors,
         });
         setBackendReachable(true);
         setAuthChecked(true);
@@ -460,6 +480,7 @@ export default function Dashboard() {
                   display_name: userData.display_name || userData.username,
                   is_admin: !!userData.is_admin,
                   auth_enabled: !!userData.auth_enabled,
+                  allowed_sectors: userData.allowed_sectors,
                 });
                 setLoginPassword('');
                 setLoginError(null);
@@ -678,12 +699,14 @@ export default function Dashboard() {
         <div className="mt-auto flex flex-col gap-1 pt-6 border-t border-[#F2F4F7]">
           <NavItem icon={<Bell size={20} />} label="Notifications" />
           <NavItem icon={<HelpCircle size={20} />} label="Centre d'aide" />
-          <NavItem
-            icon={<Settings size={20} />}
-            label="Paramètres"
-            active={currentView === 'settings'}
-            onClick={() => setCurrentView('settings')}
-          />
+          {user?.is_admin && (
+            <NavItem
+              icon={<Settings size={20} />}
+              label="Paramètres"
+              active={currentView === 'settings'}
+              onClick={() => setCurrentView('settings')}
+            />
+          )}
           <NavItem icon={<LogOut size={20} />} label="Déconnexion" onClick={handleLogout} />
         </div>
 
@@ -966,7 +989,7 @@ export default function Dashboard() {
             sectorsLoading={sectorsLoading || !stats?.ready}
           />
         ) : currentView === 'settings' ? (
-          <SettingsView onBack={() => setCurrentView('dashboard')} />
+          <SettingsView onBack={() => setCurrentView('dashboard')} user={user} />
         ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
@@ -1087,7 +1110,7 @@ export default function Dashboard() {
           </div>
         ) : null}
       </main>
-        <MobileNav currentView={currentView as AppView} onNavigate={setCurrentView} onLogout={handleLogout} />
+        <MobileNav currentView={currentView as AppView} onNavigate={setCurrentView} onLogout={handleLogout} isAdmin={!!user?.is_admin} />
       </div>
     </div>
   );

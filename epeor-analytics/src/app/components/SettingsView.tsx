@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, Database, RefreshCw, Search } from "lucide-react";
+import { ChevronRight, Database, RefreshCw, Search, Plus, Trash2, Edit2, Shield, User, Lock, X, AlertTriangle } from "lucide-react";
 import { apiUrl } from "../lib/api";
 
 export function SettingsView({
@@ -9,11 +9,19 @@ export function SettingsView({
   setupMode = false,
   showBack = false,
   onConfigured,
+  user,
 }: {
   onBack: () => void;
   setupMode?: boolean;
   showBack?: boolean;
   onConfigured?: () => void;
+  user?: {
+    username: string;
+    display_name: string;
+    is_admin: boolean;
+    auth_enabled: boolean;
+    allowed_sectors?: string[] | null;
+  } | null;
 }) {
   const [unites, setUnites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +41,47 @@ export function SettingsView({
   const [dataDirLoading, setDataDirLoading] = useState(true);
   const [savingDataDir, setSavingDataDir] = useState(false);
   const [dataDirMessage, setDataDirMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Active tab selection
+  const [activeTab, setActiveTab] = useState<'system' | 'users'>('system');
+
+  // User management states
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
+
+  // User form states
+  const [formUsername, setFormUsername] = useState('');
+  const [formDisplayName, setFormDisplayName] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [formIsAdmin, setFormIsAdmin] = useState(false);
+  const [formSectors, setFormSectors] = useState<string[]>([]);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [formMessage, setFormMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    setUsersError(null);
+    try {
+      const res = await fetch(apiUrl('/api/admin/users'), { credentials: 'include' });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setUsersList(data);
+    } catch {
+      setUsersError('Impossible de charger la liste des utilisateurs.');
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeTab]);
 
   const fetchDataDir = async () => {
     setDataDirLoading(true);
@@ -210,6 +259,54 @@ export function SettingsView({
           <ChevronRight className="rotate-180" size={16} /> Retour
         </button>
       )}
+
+      {/* Tab navigation — visible only in non-setup mode for admins */}
+      {!setupMode && user?.is_admin && (
+        <div className="flex gap-1 bg-[#F2F4F7] rounded-2xl p-1.5 no-print">
+          <button
+            type="button"
+            onClick={() => setActiveTab('system')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-black transition-all ${activeTab === 'system' ? 'bg-white shadow-sm text-[#0D83DE]' : 'text-[#667085] hover:text-[#344054]'}`}
+          >
+            ⚙️ Système
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('users')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-black transition-all ${activeTab === 'users' ? 'bg-white shadow-sm text-[#0D83DE]' : 'text-[#667085] hover:text-[#344054]'}`}
+          >
+            👥 Utilisateurs
+          </button>
+        </div>
+      )}
+
+      {/* ======== Users Tab ======== */}
+      {!setupMode && activeTab === 'users' && user?.is_admin && (
+        <UsersManagementPanel
+          usersList={usersList}
+          usersLoading={usersLoading}
+          usersError={usersError}
+          sectors={(() => {
+            const allSectors: string[] = [];
+            unites.forEach((u: any) => (u.sectors || []).forEach((s: any) => {
+              if (s.code && !allSectors.includes(s.code)) allSectors.push(s.code);
+            }));
+            return allSectors.map(code => {
+              for (const u of unites) {
+                const s = (u.sectors || []).find((s: any) => s.code === code);
+                if (s) return { code, libelle: s.libelle || code };
+              }
+              return { code, libelle: code };
+            });
+          })()}
+          onRefresh={fetchUsers}
+          currentUsername={user.username}
+        />
+      )}
+
+      {/* ======== System Tab (always visible in setup mode or when system tab active) ======== */}
+      {(setupMode || activeTab === 'system' || !user?.is_admin) && (
+        <>
 
       {/* Dossier données EPEOR */}
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
@@ -534,10 +631,390 @@ export function SettingsView({
           </div>
         </div>
       ))}
+
+        </>
+      )}
     </div>
   );
 }
 
 
+// ─── User Management Panel ────────────────────────────────────────────────────
 
-// NinStatsView removed
+function UsersManagementPanel({
+  usersList,
+  usersLoading,
+  usersError,
+  sectors,
+  onRefresh,
+  currentUsername,
+}: {
+  usersList: any[];
+  usersLoading: boolean;
+  usersError: string | null;
+  sectors: { code: string; libelle: string }[];
+  onRefresh: () => void;
+  currentUsername: string;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [formData, setFormData] = useState({
+    username: '',
+    display_name: '',
+    password: '',
+    is_admin: false,
+    allowed_sectors: [] as string[],
+  });
+  const [formMessage, setFormMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const resetForm = () => {
+    setFormData({ username: '', display_name: '', password: '', is_admin: false, allowed_sectors: [] });
+    setFormMessage(null);
+    setEditingUser(null);
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  const openEdit = (u: any) => {
+    setFormData({
+      username: u.username,
+      display_name: u.display_name || '',
+      password: '',
+      is_admin: !!u.is_admin,
+      allowed_sectors: u.allowed_sectors || [],
+    });
+    setEditingUser(u);
+    setFormMessage(null);
+    setShowForm(true);
+  };
+
+  const toggleSector = (code: string) => {
+    setFormData(prev => {
+      const set = new Set(prev.allowed_sectors);
+      if (set.has(code)) set.delete(code); else set.add(code);
+      return { ...prev, allowed_sectors: Array.from(set) };
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormLoading(true);
+    setFormMessage(null);
+    try {
+      if (editingUser) {
+        // Update existing user
+        const body: any = {
+          display_name: formData.display_name,
+          is_admin: formData.is_admin,
+        };
+        if (formData.password.trim()) body.password = formData.password;
+        if (!formData.is_admin) {
+          body.allowed_sectors = formData.allowed_sectors;
+        }
+        const res = await fetch(apiUrl(`/api/admin/users/${editingUser.id}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setFormMessage({ type: 'err', text: data.detail || 'Erreur lors de la modification.' });
+          return;
+        }
+        setFormMessage({ type: 'ok', text: 'Utilisateur mis à jour.' });
+        setTimeout(() => { setShowForm(false); resetForm(); onRefresh(); }, 1000);
+      } else {
+        // Create new user
+        const body: any = {
+          username: formData.username.trim().toLowerCase(),
+          display_name: formData.display_name,
+          password: formData.password,
+          is_admin: formData.is_admin,
+        };
+        if (!formData.is_admin) {
+          body.allowed_sectors = formData.allowed_sectors;
+        }
+        const res = await fetch(apiUrl('/api/admin/users'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setFormMessage({ type: 'err', text: data.detail || 'Erreur lors de la création.' });
+          return;
+        }
+        setFormMessage({ type: 'ok', text: 'Utilisateur créé avec succès.' });
+        setTimeout(() => { setShowForm(false); resetForm(); onRefresh(); }, 1000);
+      }
+    } catch {
+      setFormMessage({ type: 'err', text: 'Erreur de connexion au serveur.' });
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDelete = async (userId: number, username: string) => {
+    if (!confirm(`Supprimer l'utilisateur "${username}" ? Cette action est irréversible.`)) return;
+    setDeletingId(userId);
+    try {
+      const res = await fetch(apiUrl(`/api/admin/users/${userId}`), {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Erreur lors de la suppression.');
+        return;
+      }
+      onRefresh();
+    } catch {
+      alert('Erreur de connexion au serveur.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* User List */}
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-black text-[#101828]">Gestion des utilisateurs</h3>
+            <p className="text-sm text-[#667085] mt-1">Créez des utilisateurs avec accès limité à un ou plusieurs secteurs.</p>
+          </div>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-5 py-3 bg-[#0D83DE] text-white rounded-2xl text-sm font-black hover:bg-[#0b72c2] transition-all shadow-md shadow-blue-100 shrink-0"
+          >
+            <Plus size={16} /> Nouvel utilisateur
+          </button>
+        </div>
+
+        {usersLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="w-8 h-8 border-4 border-blue-100 border-t-[#0D83DE] rounded-full animate-spin" />
+          </div>
+        ) : usersError ? (
+          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-700 text-sm font-bold">
+            <AlertTriangle size={18} /> {usersError}
+          </div>
+        ) : usersList.length === 0 ? (
+          <p className="text-sm text-[#98A2B3] text-center py-8 font-medium">Aucun utilisateur trouvé.</p>
+        ) : (
+          <div className="space-y-3">
+            {usersList.map((u: any) => (
+              <div
+                key={u.id}
+                className="flex items-center gap-3 p-4 rounded-2xl border border-[#E4E7EC] hover:bg-[#F9FAFB] transition-colors"
+              >
+                <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-black text-slate-600 shrink-0">
+                  {u.username?.[0]?.toUpperCase() || '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-black text-[#101828]">{u.display_name || u.username}</p>
+                    {u.is_admin ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-100 rounded-full px-2 py-0.5">
+                        <Shield size={10} /> Admin
+                      </span>
+                    ) : u.allowed_sectors && u.allowed_sectors.length > 0 ? (
+                      <span className="text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5">
+                        Secteurs : {u.allowed_sectors.join(', ')}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black bg-slate-50 text-slate-500 border border-slate-100 rounded-full px-2 py-0.5">
+                        Accès complet
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#667085] font-medium">@{u.username}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(u)}
+                    className="p-2 rounded-xl text-[#667085] hover:bg-[#EFF8FF] hover:text-[#0D83DE] transition-colors"
+                    title="Modifier"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  {u.username !== currentUsername && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(u.id, u.username)}
+                      disabled={deletingId === u.id}
+                      className="p-2 rounded-xl text-[#667085] hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+                      title="Supprimer"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Create / Edit Form Modal */}
+      {showForm && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+            onClick={() => { setShowForm(false); resetForm(); }}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-[#F2F4F7]">
+                <div>
+                  <h3 className="text-lg font-black text-[#101828]">
+                    {editingUser ? `Modifier — ${editingUser.username}` : 'Créer un utilisateur'}
+                  </h3>
+                  <p className="text-xs text-[#667085] mt-0.5 font-medium">
+                    {editingUser ? 'Laissez le mot de passe vide pour ne pas le modifier.' : 'Remplissez tous les champs requis.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); resetForm(); }}
+                  className="p-2 rounded-xl text-[#667085] hover:bg-[#F2F4F7] transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                {!editingUser && (
+                  <label className="block">
+                    <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                      <User size={12} /> Nom d'utilisateur
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={formData.username}
+                      onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
+                      className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+                      placeholder="ex: agent01"
+                      autoComplete="username"
+                    />
+                  </label>
+                )}
+
+                <label className="block">
+                  <span className="text-xs font-black text-[#344054] uppercase tracking-widest mb-1.5 block">Nom affiché</span>
+                  <input
+                    type="text"
+                    required
+                    value={formData.display_name}
+                    onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
+                    className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+                    placeholder="ex: Agent Secteur 01"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                    <Lock size={12} /> Mot de passe {editingUser ? '(optionnel)' : ''}
+                  </span>
+                  <input
+                    type="password"
+                    required={!editingUser}
+                    value={formData.password}
+                    onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
+                    className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+                    placeholder={editingUser ? 'Laisser vide = inchangé' : 'Min. 4 caractères'}
+                    autoComplete="new-password"
+                  />
+                </label>
+
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_admin}
+                    onChange={e => setFormData(p => ({ ...p, is_admin: e.target.checked, allowed_sectors: e.target.checked ? [] : p.allowed_sectors }))}
+                    className="w-5 h-5 rounded-lg accent-[#0D83DE]"
+                  />
+                  <span className="text-sm font-black text-[#344054] flex items-center gap-1.5">
+                    <Shield size={14} className="text-amber-500" /> Administrateur (accès complet)
+                  </span>
+                </label>
+
+                {!formData.is_admin && (
+                  <div>
+                    <p className="text-xs font-black text-[#344054] uppercase tracking-widest mb-3">
+                      Secteurs autorisés {formData.allowed_sectors.length > 0 ? `(${formData.allowed_sectors.length} sélectionnés)` : '— tous si aucun coché'}
+                    </p>
+                    {sectors.length === 0 ? (
+                      <p className="text-xs text-[#98A2B3] italic">Données pas encore chargées — secteurs indisponibles.</p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                        {sectors.map(s => {
+                          const checked = formData.allowed_sectors.includes(s.code);
+                          return (
+                            <label
+                              key={s.code}
+                              className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-blue-50 border-[#0D83DE] text-[#0D83DE]' : 'border-[#E4E7EC] text-[#344054] hover:bg-[#F9FAFB]'}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleSector(s.code)}
+                                className="accent-[#0D83DE] w-4 h-4"
+                              />
+                              <div className="min-w-0">
+                                <p className="text-xs font-black truncate">{s.libelle || s.code}</p>
+                                <p className="text-[10px] text-[#98A2B3]">Code {s.code}</p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {formMessage && (
+                  <div className={`p-3 rounded-2xl text-sm font-bold animate-in fade-in duration-200 ${formMessage.type === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                    {formMessage.text}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setShowForm(false); resetForm(); }}
+                    className="flex-1 py-3 rounded-2xl border border-[#D0D5DD] text-sm font-black text-[#344054] hover:bg-[#F9FAFB] transition"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={formLoading}
+                    className="flex-1 py-3 rounded-2xl bg-[#0D83DE] text-white text-sm font-black hover:bg-[#0b72c2] transition disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {formLoading ? (
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                    ) : (
+                      editingUser ? 'Enregistrer' : 'Créer l\'utilisateur'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

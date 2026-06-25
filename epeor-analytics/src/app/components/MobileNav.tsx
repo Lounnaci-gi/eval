@@ -82,13 +82,19 @@ export function MobileNav({
   currentView,
   onNavigate,
   onLogout,
+  isAdmin = false,
 }: {
   currentView: AppView;
   onNavigate: (view: AppView) => void;
   onLogout?: () => void;
+  isAdmin?: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const moreActive = MORE_ITEMS.some((item) => isActive(currentView, item));
+  const visibleMoreItems = MORE_ITEMS.filter((item) => {
+    if (item.id === "settings") return isAdmin;
+    return true;
+  });
+  const moreActive = visibleMoreItems.some((item) => isActive(currentView, item));
 
   return (
     <>
@@ -113,7 +119,7 @@ export function MobileNav({
               <X size={16} />
             </button>
           </div>
-          {MORE_ITEMS.map((item) => {
+          {visibleMoreItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(currentView, item);
             return (

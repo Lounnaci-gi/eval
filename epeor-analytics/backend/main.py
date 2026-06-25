@@ -1,11 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, Cookie, Response, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
+import sqlite3
+import hashlib
+import secrets
 from dbfread import DBF
 import os
 import itertools
 import json
+import math
 from datetime import datetime, timedelta
 import pickle
 import time
@@ -17,9 +21,25 @@ app = FastAPI()
 # Compression gzip for all JSON responses
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+
+def _cors_origins() -> list[str]:
+    default = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:3001,http://127.0.0.1:3001"
+    )
+    raw = os.environ.get("CORS_ORIGINS", default)
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+def _cors_origin_regex() -> str | None:
+    pattern = os.environ.get("CORS_ORIGIN_REGEX", "").strip()
+    return pattern or None
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],
+    allow_origins=_cors_origins(),
+    allow_origin_regex=_cors_origin_regex(),
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -118,7 +138,196 @@ if not os.path.isdir(DATA_DIR):
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
 
+AUTH_DB_PATH = os.path.join(BASE_DIR, "users.db")
+SESSION_LIFETIME_HOURS = int(os.environ.get("SESSION_LIFETIME_HOURS", "24"))
+_AUTH_ENABLED = os.environ.get("EPEOR_AUTH_ENABLED", "1").strip() not in ("0", "false", "no")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# AUTH DATABASE — SQLite (stdlib, pas de dépendance supplémentaire)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _get_auth_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(AUTH_DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _init_auth_db() -> None:
+    """Crée les tables auth si elles n'existent pas, et un admin par défaut."""
+    with _get_auth_conn() as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS users (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT    NOT NULL UNIQUE,
+                display_name TEXT NOT NULL DEFAULT '',
+                salt     TEXT    NOT NULL,
+                password TEXT    NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT  NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE TABLE IF NOT EXISTS sessions (
+                token      TEXT NOT NULL PRIMARY KEY,
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+            CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+        """)
+        # Créer un admin par défaut si la table est vide
+        count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        if count == 0:
+            default_pass = secrets.token_urlsafe(12)
+            _create_user_in_db(conn, "admin", "Administrateur", default_pass, is_admin=True)
+            print("=" * 60)
+            print("[AUTH] Aucun utilisateur trouvé — compte admin créé :")
+            print(f"       Identifiant : admin")
+            print(f"       Mot de passe: {default_pass}")
+            print("[AUTH] Changez ce mot de passe via create_user.py !")
+            print("=" * 60)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# AUTH HELPERS — hachage PBKDF2, sessions
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+    """Renvoie (salt_hex, hash_hex) — PBKDF2-HMAC-SHA256, 200 000 itérations."""
+    if salt is None:
+        salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        200_000,
+    )
+    return salt, key.hex()
+
+
+def _verify_password(password: str, salt: str, stored_hash: str) -> bool:
+    _, computed = _hash_password(password, salt)
+    return secrets.compare_digest(computed, stored_hash)
+
+
+def _create_user_in_db(
+    conn: sqlite3.Connection,
+    username: str,
+    display_name: str,
+    password: str,
+    is_admin: bool = False,
+) -> None:
+    salt, hashed = _hash_password(password)
+    conn.execute(
+        "INSERT INTO users (username, display_name, salt, password, is_admin) VALUES (?,?,?,?,?)",
+        (username.strip().lower(), display_name.strip(), salt, hashed, int(is_admin)),
+    )
+
+
+def _create_session(user_id: int) -> str:
+    token = secrets.token_urlsafe(32)
+    expires_at = (datetime.utcnow() + timedelta(hours=SESSION_LIFETIME_HOURS)).isoformat()
+    with _get_auth_conn() as conn:
+        conn.execute(
+            "INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)",
+            (token, user_id, expires_at),
+        )
+    return token
+
+
+def _get_user_by_session(token: str | None) -> dict | None:
+    if not token:
+        return None
+    now = datetime.utcnow().isoformat()
+    with _get_auth_conn() as conn:
+        row = conn.execute(
+            """SELECT u.id, u.username, u.display_name, u.is_admin
+               FROM sessions s JOIN users u ON s.user_id = u.id
+               WHERE s.token = ? AND s.expires_at > ?""",
+            (token, now),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def _delete_session(token: str) -> None:
+    with _get_auth_conn() as conn:
+        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+
+
+def _purge_expired_sessions() -> None:
+    now = datetime.utcnow().isoformat()
+    with _get_auth_conn() as conn:
+        conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (now,))
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# RATE-LIMITER EN MÉMOIRE (anti brute-force login)
+# ──────────────────────────────────────────────────────────────────────────────
+
+_login_attempts: dict[str, list[float]] = {}
+_login_blocked_until: dict[str, float] = {}
+_login_lock = threading.Lock()
+_MAX_FAILED_ATTEMPTS = 3     # tentatives max avant blocage
+_BLOCK_DURATION = 600.0     # blocage de 10 minutes
+
+
+def _get_login_status(ip: str) -> dict[str, int | bool]:
+    now = time.time()
+    with _login_lock:
+        blocked_until = _login_blocked_until.get(ip)
+        if blocked_until and now < blocked_until:
+            return {
+                "blocked": True,
+                "retry_after": int(blocked_until - now),
+            }
+        if blocked_until and now >= blocked_until:
+            _login_blocked_until.pop(ip, None)
+            _login_attempts.pop(ip, None)
+
+        attempts = [t for t in _login_attempts.get(ip, []) if now - t < _BLOCK_DURATION]
+        remaining = max(0, _MAX_FAILED_ATTEMPTS - len(attempts))
+        return {
+            "blocked": False,
+            "remaining_attempts": remaining,
+        }
+
+
+def _record_failed_login(ip: str) -> dict[str, int | bool]:
+    now = time.time()
+    with _login_lock:
+        attempts = [t for t in _login_attempts.get(ip, []) if now - t < _BLOCK_DURATION]
+        attempts.append(now)
+        if len(attempts) >= _MAX_FAILED_ATTEMPTS:
+            _login_blocked_until[ip] = now + _BLOCK_DURATION
+            _login_attempts.pop(ip, None)
+            return {"blocked": True, "retry_after": int(_BLOCK_DURATION)}
+        _login_attempts[ip] = attempts
+        return {"blocked": False, "remaining_attempts": max(0, _MAX_FAILED_ATTEMPTS - len(attempts))}
+
+
+def _clear_login_attempts(ip: str) -> None:
+    with _login_lock:
+        _login_attempts.pop(ip, None)
+        _login_blocked_until.pop(ip, None)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DÉPENDANCE FastAPI — protection des routes
+# ──────────────────────────────────────────────────────────────────────────────
+
+def get_current_user(
+    epeor_session: str | None = Cookie(default=None),
+) -> dict:
+    """Dépendance FastAPI : retourne l'utilisateur courant ou lève 401."""
+    if not _AUTH_ENABLED:
+        return {"id": 0, "username": "guest", "display_name": "Guest", "is_admin": 1}
+    user = _get_user_by_session(epeor_session)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    return user
+
+
 _load_retry_count = 0
+
 _MAX_LOAD_RETRIES = 3
 
 # Libellés affichés à l'utilisateur (jamais les noms de fichiers sources)
@@ -948,14 +1157,143 @@ def clear_cache_directory():
 
 @app.on_event("startup")
 def startup_event():
+    _init_auth_db()
     threading.Thread(target=load_all_data_to_memory, daemon=True).start()
 
 @app.on_event("shutdown")
 def shutdown_event():
     print("[INFO] Server is stopping. Cache is preserved for fast restart.")
 
+# ──────────────────────────────────────────────────────────────────────────────
+# AUTH ENDPOINTS
+# ──────────────────────────────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/auth/login")
+def auth_login(body: LoginRequest, request: Request, response: Response):
+    """Authentifie l'utilisateur et crée une session sécurisée."""
+    ip = request.client.host if request.client else "unknown"
+    status_info = _get_login_status(ip)
+    if status_info["blocked"]:
+        retry_after = status_info["retry_after"]
+        minutes = int(math.ceil(retry_after / 60))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Trop de tentatives. Réessayez dans {minutes} minute(s). Retry-After: {retry_after}",
+        )
+    username = body.username.strip().lower()
+    with _get_auth_conn() as conn:
+        row = conn.execute(
+            "SELECT id, salt, password FROM users WHERE username = ?", (username,)
+        ).fetchone()
+    if row is None or not _verify_password(body.password, row["salt"], row["password"]):
+        failed_info = _record_failed_login(ip)
+        if failed_info["blocked"]:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Trop de tentatives. Le site est bloqué pendant 10 minutes. Retry-After: {failed_info['retry_after']}",
+            )
+        remaining = failed_info["remaining_attempts"]
+        detail_msg = f"Identifiant ou mot de passe incorrect. Tentatives restantes: {remaining}"
+        raise HTTPException(
+            status_code=401,
+            detail=detail_msg,
+        )
+    _clear_login_attempts(ip)
+    _purge_expired_sessions()
+    token = _create_session(row["id"])
+    secure = os.environ.get("EPEOR_SECURE_COOKIE", "0") not in ("0", "false", "no")
+    response.set_cookie(
+        key="epeor_session",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        max_age=SESSION_LIFETIME_HOURS * 3600,
+        path="/",
+    )
+    return {"status": "ok", "username": username}
+
+@app.post("/api/auth/logout")
+def auth_logout(response: Response, epeor_session: str | None = Cookie(default=None)):
+    """Détruit la session courante et efface le cookie."""
+    if epeor_session:
+        _delete_session(epeor_session)
+    response.delete_cookie(key="epeor_session", path="/")
+    return {"status": "ok"}
+
+@app.get("/api/auth/me")
+def auth_me(epeor_session: str | None = Cookie(default=None)):
+    """Retourne les infos de l'utilisateur connecté, ou 401."""
+    if not _AUTH_ENABLED:
+        return {"username": "guest", "display_name": "Guest", "is_admin": True, "auth_enabled": False}
+    user = _get_user_by_session(epeor_session)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    return {
+        "username": user["username"],
+        "display_name": user["display_name"],
+        "is_admin": bool(user["is_admin"]),
+        "auth_enabled": True,
+    }
+
+
+class ChangeUserRequest(BaseModel):
+    current_password: str
+    new_username: str | None = None
+    new_password: str | None = None
+
+
+@app.post("/api/auth/change")
+def auth_change(body: ChangeUserRequest, _user: dict = Depends(get_current_user)):
+    """Permet à l'utilisateur authentifié de changer son nom d'utilisateur et/ou mot de passe.
+    Exige la confirmation du mot de passe courant pour toute modification.
+    """
+    if not body.current_password:
+        raise HTTPException(status_code=400, detail="Mot de passe actuel requis")
+
+    user_id = _user.get("id")
+    with _get_auth_conn() as conn:
+        row = conn.execute("SELECT id, username, salt, password FROM users WHERE id = ?", (user_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+        if not _verify_password(body.current_password, row["salt"], row["password"]):
+            raise HTTPException(status_code=401, detail="Mot de passe actuel incorrect")
+
+        updates: list[str] = []
+        params: list[object] = []
+
+        # changement de username
+        if body.new_username:
+            newu = body.new_username.strip().lower()
+            if newu and newu != row["username"]:
+                exists = conn.execute("SELECT 1 FROM users WHERE username = ?", (newu,)).fetchone()
+                if exists:
+                    raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
+                updates.append("username = ?")
+                params.append(newu)
+
+        # changement de mot de passe
+        if body.new_password:
+            salt, hashed = _hash_password(body.new_password)
+            updates.append("salt = ?")
+            params.append(salt)
+            updates.append("password = ?")
+            params.append(hashed)
+
+        if updates:
+            params.append(user_id)
+            conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
+            conn.commit()
+
+    return {"status": "ok", "username": body.new_username or row["username"]}
+
 @app.get("/api/clear_cache")
-def clear_cache_endpoint():
+def clear_cache_endpoint(_user: dict = Depends(get_current_user)):
     print("[INFO] Clearing cache requested...")
     clear_cache_directory()
     global is_db_ready, cached_dashboard_stats, indexes_ready
@@ -1176,7 +1514,7 @@ def resolve_rue_adresse(abonne_rec) -> str:
 # API HANDLERS (Blazing Fast In-Memory Processing)
 # -------------------------------------------------------------
 @app.get("/stats")
-def get_stats(secteur: str = None):
+def get_stats(secteur: str = None, _user: dict = Depends(get_current_user)):
     if not is_db_ready or cached_dashboard_stats is None:
         msg = db_loading_status or "Chargement en cours..."
         is_error = (
@@ -1285,7 +1623,7 @@ def _resolve_subscriber_join_date(numab: str, abonne_rec: dict[str, str] | None,
 
 
 @app.get("/subscriber_category_counts")
-def get_subscriber_category_counts(start_date: str = None, end_date: str = None, secteur: str = None):
+def get_subscriber_category_counts(_user: dict = Depends(get_current_user), start_date: str = None, end_date: str = None, secteur: str = None):
     if not is_db_ready or len(MEM_ABONNES) == 0:
         return {"ready": False, "message": db_loading_status or "Données indisponibles", "communes": []}
 
@@ -1548,7 +1886,7 @@ def _compute_subscribers_evolution(secteur: str | None = None, commune: str | No
 
 
 @app.get("/api/subscribers_evolution")
-def get_subscribers_evolution(secteur: str = None, commune: str = None, type_abon: str = None):
+def get_subscribers_evolution(_user: dict = Depends(get_current_user), secteur: str = None, commune: str = None, type_abon: str = None):
     if not is_db_ready or not indexes_ready or len(MEM_ABONNES) == 0:
         return {"ready": False, "evolution": [], "total": 0, "missing_dates_handled": 0}
 
@@ -1567,7 +1905,7 @@ class DataDirUpdate(BaseModel):
 
 
 @app.get("/api/data_dir")
-def get_data_dir_settings():
+def get_data_dir_settings(_user: dict = Depends(get_current_user)):
     """Chemin actuel du dossier EPEOR (DBF) et diagnostic."""
     abonne_path = resolve_dbf_path("ABONNE.DBF")
     primary_ok = os.path.isfile(abonne_path) and os.path.getsize(abonne_path) >= 100
@@ -1588,7 +1926,7 @@ def get_data_dir_settings():
 
 
 @app.post("/api/data_dir")
-def update_data_dir_settings(body: DataDirUpdate):
+def update_data_dir_settings(body: DataDirUpdate, _user: dict = Depends(get_current_user)):
     """Change le dossier des données, enregistre la config et recharge les DBF."""
     global DATA_DIR, is_db_ready, cached_dashboard_stats, indexes_ready, _load_retry_count, db_loading_status
 
@@ -1636,7 +1974,7 @@ def update_data_dir_settings(body: DataDirUpdate):
 
 
 @app.post("/api/reload_data")
-def reload_data_endpoint():
+def reload_data_endpoint(_user: dict = Depends(get_current_user)):
     """Force un rechargement des données en mémoire."""
     global is_db_ready, cached_dashboard_stats, indexes_ready, _load_retry_count, db_loading_status
     is_db_ready = False
@@ -1648,7 +1986,7 @@ def reload_data_endpoint():
     return {"status": "started", "message": "Rechargement des données en cours...", "data_dir": DATA_DIR}
 
 @app.get("/api/unites_settings")
-def get_unites_settings():
+def get_unites_settings(_user: dict = Depends(get_current_user)):
     try:
         if not is_db_ready:
             return []
@@ -1693,7 +2031,7 @@ def get_unites_settings():
         return {"error": str(e)}
 
 @app.get("/search")
-def search_subscribers(query: str = None, q: str = None):
+def search_subscribers(_user: dict = Depends(get_current_user), query: str = None, q: str = None):
     search_term = query or q
     if not search_term: return []
     try:
@@ -1743,7 +2081,7 @@ def search_subscribers(query: str = None, q: str = None):
         return {"error": str(e)}
 
 @app.get("/subscribers")
-def get_subscribers(quartier: str = None, etat: str = None, secteur: str = None):
+def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = None, etat: str = None, secteur: str = None):
     if not quartier:
         return {"error": "Missing parameters"}
     
@@ -1920,7 +2258,7 @@ def get_forfait_date_bounds(target_date_str: str) -> tuple[str | None, str | Non
 
 
 @app.get("/creance")
-def get_creance(
+def get_creance(_user: dict = Depends(get_current_user), 
     start_date: str = None,
     end_date: str = None,
     hist_type: str = "monthly_12",
@@ -2909,7 +3247,7 @@ def get_creance(
 
 
 @app.get("/creance_detaillee")
-def get_creance_detaillee(date_arrete: str, secteur: str = None):
+def get_creance_detaillee(date_arrete: str, secteur: str = None, _user: dict = Depends(get_current_user)):
     try:
         stats = {}
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
@@ -3027,7 +3365,7 @@ def get_creance_detaillee(date_arrete: str, secteur: str = None):
         return {"error": str(e)}
 
 @app.get("/abonne_factures")
-def get_abonne_factures(numab: str = None):
+def get_abonne_factures(_user: dict = Depends(get_current_user), numab: str = None):
     if not numab:
         return {"error": "numab parameter is required"}
     if not indexes_ready:
@@ -3058,7 +3396,7 @@ def get_abonne_factures(numab: str = None):
 # NEW ARABIC BILL & DETAILS API ENDPOINTS (NO TRANSLATIONS FILE)
 # -------------------------------------------------------------
 @app.get("/api/abonne/{numab}")
-def get_abonne_api(numab: str):
+def get_abonne_api(numab: str, _user: dict = Depends(get_current_user)):
     if not indexes_ready:
         return {"status": "loading", "message": "Indexation de l'historique de facturation en cours…"}
     numab_upper = numab.strip().upper()
@@ -3295,7 +3633,7 @@ def get_abonne_api(numab: str):
     }
 
 @app.get("/creances_abonnes")
-def get_creances_abonnes(secteur: str = None):
+def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str = None):
     try:
         secteur_numabs = _secteur_numabs_set(secteur)
         date_arrete = _creance_date_arrete()
@@ -3394,7 +3732,7 @@ def get_creances_abonnes(secteur: str = None):
 
 
 @app.get("/creances_institutions")
-def get_creances_institutions(only_with_creance: bool = True, secteur: str = None):
+def get_creances_institutions(_user: dict = Depends(get_current_user), only_with_creance: bool = True, secteur: str = None):
     """
     Créances liées aux institutions (liens institutionnels + organismes payeurs),
     enrichies via abonnés, contrats, adresses et factures impayées.
@@ -3552,7 +3890,7 @@ def get_creances_institutions(only_with_creance: bool = True, secteur: str = Non
 
 
 @app.get("/creance_subscribers")
-def get_creance_subscribers(start_date: str = None, end_date: str = None, target_name: str = None, column: str = None, secteur: str = None):
+def get_creance_subscribers(_user: dict = Depends(get_current_user), start_date: str = None, end_date: str = None, target_name: str = None, column: str = None, secteur: str = None):
     try:
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
         target_date = end_date if end_date else '99991231'
@@ -3720,4 +4058,7 @@ def get_creance_subscribers(start_date: str = None, end_date: str = None, target
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    host = os.environ.get("EPEOR_HOST", "0.0.0.0")
+    port = int(os.environ.get("EPEOR_PORT", "8000"))
+    print(f"[INFO] EPEOR API listening on http://{host}:{port}")
+    uvicorn.run(app, host=host, port=port)

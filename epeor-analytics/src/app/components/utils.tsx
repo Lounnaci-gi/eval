@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ResponsiveContainer } from "recharts";
-import { apiUrl } from "../lib/api";
+import { apiUrlObject } from "../lib/api";
 
 // ─── Types partagés ──────────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ export function appendSecteurParam(url: URL, secteur: string) {
 }
 
 export function buildSubscribersUrl(quartier: string, options?: { etat?: string; secteur?: string }) {
-  const url = new URL(apiUrl("/subscribers"));
+  const url = apiUrlObject("/subscribers");
   url.searchParams.set("quartier", quartier);
   if (options?.etat) url.searchParams.set("etat", options.etat);
   appendSecteurParam(url, options?.secteur || "");
@@ -131,7 +131,7 @@ export function formatPeriodLabel(start: string, end: string) {
 /** Évite les avertissements Recharts quand le conteneur n'a pas encore de taille (flex / onglets). */
 export function ChartContainer({
   children,
-  className = "h-[350px] w-full min-h-[200px]",
+  className = "h-[260px] sm:h-[320px] lg:h-[350px] w-full min-h-[180px] min-w-0",
 }: {
   children: ReactNode;
   className?: string;

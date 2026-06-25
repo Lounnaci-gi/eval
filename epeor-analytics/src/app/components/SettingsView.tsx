@@ -131,11 +131,62 @@ export function SettingsView({
     }
   };
 
+  // --- Change username / password
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingCreds, setChangingCreds] = useState(false);
+  const [changeMessage, setChangeMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  const handleChangeCredentials = async () => {
+    setChangeMessage(null);
+    if (!currentPassword) {
+      setChangeMessage({ type: 'err', text: "Mot de passe actuel requis." });
+      return;
+    }
+    if (newPassword && newPassword !== confirmPassword) {
+      setChangeMessage({ type: 'err', text: "Les nouveaux mots de passe ne correspondent pas." });
+      return;
+    }
+    if (!newUsername && !newPassword) {
+      setChangeMessage({ type: 'err', text: "Indiquez un nouveau nom d'utilisateur ou un nouveau mot de passe." });
+      return;
+    }
+
+    setChangingCreds(true);
+    try {
+      const res = await fetch(apiUrl('/api/auth/change'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: currentPassword, new_username: newUsername || undefined, new_password: newPassword || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setChangeMessage({ type: 'err', text: err.detail || 'Erreur lors de la modification des identifiants.' });
+        return;
+      }
+      const data = await res.json();
+      setChangeMessage({ type: 'ok', text: 'Identifiants mis à jour.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      if (newUsername) setNewUsername('');
+      // If username changed, refresh page to reflect it
+      setTimeout(() => window.location.reload(), 800);
+    } catch (e) {
+      setChangeMessage({ type: 'err', text: 'Impossible de contacter le serveur.' });
+    } finally {
+      setChangingCreds(false);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Header */}
       {!setupMode && (
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] page-card no-print">
           <button
             onClick={onBack}
             className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
@@ -144,7 +195,7 @@ export function SettingsView({
           </button>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <h2 className="text-3xl font-black tracking-tight text-[#101828]">Paramètres du Système</h2>
+              <h2 className="page-title text-[#101828]">Paramètres du Système</h2>
               <p className="text-sm text-[#667085] mt-1 font-medium">Consultez la structure organisationnelle d&apos;EPEOR, l&apos;unité de gestion et ses centres associés.</p>
             </div>
           </div>
@@ -262,6 +313,52 @@ export function SettingsView({
           </div>
         )}
       </div>
+
+      {/* Compte utilisateur — changement nom d'utilisateur / mot de passe */}
+      {!setupMode && (
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+          <div className="flex items-start gap-4 mb-6">
+            <div className="w-12 h-12 bg-slate-100 text-[#0D83DE] rounded-2xl flex items-center justify-center shrink-0">
+              <Database size={22} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-[#101828]">Compte</h3>
+              <p className="text-sm text-[#667085] mt-1 font-medium">Changez votre nom d'utilisateur ou mot de passe (confirmez avec le mot de passe actuel).</p>
+            </div>
+          </div>
+
+          {changeMessage && (
+            <div className={`p-3 rounded-xl mb-4 text-sm font-bold ${changeMessage.type === 'ok' ? 'bg-emerald-50 border border-emerald-100 text-emerald-800' : 'bg-rose-50 border border-rose-100 text-rose-800'}`}>
+              {changeMessage.text}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">Mot de passe actuel</label>
+              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full rounded-xl border border-[#D0D5DD] px-4 py-3 bg-[#F9FAFB]" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">Nouveau nom d'utilisateur</label>
+              <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full rounded-xl border border-[#D0D5DD] px-4 py-3 bg-[#F9FAFB]" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">Nouveau mot de passe</label>
+              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full rounded-xl border border-[#D0D5DD] px-4 py-3 bg-[#F9FAFB]" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">Confirmer mot de passe</label>
+              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded-xl border border-[#D0D5DD] px-4 py-3 bg-[#F9FAFB]" />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={handleChangeCredentials} disabled={changingCreds} className={`px-5 py-3 rounded-2xl font-black text-xs ${changingCreds ? 'bg-slate-100 text-slate-400' : 'bg-[#0D83DE] text-white hover:bg-[#0b72c2]'}`}>
+              {changingCreds ? 'Modification…' : 'Mettre à jour'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {!setupMode && (loading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E4E7EC] rounded-[2rem] shadow-sm">

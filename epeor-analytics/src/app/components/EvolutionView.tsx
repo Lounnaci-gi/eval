@@ -6,11 +6,13 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Legend,
 } from "recharts";
-import { apiUrl } from "../lib/api";
+import { apiUrl, apiUrlObject } from "../lib/api";
 import {
   sanitizeEvolutionRows,
   formatPeriodFrench as formatPeriodFrenchSafe,
+  ChartContainer,
 } from "./utils";
+import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
 
 export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
   const [data, setData] = useState<any[]>([]);
@@ -34,7 +36,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
     setLoading(true);
     setError(null);
     
-    const url = new URL(apiUrl('/api/subscribers_evolution'));
+    const url = apiUrlObject('/api/subscribers_evolution');
     if (selectedSecteur) {
       url.searchParams.set('secteur', selectedSecteur);
     }
@@ -345,22 +347,21 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
       </div>
 
       {/* Main Chart Area */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8">
-          <div>
-            <h3 className="text-xl font-black tracking-tight text-[#101828]">Courbe de Croissance Temporelle</h3>
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] page-card min-w-0">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="min-w-0">
+            <h3 className="text-lg sm:text-xl font-black tracking-tight text-[#101828]">Courbe de Croissance Temporelle</h3>
             <p className="text-xs text-[#667085] mt-1">Évolution cumulative des abonnés enregistrés</p>
           </div>
           
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Commune Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Commune :</span>
-              <div className="relative">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full xl:w-auto">
+            <div className="flex flex-col xs:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3] shrink-0">Commune :</span>
+              <div className="relative w-full sm:w-auto min-w-0">
                 <select
                   value={selectedFilterCommune}
                   onChange={(e) => setSelectedFilterCommune(e.target.value)}
-                  className="text-xs font-bold border-[#D0D5DD] border rounded-xl pl-3 pr-8 py-2 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer"
+                  className="w-full sm:w-auto max-w-full text-xs font-bold border-[#D0D5DD] border rounded-xl pl-3 pr-8 py-2 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer"
                 >
                   <option value="">Toutes les communes</option>
                   {(stats?.subscriber_communes || []).map((c: any) => (
@@ -371,14 +372,13 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
               </div>
             </div>
 
-            {/* Category Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">Catégorie :</span>
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3] shrink-0">Catégorie :</span>
+              <div className="relative w-full sm:w-44 min-w-0">
                 <select
                   value={selectedFilterType}
                   onChange={(e) => setSelectedFilterType(e.target.value)}
-                  className="text-xs font-bold border-[#D0D5DD] border rounded-xl pl-3 pr-8 py-2 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer w-44 truncate"
+                  className="w-full text-xs font-bold border-[#D0D5DD] border rounded-xl pl-3 pr-8 py-2 bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer truncate"
                 >
                   <option value="">Toutes les catégories</option>
                   {(stats?.subscriber_types || []).map((t: any) => (
@@ -389,8 +389,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
               </div>
             </div>
 
-            {/* Time range buttons */}
-            <div className="flex bg-[#F2F4F7] p-1 rounded-xl gap-1 border border-[#E4E7EC] self-start xl:self-auto">
+            <ScrollableTabs className="w-full xl:w-auto">
               {[
                 { id: '2000', label: 'Depuis 2000' },
                 { id: '2010', label: 'Depuis 2010' },
@@ -398,25 +397,20 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
                 { id: '2020', label: 'Depuis 2020' },
                 { id: 'all', label: 'Tout' }
               ].map(range => (
-                <button
+                <ScrollableTab
                   key={range.id}
+                  active={timeRange === range.id}
                   onClick={() => setTimeRange(range.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
-                    timeRange === range.id
-                      ? 'bg-white text-[#0D83DE] shadow-sm'
-                      : 'text-[#667085] hover:text-[#101828]'
-                  }`}
                 >
                   {range.label}
-                </button>
+                </ScrollableTab>
               ))}
-            </div>
+            </ScrollableTabs>
           </div>
         </div>
 
-        <div className="h-[350px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={filteredData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+        <ChartContainer className="h-[260px] sm:h-[320px] lg:h-[350px] w-full min-w-0">
+          <AreaChart data={filteredData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#0D83DE" stopOpacity={0.3}/>
@@ -459,8 +453,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
               />
               <Area type="monotone" dataKey="count" stroke="#0D83DE" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
             </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        </ChartContainer>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -580,8 +573,8 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
           </div>
         </div>
       </div>
-        <div className="h-[320px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-[240px] sm:h-[320px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart
               data={(stats?.subscriber_communes || []).slice(0, 15).map((c: any) => ({
                 name: c.name?.length > 18 ? c.name.slice(0, 16) + '…' : c.name,

@@ -33,8 +33,97 @@ body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-rgb));
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
   letter-spacing: -0.01em;
+  overflow-x: hidden;
+}
+
+/* Safe areas (encoches mobile) */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Contenu principal avec nav mobile */
+.app-main {
+  padding: 1rem;
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 640px) {
+  .app-main {
+    padding: 1.5rem;
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-main {
+    padding: 2.5rem;
+    padding-bottom: 2.5rem;
+  }
+}
+
+/* Cartes de page — padding adaptatif */
+.page-card {
+  border-radius: 1.25rem;
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .page-card {
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-card {
+    border-radius: 2rem;
+    padding: 2rem;
+  }
+}
+
+/* Onglets horizontaux sans barre visible */
+.scroll-tabs {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Tableaux : défilement horizontal fluide */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+/* Titres adaptatifs */
+.page-title {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 640px) {
+  .page-title {
+    font-size: 1.875rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-title {
+    font-size: 2.25rem;
+  }
 }
 
 .obat-card {

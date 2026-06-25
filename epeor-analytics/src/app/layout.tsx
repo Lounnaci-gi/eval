@@ -1,9 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "EPEOR Insights - Analytics Dashboard",
   description: "Système solide d'analyse de données EPEOR",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -12,11 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className="h-full antialiased"
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="fr" className="h-full antialiased">
+      <body className="min-h-full min-h-[100dvh] flex flex-col overflow-x-hidden">{children}</body>
     </html>
   );
 }

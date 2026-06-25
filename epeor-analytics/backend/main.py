@@ -174,6 +174,10 @@ def _init_auth_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
             CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
         """)
+        # Effacer toutes les sessions au démarrage → reconnexion obligatoire
+        deleted = conn.execute("DELETE FROM sessions").rowcount
+        if deleted:
+            print(f"[AUTH] {deleted} session(s) effacée(s) au démarrage — reconnexion requise.")
         # Créer un admin par défaut si la table est vide
         count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         if count == 0:

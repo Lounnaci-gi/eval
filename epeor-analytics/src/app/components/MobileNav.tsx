@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Calendar,
+  LogOut,
 } from "lucide-react";
 
 export type AppView =
@@ -80,9 +81,11 @@ export function MobileTopBar() {
 export function MobileNav({
   currentView,
   onNavigate,
+  onLogout,
 }: {
   currentView: AppView;
   onNavigate: (view: AppView) => void;
+  onLogout?: () => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreActive = MORE_ITEMS.some((item) => isActive(currentView, item));
@@ -136,6 +139,18 @@ export function MobileNav({
               Périodes de facturation — bientôt
             </p>
           </div>
+          {onLogout && (
+            <div className="px-2 pt-1 mt-1 border-t border-[#F2F4F7]">
+              <button
+                type="button"
+                onClick={() => { onLogout(); setMoreOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+              >
+                <LogOut size={18} />
+                Déconnexion
+              </button>
+            </div>
+          )}
         </div>
       )}
 

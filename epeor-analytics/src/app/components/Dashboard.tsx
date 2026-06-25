@@ -1087,7 +1087,7 @@ export default function Dashboard() {
           </div>
         ) : null}
       </main>
-        <MobileNav currentView={currentView as AppView} onNavigate={setCurrentView} />
+        <MobileNav currentView={currentView as AppView} onNavigate={setCurrentView} onLogout={handleLogout} />
       </div>
     </div>
   );

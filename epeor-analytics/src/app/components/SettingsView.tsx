@@ -662,7 +662,7 @@ function UsersManagementPanel({
     username: '',
     display_name: '',
     password: '',
-    is_admin: false,
+    password_confirm: '',
     allowed_sectors: [] as string[],
   });
   const [formMessage, setFormMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -670,7 +670,7 @@ function UsersManagementPanel({
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const resetForm = () => {
-    setFormData({ username: '', display_name: '', password: '', is_admin: false, allowed_sectors: [] });
+    setFormData({ username: '', display_name: '', password: '', password_confirm: '', allowed_sectors: [] });
     setFormMessage(null);
     setEditingUser(null);
   };
@@ -685,7 +685,7 @@ function UsersManagementPanel({
       username: u.username,
       display_name: u.display_name || '',
       password: '',
-      is_admin: !!u.is_admin,
+      password_confirm: '',
       allowed_sectors: u.allowed_sectors || [],
     });
     setEditingUser(u);
@@ -706,14 +706,23 @@ function UsersManagementPanel({
     setFormLoading(true);
     setFormMessage(null);
     try {
+      if (!editingUser) {
+        if (formData.password !== formData.password_confirm) {
+          setFormMessage({ type: 'err', text: 'Les mots de passe ne correspondent pas.' });
+          return;
+        }
+        if (formData.password.length < 4) {
+          setFormMessage({ type: 'err', text: 'Le mot de passe doit faire au moins 4 caractères.' });
+          return;
+        }
+      }
+
       if (editingUser) {
-        // Update existing user
         const body: any = {
           display_name: formData.display_name,
-          is_admin: formData.is_admin,
         };
         if (formData.password.trim()) body.password = formData.password;
-        if (!formData.is_admin) {
+        if (!editingUser.is_admin) {
           body.allowed_sectors = formData.allowed_sectors;
         }
         const res = await fetch(apiUrl(`/api/admin/users/${editingUser.id}`), {
@@ -730,14 +739,12 @@ function UsersManagementPanel({
         setFormMessage({ type: 'ok', text: 'Utilisateur mis à jour.' });
         setTimeout(() => { setShowForm(false); resetForm(); onRefresh(); }, 1000);
       } else {
-        // Create new user
         const body: any = {
           username: formData.username.trim().toLowerCase(),
           display_name: formData.display_name,
           password: formData.password,
-          is_admin: formData.is_admin,
         };
-        if (!formData.is_admin) {
+        if (formData.allowed_sectors.length > 0) {
           body.allowed_sectors = formData.allowed_sectors;
         }
         const res = await fetch(apiUrl('/api/admin/users'), {
@@ -848,7 +855,7 @@ function UsersManagementPanel({
                   >
                     <Edit2 size={16} />
                   </button>
-                  {u.username !== currentUsername && (
+                  {u.username !== currentUsername && !u.is_admin && (
                     <button
                       type="button"
                       onClick={() => handleDelete(u.id, u.username)}
@@ -938,19 +945,31 @@ function UsersManagementPanel({
                   />
                 </label>
 
-                <label className="flex items-center gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_admin}
-                    onChange={e => setFormData(p => ({ ...p, is_admin: e.target.checked, allowed_sectors: e.target.checked ? [] : p.allowed_sectors }))}
-                    className="w-5 h-5 rounded-lg accent-[#0D83DE]"
-                  />
-                  <span className="text-sm font-black text-[#344054] flex items-center gap-1.5">
-                    <Shield size={14} className="text-amber-500" /> Administrateur (accès complet)
-                  </span>
-                </label>
+                {!editingUser && (
+                  <label className="block">
+                    <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                      <Lock size={12} /> Confirmer le mot de passe
+                    </span>
+                    <input
+                      type="password"
+                      required
+                      value={formData.password_confirm}
+                      onChange={e => setFormData(p => ({ ...p, password_confirm: e.target.value }))}
+                      className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+                      placeholder="Retapez le mot de passe"
+                      autoComplete="new-password"
+                    />
+                  </label>
+                )}
 
-                {!formData.is_admin && (
+                {editingUser?.is_admin && (
+                  <div className="flex items-center gap-2 p-3 rounded-2xl bg-amber-50 border border-amber-100 text-amber-800 text-sm font-bold">
+                    <Shield size={16} className="text-amber-500 shrink-0" />
+                    Compte administrateur unique — accès complet à l'application.
+                  </div>
+                )}
+
+                {!editingUser?.is_admin && (
                   <div>
                     <p className="text-xs font-black text-[#344054] uppercase tracking-widest mb-3">
                       Secteurs autorisés {formData.allowed_sectors.length > 0 ? `(${formData.allowed_sectors.length} sélectionnés)` : '— tous si aucun coché'}

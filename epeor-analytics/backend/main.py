@@ -181,6 +181,11 @@ def _init_auth_db() -> None:
         except sqlite3.OperationalError:
             pass  # La colonne existe déjà
 
+        # Migration: liste vide = accès complet (NULL), pas « aucun secteur »
+        conn.execute(
+            "UPDATE users SET allowed_sectors = NULL WHERE allowed_sectors IN ('[]', '')"
+        )
+
         # Effacer toutes les sessions au démarrage → reconnexion obligatoire
         deleted = conn.execute("DELETE FROM sessions").rowcount
         if deleted:
@@ -218,6 +223,19 @@ def _hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
 def _verify_password(password: str, salt: str, stored_hash: str) -> bool:
     _, computed = _hash_password(password, salt)
     return secrets.compare_digest(computed, stored_hash)
+
+
+def _normalize_allowed_sectors(sectors: list[str] | None) -> list[str] | None:
+    """Normalise les codes secteur. None ou liste vide = accès à tous les secteurs."""
+    if sectors is None:
+        return None
+    cleaned = [str(s).strip().zfill(2) for s in sectors if str(s).strip()]
+    return cleaned or None
+
+
+def _allowed_sectors_to_db(sectors: list[str] | None) -> str | None:
+    normalized = _normalize_allowed_sectors(sectors)
+    return json.dumps(normalized) if normalized else None
 
 
 def _create_user_in_db(
@@ -347,26 +365,28 @@ def get_current_user(
 
 
 def _enforce_sector(user: dict, secteur: str | None) -> str | None:
-    """Enforce access to allowed sectors. Returns the cleaned sector to use, or raises HTTPException 403."""
+    """Valide le paramètre secteur géographique (sans auto-sélection depuis allowed_sectors)."""
     if not _AUTH_ENABLED or user.get("is_admin"):
         return secteur
 
-    allowed = user.get("allowed_sectors")
-    if allowed is None:  # Access to all sectors
+    allowed = _normalize_allowed_sectors(user.get("allowed_sectors"))
+    if allowed is None:
         return secteur
 
-    if not allowed:
-        raise HTTPException(status_code=403, detail="Aucun secteur assigné à cet utilisateur.")
+    if secteur and str(secteur).strip():
+        clean_sec = str(secteur).strip().zfill(2)
+        if clean_sec not in allowed:
+            raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à accéder à ce secteur.")
+        return clean_sec
 
-    if not secteur or not str(secteur).strip():
-        # Auto-select the first allowed sector
-        return allowed[0]
+    return None
 
-    clean_sec = str(secteur).strip()
-    if clean_sec not in allowed:
-        raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à accéder à ce secteur.")
 
-    return clean_sec
+def _get_user_abonne_sectors(user: dict) -> list[str] | None:
+    """Secteurs autorisés pour filtrer ABONNE.SECTEUR (utilisateurs restreints)."""
+    if not _AUTH_ENABLED or user.get("is_admin"):
+        return None
+    return _normalize_allowed_sectors(user.get("allowed_sectors"))
 
 
 def _enforce_abonne(user: dict, abonne_rec: dict | None) -> None:
@@ -374,16 +394,12 @@ def _enforce_abonne(user: dict, abonne_rec: dict | None) -> None:
     if not _AUTH_ENABLED or user.get("is_admin") or not abonne_rec:
         return
 
-    allowed = user.get("allowed_sectors")
+    allowed = _normalize_allowed_sectors(user.get("allowed_sectors"))
     if allowed is None:
         return
 
-    if not allowed:
-        raise HTTPException(status_code=403, detail="Aucun secteur assigné à cet utilisateur.")
-
     rec_secteur = str(abonne_rec.get('SECTEUR', '')).strip().zfill(2)
-    allowed_zfilled = [s.strip().zfill(2) for s in allowed]
-    if rec_secteur not in allowed_zfilled:
+    if rec_secteur not in allowed:
         raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à accéder aux données de cet abonné.")
 
 
@@ -703,9 +719,27 @@ def _abonne_in_centre(numab: str, allowed_communes: set[str] | None) -> bool:
     return _abonne_codcom(numab) in allowed_communes
 
 
-def compute_dashboard_stats(secteur: str | None = None):
+def _abonne_sector_allowed(numab: str, allowed_abonne_sectors: set[str] | None) -> bool:
+    if allowed_abonne_sectors is None:
+        return True
+    rec = abonnes_by_numab.get(str(numab or "").strip())
+    if rec is None:
+        return False
+    rec_sec = str(rec.get("SECTEUR", "")).strip().zfill(2)
+    return rec_sec in allowed_abonne_sectors
+
+
+def compute_dashboard_stats(
+    secteur: str | None = None,
+    allowed_abonne_sectors: list[str] | None = None,
+):
     """KPIs tableau de bord ; secteur optionnel = filtre par centre (COMMUNE.SECTEUR)."""
     allowed_communes = _commune_codcoms_for_centre(secteur) if is_db_ready else None
+    abonne_sec_set = None
+    if allowed_abonne_sectors is not None:
+        abonne_sec_set = {
+            str(s).strip().zfill(2) for s in allowed_abonne_sectors if str(s).strip()
+        }
     mapping = {}
     for code_affec, r in tabcodes_by_code.items():
         if code_affec.startswith('T'):
@@ -729,6 +763,8 @@ def compute_dashboard_stats(secteur: str | None = None):
         numab = str(record.get('NUMAB', '')).strip()
         if not _abonne_in_centre(numab, allowed_communes):
             continue
+        if not _abonne_sector_allowed(numab, abonne_sec_set):
+            continue
         etat = str(record.get('ETATCPT', '')).strip()
         abonment_state_map[numab] = etat
         if etat == '40':
@@ -750,6 +786,10 @@ def compute_dashboard_stats(secteur: str | None = None):
         numab = str(record.get('NUMAB', '')).strip()
         if not _abonne_in_centre(numab, allowed_communes):
             continue
+        if abonne_sec_set is not None:
+            rec_sec = str(record.get('SECTEUR', '')).strip().zfill(2)
+            if rec_sec not in abonne_sec_set:
+                continue
         t = str(record.get('TYPABON', '')).strip()
         # Count all unit subscribers that have a non-empty TYPABON
         if t == '':
@@ -991,7 +1031,9 @@ def compute_dashboard_stats(secteur: str | None = None):
 
     def _facture_in_scope(r):
         numab_r = str(r.get('NUMAB', '') or '').strip()
-        return _abonne_in_centre(numab_r, allowed_communes)
+        if not _abonne_in_centre(numab_r, allowed_communes):
+            return False
+        return _abonne_sector_allowed(numab_r, abonne_sec_set)
 
     # Single pass: latest period, invoice count, recovery rate, and revenue by period
     _all_billing = [(r, False) for r in MEM_FACTURES] + [(r, True) for r in MEM_AVOIRS]
@@ -1405,22 +1447,25 @@ def create_user(body: CreateUserRequest, current_user: dict = Depends(get_curren
     if len(body.password) < 4:
         raise HTTPException(status_code=400, detail="Le mot de passe doit faire au moins 4 caractères")
         
+    if body.is_admin:
+        raise HTTPException(
+            status_code=400,
+            detail="Un seul administrateur est autorisé — les nouveaux utilisateurs ne peuvent pas être admin",
+        )
+
     with _get_auth_conn() as conn:
         exists = conn.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone()
         if exists:
             raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
             
-        allowed_sectors_str = None
-        if body.allowed_sectors is not None:
-            cleaned_sectors = [str(s).strip() for s in body.allowed_sectors if str(s).strip()]
-            allowed_sectors_str = json.dumps(cleaned_sectors)
+        allowed_sectors_str = _allowed_sectors_to_db(body.allowed_sectors)
             
         _create_user_in_db(
             conn,
             username=username,
             display_name=body.display_name,
             password=body.password,
-            is_admin=body.is_admin,
+            is_admin=False,
             allowed_sectors=allowed_sectors_str
         )
         conn.commit()
@@ -1434,12 +1479,25 @@ def update_user(user_id: int, body: UpdateUserRequest, current_user: dict = Depe
         raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
         
     with _get_auth_conn() as conn:
-        row = conn.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT id, username, is_admin FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Utilisateur introuvable")
-            
-        if row["id"] == current_user["id"] and body.is_admin is False:
-            raise HTTPException(status_code=400, detail="Vous ne pouvez pas retirer votre propre statut d'administrateur")
+
+        target_is_admin = bool(row["is_admin"])
+
+        if body.is_admin is True and not target_is_admin:
+            raise HTTPException(
+                status_code=400,
+                detail="Un seul administrateur est autorisé — impossible de promouvoir un utilisateur",
+            )
+        if body.is_admin is False and target_is_admin:
+            raise HTTPException(
+                status_code=400,
+                detail="Le compte administrateur ne peut pas être rétrogradé",
+            )
             
         updates = []
         params = []
@@ -1457,16 +1515,14 @@ def update_user(user_id: int, body: UpdateUserRequest, current_user: dict = Depe
             updates.append("password = ?")
             params.append(hashed)
             
-        if body.is_admin is not None:
-            updates.append("is_admin = ?")
-            params.append(int(body.is_admin))
-            
         if body.allowed_sectors is not None:
+            if target_is_admin:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Les secteurs ne s'appliquent pas au compte administrateur",
+                )
             updates.append("allowed_sectors = ?")
-            cleaned_sectors = [str(s).strip() for s in body.allowed_sectors if str(s).strip()]
-            params.append(json.dumps(cleaned_sectors))
-        elif body.is_admin is True:
-            updates.append("allowed_sectors = NULL")
+            params.append(_allowed_sectors_to_db(body.allowed_sectors))
             
         if updates:
             params.append(user_id)
@@ -1485,9 +1541,17 @@ def delete_user(user_id: int, current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Vous ne pouvez pas supprimer votre propre compte")
         
     with _get_auth_conn() as conn:
-        exists = conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone()
-        if not exists:
+        row = conn.execute(
+            "SELECT id, is_admin FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if not row:
             raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+        if row["is_admin"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Le compte administrateur ne peut pas être supprimé",
+            )
             
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
@@ -1748,6 +1812,23 @@ def get_stats(secteur: str = None, _user: dict = Depends(get_current_user)):
             _secteur_stats_cache[_sec_key] = compute_dashboard_stats(secteur=_sec_key)
         scoped = _secteur_stats_cache[_sec_key]
         return {**scoped, "ready": True, "data_dir": DATA_DIR, "secteur": _sec_key}
+
+    abonne_sectors = _get_user_abonne_sectors(_user)
+    if abonne_sectors is not None:
+        cache_key = ("abonne", tuple(abonne_sectors))
+        if cache_key not in _secteur_stats_cache:
+            _secteur_stats_cache[cache_key] = compute_dashboard_stats(
+                secteur=None,
+                allowed_abonne_sectors=abonne_sectors,
+            )
+        scoped = _secteur_stats_cache[cache_key]
+        return {
+            **scoped,
+            "ready": True,
+            "data_dir": DATA_DIR,
+            "allowed_sectors": abonne_sectors,
+        }
+
     if cached_dashboard_stats.get("total_subscribers", 0) == 0:
         return {
             "status": "error",
@@ -2243,8 +2324,8 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
     
     # Get allowed sectors list if restricted
     allowed_sectors = None
-    if _AUTH_ENABLED and not _user.get("is_admin") and _user.get("allowed_sectors") is not None:
-        allowed_sectors = [str(s).strip().zfill(2) for s in _user["allowed_sectors"]]
+    if _AUTH_ENABLED and not _user.get("is_admin"):
+        allowed_sectors = _normalize_allowed_sectors(_user.get("allowed_sectors"))
 
     try:
         search_term_lower = search_term.lower()

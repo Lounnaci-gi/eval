@@ -94,11 +94,24 @@ def _prompt_password(prompt: str = "Mot de passe") -> str:
         return password
 
 
+def _count_admins(conn: sqlite3.Connection, exclude_username: str | None = None) -> int:
+    if exclude_username is not None:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE is_admin = 1 AND username != ?",
+            (exclude_username.strip().lower(),),
+        ).fetchone()
+    else:
+        row = conn.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1").fetchone()
+    return row[0]
+
+
 def _create_user(username: str, display_name: str, password: str, is_admin: bool) -> None:
     username = username.strip().lower()
     display_name = display_name.strip() or username
     salt, hashed = _hash_password(password)
     with _get_auth_conn() as conn:
+        if is_admin and _count_admins(conn) > 0:
+            raise ValueError("Un seul administrateur est autorisé dans le système.")
         conn.execute(
             "INSERT INTO users (username, display_name, salt, password, is_admin) VALUES (?,?,?,?,?)",
             (username, display_name, salt, hashed, int(is_admin)),
@@ -122,6 +135,17 @@ def _update_password(username: str, password: str) -> None:
 def _set_admin(username: str, is_admin: bool) -> None:
     username = username.strip().lower()
     with _get_auth_conn() as conn:
+        row = conn.execute(
+            "SELECT is_admin FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"Utilisateur introuvable : {username}")
+        currently_admin = bool(row["is_admin"])
+        if is_admin and not currently_admin and _count_admins(conn) > 0:
+            raise ValueError("Un seul administrateur est autorisé dans le système.")
+        if not is_admin and currently_admin:
+            raise ValueError("Le compte administrateur ne peut pas être rétrogradé.")
         result = conn.execute(
             "UPDATE users SET is_admin = ? WHERE username = ?",
             (int(is_admin), username),
@@ -135,6 +159,14 @@ def _set_admin(username: str, is_admin: bool) -> None:
 def _delete_user(username: str) -> None:
     username = username.strip().lower()
     with _get_auth_conn() as conn:
+        row = conn.execute(
+            "SELECT is_admin FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"Utilisateur introuvable : {username}")
+        if row["is_admin"]:
+            raise ValueError("Le compte administrateur ne peut pas être supprimé.")
         result = conn.execute("DELETE FROM users WHERE username = ?", (username,))
         if result.rowcount == 0:
             raise ValueError(f"Utilisateur introuvable : {username}")

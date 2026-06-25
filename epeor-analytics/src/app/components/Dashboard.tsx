@@ -156,7 +156,10 @@ export default function Dashboard() {
         }))
         .filter((s: { code: string }) => s.code);
 
-      const isRestricted = user?.allowed_sectors && !user.is_admin;
+      const isRestricted =
+        Array.isArray(user?.allowed_sectors) &&
+        user.allowed_sectors.length > 0 &&
+        !user.is_admin;
       if (isRestricted) {
         const allowedClean = (user?.allowed_sectors || []).map((s: string) => String(s).trim().padStart(2, '0'));
         list = list.filter((s: any) => {
@@ -291,7 +294,10 @@ export default function Dashboard() {
         .then((res) => {
           // 401 = backend joignable mais authentification requise
           if (res.status === 401) {
-            if (!cancelled) setBackendReachable(true);
+            if (!cancelled) {
+              setBackendReachable(true);
+              setUser(null);
+            }
             return null;
           }
           if (!res.ok) {
@@ -575,8 +581,15 @@ export default function Dashboard() {
   const isInitBlocked =
     !stats ||
     stats.status === 'loading' ||
-    stats.ready === false ||
-    (stats.ready === true && stats.total_subscribers === 0 && !stats.subscriber_types?.length);
+    stats.ready === false;
+
+  const isRestrictedEmptyData =
+    stats?.ready === true &&
+    (stats.total_subscribers ?? 0) === 0 &&
+    user &&
+    !user.is_admin &&
+    Array.isArray(user.allowed_sectors) &&
+    user.allowed_sectors.length > 0;
 
   if (isInitBlocked) {
     const isLoadError =
@@ -640,6 +653,34 @@ export default function Dashboard() {
               Ou fermez « EPEOR Backend » et relancez start.bat — vérifiez le dossier de données (variable EPEOR_DATA_DIR)
             </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isRestrictedEmptyData) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
+        <div className="bg-white border border-amber-100 shadow-2xl rounded-2xl sm:rounded-[3rem] p-6 sm:p-16 flex flex-col items-center gap-6 max-w-lg w-full text-center mx-4">
+          <Ban size={48} className="text-amber-500" />
+          <div className="space-y-3">
+            <h1 className="text-2xl font-black text-[#101828] tracking-tight">Aucune donnée pour votre compte</h1>
+            <p className="text-sm text-[#475467] font-medium">
+              Votre compte est limité au(x) secteur(s){' '}
+              <span className="font-black text-[#101828]">{user?.allowed_sectors?.join(', ')}</span>
+              , mais aucun abonné n&apos;est rattaché à ce secteur dans les données actuelles.
+            </p>
+            <p className="text-xs text-[#667085]">
+              Demandez à l&apos;administrateur de vérifier les secteurs assignés (ex. secteur <strong>02</strong> pour cette unité).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full px-6 py-3 bg-[#0D83DE] text-white rounded-2xl text-sm font-black hover:bg-[#0b72c2] transition-all"
+          >
+            Se déconnecter
+          </button>
         </div>
       </div>
     );

@@ -1,5 +1,12 @@
 import type { NextConfig } from "next";
 
+if (process.env.NODE_ENV === "production" && !process.env.BACKEND_URL) {
+  console.warn(
+    "[next.config.ts] BACKEND_URL non défini en production. "
+    + "Le proxy /backend-api sera injoignable depuis Vercel."
+  );
+}
+
 const backendUrl = process.env.BACKEND_URL || "http://127.0.0.1:8000";
 
 /** Hôtes autorisés pour HMR / assets dev (IP LAN, domaine tunnel Cloudflare, etc.). */
@@ -27,11 +34,23 @@ const nextConfig: NextConfig = {
   },
 
   // Proxy API en dev/prod : fetch('/backend-api/stats') → FastAPI
+  // Le header ngrok-skip-browser-warning evite la page d'avertissement ngrok Free
   async rewrites() {
     return [
       {
         source: "/backend-api/:path*",
         destination: `${backendUrl}/:path*`,
+      },
+    ];
+  },
+
+  async headers() {
+    return [
+      {
+        source: "/backend-api/:path*",
+        headers: [
+          { key: "ngrok-skip-browser-warning", value: "true" },
+        ],
       },
     ];
   },

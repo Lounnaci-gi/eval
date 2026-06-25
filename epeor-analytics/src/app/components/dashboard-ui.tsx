@@ -14,7 +14,7 @@ export function StatsCard({ title, value, icon, trend, color, onClick }: any) {
   return (
     <div
       onClick={onClick}
-      className={`bg-white border border-[#E4E7EC] p-6 rounded-[2rem] shadow-sm hover:shadow-md hover:border-[#D0D5DD] transition-all group ${onClick ? 'cursor-pointer' : ''}`}
+      className={`bg-white border border-[#E4E7EC] p-4 sm:p-6 rounded-[1.25rem] sm:rounded-[2rem] shadow-sm hover:shadow-md hover:border-[#D0D5DD] transition-all group min-w-0 ${onClick ? 'cursor-pointer' : ''}`}
     >
       <div className="flex justify-between items-start mb-6">
         <div className={`p-4 rounded-2xl transition-transform group-hover:scale-110 ${colorMap[color] || "bg-slate-50"}`}>
@@ -24,7 +24,7 @@ export function StatsCard({ title, value, icon, trend, color, onClick }: any) {
       </div>
       <div>
         <p className="text-[#475467] text-sm font-bold mb-1">{title}</p>
-        <p className="text-2xl font-black text-[#101828] tracking-tight">{value}</p>
+        <p className="text-xl sm:text-2xl font-black text-[#101828] tracking-tight break-words">{value}</p>
       </div>
     </div>
   );

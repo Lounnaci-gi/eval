@@ -198,12 +198,12 @@ export function SecteurDropdown({
       : `Tous les centres${uniteLabel ? ` — ${uniteLabel}` : ''}`;
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative w-full sm:w-auto max-w-full">
       <button
         type="button"
         disabled={loading}
         onClick={() => !loading && setOpen(o => !o)}
-        className="flex items-center gap-2 pl-4 pr-3 py-2.5 bg-white border border-[#E4E7EC] rounded-2xl text-xs font-bold text-[#344054] hover:border-[#0D83DE] hover:text-[#0D83DE] transition-all shadow-sm min-w-[200px] justify-between disabled:opacity-60 disabled:cursor-wait"
+        className="flex w-full sm:w-auto items-center gap-2 pl-4 pr-3 py-2.5 bg-white border border-[#E4E7EC] rounded-2xl text-xs font-bold text-[#344054] hover:border-[#0D83DE] hover:text-[#0D83DE] transition-all shadow-sm min-w-0 sm:min-w-[200px] max-w-full justify-between disabled:opacity-60 disabled:cursor-wait"
       >
         <span className="flex items-center gap-2">
           <MapPin size={14} className={selectedSecteur ? 'text-[#0D83DE]' : 'text-[#98A2B3]'} />
@@ -213,7 +213,7 @@ export function SecteurDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-[#E4E7EC] rounded-2xl shadow-xl z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 sm:right-auto mt-2 w-full sm:w-64 bg-white border border-[#E4E7EC] rounded-2xl shadow-xl z-50 overflow-hidden max-h-[min(70vh,20rem)] overflow-y-auto">
           <button
             type="button"
             onClick={() => { onSelect(''); setOpen(false); }}

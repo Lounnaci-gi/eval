@@ -269,13 +269,18 @@ export default function Dashboard() {
       checkDataPath();
       fetch(apiUrl("/stats"), { credentials: 'include' })
         .then((res) => {
+          // 401 = backend joignable mais authentification requise
+          if (res.status === 401) {
+            if (!cancelled) setBackendReachable(true);
+            return null;
+          }
           if (!res.ok) {
             throw new Error(`HTTP ${res.status}`);
           }
           return res.json();
         })
         .then((data) => {
-          if (cancelled) return;
+          if (cancelled || data === null) return;
           setBackendReachable(true);
           if (data?.error || data?.status === 'error') {
             setStats({

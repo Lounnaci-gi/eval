@@ -1,7 +1,7 @@
 /**
  * URL de base de l'API.
  * - Navigateur sans NEXT_PUBLIC_API_URL : proxy same-origin `/backend-api` (LAN + Internet)
- * - Serveur Next (rewrites) : BACKEND_URL ou localhost:8000
+ * - Serveur Next (rewrites) : BACKEND_URL (défini dans .env.local ou l'environnement)
  */
 export function getApiBase(): string {
   const trim = (s: string) => s.replace(/\/$/, "");
@@ -15,7 +15,7 @@ export function getApiBase(): string {
   const serverUrl =
     process.env.NEXT_PUBLIC_API_URL?.trim() ||
     process.env.BACKEND_URL?.trim() ||
-    "http://127.0.0.1:8000";
+    "http://127.0.0.1:8000"; // valeur par défaut si BACKEND_URL n'est pas défini
   return trim(serverUrl);
 }
 

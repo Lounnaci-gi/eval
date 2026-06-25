@@ -174,6 +174,13 @@ def _init_auth_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
             CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
         """)
+        # Migration: ajouter allowed_sectors à users si elle n'existe pas
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN allowed_sectors TEXT DEFAULT NULL")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # La colonne existe déjà
+
         # Effacer toutes les sessions au démarrage → reconnexion obligatoire
         deleted = conn.execute("DELETE FROM sessions").rowcount
         if deleted:
@@ -219,11 +226,12 @@ def _create_user_in_db(
     display_name: str,
     password: str,
     is_admin: bool = False,
+    allowed_sectors: str | None = None,
 ) -> None:
     salt, hashed = _hash_password(password)
     conn.execute(
-        "INSERT INTO users (username, display_name, salt, password, is_admin) VALUES (?,?,?,?,?)",
-        (username.strip().lower(), display_name.strip(), salt, hashed, int(is_admin)),
+        "INSERT INTO users (username, display_name, salt, password, is_admin, allowed_sectors) VALUES (?,?,?,?,?,?)",
+        (username.strip().lower(), display_name.strip(), salt, hashed, int(is_admin), allowed_sectors),
     )
 
 
@@ -244,12 +252,20 @@ def _get_user_by_session(token: str | None) -> dict | None:
     now = datetime.utcnow().isoformat()
     with _get_auth_conn() as conn:
         row = conn.execute(
-            """SELECT u.id, u.username, u.display_name, u.is_admin
+            """SELECT u.id, u.username, u.display_name, u.is_admin, u.allowed_sectors
                FROM sessions s JOIN users u ON s.user_id = u.id
                WHERE s.token = ? AND s.expires_at > ?""",
             (token, now),
         ).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    d = dict(row)
+    if d.get("allowed_sectors") is not None:
+        try:
+            d["allowed_sectors"] = json.loads(d["allowed_sectors"])
+        except Exception:
+            d["allowed_sectors"] = None
+    return d
 
 
 def _delete_session(token: str) -> None:
@@ -328,6 +344,47 @@ def get_current_user(
     if user is None:
         raise HTTPException(status_code=401, detail="Non authentifié")
     return user
+
+
+def _enforce_sector(user: dict, secteur: str | None) -> str | None:
+    """Enforce access to allowed sectors. Returns the cleaned sector to use, or raises HTTPException 403."""
+    if not _AUTH_ENABLED or user.get("is_admin"):
+        return secteur
+
+    allowed = user.get("allowed_sectors")
+    if allowed is None:  # Access to all sectors
+        return secteur
+
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Aucun secteur assigné à cet utilisateur.")
+
+    if not secteur or not str(secteur).strip():
+        # Auto-select the first allowed sector
+        return allowed[0]
+
+    clean_sec = str(secteur).strip()
+    if clean_sec not in allowed:
+        raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à accéder à ce secteur.")
+
+    return clean_sec
+
+
+def _enforce_abonne(user: dict, abonne_rec: dict | None) -> None:
+    """Enforce access to a specific subscriber based on allowed sectors."""
+    if not _AUTH_ENABLED or user.get("is_admin") or not abonne_rec:
+        return
+
+    allowed = user.get("allowed_sectors")
+    if allowed is None:
+        return
+
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Aucun secteur assigné à cet utilisateur.")
+
+    rec_secteur = str(abonne_rec.get('SECTEUR', '')).strip().zfill(2)
+    allowed_zfilled = [s.strip().zfill(2) for s in allowed]
+    if rec_secteur not in allowed_zfilled:
+        raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à accéder aux données de cet abonné.")
 
 
 _load_retry_count = 0
@@ -1233,7 +1290,7 @@ def auth_logout(response: Response, epeor_session: str | None = Cookie(default=N
 def auth_me(epeor_session: str | None = Cookie(default=None)):
     """Retourne les infos de l'utilisateur connecté, ou 401."""
     if not _AUTH_ENABLED:
-        return {"username": "guest", "display_name": "Guest", "is_admin": True, "auth_enabled": False}
+        return {"username": "guest", "display_name": "Guest", "is_admin": True, "auth_enabled": False, "allowed_sectors": None}
     user = _get_user_by_session(epeor_session)
     if user is None:
         raise HTTPException(status_code=401, detail="Non authentifié")
@@ -1242,6 +1299,7 @@ def auth_me(epeor_session: str | None = Cookie(default=None)):
         "display_name": user["display_name"],
         "is_admin": bool(user["is_admin"]),
         "auth_enabled": True,
+        "allowed_sectors": user.get("allowed_sectors"),
     }
 
 
@@ -1295,6 +1353,147 @@ def auth_change(body: ChangeUserRequest, _user: dict = Depends(get_current_user)
             conn.commit()
 
     return {"status": "ok", "username": body.new_username or row["username"]}
+
+
+class CreateUserRequest(BaseModel):
+    username: str
+    display_name: str
+    password: str
+    is_admin: bool = False
+    allowed_sectors: list[str] | None = None
+
+
+class UpdateUserRequest(BaseModel):
+    display_name: str | None = None
+    password: str | None = None
+    is_admin: bool | None = None
+    allowed_sectors: list[str] | None = None
+
+
+@app.get("/api/admin/users")
+def list_users(current_user: dict = Depends(get_current_user)):
+    if not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+    
+    with _get_auth_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, username, display_name, is_admin, allowed_sectors, created_at FROM users ORDER BY username ASC"
+        ).fetchall()
+        
+    users = []
+    for r in rows:
+        d = dict(r)
+        d["is_admin"] = bool(d["is_admin"])
+        # Parse allowed_sectors from JSON
+        if d["allowed_sectors"] is not None:
+            try:
+                d["allowed_sectors"] = json.loads(d["allowed_sectors"])
+            except Exception:
+                d["allowed_sectors"] = None
+        users.append(d)
+    return users
+
+
+@app.post("/api/admin/users")
+def create_user(body: CreateUserRequest, current_user: dict = Depends(get_current_user)):
+    if not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+        
+    username = body.username.strip().lower()
+    if not username:
+        raise HTTPException(status_code=400, detail="Nom d'utilisateur requis")
+    if len(body.password) < 4:
+        raise HTTPException(status_code=400, detail="Le mot de passe doit faire au moins 4 caractères")
+        
+    with _get_auth_conn() as conn:
+        exists = conn.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone()
+        if exists:
+            raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
+            
+        allowed_sectors_str = None
+        if body.allowed_sectors is not None:
+            cleaned_sectors = [str(s).strip() for s in body.allowed_sectors if str(s).strip()]
+            allowed_sectors_str = json.dumps(cleaned_sectors)
+            
+        _create_user_in_db(
+            conn,
+            username=username,
+            display_name=body.display_name,
+            password=body.password,
+            is_admin=body.is_admin,
+            allowed_sectors=allowed_sectors_str
+        )
+        conn.commit()
+        
+    return {"status": "success", "message": "Utilisateur créé avec succès"}
+
+
+@app.put("/api/admin/users/{user_id}")
+def update_user(user_id: int, body: UpdateUserRequest, current_user: dict = Depends(get_current_user)):
+    if not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+        
+    with _get_auth_conn() as conn:
+        row = conn.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+            
+        if row["id"] == current_user["id"] and body.is_admin is False:
+            raise HTTPException(status_code=400, detail="Vous ne pouvez pas retirer votre propre statut d'administrateur")
+            
+        updates = []
+        params = []
+        
+        if body.display_name is not None:
+            updates.append("display_name = ?")
+            params.append(body.display_name.strip())
+            
+        if body.password is not None and body.password.strip():
+            if len(body.password) < 4:
+                raise HTTPException(status_code=400, detail="Le mot de passe doit faire au moins 4 caractères")
+            salt, hashed = _hash_password(body.password)
+            updates.append("salt = ?")
+            params.append(salt)
+            updates.append("password = ?")
+            params.append(hashed)
+            
+        if body.is_admin is not None:
+            updates.append("is_admin = ?")
+            params.append(int(body.is_admin))
+            
+        if body.allowed_sectors is not None:
+            updates.append("allowed_sectors = ?")
+            cleaned_sectors = [str(s).strip() for s in body.allowed_sectors if str(s).strip()]
+            params.append(json.dumps(cleaned_sectors))
+        elif body.is_admin is True:
+            updates.append("allowed_sectors = NULL")
+            
+        if updates:
+            params.append(user_id)
+            conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
+            conn.commit()
+            
+    return {"status": "success", "message": "Utilisateur mis à jour avec succès"}
+
+
+@app.delete("/api/admin/users/{user_id}")
+def delete_user(user_id: int, current_user: dict = Depends(get_current_user)):
+    if not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+        
+    if user_id == current_user["id"]:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas supprimer votre propre compte")
+        
+    with _get_auth_conn() as conn:
+        exists = conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+            
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        
+    return {"status": "success", "message": "Utilisateur supprimé avec succès"}
+
 
 @app.get("/api/clear_cache")
 def clear_cache_endpoint(_user: dict = Depends(get_current_user)):
@@ -1519,6 +1718,7 @@ def resolve_rue_adresse(abonne_rec) -> str:
 # -------------------------------------------------------------
 @app.get("/stats")
 def get_stats(secteur: str = None, _user: dict = Depends(get_current_user)):
+    secteur = _enforce_sector(_user, secteur)
     if not is_db_ready or cached_dashboard_stats is None:
         msg = db_loading_status or "Chargement en cours..."
         is_error = (
@@ -1628,6 +1828,7 @@ def _resolve_subscriber_join_date(numab: str, abonne_rec: dict[str, str] | None,
 
 @app.get("/subscriber_category_counts")
 def get_subscriber_category_counts(_user: dict = Depends(get_current_user), start_date: str = None, end_date: str = None, secteur: str = None):
+    secteur = _enforce_sector(_user, secteur)
     if not is_db_ready or len(MEM_ABONNES) == 0:
         return {"ready": False, "message": db_loading_status or "Données indisponibles", "communes": []}
 
@@ -1891,6 +2092,7 @@ def _compute_subscribers_evolution(secteur: str | None = None, commune: str | No
 
 @app.get("/api/subscribers_evolution")
 def get_subscribers_evolution(_user: dict = Depends(get_current_user), secteur: str = None, commune: str = None, type_abon: str = None):
+    secteur = _enforce_sector(_user, secteur)
     if not is_db_ready or not indexes_ready or len(MEM_ABONNES) == 0:
         return {"ready": False, "evolution": [], "total": 0, "missing_dates_handled": 0}
 
@@ -2038,10 +2240,20 @@ def get_unites_settings(_user: dict = Depends(get_current_user)):
 def search_subscribers(_user: dict = Depends(get_current_user), query: str = None, q: str = None):
     search_term = query or q
     if not search_term: return []
+    
+    # Get allowed sectors list if restricted
+    allowed_sectors = None
+    if _AUTH_ENABLED and not _user.get("is_admin") and _user.get("allowed_sectors") is not None:
+        allowed_sectors = [str(s).strip().zfill(2) for s in _user["allowed_sectors"]]
+
     try:
         search_term_lower = search_term.lower()
         results = []
         for record in MEM_ABONNES:
+            if allowed_sectors is not None:
+                rec_secteur = str(record.get('SECTEUR', '')).strip().zfill(2)
+                if rec_secteur not in allowed_sectors:
+                    continue
             numab = str(record.get('NUMAB', ''))
             raisoc = str(record.get('RAISOC', ''))
             nom = str(record.get('NOM', ''))
@@ -2086,6 +2298,7 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
 
 @app.get("/subscribers")
 def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = None, etat: str = None, secteur: str = None):
+    secteur = _enforce_sector(_user, secteur)
     if not quartier:
         return {"error": "Missing parameters"}
     
@@ -2270,6 +2483,7 @@ def get_creance(_user: dict = Depends(get_current_user),
     hist_end: str = None,
     secteur: str = None
 ):
+    secteur = _enforce_sector(_user, secteur)
     try:
         # Build period name for PROV lookup
         months_fr = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -3252,6 +3466,7 @@ def get_creance(_user: dict = Depends(get_current_user),
 
 @app.get("/creance_detaillee")
 def get_creance_detaillee(date_arrete: str, secteur: str = None, _user: dict = Depends(get_current_user)):
+    secteur = _enforce_sector(_user, secteur)
     try:
         stats = {}
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
@@ -3377,6 +3592,7 @@ def get_abonne_factures(_user: dict = Depends(get_current_user), numab: str = No
     try:
         numab_upper = numab.strip().upper()
         abonne_info = abonnes_by_numab.get(numab_upper)
+        _enforce_abonne(_user, abonne_info)
         factures = factures_by_numab.get(numab_upper, [])
 
         results = []
@@ -3407,6 +3623,7 @@ def get_abonne_api(numab: str, _user: dict = Depends(get_current_user)):
     abonne_rec = abonnes_by_numab.get(numab_upper)
     if not abonne_rec:
         return {"error": "Aucun abonné trouvé."}
+    _enforce_abonne(_user, abonne_rec)
         
     raw_codrue = str(abonne_rec.get('CODRUE', '')).strip()
     codrue = raw_codrue.lstrip('0')
@@ -3638,6 +3855,7 @@ def get_abonne_api(numab: str, _user: dict = Depends(get_current_user)):
 
 @app.get("/creances_abonnes")
 def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str = None):
+    secteur = _enforce_sector(_user, secteur)
     try:
         secteur_numabs = _secteur_numabs_set(secteur)
         date_arrete = _creance_date_arrete()
@@ -3737,6 +3955,7 @@ def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str =
 
 @app.get("/creances_institutions")
 def get_creances_institutions(_user: dict = Depends(get_current_user), only_with_creance: bool = True, secteur: str = None):
+    secteur = _enforce_sector(_user, secteur)
     """
     Créances liées aux institutions (liens institutionnels + organismes payeurs),
     enrichies via abonnés, contrats, adresses et factures impayées.
@@ -3895,6 +4114,7 @@ def get_creances_institutions(_user: dict = Depends(get_current_user), only_with
 
 @app.get("/creance_subscribers")
 def get_creance_subscribers(_user: dict = Depends(get_current_user), start_date: str = None, end_date: str = None, target_name: str = None, column: str = None, secteur: str = None):
+    secteur = _enforce_sector(_user, secteur)
     try:
         EMPTY_DATE_VALUES = {'', '        ', '19000101', '00000000', None}
         target_date = end_date if end_date else '99991231'

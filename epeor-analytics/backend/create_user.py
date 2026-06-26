@@ -40,12 +40,18 @@ def _hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     return salt, key.hex()
 
 
+def _hash_username(username: str) -> str:
+    normalized = username.strip().lower()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 def _ensure_auth_db() -> None:
     with _get_auth_conn() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE,
+                username_hash TEXT NOT NULL DEFAULT '',
                 display_name TEXT NOT NULL DEFAULT '',
                 salt TEXT NOT NULL,
                 password TEXT NOT NULL,
@@ -61,6 +67,20 @@ def _ensure_auth_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
             CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
         """)
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN username_hash TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
+        rows = conn.execute(
+            "SELECT id, username FROM users WHERE username_hash IS NULL OR username_hash = ''"
+        ).fetchall()
+        for row in rows:
+            conn.execute(
+                "UPDATE users SET username_hash = ? WHERE id = ?",
+                (_hash_username(row["username"]), row["id"]),
+            )
+        conn.commit()
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_hash ON users(username_hash)")
 
 
 def _list_users() -> None:
@@ -107,14 +127,15 @@ def _count_admins(conn: sqlite3.Connection, exclude_username: str | None = None)
 
 def _create_user(username: str, display_name: str, password: str, is_admin: bool) -> None:
     username = username.strip().lower()
+    username_hash = _hash_username(username)
     display_name = display_name.strip() or username
     salt, hashed = _hash_password(password)
     with _get_auth_conn() as conn:
         if is_admin and _count_admins(conn) > 0:
             raise ValueError("Un seul administrateur est autorisé dans le système.")
         conn.execute(
-            "INSERT INTO users (username, display_name, salt, password, is_admin) VALUES (?,?,?,?,?)",
-            (username, display_name, salt, hashed, int(is_admin)),
+            "INSERT INTO users (username, username_hash, display_name, salt, password, is_admin) VALUES (?,?,?,?,?,?)",
+            (username, username_hash, display_name, salt, hashed, int(is_admin)),
         )
     print(f"Utilisateur '{username}' créé avec succès.")
 

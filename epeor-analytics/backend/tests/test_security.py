@@ -36,6 +36,16 @@ class SecurityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_username("bad user")
 
+    def test_accepts_username_hash_column(self):
+        assignments = build_safe_user_update_assignments({"username_hash": "abc123"})
+        self.assertEqual(assignments, [("username_hash", "abc123")])
+
+    def test_hash_username_is_deterministic(self):
+        from backend.main import _hash_username
+
+        self.assertEqual(_hash_username("Alice"), _hash_username("alice"))
+        self.assertIsInstance(_hash_username("Alice"), str)
+
     def test_accepts_strong_password(self):
         self.assertEqual(validate_password("StrongPass1"), "StrongPass1")
 

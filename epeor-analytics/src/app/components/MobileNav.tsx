@@ -13,6 +13,7 @@ import {
   Calendar,
   LogOut,
 } from "lucide-react";
+import Logo from "./Logo";
 
 export type AppView =
   | "dashboard"

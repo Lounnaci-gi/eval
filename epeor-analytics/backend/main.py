@@ -1481,6 +1481,7 @@ class CreateUserRequest(BaseModel):
 
 
 class UpdateUserRequest(BaseModel):
+    username: str | None = None
     display_name: str | None = None
     password: str | None = None
     is_admin: bool | None = None
@@ -1582,6 +1583,18 @@ def update_user(user_id: int, body: UpdateUserRequest, current_user: dict = Depe
             
         updates = []
         
+        if body.username is not None:
+            username = validate_username(body.username)
+            username_hash = _hash_username(username)
+            conflict = conn.execute(
+                "SELECT 1 FROM users WHERE username_hash = ? AND id != ?",
+                (username_hash, user_id),
+            ).fetchone()
+            if conflict:
+                raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
+            updates.append(("username", username))
+            updates.append(("username_hash", username_hash))
+
         if body.display_name is not None:
             updates.append(("display_name", body.display_name.strip()))
             

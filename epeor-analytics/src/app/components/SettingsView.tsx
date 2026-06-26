@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, Database, RefreshCw, Search, Plus, Trash2, Edit2, Shield, User, Lock, X, AlertTriangle } from "lucide-react";
+import { ChevronRight, Database, RefreshCw, Search, Plus, Trash2, Edit2, Shield, User, Lock, X, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { apiUrl } from "../lib/api";
 
 export function SettingsView({
@@ -667,6 +667,8 @@ function UsersManagementPanel({
   });
   const [formMessage, setFormMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const getPasswordStrength = (password: string) => {
@@ -731,6 +733,26 @@ function UsersManagementPanel({
       if (set.has(code)) set.delete(code); else set.add(code);
       return { ...prev, allowed_sectors: Array.from(set) };
     });
+  };
+
+  const normalizedUsername = formData.username.trim().toLowerCase();
+  const isUsernameValid = /^[a-z0-9_]{3,32}$/.test(normalizedUsername);
+  const passwordValid = formData.password.length >= 8 && /[a-z]/.test(formData.password) && /[A-Z]/.test(formData.password) && /\d/.test(formData.password);
+  const passwordMatch = formData.password === formData.password_confirm;
+  const isCreateMode = !editingUser;
+  const isFormValid = isCreateMode
+    ? isUsernameValid && formData.display_name.trim().length > 0 && passwordValid && passwordMatch
+    : formData.display_name.trim().length > 0 && (!formData.password || passwordValid);
+
+  const generatePassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+    let password = "";
+    for (let i = 0; i < 12; i += 1) {
+      password += chars[Math.floor(Math.random() * chars.length)];
+    }
+    setFormData(prev => ({ ...prev, password, password_confirm: password }));
+    setShowPassword(true);
+    setShowPasswordConfirm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -943,10 +965,17 @@ function UsersManagementPanel({
                       required
                       value={formData.username}
                       onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
-                      className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+                      className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.username && !isUsernameValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
                       placeholder="ex: agent01"
                       autoComplete="username"
+                      aria-invalid={formData.username !== '' && !isUsernameValid}
                     />
+                    <p className="mt-2 text-xs text-slate-500">
+                      3–32 caractères, lettres minuscules, chiffres et underscore.
+                    </p>
+                    {formData.username && !isUsernameValid && (
+                      <p className="mt-1 text-[11px] font-semibold text-red-600">Nom d'utilisateur invalide.</p>
+                    )}
                   </label>
                 )}
 
@@ -966,51 +995,81 @@ function UsersManagementPanel({
                   <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
                     <Lock size={12} /> Mot de passe {editingUser ? '(optionnel)' : ''}
                   </span>
-                  <input
-                    type="password"
-                    required={!editingUser}
-                    value={formData.password}
-                    onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
-                    className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
-                    placeholder={editingUser ? 'Laisser vide = inchangé' : '8 caractères minimum'}
-                    autoComplete="new-password"
-                  />
-                  {!editingUser && (
-                    <div className="mt-2 space-y-2">
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                        <div
-                          className={`h-full rounded-full transition-all duration-200 ${passwordStrength.color}`}
-                          style={{ width: `${passwordStrength.percent}%` }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] font-semibold">
-                        <span className={`flex items-center gap-1 ${passwordStrength.textColor}`}>
-                          <span className="text-sm leading-none">{passwordStrength.icon}</span>
-                          {passwordStrength.label}
-                        </span>
-                        <span className="text-slate-500">{passwordStrength.percent}%</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        Utilisez au moins 8 caractères, une minuscule, une majuscule et un chiffre.
-                      </p>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required={!editingUser}
+                      value={formData.password}
+                      onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
+                      className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.password && !passwordValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                      placeholder={editingUser ? 'Laisser vide = inchangé' : '8 caractères minimum'}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(x => !x)}
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-500"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-col gap-1 text-[11px]">
+                    <div className="flex items-center justify-between gap-3 text-slate-500">
+                      <span>{isCreateMode ? 'Sécurité' : 'Nouveau mot de passe'}</span>
+                      <button
+                        type="button"
+                        onClick={generatePassword}
+                        className="text-[#0D83DE] font-black text-[11px] hover:text-[#0b72c2] transition"
+                      >
+                        Générer
+                      </button>
                     </div>
-                  )}
-                </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <span className={`rounded-full px-2 py-1 ${formData.password.length >= 8 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>8 caractères</span>
+                      <span className={`rounded-full px-2 py-1 ${/[a-z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>minuscule</span>
+                      <span className={`rounded-full px-2 py-1 ${/[A-Z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>majuscule</span>
+                      <span className={`rounded-full px-2 py-1 ${/\d/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>chiffre</span>
+                    </div>
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                          <span>Force du mot de passe</span>
+                          <span className={`font-black ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
+                        </div>
+                        <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div className={`${passwordStrength.color} h-full`} style={{ width: `${passwordStrength.percent}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </label>
 
                 {!editingUser && (
                   <label className="block">
                     <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
                       <Lock size={12} /> Confirmer le mot de passe
                     </span>
-                    <input
-                      type="password"
-                      required
-                      value={formData.password_confirm}
-                      onChange={e => setFormData(p => ({ ...p, password_confirm: e.target.value }))}
-                      className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
-                      placeholder="Retapez le mot de passe"
-                      autoComplete="new-password"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPasswordConfirm ? 'text' : 'password'}
+                        required
+                        value={formData.password_confirm}
+                        onChange={e => setFormData(p => ({ ...p, password_confirm: e.target.value }))}
+                        className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.password_confirm && !passwordMatch ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                        placeholder="Retapez le mot de passe"
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordConfirm(x => !x)}
+                        className="absolute inset-y-0 right-3 flex items-center text-slate-500"
+                        tabIndex={-1}
+                      >
+                        {showPasswordConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {formData.password_confirm && !passwordMatch && (
+                      <p className="mt-2 text-[11px] text-red-600">Les mots de passe ne correspondent pas.</p>
+                    )}
                   </label>
                 )}
 
@@ -1071,8 +1130,8 @@ function UsersManagementPanel({
                   </button>
                   <button
                     type="submit"
-                    disabled={formLoading}
-                    className="flex-1 py-3 rounded-2xl bg-[#0D83DE] text-white text-sm font-black hover:bg-[#0b72c2] transition disabled:opacity-60 flex items-center justify-center gap-2"
+                    disabled={formLoading || !isFormValid}
+                    className={`flex-1 py-3 rounded-2xl bg-[#0D83DE] text-white text-sm font-black hover:bg-[#0b72c2] transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 flex items-center justify-center gap-2 ${formLoading || !isFormValid ? 'opacity-80' : ''}`}
                   >
                     {formLoading ? (
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />

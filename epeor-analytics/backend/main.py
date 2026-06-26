@@ -180,13 +180,14 @@ def _init_auth_db() -> None:
     with _get_auth_conn() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS users (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT    NOT NULL UNIQUE,
-                display_name TEXT NOT NULL DEFAULT '',
-                salt     TEXT    NOT NULL,
-                password TEXT    NOT NULL,
-                is_admin INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT  NOT NULL DEFAULT (datetime('now'))
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                username     TEXT    NOT NULL UNIQUE,
+                username_hash TEXT   NOT NULL DEFAULT '',
+                display_name TEXT    NOT NULL DEFAULT '',
+                salt         TEXT    NOT NULL,
+                password     TEXT    NOT NULL,
+                is_admin     INTEGER NOT NULL DEFAULT 0,
+                created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
             );
             CREATE TABLE IF NOT EXISTS sessions (
                 token      TEXT NOT NULL PRIMARY KEY,
@@ -197,6 +198,20 @@ def _init_auth_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
             CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
         """)
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN username_hash TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
+        rows = conn.execute(
+            "SELECT id, username FROM users WHERE username_hash IS NULL OR username_hash = ''"
+        ).fetchall()
+        for row in rows:
+            conn.execute(
+                "UPDATE users SET username_hash = ? WHERE id = ?",
+                (_hash_username(row["username"]), row["id"]),
+            )
+        conn.commit()
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_hash ON users(username_hash)")
         # Migration: ajouter allowed_sectors à users si elle n'existe pas
         try:
             conn.execute("ALTER TABLE users ADD COLUMN allowed_sectors TEXT DEFAULT NULL")
@@ -243,6 +258,11 @@ def _hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     return salt, key.hex()
 
 
+def _hash_username(username: str) -> str:
+    normalized = username.strip().lower()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 def _verify_password(password: str, salt: str, stored_hash: str) -> bool:
     _, computed = _hash_password(password, salt)
     return secrets.compare_digest(computed, stored_hash)
@@ -269,10 +289,12 @@ def _create_user_in_db(
     is_admin: bool = False,
     allowed_sectors: str | None = None,
 ) -> None:
+    normalized = username.strip().lower()
+    username_hash = _hash_username(normalized)
     salt, hashed = _hash_password(password)
     conn.execute(
-        "INSERT INTO users (username, display_name, salt, password, is_admin, allowed_sectors) VALUES (?,?,?,?,?,?)",
-        (username.strip().lower(), display_name.strip(), salt, hashed, int(is_admin), allowed_sectors),
+        "INSERT INTO users (username, username_hash, display_name, salt, password, is_admin, allowed_sectors) VALUES (?,?,?,?,?,?,?)",
+        (normalized, username_hash, display_name.strip(), salt, hashed, int(is_admin), allowed_sectors),
     )
 
 
@@ -1332,9 +1354,10 @@ def auth_login(body: LoginRequest, request: Request, response: Response):
             detail=f"Trop de tentatives. Réessayez dans {minutes} minute(s). Retry-After: {retry_after}",
         )
     username = body.username.strip().lower()
+    username_hash = _hash_username(username)
     with _get_auth_conn() as conn:
         row = conn.execute(
-            "SELECT id, salt, password FROM users WHERE username = ?", (username,)
+            "SELECT id, salt, password FROM users WHERE username_hash = ?", (username_hash,)
         ).fetchone()
     if row is None or not _verify_password(body.password, row["salt"], row["password"]):
         failed_info = _record_failed_login(ip)
@@ -1421,10 +1444,14 @@ def auth_change(body: ChangeUserRequest, _user: dict = Depends(get_current_user)
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             if newu and newu != row["username"]:
-                exists = conn.execute("SELECT 1 FROM users WHERE username = ?", (newu,)).fetchone()
+                username_hash = _hash_username(newu)
+                exists = conn.execute(
+                    "SELECT 1 FROM users WHERE username_hash = ?", (username_hash,)
+                ).fetchone()
                 if exists:
                     raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
                 updates.append(("username", newu))
+                updates.append(("username_hash", username_hash))
 
         if body.new_password:
             try:
@@ -1502,7 +1529,8 @@ def create_user(body: CreateUserRequest, current_user: dict = Depends(get_curren
         )
 
     with _get_auth_conn() as conn:
-        exists = conn.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone()
+        username_hash = _hash_username(username)
+        exists = conn.execute("SELECT 1 FROM users WHERE username_hash = ?", (username_hash,)).fetchone()
         if exists:
             raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
             

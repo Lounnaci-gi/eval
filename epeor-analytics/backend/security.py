@@ -2,6 +2,7 @@ import re
 
 ALLOWED_USER_UPDATE_COLUMNS = {
     "username",
+    "username_hash",
     "display_name",
     "salt",
     "password",

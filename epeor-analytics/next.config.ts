@@ -45,4 +45,33 @@ const nextConfig: NextConfig = {
   },
 };
 
+// Security headers to apply globally
+const cspValue = process.env.NODE_ENV === 'development'
+  ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https:; img-src 'self' data:; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src fonts.gstatic.com; frame-ancestors 'none';"
+  : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https:; img-src 'self' data:; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src fonts.gstatic.com; frame-ancestors 'none';";
+
+const securityHeaders = [
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'geolocation=(), microphone=(), camera=()' },
+  { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
+  // HSTS: only in production with HTTPS
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+  {
+    key: 'Content-Security-Policy',
+    value: cspValue,
+  },
+];
+
+// Apply headers globally
+nextConfig.headers = async () => {
+  return [
+    {
+      source: '/(.*)',
+      headers: securityHeaders,
+    },
+  ];
+};
+
 export default nextConfig;

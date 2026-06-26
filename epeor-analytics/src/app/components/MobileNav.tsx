@@ -67,8 +67,8 @@ function isActive(view: AppView, item: NavItem): boolean {
 export function MobileTopBar() {
   return (
     <header className="lg:hidden sticky top-0 z-40 flex items-center gap-3 border-b border-[#E4E7EC] bg-white/95 backdrop-blur-md px-4 py-3 safe-top no-print">
-      <div className="w-9 h-9 bg-[#0D83DE] rounded-xl flex items-center justify-center shadow-md shadow-blue-200 shrink-0">
-        <LayoutDashboard className="text-white" size={18} />
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 p-1">
+          <Logo variant="mobile" alt="EPEOR" />
       </div>
       <div className="min-w-0">
         <p className="text-sm font-black text-[#101828] truncate">EPEOR Analytics</p>

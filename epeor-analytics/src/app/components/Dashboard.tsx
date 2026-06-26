@@ -34,6 +34,8 @@ import {
   type DataPathInfo,
 } from "./utils";
 import { SecteurDropdown } from "./ui";
+import Countdown from "./Countdown";
+import Logo from "./Logo";
 import { StatsCard, NavItem } from "./dashboard-ui";
 import { SettingsView } from "./SettingsView";
 import { MobileNav, MobileTopBar, type AppView } from "./MobileNav";
@@ -371,8 +373,8 @@ export default function Dashboard() {
         <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-[#E4E7EC] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.12)]">
           <div className="bg-gradient-to-r from-[#0D83DE] to-[#0B72C2] px-6 py-6 text-white sm:px-8">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
-                <Lock size={24} />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl p-1">
+                <Logo variant="login" alt="EPEOR logo" />
               </div>
               <div>
                 <h1 className="text-xl font-black">Connexion requise</h1>
@@ -420,23 +422,7 @@ export default function Dashboard() {
               )}
 
               {loginCountdown !== null && loginCountdown > 0 && (
-                <div className="space-y-3 pt-2 border-t border-rose-200">
-                  <div className="flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-xs font-black uppercase tracking-wider text-rose-800 mb-2">Compte à rebours</p>
-                      <div className="text-4xl font-black text-rose-700 font-mono tracking-tighter">
-                        {String(Math.floor(loginCountdown / 60)).padStart(2, '0')}:{String(loginCountdown % 60).padStart(2, '0')}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="w-full bg-rose-200 rounded-full h-1 overflow-hidden">
-                    <div
-                      className="bg-rose-600 h-full transition-all duration-1000 ease-linear"
-                      style={{ width: `${((600 - loginCountdown) / 600) * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-rose-700 text-center font-medium">Veuillez attendre avant de réessayer</p>
-                </div>
+                <Countdown secondsLeft={loginCountdown} totalSeconds={loginRetryAfter ?? 600} />
               )}
             </div>
           )}
@@ -696,8 +682,8 @@ export default function Dashboard() {
       {/* Sidebar — desktop / large tablet landscape */}
       <aside className="w-72 bg-white border-r border-[#E4E7EC] p-6 flex flex-col gap-10 hidden lg:flex shrink-0 no-print no-print-charts-only">
         <div className="flex items-center gap-3 px-2">
-          <div className="w-10 h-10 bg-[#0D83DE] rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
-            <Database className="text-white" size={24} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center p-1">
+            <Logo variant="sidebar" alt="EPEOR" />
           </div>
           <div>
             <span className="text-xl font-extrabold tracking-tight text-[#101828]">EPEOR</span>

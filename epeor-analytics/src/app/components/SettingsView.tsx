@@ -669,6 +669,38 @@ function UsersManagementPanel({
   const [formLoading, setFormLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  const getPasswordStrength = (password: string) => {
+    if (!password) {
+      return { percent: 0, label: 'Aucun mot de passe', color: 'bg-slate-300', textColor: 'text-slate-500', icon: '•' };
+    }
+
+    let score = 0;
+    if (password.length >= 8) score += 1;
+    if (/[a-z]/.test(password)) score += 1;
+    if (/[A-Z]/.test(password)) score += 1;
+    if (/\d/.test(password)) score += 1;
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+    const percent = Math.min(100, Math.round((score / 5) * 100));
+    if (score <= 2) {
+      return { percent, label: 'Faible', color: 'bg-gradient-to-r from-red-500 to-rose-500', textColor: 'text-red-600', icon: '✕' };
+    }
+    if (score === 3) {
+      return { percent, label: 'Moyen', color: 'bg-gradient-to-r from-amber-500 to-orange-500', textColor: 'text-amber-600', icon: '!' };
+    }
+    if (score === 4) {
+      return { percent, label: 'Bon', color: 'bg-gradient-to-r from-blue-500 to-cyan-500', textColor: 'text-blue-600', icon: '✓' };
+    }
+    return { percent, label: 'Très fort', color: 'bg-gradient-to-r from-emerald-500 to-green-500', textColor: 'text-emerald-600', icon: '✓' };
+  };
+
+  const passwordStrength = getPasswordStrength(formData.password);
+
+  const isPasswordValid = (password: string) => {
+    if (!password) return false;
+    return password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password);
+  };
+
   const resetForm = () => {
     setFormData({ username: '', display_name: '', password: '', password_confirm: '', allowed_sectors: [] });
     setFormMessage(null);
@@ -711,8 +743,8 @@ function UsersManagementPanel({
           setFormMessage({ type: 'err', text: 'Les mots de passe ne correspondent pas.' });
           return;
         }
-        if (formData.password.length < 4) {
-          setFormMessage({ type: 'err', text: 'Le mot de passe doit faire au moins 4 caractères.' });
+        if (!isPasswordValid(formData.password)) {
+          setFormMessage({ type: 'err', text: 'Le mot de passe doit faire au moins 8 caractères, avec une minuscule, une majuscule et un chiffre.' });
           return;
         }
       }
@@ -880,9 +912,9 @@ function UsersManagementPanel({
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
             onClick={() => { setShowForm(false); resetForm(); }}
           />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-[#F2F4F7]">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
+            <div className="w-full max-w-xl max-h-[92vh] overflow-hidden rounded-[1.75rem] bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 flex flex-col">
+              <div className="flex items-start justify-between gap-3 border-b border-[#F2F4F7] bg-white/95 px-5 py-4 sm:px-6 sm:py-5">
                 <div>
                   <h3 className="text-lg font-black text-[#101828]">
                     {editingUser ? `Modifier — ${editingUser.username}` : 'Créer un utilisateur'}
@@ -900,7 +932,7 @@ function UsersManagementPanel({
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-5">
+              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 sm:p-6 sm:space-y-4">
                 {!editingUser && (
                   <label className="block">
                     <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
@@ -940,9 +972,29 @@ function UsersManagementPanel({
                     value={formData.password}
                     onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
                     className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
-                    placeholder={editingUser ? 'Laisser vide = inchangé' : 'Min. 4 caractères'}
+                    placeholder={editingUser ? 'Laisser vide = inchangé' : '8 caractères minimum'}
                     autoComplete="new-password"
                   />
+                  {!editingUser && (
+                    <div className="mt-2 space-y-2">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className={`h-full rounded-full transition-all duration-200 ${passwordStrength.color}`}
+                          style={{ width: `${passwordStrength.percent}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] font-semibold">
+                        <span className={`flex items-center gap-1 ${passwordStrength.textColor}`}>
+                          <span className="text-sm leading-none">{passwordStrength.icon}</span>
+                          {passwordStrength.label}
+                        </span>
+                        <span className="text-slate-500">{passwordStrength.percent}%</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        Utilisez au moins 8 caractères, une minuscule, une majuscule et un chiffre.
+                      </p>
+                    </div>
+                  )}
                 </label>
 
                 {!editingUser && (
@@ -1009,7 +1061,7 @@ function UsersManagementPanel({
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-1">
+                <div className="flex gap-3 border-t border-[#F2F4F7] pt-4">
                   <button
                     type="button"
                     onClick={() => { setShowForm(false); resetForm(); }}

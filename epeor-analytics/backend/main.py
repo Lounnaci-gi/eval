@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Cookie, Response, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 import sqlite3
 import hashlib
@@ -16,10 +17,32 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+try:
+    from .security import build_safe_user_update_assignments
+except ImportError:  # pragma: no cover - support when running the file directly
+    from security import (
+    build_safe_user_update_assignments,
+    validate_password,
+    validate_username,
+)
+
 app = FastAPI()
 
 # Compression gzip for all JSON responses
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Cache-Control", "no-store")
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 def _cors_origins() -> list[str]:
@@ -306,6 +329,27 @@ _login_blocked_until: dict[str, float] = {}
 _login_lock = threading.Lock()
 _MAX_FAILED_ATTEMPTS = 3     # tentatives max avant blocage
 _BLOCK_DURATION = 600.0     # blocage de 10 minutes
+
+_audit_log: list[dict[str, object]] = []
+_audit_lock = threading.Lock()
+
+
+def _log_audit(action: str, user_id: int | None, details: dict[str, object] | None = None) -> None:
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "action": action,
+        "user_id": user_id,
+        "details": details or {},
+    }
+    with _audit_lock:
+        _audit_log.append(entry)
+        if len(_audit_log) > 100:
+            _audit_log.pop(0)
+
+
+def _get_audit_log() -> list[dict[str, object]]:
+    with _audit_lock:
+        return list(_audit_log)
 
 
 def _get_login_status(ip: str) -> dict[str, int | bool]:
@@ -1318,6 +1362,7 @@ def auth_login(body: LoginRequest, request: Request, response: Response):
         max_age=SESSION_LIFETIME_HOURS * 3600,
         path="/",
     )
+    response.headers.setdefault("Cache-Control", "no-store")
     return {"status": "ok", "username": username}
 
 @app.post("/api/auth/logout")
@@ -1326,6 +1371,7 @@ def auth_logout(response: Response, epeor_session: str | None = Cookie(default=N
     if epeor_session:
         _delete_session(epeor_session)
     response.delete_cookie(key="epeor_session", path="/")
+    response.headers.setdefault("Cache-Control", "no-store")
     return {"status": "ok"}
 
 @app.get("/api/auth/me")
@@ -1368,30 +1414,32 @@ def auth_change(body: ChangeUserRequest, _user: dict = Depends(get_current_user)
         if not _verify_password(body.current_password, row["salt"], row["password"]):
             raise HTTPException(status_code=401, detail="Mot de passe actuel incorrect")
 
-        updates: list[str] = []
-        params: list[object] = []
-
-        # changement de username
+        updates: list[tuple[str, object]] = []
         if body.new_username:
-            newu = body.new_username.strip().lower()
+            try:
+                newu = validate_username(body.new_username)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
             if newu and newu != row["username"]:
                 exists = conn.execute("SELECT 1 FROM users WHERE username = ?", (newu,)).fetchone()
                 if exists:
                     raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
-                updates.append("username = ?")
-                params.append(newu)
+                updates.append(("username", newu))
 
-        # changement de mot de passe
         if body.new_password:
+            try:
+                validate_password(body.new_password)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
             salt, hashed = _hash_password(body.new_password)
-            updates.append("salt = ?")
-            params.append(salt)
-            updates.append("password = ?")
-            params.append(hashed)
+            updates.append(("salt", salt))
+            updates.append(("password", hashed))
 
         if updates:
-            params.append(user_id)
-            conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
+            assignments = build_safe_user_update_assignments(dict(updates))
+            set_clause = ", ".join(f"{column} = ?" for column, _ in assignments)
+            params = [value for _, value in assignments] + [user_id]
+            conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", params)
             conn.commit()
 
     return {"status": "ok", "username": body.new_username or row["username"]}
@@ -1441,11 +1489,11 @@ def create_user(body: CreateUserRequest, current_user: dict = Depends(get_curren
     if not current_user.get("is_admin"):
         raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
         
-    username = body.username.strip().lower()
-    if not username:
-        raise HTTPException(status_code=400, detail="Nom d'utilisateur requis")
-    if len(body.password) < 4:
-        raise HTTPException(status_code=400, detail="Le mot de passe doit faire au moins 4 caractères")
+    try:
+        username = validate_username(body.username)
+        validate_password(body.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
         
     if body.is_admin:
         raise HTTPException(
@@ -1470,6 +1518,11 @@ def create_user(body: CreateUserRequest, current_user: dict = Depends(get_curren
         )
         conn.commit()
         
+    _log_audit(
+        "create_user",
+        current_user.get("id"),
+        {"target_username": username, "is_admin": body.is_admin},
+    )
     return {"status": "success", "message": "Utilisateur créé avec succès"}
 
 
@@ -1500,20 +1553,18 @@ def update_user(user_id: int, body: UpdateUserRequest, current_user: dict = Depe
             )
             
         updates = []
-        params = []
         
         if body.display_name is not None:
-            updates.append("display_name = ?")
-            params.append(body.display_name.strip())
+            updates.append(("display_name", body.display_name.strip()))
             
         if body.password is not None and body.password.strip():
-            if len(body.password) < 4:
-                raise HTTPException(status_code=400, detail="Le mot de passe doit faire au moins 4 caractères")
+            try:
+                validate_password(body.password)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
             salt, hashed = _hash_password(body.password)
-            updates.append("salt = ?")
-            params.append(salt)
-            updates.append("password = ?")
-            params.append(hashed)
+            updates.append(("salt", salt))
+            updates.append(("password", hashed))
             
         if body.allowed_sectors is not None:
             if target_is_admin:
@@ -1521,14 +1572,20 @@ def update_user(user_id: int, body: UpdateUserRequest, current_user: dict = Depe
                     status_code=400,
                     detail="Les secteurs ne s'appliquent pas au compte administrateur",
                 )
-            updates.append("allowed_sectors = ?")
-            params.append(_allowed_sectors_to_db(body.allowed_sectors))
+            updates.append(("allowed_sectors", _allowed_sectors_to_db(body.allowed_sectors)))
             
         if updates:
-            params.append(user_id)
-            conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
+            assignments = build_safe_user_update_assignments(dict(updates))
+            set_clause = ", ".join(f"{column} = ?" for column, _ in assignments)
+            params = [value for _, value in assignments] + [user_id]
+            conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", params)
             conn.commit()
             
+    _log_audit(
+        "update_user",
+        current_user.get("id"),
+        {"target_user_id": user_id, "changes": list(updates)},
+    )
     return {"status": "success", "message": "Utilisateur mis à jour avec succès"}
 
 
@@ -1556,6 +1613,11 @@ def delete_user(user_id: int, current_user: dict = Depends(get_current_user)):
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
         
+    _log_audit(
+        "delete_user",
+        current_user.get("id"),
+        {"target_user_id": user_id},
+    )
     return {"status": "success", "message": "Utilisateur supprimé avec succès"}
 
 
@@ -1570,6 +1632,13 @@ def clear_cache_endpoint(_user: dict = Depends(get_current_user)):
     _invalidate_runtime_caches()
     threading.Thread(target=load_all_data_to_memory, daemon=True).start()
     return {"status": "success", "message": "Cache vidé, rechargement en cours..."}
+
+
+@app.get("/api/admin/audit")
+def audit_log(current_user: dict = Depends(get_current_user)):
+    if not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+    return {"entries": _get_audit_log()}
 
 # -------------------------------------------------------------
 # TABCODE / RUE lookup helpers

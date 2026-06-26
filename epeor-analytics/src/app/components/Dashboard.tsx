@@ -367,20 +367,24 @@ export default function Dashboard() {
 
   if (authChecked && user === null && backendReachable) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center p-8">
-        <div className="w-full max-w-md bg-white border border-[#E4E7EC] shadow-2xl rounded-[2rem] p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-[#0D83DE] text-white flex items-center justify-center">
-              <Lock size={24} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-[#101828]">Connexion requise</h1>
-              <p className="text-sm text-[#475467] mt-1">Veuillez vous connecter pour accéder au tableau de bord EPEOR.</p>
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,131,222,0.12),_transparent_55%),#F9FAFB] flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-[#E4E7EC] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.12)]">
+          <div className="bg-gradient-to-r from-[#0D83DE] to-[#0B72C2] px-6 py-6 text-white sm:px-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
+                <Lock size={24} />
+              </div>
+              <div>
+                <h1 className="text-xl font-black">Connexion requise</h1>
+                <p className="mt-1 text-sm text-blue-50">Accédez au tableau de bord EPEOR en toute sécurité.</p>
+              </div>
             </div>
           </div>
 
+          <div className="p-6 sm:p-8">
+
           {(loginError || loginRemainingAttempts !== null || loginRetryAfter !== null) && (
-            <div className="mb-6 rounded-[1.5rem] bg-gradient-to-br from-rose-50 to-red-50 border-2 border-rose-200 p-6 space-y-4">
+            <div className="mb-5 rounded-[1.25rem] border border-rose-200 bg-gradient-to-br from-rose-50 to-red-50 p-4 sm:p-5 space-y-3">
               {loginError && (
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 mt-0.5">
@@ -509,7 +513,7 @@ export default function Dashboard() {
                 value={loginUsername}
                 onChange={(event) => setLoginUsername(event.target.value)}
                 disabled={loginCountdown !== null && loginCountdown > 0}
-                className="mt-2 w-full rounded-2xl border border-[#D0D5DD] bg-[#F9FAFB] px-4 py-3 text-sm font-bold text-[#101828] outline-none focus:border-[#0D83DE] focus:ring-4 focus:ring-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-2 w-full rounded-2xl border border-[#D0D5DD] bg-[#F9FAFB] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0D83DE] focus:bg-white focus:ring-4 focus:ring-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
                 autoComplete="username"
                 required
               />
@@ -521,7 +525,7 @@ export default function Dashboard() {
                 value={loginPassword}
                 onChange={(event) => setLoginPassword(event.target.value)}
                 disabled={loginCountdown !== null && loginCountdown > 0}
-                className="mt-2 w-full rounded-2xl border border-[#D0D5DD] bg-[#F9FAFB] px-4 py-3 text-sm font-bold text-[#101828] outline-none focus:border-[#0D83DE] focus:ring-4 focus:ring-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-2 w-full rounded-2xl border border-[#D0D5DD] bg-[#F9FAFB] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0D83DE] focus:bg-white focus:ring-4 focus:ring-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
                 autoComplete="current-password"
                 required
               />
@@ -529,12 +533,13 @@ export default function Dashboard() {
             <button
               type="submit"
               disabled={loginPending || (loginCountdown !== null && loginCountdown > 0)}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-5 py-3 text-sm font-black text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0D83DE] px-5 py-3 text-sm font-black text-white transition-all hover:bg-[#0B72C2] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loginPending ? 'Connexion…' : loginCountdown !== null && loginCountdown > 0 ? 'Compte à rebours en cours…' : 'Se connecter'}
               {loginPending || (loginCountdown !== null && loginCountdown > 0) ? null : <ArrowRight size={16} />}
             </button>
           </form>
+          </div>
         </div>
       </div>
     );

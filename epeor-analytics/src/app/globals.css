@@ -22,11 +22,34 @@
   --foreground-rgb: 16, 24, 40;
   --background-rgb: 249, 250, 251;
 
-  --primary: #0D83DE;
+  /* Semantic palette (light) */
+  --color-bg-primary: 249,250,251; /* rgb parts */
+  --color-bg-secondary: 255,255,255;
+  --color-bg-tertiary: 245, 247, 250;
+
+  --color-text-primary: 16,24,40;
+  --color-text-secondary: 71,84,103;
+  --color-text-muted: 104,113,128;
+
+  --color-border: 228,231,236;
+  --color-border-strong: 208,213,221;
+
+  --color-accent: 13,131,222;
+  --color-accent-hover: 10,97,159;
+
+  /* Backwards compat short names used in CSS */
+  --primary: rgb(var(--color-accent));
   --secondary: #00D1FF;
-  --accent: #12B76A;
-  --card-bg: #FFFFFF;
-  --card-border: #E4E7EC;
+  --accent: var(--color-accent);
+  --card-bg: rgb(var(--color-bg-secondary));
+  --card-border: rgb(var(--color-border));
+
+  /* Icon/image adapt */
+  --img-filter: none;
+  --icon-filter: none;
+
+  /* Transitions */
+  --theme-transition-duration: 200ms;
 }
 
 body {
@@ -34,10 +57,226 @@ body {
   background-color: rgb(var(--background-rgb));
   min-height: 100vh;
   min-height: 100dvh;
-  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Poppins', 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
   letter-spacing: -0.01em;
   overflow-x: hidden;
 }
+
+/* Professional dark theme (system pref + manual toggle via [data-theme="dark"]) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 226, 232, 240;
+    --background-rgb: 8, 12, 20;
+    /* Semantic palette (dark) */
+    --color-bg-primary: 8,12,20;
+    --color-bg-secondary: 7,17,39;
+    --color-bg-tertiary: 10,20,30;
+
+    --color-text-primary: 226,232,240;
+    --color-text-secondary: 158,170,182;
+    --color-text-muted: 152,162,179;
+
+    --color-border: 255,255,255; /* used with alpha */
+    --color-border-strong: 255,255,255;
+
+    --color-accent: 13,131,222;
+    --color-accent-hover: 10,97,159;
+
+    --primary: rgb(var(--color-accent));
+    --secondary: #66E2FF;
+    --accent: #5CE8A9;
+    --card-bg: rgb(var(--color-bg-secondary));
+    --card-border: rgba(255,255,255,0.06);
+    --muted: #98A2B3;
+    --surface: rgba(255,255,255,0.02);
+
+    --img-filter: invert(1) hue-rotate(180deg) brightness(0.9);
+    --icon-filter: invert(1) hue-rotate(180deg) brightness(0.95);
+  }
+
+  body { color: rgb(var(--foreground-rgb)); background-color: rgb(var(--background-rgb)); }
+
+  /* Smooth transitions for theme-aware properties */
+  * { transition: color var(--theme-transition-duration) ease, background-color var(--theme-transition-duration) ease, border-color var(--theme-transition-duration) ease; }
+
+  /* Make images/icons adapt to theme using CSS variables */
+  img.theme-adapt, .icon-theme-adapt {
+    filter: var(--img-filter);
+    transition: filter var(--theme-transition-duration) ease;
+  }
+
+  /* Cards */
+  .obat-card, .page-card { background: var(--card-bg); border: 1px solid var(--card-border); color: rgb(var(--foreground-rgb)); }
+
+  /* Utility backgrounds (small badges, chips) */
+  .bg-white, .bg-\[\#F9FAFB\], .bg-slate-50 { background-color: var(--surface); color: rgb(var(--foreground-rgb)); }
+
+  /* Borders */
+  .border-\[\#E4E7EC\], .border-\[\#D0D5DD\] { border-color: rgba(255,255,255,0.04); }
+
+  /* Links and accent */
+  a { color: var(--primary); }
+
+  /* Shadows */
+  .shadow-sm { box-shadow: 0 8px 24px rgba(2,6,23,0.6); }
+
+  /* Tabs */
+  .scroll-tabs { background: rgba(255,255,255,0.01); border-color: rgba(255,255,255,0.03); }
+  .scroll-tabs button { background: transparent; color: var(--muted); }
+  .scroll-tabs button[aria-selected="true"], .scroll-tabs button.bg-white { background: rgba(255,255,255,0.04); color: var(--primary); }
+
+  /* Card-specific fixes: pale utility backgrounds used in that card */
+  .bg-\[\#F2F4F7\], .bg-\[\#F9FAFB\] {
+    background-color: rgba(255,255,255,0.03) !important;
+    border-color: rgba(255,255,255,0.04) !important;
+    color: #e2e8f0 !important;
+  }
+
+  /* Recharts pale fills (radial backgrounds) */
+  .recharts-sector[fill="#F2F4F7"] {
+    fill: rgba(255,255,255,0.03) !important;
+  }
+
+  .text-\[\#101828\], .text-\[\#98A2B3\], .text-\[\#667085\] {
+    color: #e2e8f0 !important;
+  }
+
+  /* Sidebar-specific fixes in dark */
+  .sidebar {
+    background: var(--card-bg) !important;
+    border-right: 1px solid var(--card-border) !important;
+    color: rgb(var(--foreground-rgb));
+  }
+
+  .sidebar .bg-white,
+  .sidebar .bg-\[\#F9FAFB\],
+  .sidebar .bg-slate-50 {
+    background-color: rgba(255,255,255,0.03) !important;
+    color: rgb(var(--foreground-rgb)) !important;
+    border-color: rgba(255,255,255,0.04) !important;
+  }
+
+  .sidebar .text-\[\#101828\],
+  .sidebar .text-\[\#344054\],
+  .sidebar .text-\[\#475467\] {
+    color: #e2e8f0 !important;
+  }
+
+  .sidebar .bg-blue-50 {
+    background-color: rgba(13,131,222,0.07) !important;
+    color: var(--primary) !important;
+  }
+
+  /* Override hardcoded color utility classes that break in dark */
+  .text-\[\#101828\], .text-\[\#344054\], .text-\[\#475467\], .text-\[\#667085\], .text-\[\#98A2B3\] {
+    color: #e2e8f0 !important;
+  }
+
+  .bg-\[\#F9FAFB\], .bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200 {
+    background-color: rgba(255,255,255,0.03) !important;
+    border-color: rgba(255,255,255,0.04) !important;
+    color: #e2e8f0 !important;
+  }
+
+  .hover\:bg-\[\#F9FAFB\]:hover, .hover\:bg-white:hover { background-color: rgba(255,255,255,0.04) !important; color: inherit !important; }
+}
+
+/* Manual toggle: same variables when HTML has data-theme="dark" */
+[data-theme="dark"] {
+  --foreground-rgb: 226, 232, 240;
+  --background-rgb: 8, 12, 20;
+  --primary: #0D83DE;
+  --secondary: #66E2FF;
+  --accent: #5CE8A9;
+  --card-bg: #071127;
+  --card-border: rgba(255,255,255,0.06);
+  --muted: #98A2B3;
+  --surface: rgba(255,255,255,0.02);
+
+  /* Mirror semantic variables for forced dark */
+  --color-bg-primary: 8,12,20;
+  --color-bg-secondary: 7,17,39;
+  --color-bg-tertiary: 10,20,30;
+
+  --color-text-primary: 226,232,240;
+  --color-text-secondary: 158,170,182;
+  --color-text-muted: 152,162,179;
+
+  --color-border: 255,255,255;
+  --color-border-strong: 255,255,255;
+
+  --color-accent: 13,131,222;
+  --color-accent-hover: 10,97,159;
+
+  --img-filter: invert(1) hue-rotate(180deg) brightness(0.9);
+  --icon-filter: invert(1) hue-rotate(180deg) brightness(0.95);
+}
+
+[data-theme="dark"] body { color: rgb(var(--foreground-rgb)); background-color: rgb(var(--background-rgb)); }
+[data-theme="dark"] .obat-card, [data-theme="dark"] .page-card { background: var(--card-bg); border: 1px solid var(--card-border); }
+[data-theme="dark"] .bg-white, [data-theme="dark"] .bg-\[\#F9FAFB\], [data-theme="dark"] .bg-slate-50 { background-color: var(--surface); color: rgb(var(--foreground-rgb)); }
+[data-theme="dark"] .border-\[\#E4E7EC\], [data-theme="dark"] .border-\[\#D0D5DD\] { border-color: rgba(255,255,255,0.04); }
+[data-theme="dark"] .scroll-tabs { background: rgba(255,255,255,0.01); border-color: rgba(255,255,255,0.03); }
+[data-theme="dark"] .scroll-tabs button { background: transparent; color: var(--muted); }
+[data-theme="dark"] .scroll-tabs button[aria-selected="true"], [data-theme="dark"] .scroll-tabs button.bg-white { background: rgba(255,255,255,0.04); color: var(--primary); }
+
+/* Card-specific fixes for forced dark */
+[data-theme="dark"] .bg-\[\#F2F4F7\], [data-theme="dark"] .bg-\[\#F9FAFB\] {
+  background-color: rgba(255,255,255,0.03) !important;
+  border-color: rgba(255,255,255,0.04) !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .recharts-sector[fill="#F2F4F7"] {
+  fill: rgba(255,255,255,0.03) !important;
+}
+
+[data-theme="dark"] .text-\[\#101828\], [data-theme="dark"] .text-\[\#98A2B3\], [data-theme="dark"] .text-\[\#667085\] {
+  color: #e2e8f0 !important;
+}
+
+/* Sidebar-specific fixes for forced dark */
+[data-theme="dark"] .sidebar {
+  background: var(--card-bg) !important;
+  border-right: 1px solid var(--card-border) !important;
+  color: rgb(var(--foreground-rgb));
+}
+
+[data-theme="dark"] .sidebar .bg-white,
+[data-theme="dark"] .sidebar .bg-\[\#F9FAFB\],
+[data-theme="dark"] .sidebar .bg-slate-50 {
+  background-color: rgba(255,255,255,0.03) !important;
+  color: rgb(var(--foreground-rgb)) !important;
+  border-color: rgba(255,255,255,0.04) !important;
+}
+
+[data-theme="dark"] .sidebar .text-\[\#101828\],
+[data-theme="dark"] .sidebar .text-\[\#344054\],
+[data-theme="dark"] .sidebar .text-\[\#475467\] {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .sidebar .bg-blue-50 {
+  background-color: rgba(13,131,222,0.07) !important;
+  color: var(--primary) !important;
+}
+
+/* Override hardcoded color utility classes for forced dark */
+[data-theme="dark"] .text-\[\#101828\], [data-theme="dark"] .text-\[\#344054\], [data-theme="dark"] .text-\[\#475467\], [data-theme="dark"] .text-\[\#667085\], [data-theme="dark"] .text-\[\#98A2B3\] {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .bg-\[\#F9FAFB\], [data-theme="dark"] .bg-white, [data-theme="dark"] .bg-slate-50, [data-theme="dark"] .bg-slate-100, [data-theme="dark"] .bg-slate-200 {
+  background-color: rgba(255,255,255,0.03) !important;
+  border-color: rgba(255,255,255,0.04) !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .hover\:bg-\[\#F9FAFB\]:hover, [data-theme="dark"] .hover\:bg-white:hover {
+  background-color: rgba(255,255,255,0.04) !important;
+  color: inherit !important;
+}
+
 
 /* Safe areas (encoches mobile) */
 .safe-top {

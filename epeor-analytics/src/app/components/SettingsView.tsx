@@ -411,52 +411,6 @@ export function SettingsView({
         )}
       </div>
 
-      {/* Compte utilisateur — changement nom d'utilisateur / mot de passe */}
-      {!setupMode && (
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="w-12 h-12 bg-slate-100 text-[#0D83DE] rounded-2xl flex items-center justify-center shrink-0">
-              <Database size={22} />
-            </div>
-            <div>
-              <h3 className="text-lg font-black text-[#101828]">Compte</h3>
-              <p className="text-sm text-[#667085] mt-1 font-medium">Changez votre nom d'utilisateur ou mot de passe (confirmez avec le mot de passe actuel).</p>
-            </div>
-          </div>
-
-          {changeMessage && (
-            <div className={`p-3 rounded-xl mb-4 text-sm font-bold ${changeMessage.type === 'ok' ? 'bg-emerald-50 border border-emerald-100 text-emerald-800' : 'bg-rose-50 border border-rose-100 text-rose-800'}`}>
-              {changeMessage.text}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">Mot de passe actuel</label>
-              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full rounded-xl border border-[#D0D5DD] px-4 py-3 bg-[#F9FAFB]" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">Nouveau nom d'utilisateur</label>
-              <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full rounded-xl border border-[#D0D5DD] px-4 py-3 bg-[#F9FAFB]" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">Nouveau mot de passe</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full rounded-xl border border-[#D0D5DD] px-4 py-3 bg-[#F9FAFB]" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">Confirmer mot de passe</label>
-              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded-xl border border-[#D0D5DD] px-4 py-3 bg-[#F9FAFB]" />
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button type="button" onClick={handleChangeCredentials} disabled={changingCreds} className={`px-5 py-3 rounded-2xl font-black text-xs ${changingCreds ? 'bg-slate-100 text-slate-400' : 'bg-[#0D83DE] text-white hover:bg-[#0b72c2]'}`}>
-              {changingCreds ? 'Modification…' : 'Mettre à jour'}
-            </button>
-          </div>
-        </div>
-      )}
-
       {!setupMode && (loading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E4E7EC] rounded-[2rem] shadow-sm">
           <div className="w-12 h-12 border-4 border-slate-200 border-t-[#0D83DE] rounded-full animate-spin"></div>
@@ -740,9 +694,10 @@ function UsersManagementPanel({
   const passwordValid = formData.password.length >= 8 && /[a-z]/.test(formData.password) && /[A-Z]/.test(formData.password) && /\d/.test(formData.password);
   const passwordMatch = formData.password === formData.password_confirm;
   const isCreateMode = !editingUser;
-  const isFormValid = isCreateMode
-    ? isUsernameValid && formData.display_name.trim().length > 0 && passwordValid && passwordMatch
-    : formData.display_name.trim().length > 0 && (!formData.password || passwordValid);
+  const isFormValid = isUsernameValid
+    && formData.display_name.trim().length > 0
+    && (!formData.password || passwordValid)
+    && (isCreateMode ? passwordMatch : true);
 
   const generatePassword = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
@@ -773,6 +728,7 @@ function UsersManagementPanel({
 
       if (editingUser) {
         const body: any = {
+          username: formData.username.trim().toLowerCase(),
           display_name: formData.display_name,
         };
         if (formData.password.trim()) body.password = formData.password;
@@ -955,29 +911,27 @@ function UsersManagementPanel({
               </div>
 
               <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 sm:p-6 sm:space-y-4">
-                {!editingUser && (
-                  <label className="block">
-                    <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-                      <User size={12} /> Nom d'utilisateur
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      value={formData.username}
-                      onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
-                      className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.username && !isUsernameValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
-                      placeholder="ex: agent01"
-                      autoComplete="username"
-                      aria-invalid={formData.username !== '' && !isUsernameValid}
-                    />
-                    <p className="mt-2 text-xs text-slate-500">
-                      3–32 caractères, lettres minuscules, chiffres et underscore.
-                    </p>
-                    {formData.username && !isUsernameValid && (
-                      <p className="mt-1 text-[11px] font-semibold text-red-600">Nom d'utilisateur invalide.</p>
-                    )}
-                  </label>
-                )}
+                <label className="block">
+                  <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                    <User size={12} /> Nom d'utilisateur
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={formData.username}
+                    onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
+                    className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.username && !isUsernameValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                    placeholder="ex: agent01"
+                    autoComplete="username"
+                    aria-invalid={formData.username !== '' && !isUsernameValid}
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    3–32 caractères, lettres minuscules, chiffres et underscore.
+                  </p>
+                  {formData.username && !isUsernameValid && (
+                    <p className="mt-1 text-[11px] font-semibold text-red-600">Nom d'utilisateur invalide.</p>
+                  )}
+                </label>
 
                 <label className="block">
                   <span className="text-xs font-black text-[#344054] uppercase tracking-widest mb-1.5 block">Nom affiché</span>

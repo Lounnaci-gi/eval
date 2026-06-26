@@ -14,6 +14,7 @@ import {
   LogOut,
 } from "lucide-react";
 import Logo from "./Logo";
+import ThemeToggle from "./ThemeToggle";
 
 export type AppView =
   | "dashboard"
@@ -140,6 +141,9 @@ export function MobileNav({
               </button>
             );
           })}
+          <div className="px-2 py-1">
+            <ThemeToggle />
+          </div>
           <div className="px-3 py-2 mt-1 border-t border-[#F2F4F7]">
             <p className="text-[10px] text-[#98A2B3] font-medium flex items-center gap-1.5">
               <Calendar size={12} />

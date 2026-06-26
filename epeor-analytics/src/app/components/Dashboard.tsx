@@ -39,6 +39,7 @@ import Logo from "./Logo";
 import { StatsCard, NavItem } from "./dashboard-ui";
 import { SettingsView } from "./SettingsView";
 import { MobileNav, MobileTopBar, type AppView } from "./MobileNav";
+import ThemeToggle from "./ThemeToggle";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
 
 const viewLoader = (
@@ -680,7 +681,7 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-screen min-h-[100dvh] bg-[#F9FAFB] text-[#101828] relative">
       {/* Sidebar — desktop / large tablet landscape */}
-      <aside className="w-72 bg-white border-r border-[#E4E7EC] p-6 flex flex-col gap-10 hidden lg:flex shrink-0 no-print no-print-charts-only">
+      <aside className="sidebar w-72 bg-white border-r border-[#E4E7EC] p-6 flex flex-col gap-10 hidden lg:flex shrink-0 no-print no-print-charts-only">
         <div className="flex items-center gap-3 px-2">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center p-1">
             <Logo variant="sidebar" alt="EPEOR" />
@@ -730,6 +731,9 @@ export default function Dashboard() {
 
         <div className="mt-auto flex flex-col gap-1 pt-6 border-t border-[#F2F4F7]">
           <NavItem icon={<Bell size={20} />} label="Notifications" />
+          <div className="px-1">
+            <ThemeToggle />
+          </div>
           <NavItem icon={<HelpCircle size={20} />} label="Centre d'aide" />
           {user?.is_admin && (
             <NavItem

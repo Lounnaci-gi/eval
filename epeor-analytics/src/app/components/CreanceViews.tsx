@@ -174,7 +174,10 @@ export function CreanceDetailView({
 
       // We run them in sequence to show "real" progress as requested
       // though parallel is faster, the user wants to see the steps
-      const res1 = await fetch(url.toString(), { signal: controller.signal });
+      const res1 = await fetch(url.toString(), { credentials: 'include', signal: controller.signal });
+      if (!res1.ok) {
+        throw new Error(`HTTP ${res1.status}`);
+      }
       const d1 = await res1.json();
       setData(d1);
       setCalcProgress(50);
@@ -186,7 +189,7 @@ export function CreanceDetailView({
       const ventUrl = apiUrlObject('/creance_detaillee');
       ventUrl.searchParams.set('date_arrete', ventDate.replace(/-/g, ''));
       appendSecteurParam(ventUrl, selectedSecteur);
-      const res2 = await fetch(ventUrl.toString(), { signal: controller.signal });
+      const res2 = await fetch(ventUrl.toString(), { credentials: 'include', signal: controller.signal });
       setCalcStep("Répartition des créances par commune...");
       setCalcProgress(80);
 
@@ -267,10 +270,28 @@ export function CreanceDetailView({
         url.searchParams.append("hist_end", histEndDate.replace(/-/g, ''));
       }
 
-      const res = await fetch(url.toString());
-      const d = await res.json();
-      if (d.history) {
+      const res = await fetch(url.toString(), { credentials: 'include' });
+      const text = await res.text();
+      let d: any = null;
+
+      if (!res.ok) {
+        console.warn('History endpoint returned an error:', res.status, text || 'No response body');
+        setData((prev: any) => ({ ...prev, history: [] }));
+        return;
+      }
+
+      if (text) {
+        try {
+          d = JSON.parse(text);
+        } catch {
+          d = null;
+        }
+      }
+
+      if (d?.history) {
         setData((prev: any) => ({ ...prev, history: d.history }));
+      } else {
+        setData((prev: any) => ({ ...prev, history: [] }));
       }
     } catch (e) {
       console.error("Error updating history:", e);
@@ -1315,10 +1336,15 @@ export function CreanceDetailView({
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
                       <XAxis
-                        dataKey="month"
+                        dataKey="label"
                         tickLine={false}
                         axisLine={false}
-                        tick={{ fill: '#667085', fontSize: 11, fontWeight: 600 }}
+                        interval={0}
+                        minTickGap={4}
+                        tick={{ fill: '#667085', fontSize: 10, fontWeight: 600 }}
+                        angle={-20}
+                        textAnchor="end"
+                        height={50}
                       />
                       <YAxis
                         tickLine={false}

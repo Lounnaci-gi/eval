@@ -16,6 +16,7 @@ if (typeof window !== "undefined") {
 
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import dynamic from "next/dynamic";
 import {
   Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, Settings, LogOut, User, Lock, ArrowRight,
@@ -40,6 +41,8 @@ import { StatsCard, NavItem } from "./dashboard-ui";
 import { SettingsView } from "./SettingsView";
 import { MobileNav, MobileTopBar, type AppView } from "./MobileNav";
 import ThemeToggle from "./ThemeToggle";
+import LanguageSwitcher from "./LanguageSwitcher";
+import { useDirection } from "../hooks/useDirection";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
 
 const viewLoader = (
@@ -83,6 +86,8 @@ const BilanActiviteView = dynamic(
 );
 
 export default function Dashboard() {
+  const { direction, isRTL } = useDirection();
+  const { t } = useTranslation();
   const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
@@ -602,14 +607,14 @@ export default function Dashboard() {
           {isLoadError && <Ban size={48} className="text-amber-500" />}
           <div className="space-y-4">
             <h1 className="text-2xl font-black text-[#101828] tracking-tight">
-              {isLoadError ? 'Chargement des données impossible' : 'Initialisation du Système'}
+              {isLoadError ? t('loading.errorTitle') : t('loading.title')}
             </h1>
             <p className="text-sm text-[#475467] font-medium min-h-[40px] flex items-center justify-center text-left w-full">
-              {sanitizeUserFacingMessage(stats?.message || stats?.error) || 'Connexion au serveur backend...'}
+              {sanitizeUserFacingMessage(stats?.message || stats?.error) || t('loading.connecting')}
             </p>
             {stats?.data_dir && (
               <p className="text-xs text-[#98A2B3] font-mono bg-[#F9FAFB] px-3 py-2 rounded-lg border border-[#E4E7EC]">
-                Dossier : {stats.data_dir}
+                {t('loading.folder')} {stats.data_dir}
               </p>
             )}
           </div>
@@ -619,7 +624,7 @@ export default function Dashboard() {
                 <div className="bg-brand-600 h-full animate-pulse w-full rounded-full"></div>
               </div>
               <p className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">
-                Reconstitution du cache (1 à 2 minutes la première fois, ~30 s ensuite)
+                {t('loading.cacheHint')}
               </p>
             </>
           )}
@@ -630,7 +635,7 @@ export default function Dashboard() {
               disabled={reloadPending}
               className="w-full px-6 py-3 bg-brand-600 text-white rounded-2xl text-sm font-black hover:bg-brand-700 disabled:opacity-50 transition-all"
             >
-              {reloadPending ? 'Rechargement…' : 'Relancer le chargement des données'}
+              {reloadPending ? t('loading.reloading') : t('loading.reloadData')}
             </button>
             {backendReachable && (
               <button
@@ -638,11 +643,11 @@ export default function Dashboard() {
                 onClick={() => setShowDataPathSetup(true)}
                 className="w-full px-6 py-3 bg-white border border-[#D0D5DD] text-[#344054] rounded-2xl text-sm font-black hover:bg-[#F9FAFB] transition-all"
               >
-                Configurer le dossier de données
+                {t('loading.configureFolder')}
               </button>
             )}
             <p className="text-[10px] text-[#98A2B3]">
-              Ou fermez « EPEOR Backend » et relancez start.bat — vérifiez le dossier de données (variable EPEOR_DATA_DIR)
+              {t('loading.alternativeRestart')}
             </p>
           </div>
         </div>
@@ -656,14 +661,13 @@ export default function Dashboard() {
         <div className="bg-white border border-amber-100 shadow-2xl rounded-2xl sm:rounded-[3rem] p-6 sm:p-16 flex flex-col items-center gap-6 max-w-lg w-full text-center mx-4">
           <Ban size={48} className="text-amber-500" />
           <div className="space-y-3">
-            <h1 className="text-2xl font-black text-[#101828] tracking-tight">Aucune donnée pour votre compte</h1>
+            <h1 className="text-2xl font-black text-[#101828] tracking-tight">{t('restricted.title')}</h1>
             <p className="text-sm text-[#475467] font-medium">
-              Votre compte est limité au(x) secteur(s){' '}
+              {t('restricted.body')}{' '}
               <span className="font-black text-[#101828]">{user?.allowed_sectors?.join(', ')}</span>
-              , mais aucun abonné n&apos;est rattaché à ce secteur dans les données actuelles.
             </p>
             <p className="text-xs text-[#667085]">
-              Demandez à l&apos;administrateur de vérifier les secteurs assignés (ex. secteur <strong>02</strong> pour cette unité).
+              {t('restricted.hint')}
             </p>
           </div>
           <button
@@ -671,7 +675,7 @@ export default function Dashboard() {
             onClick={handleLogout}
             className="w-full px-6 py-3 bg-[#0D83DE] text-white rounded-2xl text-sm font-black hover:bg-[#0b72c2] transition-all"
           >
-            Se déconnecter
+            {t('restricted.logout')}
           </button>
         </div>
       </div>
@@ -695,55 +699,56 @@ export default function Dashboard() {
         <nav className="flex flex-col gap-1">
           <NavItem
             icon={<LayoutDashboard size={20} />}
-            label="Tableau de bord"
+            label={t('nav.dashboard')}
             active={currentView === 'dashboard'}
             onClick={() => setCurrentView('dashboard')}
           />
           <NavItem
             icon={<Users size={20} />}
-            label="Gestion Abonnés"
+            label={t('nav.subscribers')}
             active={['details', 'evolution', 'resigned', 'stopped', 'no_meter'].includes(currentView)}
             onClick={() => setCurrentView('details')}
           />
           <NavItem
             icon={<BarChart3 size={20} />}
-            label="Analyses Financières"
+            label={t('nav.financials')}
             active={currentView === 'creance' || currentView === 'repartition' || currentView === 'commune' || currentView === 'ventilation'}
             onClick={() => setCurrentView('creance')}
           />
           <NavItem
             icon={<CreditCard size={20} />}
-            label="Créances Abonnés"
+            label={t('nav.subscriberDebts')}
             active={currentView === 'creances_abonnes'}
             onClick={() => setCurrentView('creances_abonnes')}
           />
           <NavItem
             icon={<Building2 size={20} />}
-            label="Créance institutions"
+            label={t('nav.institutionDebts')}
             active={currentView === 'creances_institutions'}
             onClick={() => setCurrentView('creances_institutions')}
           />
           <NavItem
             icon={<Calendar size={20} />}
-            label="Périodes de Facturation"
+            label={t('nav.billingPeriods')}
           />
         </nav>
 
         <div className="mt-auto flex flex-col gap-1 pt-6 border-t border-[#F2F4F7]">
-          <NavItem icon={<Bell size={20} />} label="Notifications" />
-          <div className="px-1">
+          <NavItem icon={<Bell size={20} />} label={t('nav.notifications')} />
+          <div className="px-1 flex flex-col gap-2">
             <ThemeToggle />
+            <LanguageSwitcher />
           </div>
-          <NavItem icon={<HelpCircle size={20} />} label="Centre d'aide" />
+          <NavItem icon={<HelpCircle size={20} />} label={t('nav.helpCenter')} />
           {user?.is_admin && (
             <NavItem
               icon={<Settings size={20} />}
-              label="Paramètres"
+              label={t('nav.settings')}
               active={currentView === 'settings'}
               onClick={() => setCurrentView('settings')}
             />
           )}
-          <NavItem icon={<LogOut size={20} />} label="Déconnexion" onClick={handleLogout} />
+          <NavItem icon={<LogOut size={20} />} label={t('nav.logout')} onClick={handleLogout} />
         </div>
 
         <div className="bg-[#F9FAFB] p-4 rounded-2xl flex items-center gap-3">
@@ -762,8 +767,8 @@ export default function Dashboard() {
       <main className="flex-1 app-main overflow-y-auto overflow-x-hidden print:p-0">
         <header className="flex justify-between items-start mb-6 sm:mb-8 lg:mb-12 no-print no-print-charts-only">
           <div className="min-w-0">
-            <h1 className="page-title text-[#101828]">Bonjour, {user?.username || 'Admin'} !</h1>
-            <p className="text-[#475467] mt-1 text-sm sm:text-base lg:text-lg">Retrouvez la situation globale de votre réseau aujourd&apos;hui.</p>
+            <h1 className="page-title text-[#101828]">{t('dashboard.greeting', { name: user?.username || 'Admin' })}</h1>
+            <p className="text-[#475467] mt-1 text-sm sm:text-base lg:text-lg">{t('dashboard.subtitle')}</p>
           </div>
         </header>
 
@@ -773,7 +778,7 @@ export default function Dashboard() {
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 sm:gap-6">
               <StatsCard
-                title="Total Abonnés"
+                title={t('kpi.totalSubscribers')}
                 value={stats?.total_subscribers?.toLocaleString() || "..."}
                 icon={<Users className="text-[#0D83DE]" size={24} />}
                 trend="+2.5%📈"
@@ -781,7 +786,7 @@ export default function Dashboard() {
                 onClick={() => setCurrentView('details')}
               />
               <StatsCard
-                title="Abonnés Résiliés"
+                title={t('kpi.resigned')}
                 value={stats?.resigned_subscribers?.toLocaleString() || "..."}
                 icon={<UserX className="text-rose-500" size={24} />}
                 trend="Code 40"
@@ -789,7 +794,7 @@ export default function Dashboard() {
                 onClick={() => setCurrentView('resigned')}
               />
               <StatsCard
-                title="A l'Arrêt"
+                title={t('kpi.stopped')}
                 value={stats?.stopped_subscribers?.toLocaleString() || "..."}
                 icon={<TimerOff className="text-amber-500" size={24} />}
                 trend="Code 20"
@@ -797,7 +802,7 @@ export default function Dashboard() {
                 onClick={() => setCurrentView('stopped')}
               />
               <StatsCard
-                title="Sans Compteur"
+                title={t('kpi.noMeter')}
                 value={stats?.no_meter_subscribers?.toLocaleString() || "..."}
                 icon={<Ban className="text-cyan-500" size={24} />}
                 trend="Code 30"
@@ -805,25 +810,25 @@ export default function Dashboard() {
                 onClick={() => setCurrentView('no_meter')}
               />
               <StatsCard
-                title="Taux Forfait"
+                title={t('kpi.forfaitRate')}
                 value={`${pctCpt2030.toFixed(2)}%`}
                 icon={<Percent className="text-slate-500" size={24} />}
-                trend={`${targetSubs.toLocaleString()} abonnés`}
+                trend={`${targetSubs.toLocaleString()} ${t('kpi.subscribers')}`}
                 color="slate"
               />
               <StatsCard
-                title="Chiffre d'Affaire"
+                title={t('kpi.revenue')}
                 value={`${stats?.total_revenue?.toLocaleString() || "..."} DA`}
                 icon={<CreditCard className="text-brand-500" size={24} />}
-                trend={stats?.revenue_period || "Période en cours"}
+                trend={stats?.revenue_period || t('kpi.currentPeriod')}
                 color="brand"
                 onClick={() => setCurrentView('creance')}
               />
               <StatsCard
-                title="Recouvrement"
+                title={t('kpi.recovery')}
                 value={`${stats?.recovery_rate || "..."}%`}
                 icon={<TrendingUp className="text-emerald-500" size={24} />}
-                trend="Objectif 90%"
+                trend={t('kpi.recoveryTarget')}
                 color="emerald"
               />
             </div>
@@ -839,7 +844,7 @@ export default function Dashboard() {
                     onMouseLeave={() => setShowChartGuide(false)}
                   >
                     <h3 className="text-xl font-black tracking-tight text-[#101828] hover:text-[#0D83DE] transition-colors">
-                      Répartition par Secteur (centre) & Résiliations
+                      {t('charts.sectorDistribution')}
                     </h3>
                   </div>
                 </div>
@@ -868,8 +873,8 @@ export default function Dashboard() {
                         }}
                         itemStyle={{ color: "#fff" }}
                         formatter={(value: any, name: any) => [
-                          `${value.toLocaleString()} Abonnés`,
-                          name === "value" ? "Actifs" : "Résiliés"
+                          `${value.toLocaleString()} ${t('kpi.subscribers')}`,
+                          name === "value" ? t('charts.active') : t('charts.resigned')
                         ]}
                       />
                       <Legend
@@ -880,7 +885,7 @@ export default function Dashboard() {
                       />
                       <Bar
                         dataKey="value"
-                        name="Actifs"
+                        name={t('charts.active')}
                         fill="#0D83DE"
                         radius={[4, 4, 0, 0]}
                         barSize={40}
@@ -905,7 +910,7 @@ export default function Dashboard() {
                       </Bar>
                       <Bar
                         dataKey="resigned"
-                        name="Résiliés"
+                        name={t('charts.resigned')}
                         fill="#E11D48"
                         radius={[4, 4, 0, 0]}
                         barSize={40}
@@ -936,7 +941,7 @@ export default function Dashboard() {
                 onClick={() => setCurrentView('details')}
                 className="lg:col-span-3 bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 text-obat-gray cursor-pointer hover:shadow-md hover:border-[#D0D5DD] transition-all group min-w-0"
               >
-                <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">Secteurs (centres)</h3>
+                <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">{t('charts.sectors')}</h3>
                 <ChartContainer className="h-[260px] sm:h-[320px] lg:h-[350px] w-full min-w-0">
                     <PieChart>
                       <Pie
@@ -988,7 +993,7 @@ export default function Dashboard() {
             ) : (
             <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-8 page-card flex flex-col items-center justify-center gap-3 min-h-[200px]">
                 <div className="w-10 h-10 border-4 border-blue-100 border-t-[#0D83DE] rounded-full animate-spin" />
-                <p className="text-sm font-bold text-[#667085]">Chargement des graphiques du tableau de bord…</p>
+                <p className="text-sm font-bold text-[#667085]">{t('dashboard.loadingCharts')}</p>
               </div>
             )}
 
@@ -1034,16 +1039,16 @@ export default function Dashboard() {
                 onClick={() => setCurrentView('dashboard')}
                 className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors animate-in fade-in duration-200"
               >
-                <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
+                <ChevronRight className="rotate-180" size={16} /> {t('dashboard.backToDashboard')}
               </button>
               
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
                 <div className="min-w-0">
-                  <h2 className="page-title text-[#101828]">Analyses Financières</h2>
+                  <h2 className="page-title text-[#101828]">{t('financials.title')}</h2>
                   <p className="text-sm text-[#667085] mt-1 font-medium">
                     {selectedSecteur
-                      ? `Calculs limités au centre : ${sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur}`
-                      : 'Facturation, recouvrement et ventilation — toute l\'unité'}
+                      ? t('dashboard.centerRestricted', { name: sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur })
+                      : t('dashboard.allUnit')}
                   </p>
                   {formatPeriodLabel(calcDateRange.start, calcDateRange.end) && (
                     <p className="text-sm text-[#334155] mt-2 font-medium">{formatPeriodLabel(calcDateRange.start, calcDateRange.end)}</p>
@@ -1060,11 +1065,11 @@ export default function Dashboard() {
                   />
                   <ScrollableTabs className="w-full sm:w-auto sm:max-w-full">
                     {[
-                      { id: 'creance', label: 'Synthèse Globale' },
-                        { id: 'ventilation', label: 'Ventilation Créances' },
-                        { id: 'repartition', label: "Répartition par Type" },
-                        { id: 'commune', label: 'Répartition par Commune' },
-                        { id: 'bilan_activite', label: "Bilan d'activité" }
+                      { id: 'creance', label: t('financials.tabs.globalSummary') },
+                      { id: 'ventilation', label: t('financials.tabs.debtBreakdown') },
+                      { id: 'repartition', label: t('financials.tabs.typeBreakdown') },
+                      { id: 'commune', label: t('financials.tabs.communeBreakdown') },
+                      { id: 'bilan_activite', label: t('financials.tabs.activityReport') }
                     ].map(tab => (
                       <ScrollableTab
                         key={tab.id}

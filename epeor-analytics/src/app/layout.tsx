@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import Script from "next/script";
 import "./globals.css";
+
 
 export const metadata: Metadata = {
   title: "EPEOR Insights - Analytics Dashboard",
@@ -33,10 +35,12 @@ export default async function RootLayout({
     <html lang="fr" className="h-full antialiased" {...(serverDataTheme ? { "data-theme": serverDataTheme } : {})}>
       <head>
         {/* Theme initialization script to avoid FOUC: reads localStorage and applies data-theme early */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var key='theme';var m=document.cookie.match(new RegExp('(^| )'+key+'=([^;]+)'));var v=m?decodeURIComponent(m[2]):null;var root=document.documentElement;if(v==='dark'){root.setAttribute('data-theme','dark');}else if(v==='light'){root.removeAttribute('data-theme');}else{var isDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(isDark){root.setAttribute('data-theme','dark');}else{root.removeAttribute('data-theme');}}}catch(e){} })()` }} />
+        <Script strategy="beforeInteractive">
+          {"(function(){try{var key='theme';var m=document.cookie.match(new RegExp('(^| )'+key+'=([^;]+)'));var v=m?decodeURIComponent(m[2]):null;var root=document.documentElement;if(v==='dark'){root.setAttribute('data-theme','dark');}else if(v==='light'){root.removeAttribute('data-theme');}else{var isDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(isDark){root.setAttribute('data-theme','dark');}else{root.removeAttribute('data-theme');}}}catch(e){} })()"}
+        </Script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-full min-h-[100dvh] flex flex-col overflow-x-hidden">{children}</body>
     </html>

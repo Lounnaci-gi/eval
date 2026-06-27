@@ -35,9 +35,26 @@ export function middleware(request: NextRequest) {
     });
   }
 
-  return NextResponse.next();
+  // Language detection (Accept-Language header) for page requests
+  const langParam = request.nextUrl.searchParams.get('lang');
+  const hasLangCookie = request.cookies.has('i18nextLng');
+
+  let response = NextResponse.next();
+
+  if (langParam === 'fr' || langParam === 'ar') {
+    response.cookies.set('i18nextLng', langParam, { path: '/' });
+  } else if (!hasLangCookie) {
+    const acceptLanguage = request.headers.get('accept-language') || '';
+    const prefersArabic = acceptLanguage.toLowerCase().includes('ar');
+    const detectedLang = prefersArabic ? 'ar' : 'fr';
+    response.cookies.set('i18nextLng', detectedLang, { path: '/' });
+  }
+
+  return response;
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/backend-api/:path*'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
 };

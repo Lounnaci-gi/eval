@@ -507,3 +507,20 @@ table thead th {
 [data-next-badge-root="true"] {
   display: none !important;
 }
+
+/* RTL & Arabic Typography Enhancements */
+html[lang="ar"] body {
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+  font-size: 1.05rem; /* Slight scale up for Arabic legibility */
+}
+
+/* RTL-aware icon rotation utilities */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+  transition: transform 200ms ease;
+}
+
+/* Smooth transition for page layout shifts on language switch */
+body {
+  transition: direction 200ms ease, font-family 200ms ease;
+}

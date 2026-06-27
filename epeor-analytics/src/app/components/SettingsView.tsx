@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import "../../lib/i18n";
 import { ChevronRight, Database, RefreshCw, Search, Plus, Trash2, Edit2, Shield, User, Lock, X, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { apiUrl } from "../lib/api";
 
@@ -23,6 +25,7 @@ export function SettingsView({
     allowed_sectors?: string[] | null;
   } | null;
 }) {
+  const { t } = useTranslation();
   const [unites, setUnites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +74,7 @@ export function SettingsView({
       const data = await res.json();
       setUsersList(data);
     } catch {
-      setUsersError('Impossible de charger la liste des utilisateurs.');
+      setUsersError(t('settings.cannotLoadUsers', 'Impossible de charger la liste des utilisateurs.'));
     } finally {
       setUsersLoading(false);
     }
@@ -240,12 +243,12 @@ export function SettingsView({
             onClick={onBack}
             className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
           >
-            <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
+            <ChevronRight className="rotate-180" size={16} /> {t('dashboard.backToDashboard')}
           </button>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <h2 className="page-title text-[#101828]">Paramètres du Système</h2>
-              <p className="text-sm text-[#667085] mt-1 font-medium">Consultez la structure organisationnelle d&apos;EPEOR, l&apos;unité de gestion et ses centres associés.</p>
+              <h2 className="page-title text-[#101828]">{t('settings.title')}</h2>
+              <p className="text-sm text-[#667085] mt-1 font-medium">{t('settings.subtitle', "Consultez la structure organisationnelle d'EPEOR, l'unité de gestion et ses centres associés.")}</p>
             </div>
           </div>
         </div>
@@ -256,7 +259,7 @@ export function SettingsView({
           onClick={onBack}
           className="text-sm font-bold text-[#667085] hover:text-[#101828] flex items-center gap-2"
         >
-          <ChevronRight className="rotate-180" size={16} /> Retour
+          <ChevronRight className="rotate-180" size={16} /> {t('common.back')}
         </button>
       )}
 
@@ -268,14 +271,14 @@ export function SettingsView({
             onClick={() => setActiveTab('system')}
             className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-black transition-all ${activeTab === 'system' ? 'bg-white shadow-sm text-[#0D83DE]' : 'text-[#667085] hover:text-[#344054]'}`}
           >
-            ⚙️ Système
+            ⚙️ {t('settings.tabSystem', 'Système')}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('users')}
             className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-black transition-all ${activeTab === 'users' ? 'bg-white shadow-sm text-[#0D83DE]' : 'text-[#667085] hover:text-[#344054]'}`}
           >
-            👥 Utilisateurs
+            👥 {t('settings.tabUsers', 'Utilisateurs')}
           </button>
         </div>
       )}
@@ -315,33 +318,33 @@ export function SettingsView({
             <Database size={22} />
           </div>
           <div>
-            <h3 className="text-lg font-black text-[#101828]">Dossier des données (DBF)</h3>
+            <h3 className="text-lg font-black text-[#101828]">{t('settings.dataPath')}</h3>
             <p className="text-sm text-[#667085] mt-1 font-medium">
-              Chemin du répertoire contenant les fichiers EPEOR (ABONNE.DBF, FACTURES.DBF, etc.). Le changement déclenche un rechargement complet.
+              {t('settings.dataPathDesc', "Chemin du répertoire contenant les fichiers EPEOR (ABONNE.DBF, FACTURES.DBF, etc.). Le changement déclenche un rechargement complet.")}
             </p>
           </div>
         </div>
 
         {dataDirLoading ? (
-          <p className="text-xs font-bold text-[#98A2B3]">Lecture de la configuration...</p>
+          <p className="text-xs font-bold text-[#98A2B3]">{t('settings.dataPathLoading', 'Lecture de la configuration...')}</p>
         ) : (
           <div className="space-y-4">
             {dataDirInfo?.locked_by_env && (
               <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold">
-                Chemin verrouillé par la variable d&apos;environnement <span className="font-mono">EPEOR_DATA_DIR</span>.
-                Modifiez-la dans start.bat ou les paramètres Windows, puis redémarrez le backend.
+                {t('settings.dataPathLocked', "Chemin verrouillé par la variable d'environnement")} <span className="font-mono">EPEOR_DATA_DIR</span>.
+                {' '}{t('settings.dataPathLockedHint', 'Modifiez-la dans start.bat ou les paramètres Windows, puis redémarrez le backend.')}
               </div>
             )}
             <div>
               <label className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider mb-2">
-                Chemin du dossier
+                {t('settings.dataPathLabel')}
               </label>
               <input
                 type="text"
                 value={dataDir}
                 onChange={(e) => setDataDir(e.target.value)}
                 disabled={dataDirInfo?.locked_by_env || savingDataDir}
-                placeholder="Ex. d:\epeor"
+                placeholder={t('settings.dataPathPlaceholder')}
                 className="w-full font-mono text-sm font-bold text-[#344054] bg-[#F9FAFB] border border-[#D0D5DD] rounded-xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0D83DE] disabled:opacity-60 disabled:cursor-not-allowed"
                 spellCheck={false}
               />
@@ -355,11 +358,11 @@ export function SettingsView({
                       : 'bg-rose-50 text-rose-700 border-rose-100'
                   }`}
                 >
-                  {dataDirInfo.data_dir_exists ? 'Dossier accessible' : 'Dossier introuvable'}
+                  {dataDirInfo.data_dir_exists ? t('settings.folderAccessible', 'Dossier accessible') : t('settings.folderNotFound', 'Dossier introuvable')}
                 </span>
                 {typeof dataDirInfo.dbf_count === 'number' && (
                   <span className="inline-flex items-center px-2.5 py-1 bg-slate-50 text-slate-600 border border-slate-200 rounded-full">
-                    {dataDirInfo.dbf_count} fichier(s) DBF
+                    {dataDirInfo.dbf_count} {t('settings.dbfFiles', 'fichier(s) DBF')}
                   </span>
                 )}
                 {dataDirInfo.is_db_ready && (
@@ -396,7 +399,7 @@ export function SettingsView({
                 }`}
               >
                 <RefreshCw size={16} className={savingDataDir ? 'animate-spin' : ''} />
-                {savingDataDir ? 'Enregistrement...' : 'Appliquer et recharger'}
+                {savingDataDir ? t('common.loading') : t('settings.applyReload', 'Appliquer et recharger')}
               </button>
               <button
                 type="button"
@@ -404,7 +407,7 @@ export function SettingsView({
                 disabled={dataDirLoading || savingDataDir}
                 className="px-6 py-3 rounded-2xl font-black text-xs border border-[#D0D5DD] text-[#344054] hover:bg-[#F9FAFB] transition-all"
               >
-                Actualiser
+                {t('common.retry')}
               </button>
             </div>
           </div>
@@ -414,17 +417,17 @@ export function SettingsView({
       {!setupMode && (loading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E4E7EC] rounded-[2rem] shadow-sm">
           <div className="w-12 h-12 border-4 border-slate-200 border-t-[#0D83DE] rounded-full animate-spin"></div>
-          <p className="mt-4 text-sm font-bold text-[#475467]">Chargement de la structure organisationnelle...</p>
+          <p className="mt-4 text-sm font-bold text-[#475467]">{t('settings.loadingOrg', 'Chargement de la structure organisationnelle...')}</p>
         </div>
       ) : error ? (
         <div className="bg-rose-50 border border-rose-200 text-rose-800 p-6 rounded-[2rem] shadow-sm">
-          <p className="font-bold">Une erreur est survenue</p>
+          <p className="font-bold">{t('common.error')}</p>
           <p className="text-sm mt-1">{error}</p>
           <button
             onClick={fetchSettings}
             className="mt-4 px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
           >
-            Réessayer
+            {t('common.retry')}
           </button>
         </div>
       ) : (
@@ -445,34 +448,34 @@ export function SettingsView({
                         {u.code}
                       </div>
                       <div>
-                        <h3 className="text-xl font-black text-[#101828] uppercase">Unité {u.denom}</h3>
-                        <p className="text-xs text-blue-600 font-bold">Unité de Gestion Principale</p>
+                        <h3 className="text-xl font-black text-[#101828] uppercase">{t('settings.unitTitle', 'Unité')} {u.denom}</h3>
+                        <p className="text-xs text-blue-600 font-bold">{t('settings.unitSubtitle', 'Unité de Gestion Principale')}</p>
                       </div>
                     </div>
 
                     <div className="border-t border-[#F2F4F7] pt-6 space-y-4">
                       <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Adresse</span>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">{t('settings.unitAddress', 'Adresse')}</span>
                         <span className="text-sm font-bold text-[#344054]">{u.adresse || '—'}</span>
                       </div>
                       <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Téléphone</span>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">{t('settings.unitPhone', 'Téléphone')}</span>
                         <span className="text-sm font-bold text-[#344054]">{u.telephone || '—'}</span>
                       </div>
                       <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Identifiant Fiscal (NIF)</span>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">{t('settings.unitNif', 'Identifiant Fiscal (NIF)')}</span>
                         <span className="text-sm font-mono font-bold text-[#344054]">{u.identfisc || '—'}</span>
                       </div>
                       <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Article d'Imposition</span>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">{t('settings.unitArticle', "Article d'Imposition")}</span>
                         <span className="text-sm font-mono font-bold text-[#344054]">{u.nartfisc || '—'}</span>
                       </div>
                       <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Banque</span>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">{t('settings.unitBank', 'Banque')}</span>
                         <span className="text-sm font-bold text-[#344054]">{u.ncompte || '—'}</span>
                       </div>
                       <div>
-                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">RIB / Compte Bancaire</span>
+                        <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">{t('settings.unitRib', 'RIB / Compte Bancaire')}</span>
                         <span className="text-sm font-mono font-bold text-slate-700 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 block mt-1 overflow-x-auto select-all">
                           {u.dombanq || '—'}
                         </span>
@@ -482,10 +485,10 @@ export function SettingsView({
 
                   <div className="mt-8 pt-6 border-t border-[#F2F4F7]">
                     <div className="flex items-center gap-2.5 text-xs font-bold text-[#667085]">
-                      <span>Statut :</span>
+                      <span>{t('settings.unitStatus', 'Statut :')}</span>
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                        Opérationnel
+                        {t('settings.unitOperational', 'Opérationnel')}
                       </span>
                     </div>
                   </div>
@@ -495,8 +498,8 @@ export function SettingsView({
                 <div className="lg:col-span-2 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
-                      <h3 className="text-lg font-black text-[#101828]">Centres & Secteurs Associés</h3>
-                      <p className="text-xs text-[#667085] font-medium mt-0.5">Secteurs géographiques rattachés à l'unité de {u.denom} ({u.sectors.length} centres chargés)</p>
+                      <h3 className="text-lg font-black text-[#101828]">{t('settings.sectorsTitle', 'Centres & Secteurs Associés')}</h3>
+                      <p className="text-xs text-[#667085] font-medium mt-0.5">{t('settings.sectorsSub', 'Secteurs géographiques rattachés à l\'unité de')} {u.denom} ({u.sectors.length} {t('settings.centersLoaded', 'centres chargés')})</p>
                     </div>
                     
                     {/* Search sector */}
@@ -504,7 +507,7 @@ export function SettingsView({
                       <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3]" size={16} />
                       <input
                         type="text"
-                        placeholder="Rechercher un centre..."
+                        placeholder={t('settings.searchCenter', 'Rechercher un centre...')}
                         className="bg-white border-[#D0D5DD] border rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0D83DE] transition-all placeholder:text-[#98A2B3] w-48 sm:w-64"
                         value={sectorSearch}
                         onChange={(e) => setSectorSearch(e.target.value)}
@@ -516,10 +519,10 @@ export function SettingsView({
                     <table className="w-full border-collapse text-left">
                       <thead>
                         <tr className="bg-[#F9FAFB] border-b border-[#E4E7EC] text-[#475467] text-[10px] uppercase font-black">
-                          <th className="px-6 py-4">Code Centre</th>
-                          <th className="px-6 py-4">Nom du Centre (Secteur)</th>
-                          <th className="px-6 py-4">Code Unité</th>
-                          <th className="px-6 py-4 text-right">Rattachement</th>
+                           <th className="px-6 py-4">{t('settings.colCenterCode', 'Code Centre')}</th>
+                          <th className="px-6 py-4">{t('settings.colCenterName', 'Nom du Centre (Secteur)')}</th>
+                          <th className="px-6 py-4">{t('settings.colUnitCode', 'Code Unité')}</th>
+                          <th className="px-6 py-4 text-right">{t('settings.colLink', 'Rattachement')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#F2F4F7]">
@@ -537,7 +540,7 @@ export function SettingsView({
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <span className="inline-flex items-center px-2.5 py-1 bg-blue-50/50 text-blue-700 border border-blue-100/50 rounded-lg text-[10px] font-bold">
-                                  Lié à {u.denom}
+                                  {t('settings.linkedTo', 'Lié à')} {u.denom}
                                 </span>
                               </td>
                             </tr>
@@ -545,7 +548,7 @@ export function SettingsView({
                         ) : (
                           <tr>
                             <td colSpan={4} className="px-6 py-12 text-center text-sm font-bold text-[#98A2B3]">
-                              Aucun centre ne correspond à votre recherche.
+                              {t('settings.noSearchResults', 'Aucun centre ne correspond à votre recherche.')}
                             </td>
                           </tr>
                         )}
@@ -561,8 +564,8 @@ export function SettingsView({
           <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
-                <h3 className="text-lg font-black text-[#101828]">Gestion du Cache de Données</h3>
-                <p className="text-sm text-[#667085] mt-1 font-medium">Forcez la ré-analyse et la mise en cache des tables DBF brutes. Utilisez cette fonction si les fichiers de données sur le disque ont été modifiés.</p>
+                <h3 className="text-lg font-black text-[#101828]">{t('settings.cacheTitle', 'Gestion du Cache de Données')}</h3>
+                <p className="text-sm text-[#667085] mt-1 font-medium">{t('settings.cacheDesc', 'Forcez la ré-analyse et la mise en cache des tables DBF brutes. Utilisez cette fonction si les fichiers de données sur le disque ont été modifiés.')}</p>
               </div>
               <button
                 onClick={handleClearCache}
@@ -574,7 +577,7 @@ export function SettingsView({
                 }`}
               >
                 <RefreshCw size={16} className={clearingCache ? 'animate-spin' : ''} />
-                Réindexer & Recharger les DBF
+                {t('settings.reindexBtn', 'Réindexer & Recharger les DBF')}
               </button>
             </div>
             {cacheMessage && (
@@ -610,6 +613,7 @@ function UsersManagementPanel({
   onRefresh: () => void;
   currentUsername: string;
 }) {
+  const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [formData, setFormData] = useState({
@@ -627,7 +631,7 @@ function UsersManagementPanel({
 
   const getPasswordStrength = (password: string) => {
     if (!password) {
-      return { percent: 0, label: 'Aucun mot de passe', color: 'bg-slate-300', textColor: 'text-slate-500', icon: '•' };
+      return { percent: 0, label: t('settings.pwdNone', 'Aucun mot de passe'), color: 'bg-slate-300', textColor: 'text-slate-500', icon: '•' };
     }
 
     let score = 0;
@@ -639,15 +643,15 @@ function UsersManagementPanel({
 
     const percent = Math.min(100, Math.round((score / 5) * 100));
     if (score <= 2) {
-      return { percent, label: 'Faible', color: 'bg-gradient-to-r from-red-500 to-rose-500', textColor: 'text-red-600', icon: '✕' };
+      return { percent, label: t('settings.pwdWeak', 'Faible'), color: 'bg-gradient-to-r from-red-500 to-rose-500', textColor: 'text-red-600', icon: '✕' };
     }
     if (score === 3) {
-      return { percent, label: 'Moyen', color: 'bg-gradient-to-r from-amber-500 to-orange-500', textColor: 'text-amber-600', icon: '!' };
+      return { percent, label: t('settings.pwdMedium', 'Moyen'), color: 'bg-gradient-to-r from-amber-500 to-orange-500', textColor: 'text-amber-600', icon: '!' };
     }
     if (score === 4) {
-      return { percent, label: 'Bon', color: 'bg-gradient-to-r from-blue-500 to-cyan-500', textColor: 'text-blue-600', icon: '✓' };
+      return { percent, label: t('settings.pwdGood', 'Bon'), color: 'bg-gradient-to-r from-blue-500 to-cyan-500', textColor: 'text-blue-600', icon: '✓' };
     }
-    return { percent, label: 'Très fort', color: 'bg-gradient-to-r from-emerald-500 to-green-500', textColor: 'text-emerald-600', icon: '✓' };
+    return { percent, label: t('settings.pwdStrong', 'Très fort'), color: 'bg-gradient-to-r from-emerald-500 to-green-500', textColor: 'text-emerald-600', icon: '✓' };
   };
 
   const passwordStrength = getPasswordStrength(formData.password);
@@ -743,10 +747,10 @@ function UsersManagementPanel({
         });
         const data = await res.json();
         if (!res.ok) {
-          setFormMessage({ type: 'err', text: data.detail || 'Erreur lors de la modification.' });
+          setFormMessage({ type: 'err', text: data.detail || t('settings.errUpdate', 'Erreur lors de la modification.') });
           return;
         }
-        setFormMessage({ type: 'ok', text: 'Utilisateur mis à jour.' });
+        setFormMessage({ type: 'ok', text: t('settings.userUpdated', 'Utilisateur mis à jour.') });
         setTimeout(() => { setShowForm(false); resetForm(); onRefresh(); }, 1000);
       } else {
         const body: any = {
@@ -765,21 +769,21 @@ function UsersManagementPanel({
         });
         const data = await res.json();
         if (!res.ok) {
-          setFormMessage({ type: 'err', text: data.detail || 'Erreur lors de la création.' });
+          setFormMessage({ type: 'err', text: data.detail || t('settings.errCreate', 'Erreur lors de la création.') });
           return;
         }
-        setFormMessage({ type: 'ok', text: 'Utilisateur créé avec succès.' });
+        setFormMessage({ type: 'ok', text: t('settings.userCreated', 'Utilisateur créé avec succès.') });
         setTimeout(() => { setShowForm(false); resetForm(); onRefresh(); }, 1000);
       }
     } catch {
-      setFormMessage({ type: 'err', text: 'Erreur de connexion au serveur.' });
+      setFormMessage({ type: 'err', text: t('settings.errConnection', 'Erreur de connexion au serveur.') });
     } finally {
       setFormLoading(false);
     }
   };
 
   const handleDelete = async (userId: number, username: string) => {
-    if (!confirm(`Supprimer l'utilisateur "${username}" ? Cette action est irréversible.`)) return;
+    if (!confirm(t('settings.confirmDelete', 'Supprimer l\'utilisateur') + ` "${username}" ? ` + t('settings.irréversible', 'Cette action est irréversible.'))) return;
     setDeletingId(userId);
     try {
       const res = await fetch(apiUrl(`/api/admin/users/${userId}`), {
@@ -788,12 +792,12 @@ function UsersManagementPanel({
       });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.detail || 'Erreur lors de la suppression.');
+        alert(data.detail || t('settings.errDelete', 'Erreur lors de la suppression.'));
         return;
       }
       onRefresh();
     } catch {
-      alert('Erreur de connexion au serveur.');
+      alert(t('settings.errConnection', 'Erreur de connexion au serveur.'));
     } finally {
       setDeletingId(null);
     }
@@ -805,15 +809,15 @@ function UsersManagementPanel({
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-lg font-black text-[#101828]">Gestion des utilisateurs</h3>
-            <p className="text-sm text-[#667085] mt-1">Créez des utilisateurs avec accès limité à un ou plusieurs secteurs.</p>
+            <h3 className="text-lg font-black text-[#101828]">{t('settings.usersTitle', 'Gestion des utilisateurs')}</h3>
+            <p className="text-sm text-[#667085] mt-1">{t('settings.usersSubtitle', 'Créez des utilisateurs avec accès limité à un ou plusieurs secteurs.')}</p>
           </div>
           <button
             type="button"
             onClick={openCreate}
             className="flex items-center gap-2 px-5 py-3 bg-[#0D83DE] text-white rounded-2xl text-sm font-black hover:bg-[#0b72c2] transition-all shadow-md shadow-blue-100 shrink-0"
           >
-            <Plus size={16} /> Nouvel utilisateur
+            <Plus size={16} /> {t('settings.newUser', 'Nouvel utilisateur')}
           </button>
         </div>
 
@@ -826,7 +830,7 @@ function UsersManagementPanel({
             <AlertTriangle size={18} /> {usersError}
           </div>
         ) : usersList.length === 0 ? (
-          <p className="text-sm text-[#98A2B3] text-center py-8 font-medium">Aucun utilisateur trouvé.</p>
+          <p className="text-sm text-[#98A2B3] text-center py-8 font-medium">{t('settings.noUsers', 'Aucun utilisateur trouvé.')}</p>
         ) : (
           <div className="space-y-3">
             {usersList.map((u: any) => (
@@ -846,11 +850,11 @@ function UsersManagementPanel({
                       </span>
                     ) : u.allowed_sectors && u.allowed_sectors.length > 0 ? (
                       <span className="text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5">
-                        Secteurs : {u.allowed_sectors.join(', ')}
+                       Secteurs : {u.allowed_sectors.join(', ')}
                       </span>
                     ) : (
                       <span className="text-[10px] font-black bg-slate-50 text-slate-500 border border-slate-100 rounded-full px-2 py-0.5">
-                        Accès complet
+                       {t('settings.fullAccess', 'Accès complet')}
                       </span>
                     )}
                   </div>
@@ -861,7 +865,7 @@ function UsersManagementPanel({
                     type="button"
                     onClick={() => openEdit(u)}
                     className="p-2 rounded-xl text-[#667085] hover:bg-[#EFF8FF] hover:text-[#0D83DE] transition-colors"
-                    title="Modifier"
+                    title={t('common.edit')}
                   >
                     <Edit2 size={16} />
                   </button>
@@ -871,7 +875,7 @@ function UsersManagementPanel({
                       onClick={() => handleDelete(u.id, u.username)}
                       disabled={deletingId === u.id}
                       className="p-2 rounded-xl text-[#667085] hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
-                      title="Supprimer"
+                      title={t('common.delete')}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -895,10 +899,10 @@ function UsersManagementPanel({
               <div className="flex items-start justify-between gap-3 border-b border-[#F2F4F7] bg-white/95 px-5 py-4 sm:px-6 sm:py-5">
                 <div>
                   <h3 className="text-lg font-black text-[#101828]">
-                    {editingUser ? `Modifier — ${editingUser.username}` : 'Créer un utilisateur'}
+                    {editingUser ? `${t('settings.editUser')} — ${editingUser.username}` : t('settings.createUser', 'Créer un utilisateur')}
                   </h3>
                   <p className="text-xs text-[#667085] mt-0.5 font-medium">
-                    {editingUser ? 'Laissez le mot de passe vide pour ne pas le modifier.' : 'Remplissez tous les champs requis.'}
+                    {editingUser ? t('settings.editHint', 'Laissez le mot de passe vide pour ne pas le modifier.') : t('settings.createHint', 'Remplissez tous les champs requis.')}
                   </p>
                 </div>
                 <button
@@ -913,7 +917,7 @@ function UsersManagementPanel({
               <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 sm:p-6 sm:space-y-4">
                 <label className="block">
                   <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-                    <User size={12} /> Nom d'utilisateur
+                    <User size={12} /> {t('settings.username')}
                   </span>
                   <input
                     type="text"
@@ -926,15 +930,15 @@ function UsersManagementPanel({
                     aria-invalid={formData.username !== '' && !isUsernameValid}
                   />
                   <p className="mt-2 text-xs text-slate-500">
-                    3–32 caractères, lettres minuscules, chiffres et underscore.
+                    {t('settings.usernameHint', '3–32 caractères, lettres minuscules, chiffres et underscore.')}
                   </p>
                   {formData.username && !isUsernameValid && (
-                    <p className="mt-1 text-[11px] font-semibold text-red-600">Nom d'utilisateur invalide.</p>
+                    <p className="mt-1 text-[11px] font-semibold text-red-600">{t('settings.usernameInvalid', "Nom d'utilisateur invalide.")}</p>
                   )}
                 </label>
 
                 <label className="block">
-                  <span className="text-xs font-black text-[#344054] uppercase tracking-widest mb-1.5 block">Nom affiché</span>
+                  <span className="text-xs font-black text-[#344054] uppercase tracking-widest mb-1.5 block">{t('settings.displayName')}</span>
                   <input
                     type="text"
                     required
@@ -947,7 +951,7 @@ function UsersManagementPanel({
 
                 <label className="block">
                   <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-                    <Lock size={12} /> Mot de passe {editingUser ? '(optionnel)' : ''}
+                    <Lock size={12} /> {t('settings.password')} {editingUser ? `(${t('settings.optional', 'optionnel')})` : ''}
                   </span>
                   <div className="relative">
                     <input
@@ -956,7 +960,7 @@ function UsersManagementPanel({
                       value={formData.password}
                       onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
                       className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.password && !passwordValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
-                      placeholder={editingUser ? 'Laisser vide = inchangé' : '8 caractères minimum'}
+                      placeholder={editingUser ? t('settings.pwdPlaceholderEdit', 'Laisser vide = inchangé') : t('settings.pwdPlaceholderNew', '8 caractères minimum')}
                       autoComplete="new-password"
                     />
                     <button
@@ -970,24 +974,24 @@ function UsersManagementPanel({
                   </div>
                   <div className="mt-2 flex flex-col gap-1 text-[11px]">
                     <div className="flex items-center justify-between gap-3 text-slate-500">
-                      <span>{isCreateMode ? 'Sécurité' : 'Nouveau mot de passe'}</span>
+                      <span>{isCreateMode ? t('settings.pwdSecurity', 'Sécurité') : t('settings.newPwd', 'Nouveau mot de passe')}</span>
                       <button
                         type="button"
                         onClick={generatePassword}
                         className="text-[#0D83DE] font-black text-[11px] hover:text-[#0b72c2] transition"
                       >
-                        Générer
+                        {t('settings.generate', 'Générer')}
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <span className={`rounded-full px-2 py-1 ${formData.password.length >= 8 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>8 caractères</span>
-                      <span className={`rounded-full px-2 py-1 ${/[a-z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>minuscule</span>
-                      <span className={`rounded-full px-2 py-1 ${/[A-Z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>majuscule</span>
-                      <span className={`rounded-full px-2 py-1 ${/\d/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>chiffre</span>
+                      <span className={`rounded-full px-2 py-1 ${formData.password.length >= 8 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdChars', '8 caractères')}</span>
+                      <span className={`rounded-full px-2 py-1 ${/[a-z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdLower', 'minuscule')}</span>
+                      <span className={`rounded-full px-2 py-1 ${/[A-Z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdUpper', 'majuscule')}</span>
+                      <span className={`rounded-full px-2 py-1 ${/\d/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdDigit', 'chiffre')}</span>
                     </div>
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center justify-between text-[11px] text-slate-500">
-                          <span>Force du mot de passe</span>
+                          <span>{t('settings.pwdStrength', 'Force du mot de passe')}</span>
                           <span className={`font-black ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
                         </div>
                         <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
@@ -1000,7 +1004,7 @@ function UsersManagementPanel({
                 {!editingUser && (
                   <label className="block">
                     <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-                      <Lock size={12} /> Confirmer le mot de passe
+                      <Lock size={12} /> {t('settings.confirmPwd', 'Confirmer le mot de passe')}
                     </span>
                     <div className="relative">
                       <input
@@ -1009,7 +1013,7 @@ function UsersManagementPanel({
                         value={formData.password_confirm}
                         onChange={e => setFormData(p => ({ ...p, password_confirm: e.target.value }))}
                         className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.password_confirm && !passwordMatch ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
-                        placeholder="Retapez le mot de passe"
+                        placeholder={t('settings.confirmPwdPlaceholder', 'Retapez le mot de passe')}
                         autoComplete="new-password"
                       />
                       <button
@@ -1022,7 +1026,7 @@ function UsersManagementPanel({
                       </button>
                     </div>
                     {formData.password_confirm && !passwordMatch && (
-                      <p className="mt-2 text-[11px] text-red-600">Les mots de passe ne correspondent pas.</p>
+                      <p className="mt-2 text-[11px] text-red-600">{t('settings.pwdMismatch', 'Les mots de passe ne correspondent pas.')}</p>
                     )}
                   </label>
                 )}
@@ -1030,17 +1034,17 @@ function UsersManagementPanel({
                 {editingUser?.is_admin && (
                   <div className="flex items-center gap-2 p-3 rounded-2xl bg-amber-50 border border-amber-100 text-amber-800 text-sm font-bold">
                     <Shield size={16} className="text-amber-500 shrink-0" />
-                    Compte administrateur unique — accès complet à l'application.
+                    {t('settings.adminNote', "Compte administrateur unique — accès complet à l'application.")}
                   </div>
                 )}
 
                 {!editingUser?.is_admin && (
                   <div>
                     <p className="text-xs font-black text-[#344054] uppercase tracking-widest mb-3">
-                      Secteurs autorisés {formData.allowed_sectors.length > 0 ? `(${formData.allowed_sectors.length} sélectionnés)` : '— tous si aucun coché'}
+                      {t('settings.allowedSectors')} {formData.allowed_sectors.length > 0 ? `(${formData.allowed_sectors.length} ${t('settings.selected', 'sélectionnés')})` : `— ${t('settings.allIfNone', 'tous si aucun coché')}`}
                     </p>
                     {sectors.length === 0 ? (
-                      <p className="text-xs text-[#98A2B3] italic">Données pas encore chargées — secteurs indisponibles.</p>
+                      <p className="text-xs text-[#98A2B3] italic">{t('settings.sectorsNotLoaded', 'Données pas encore chargées — secteurs indisponibles.')}</p>
                     ) : (
                       <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                         {sectors.map(s => {
@@ -1080,7 +1084,7 @@ function UsersManagementPanel({
                     onClick={() => { setShowForm(false); resetForm(); }}
                     className="flex-1 py-3 rounded-2xl border border-[#D0D5DD] text-sm font-black text-[#344054] hover:bg-[#F9FAFB] transition"
                   >
-                    Annuler
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
@@ -1090,7 +1094,7 @@ function UsersManagementPanel({
                     {formLoading ? (
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
                     ) : (
-                      editingUser ? 'Enregistrer' : 'Créer l\'utilisateur'
+                      editingUser ? t('common.save') : t('settings.createUserBtn', "Créer l'utilisateur")
                     )}
                   </button>
                 </div>

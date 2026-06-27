@@ -97,6 +97,8 @@ export function sanitizeEvolutionRows(rows: unknown): EvolutionRow[] {
   });
 }
 
+import i18n from "../../lib/i18n";
+
 export const MONTH_LABELS_FR = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
@@ -106,9 +108,10 @@ export function formatPeriodFrench(periodStr: string | undefined | null): string
   if (!periodStr || typeof periodStr !== "string") return "";
   const [y, m] = periodStr.split("-");
   if (!y || !m) return periodStr;
-  const mIdx = parseInt(m, 10) - 1;
-  if (mIdx < 0 || mIdx > 11) return periodStr;
-  return `${MONTH_LABELS_FR[mIdx]} ${y}`;
+  const mIdx = parseInt(m, 10);
+  if (mIdx < 1 || mIdx > 12) return periodStr;
+  const monthName = i18n.t(`months.${mIdx}`, { defaultValue: MONTH_LABELS_FR[mIdx - 1] });
+  return `${monthName} ${y}`;
 }
 
 export function formatPeriodLabel(start: string, end: string) {
@@ -120,9 +123,9 @@ export function formatPeriodLabel(start: string, end: string) {
       ? `${raw.slice(6, 8)}/${raw.slice(4, 6)}/${raw.slice(0, 4)}`
       : raw;
 
-  if (s && e) return `Période : du ${format(s)} au ${format(e)}`;
-  if (s) return `Période : à partir du ${format(s)}`;
-  if (e) return `Période : jusqu'au ${format(e)}`;
+  if (s && e) return i18n.t('period.fromTo', { from: format(s), to: format(e), defaultValue: `Période : du ${format(s)} au ${format(e)}` });
+  if (s) return i18n.t('period.from', { from: format(s), defaultValue: `Période : à partir du ${format(s)}` });
+  if (e) return i18n.t('period.to', { to: format(e), defaultValue: `Période : jusqu'au ${format(e)}` });
   return "";
 }
 

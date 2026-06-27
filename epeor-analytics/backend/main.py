@@ -3346,8 +3346,6 @@ def get_creance(_user: dict = Depends(get_current_user),
                     })
             elif hist_type == "days":
                 # Day interval, max 31 days
-                from datetime import datetime, timedelta
-                
                 if hist_start and len(hist_start) == 8:
                     try:
                         d_start = datetime.strptime(hist_start, "%Y%m%d")
@@ -3477,67 +3475,124 @@ def get_creance(_user: dict = Depends(get_current_user),
                     return 0.0
                 return round((encaissement_total * 12 * 100) / denominator, 2)
 
-            def compute_yearly_average_objectif(year: int) -> float:
-                monthly_rates = []
-                for month in range(1, 13):
-                    month_last_day = calendar.monthrange(year, month)[1]
-                    month_start = f"{year}{month:02d}01"
-                    month_end = f"{year}{month:02d}{month_last_day:02d}"
+            monthly_stats_by_year = None
 
-                    month_ca_eau = 0.0
-                    month_ca_prest = 0.0
-                    month_recouvre_eau = 0.0
-                    month_recouvre_prest = 0.0
-                    month_creance_eau = 0.0
-                    month_creance_prest = 0.0
+            def _build_monthly_stats_for_years(years_set: set[int]) -> dict[tuple[int, int], dict[str, float]]:
+                stats: dict[tuple[int, int], dict[str, float]] = {
+                    (y, m): {
+                        "ca_eau": 0.0,
+                        "ca_prest": 0.0,
+                        "recouvre_eau": 0.0,
+                        "recouvre_prest": 0.0,
+                        "creance_eau": 0.0,
+                        "creance_prest": 0.0,
+                    }
+                    for y in years_set
+                    for m in range(1, 13)
+                }
+                if not years_set:
+                    return stats
 
-                    for r, is_avoir in records_hist:
-                        numab_r = str(r.get('NUMAB', '') or '').strip().upper()
-                        if secteur_numabs is not None and numab_r not in secteur_numabs:
-                            continue
+                y_min, y_max = min(years_set), max(years_set)
 
-                        datsaisie = str(r.get('DATSAISIE') or '').strip()
-                        datreg = str(r.get('DATREG') or '').strip()
-                        tp = str(r.get('TYPE') or '').strip()
-                        monttc = float(r.get('MONTTC') or 0)
-                        timbre = float(r.get('TIMBRE') or 0)
+                for r, is_avoir in records_hist:
+                    numab_r = str(r.get('NUMAB', '') or '').strip().upper()
+                    if secteur_numabs is not None and numab_r not in secteur_numabs:
+                        continue
 
-                        is_eau = tp in ['E', 'C', '6']
-                        m_rec = monttc + timbre
+                    datsaisie = str(r.get('DATSAISIE') or '').strip()
+                    datreg = str(r.get('DATREG') or '').strip()
+                    tp = str(r.get('TYPE') or '').strip()
+                    monttc = float(r.get('MONTTC') or 0)
+                    timbre = float(r.get('TIMBRE') or 0)
+                    is_eau = tp in ['E', 'C', '6']
+                    m_rec = monttc + timbre
 
-                        if month_start <= datsaisie <= month_end:
+                    if len(datsaisie) == 8 and datsaisie.isdigit():
+                        ca_key = (int(datsaisie[:4]), int(datsaisie[4:6]))
+                        bucket = stats.get(ca_key)
+                        if bucket is not None:
                             if is_eau:
-                                month_ca_eau += monttc
+                                bucket["ca_eau"] += monttc
                             else:
-                                month_ca_prest += monttc
+                                bucket["ca_prest"] += monttc
 
-                        if not is_avoir and datreg not in EMPTY_DATE_VALUES and month_start <= datreg <= month_end:
+                    if not is_avoir and datreg not in EMPTY_DATE_VALUES and len(datreg) == 8 and datreg.isdigit():
+                        rec_key = (int(datreg[:4]), int(datreg[4:6]))
+                        bucket = stats.get(rec_key)
+                        if bucket is not None:
                             if is_eau:
-                                month_recouvre_eau += m_rec
+                                bucket["recouvre_eau"] += m_rec
                             else:
-                                month_recouvre_prest += m_rec
+                                bucket["recouvre_prest"] += m_rec
+
+                    if len(datsaisie) != 8 or not datsaisie.isdigit():
+                        continue
+
+                    cy, cm = int(datsaisie[:4]), int(datsaisie[4:6])
+                    if cy > y_max or (cy == y_max and cm > 12):
+                        continue
+
+                    while cy < y_min or (cy == y_min and cm < 1):
+                        cm += 1
+                        if cm > 12:
+                            cm = 1
+                            cy += 1
+                        if cy > y_max:
+                            break
+
+                    while cy <= y_max:
+                        month_last_day = calendar.monthrange(cy, cm)[1]
+                        month_end_str = f"{cy}{cm:02d}{month_last_day:02d}"
+                        if datsaisie > month_end_str:
+                            break
 
                         is_creance_arretee = False
                         if not is_avoir:
-                            if datsaisie and datsaisie <= month_end:
-                                if datreg in EMPTY_DATE_VALUES or datreg > month_end:
-                                    is_creance_arretee = True
+                            if datreg in EMPTY_DATE_VALUES or datreg > month_end_str:
+                                is_creance_arretee = True
                         else:
                             datanul = str(r.get('DATANUL') or '').strip()
-                            if datsaisie and datsaisie <= month_end:
-                                if datanul and datanul > month_end:
-                                    if datreg in EMPTY_DATE_VALUES or datreg > month_end:
-                                        is_creance_arretee = True
+                            if datanul and datanul > month_end_str:
+                                if datreg in EMPTY_DATE_VALUES or datreg > month_end_str:
+                                    is_creance_arretee = True
 
                         if is_creance_arretee:
-                            if is_eau:
-                                month_creance_eau += monttc
-                            else:
-                                month_creance_prest += monttc
+                            bucket = stats.get((cy, cm))
+                            if bucket is not None:
+                                if is_eau:
+                                    bucket["creance_eau"] += monttc
+                                else:
+                                    bucket["creance_prest"] += monttc
 
-                    month_encaissement_total = month_recouvre_eau + month_recouvre_prest
-                    month_creance_total = month_creance_eau + month_creance_prest
-                    rate = compute_objectif_rate(month_encaissement_total, month_creance_total, month_ca_eau)
+                        if not is_avoir and datreg not in EMPTY_DATE_VALUES and datreg <= month_end_str:
+                            break
+
+                        cm += 1
+                        if cm > 12:
+                            cm = 1
+                            cy += 1
+
+                return stats
+
+            def compute_yearly_average_objectif(year: int) -> float:
+                nonlocal monthly_stats_by_year
+                if monthly_stats_by_year is None:
+                    years_set = {interval["year"] for interval in intervals if hist_type == "years"}
+                    monthly_stats_by_year = _build_monthly_stats_for_years(years_set)
+
+                monthly_rates = []
+                for month in range(1, 13):
+                    bucket = monthly_stats_by_year.get((year, month))
+                    if bucket is None:
+                        continue
+                    month_encaissement_total = bucket["recouvre_eau"] + bucket["recouvre_prest"]
+                    month_creance_total = bucket["creance_eau"] + bucket["creance_prest"]
+                    rate = compute_objectif_rate(
+                        month_encaissement_total,
+                        month_creance_total,
+                        bucket["ca_eau"],
+                    )
                     monthly_rates.append(rate)
 
                 if not monthly_rates:
@@ -3630,6 +3685,39 @@ def get_creance(_user: dict = Depends(get_current_user),
                 })
         except Exception as ex:
             print("Error computing history:", ex)
+            history_list = []
+
+        if not history_list:
+            try:
+                if hist_type == "years":
+                    y_start = int(hist_start) if hist_start else 2015
+                    y_end = int(hist_end) if hist_end else datetime.now().year
+                    if y_start > y_end:
+                        y_start, y_end = y_end, y_start
+                    history_list = [
+                        {
+                            "month": str(y),
+                            "label": str(y),
+                            "ca_eau": 0.0,
+                            "ca_prest": 0.0,
+                            "ca_total": 0.0,
+                            "encaissement_eau": 0.0,
+                            "encaissement_prest": 0.0,
+                            "encaissement_total": 0.0,
+                            "ca_recouvre_eau": 0.0,
+                            "ca_recouvre_prest": 0.0,
+                            "ca_recouvre_total": 0.0,
+                            "creance_eau": 0.0,
+                            "creance_prest": 0.0,
+                            "creance_total": 0.0,
+                            "taux_objectif_atteint": 0.0,
+                        }
+                        for y in range(y_start, y_end + 1)
+                    ]
+                else:
+                    history_list = []
+            except Exception:
+                history_list = []
 
         result = {
             "total_ca_eau": round(total_ca_eau, 2),
@@ -3652,7 +3740,25 @@ def get_creance(_user: dict = Depends(get_current_user),
         return result
 
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "error": str(e),
+            "history": [],
+            "total_ca_eau": 0.0,
+            "total_ca_prestation": 0.0,
+            "total_ca": 0.0,
+            "total_creance": 0.0,
+            "total_creance_resilie": 0.0,
+            "total_recouvre": 0.0,
+            "total_ca_recouvre": 0.0,
+            "total_sub_count": 0,
+            "total_forfait_count": 0,
+            "total_sc_count": 0,
+            "total_resigned_count": 0,
+            "by_commune": [],
+            "by_type": [],
+            "by_raw_type": [],
+            "is_official": False,
+        }
 
 
 @app.get("/creance_detaillee")

@@ -31,6 +31,8 @@ const nextConfig: NextConfig = {
 
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],
+    // Calculs créance (historique multi-années) peuvent dépasser 30 s
+    proxyTimeout: 120_000,
   },
 
   // Proxy API en dev/prod : fetch('/backend-api/stats') → FastAPI
@@ -47,8 +49,8 @@ const nextConfig: NextConfig = {
 
 // Security headers to apply globally
 const cspValue = process.env.NODE_ENV === 'development'
-  ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https:; img-src 'self' data:; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src fonts.gstatic.com; frame-ancestors 'none';"
-  : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https:; img-src 'self' data:; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src fonts.gstatic.com; frame-ancestors 'none';";
+  ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https:; img-src 'self' data:; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; frame-ancestors 'none';"
+  : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https:; img-src 'self' data:; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; frame-ancestors 'none';";
 
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },

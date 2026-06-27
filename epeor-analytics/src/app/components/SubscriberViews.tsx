@@ -187,6 +187,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
+  const printedSubscribersRef = useRef<any[]>([]);
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
@@ -206,9 +207,13 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
   const handlePrint = () => {
     if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
 
-    const toprint = selectedNumabs.length > 0
-      ? quartierSubscribers.filter((sub: any) => selectedNumabs.includes(sub.numab))
+    const currentSubscribers = printedSubscribersRef.current && printedSubscribersRef.current.length > 0
+      ? printedSubscribersRef.current
       : quartierSubscribers;
+
+    const toprint = selectedNumabs.length > 0
+      ? currentSubscribers.filter((sub: any) => selectedNumabs.includes(sub.numab))
+      : currentSubscribers;
 
     if (toprint.length === 0) {
       alert('Aucun abonné à imprimer. Veuillez sélectionner au moins un abonné.');
@@ -913,7 +918,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <span>Imprimer</span>
           </button>
         </div>
-        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="blue" selectedNumabs={selectedNumabs} onSelectedNumabsChange={setSelectedNumabs} />
+        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="blue" selectedNumabs={selectedNumabs} onSelectedNumabsChange={setSelectedNumabs} printedSubscribersRef={printedSubscribersRef} />
       </div>
     );
   }
@@ -1114,6 +1119,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
+  const printedSubscribersRef = useRef<any[]>([]);
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
@@ -1133,9 +1139,13 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
   const handlePrint = () => {
     if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
 
-    const toprint = selectedNumabs.length > 0
-      ? quartierSubscribers.filter((sub: any) => selectedNumabs.includes(sub.numab))
+    const currentSubscribers = printedSubscribersRef.current && printedSubscribersRef.current.length > 0
+      ? printedSubscribersRef.current
       : quartierSubscribers;
+
+    const toprint = selectedNumabs.length > 0
+      ? currentSubscribers.filter((sub: any) => selectedNumabs.includes(sub.numab))
+      : currentSubscribers;
 
     if (toprint.length === 0) {
       alert('Aucun abonné à imprimer. Veuillez sélectionner au moins un abonné.');
@@ -1823,7 +1833,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             <span>Imprimer</span>
           </button>
         </div>
-        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="rose" selectedNumabs={selectedNumabs} onSelectedNumabsChange={setSelectedNumabs} />
+        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="rose" selectedNumabs={selectedNumabs} onSelectedNumabsChange={setSelectedNumabs} printedSubscribersRef={printedSubscribersRef} />
       </div>
     );
   }
@@ -1986,10 +1996,18 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
+  // NEW: sorting and filtering state for the table
+  const [sortKey, setSortKey] = useState<string>('numab');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [filterText, setFilterText] = useState<string>('');
+  const printedSubscribersRef = useRef<any[]>([]);
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
     setSelectedNumabs([]);
+    setSortKey('numab');
+    setSortDir('asc');
+    setFilterText('');
     setLoadingSubscribers(true);
     try {
       const res = await fetch(buildSubscribersUrl(q.id, { etat: '20', secteur: selectedSecteur }));
@@ -2005,9 +2023,13 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const handlePrint = () => {
     if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
 
-    const toprint = selectedNumabs.length > 0 
-      ? quartierSubscribers.filter(sub => selectedNumabs.includes(sub.numab))
+    const currentSubscribers = printedSubscribersRef.current && printedSubscribersRef.current.length > 0
+      ? printedSubscribersRef.current
       : quartierSubscribers;
+
+    const toprint = selectedNumabs.length > 0 
+      ? currentSubscribers.filter(sub => selectedNumabs.includes(sub.numab))
+      : currentSubscribers;
 
     if (toprint.length === 0) {
       alert('Aucun abonné à imprimer. Veuillez sélectionner au moins un abonné.');
@@ -2704,6 +2726,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           consecutiveEtatColumn={{ field: 'consecutive_etat20', label: "Factures à l'arrêt", activeClass: 'bg-amber-50 text-amber-700 border-amber-100', hoverClass: 'text-amber-700' }}
           selectedNumabs={selectedNumabs}
           onSelectedNumabsChange={setSelectedNumabs}
+          printedSubscribersRef={printedSubscribersRef}
         />
       </div>
     );
@@ -2867,6 +2890,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
+  const printedSubscribersRef = useRef<any[]>([]);
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
@@ -2886,9 +2910,13 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const handlePrint = () => {
     if (!selectedQuartier || !quartierSubscribers || quartierSubscribers.length === 0) return;
 
-    const toprint = selectedNumabs.length > 0 
-      ? quartierSubscribers.filter(sub => selectedNumabs.includes(sub.numab))
+    const currentSubscribers = printedSubscribersRef.current && printedSubscribersRef.current.length > 0
+      ? printedSubscribersRef.current
       : quartierSubscribers;
+
+    const toprint = selectedNumabs.length > 0 
+      ? currentSubscribers.filter(sub => selectedNumabs.includes(sub.numab))
+      : currentSubscribers;
 
     if (toprint.length === 0) {
       alert('Aucun abonné à imprimer. Veuillez sélectionner au moins un abonné.');
@@ -3585,6 +3613,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           consecutiveEtatColumn={{ field: 'consecutive_etat30', label: 'Factures sans compteur', activeClass: 'bg-cyan-50 text-cyan-700 border-cyan-100', hoverClass: 'text-cyan-700' }}
           selectedNumabs={selectedNumabs}
           onSelectedNumabsChange={setSelectedNumabs}
+          printedSubscribersRef={printedSubscribersRef}
         />
       </div>
     );
@@ -3759,7 +3788,7 @@ function etatBadge(etatcpt: string, etatLabel?: string) {
   }
 }
 
-function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string }; selectedNumabs?: string[]; onSelectedNumabsChange?: (numabs: string[]) => void }) {
+function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string }; selectedNumabs?: string[]; onSelectedNumabsChange?: (numabs: string[]) => void; printedSubscribersRef?: any }) {
   const [hoveredSub, setHoveredSub] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -3844,13 +3873,13 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
           <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${style.spinner}`}></div>
         </div>
       ) : (
-        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} />
+        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} printedSubscribersRef={printedSubscribersRef} />
       )}
     </div>
   );
 }
 
-function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange }: any) {
+function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef }: any) {
   const ITEMS_PER_PAGE = 20;
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<string>('numab');
@@ -4270,6 +4299,12 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
     const cmp = va.localeCompare(vb, 'fr', { numeric: true });
     return sortDir === 'asc' ? cmp : -cmp;
   });
+
+  useEffect(() => {
+    if (printedSubscribersRef) {
+      printedSubscribersRef.current = sorted;
+    }
+  }, [sorted, printedSubscribersRef]);
 
   const total = sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));

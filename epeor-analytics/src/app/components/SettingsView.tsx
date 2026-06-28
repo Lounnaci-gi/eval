@@ -46,7 +46,7 @@ export function SettingsView({
   const [dataDirMessage, setDataDirMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   // Active tab selection
-  const [activeTab, setActiveTab] = useState<'system' | 'users'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'profile'>(user?.is_admin ? 'system' : 'profile');
 
   // User management states
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -219,6 +219,13 @@ export function SettingsView({
           >
             👥 {t('settings.tabUsers', 'Utilisateurs')}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-black transition-all ${activeTab === 'profile' ? 'bg-white shadow-sm text-[#0D83DE]' : 'text-[#667085] hover:text-[#344054]'}`}
+          >
+            👤 {t('settings.tabProfile', 'Mon Profil')}
+          </button>
         </div>
       )}
 
@@ -246,8 +253,28 @@ export function SettingsView({
         />
       )}
 
+      {/* ======== Profile Tab ======== */}
+      {!setupMode && activeTab === 'profile' && user && (
+        <UserProfilePanel
+          user={user}
+          sectors={(() => {
+            const allSectors: string[] = [];
+            unites.forEach((u: any) => (u.sectors || []).forEach((s: any) => {
+              if (s.code && !allSectors.includes(s.code)) allSectors.push(s.code);
+            }));
+            return allSectors.map(code => {
+              for (const u of unites) {
+                const s = (u.sectors || []).find((s: any) => s.code === code);
+                if (s) return { code, libelle: s.libelle || code };
+              }
+              return { code, libelle: code };
+            });
+          })()}
+        />
+      )}
+
       {/* ======== System Tab (always visible in setup mode or when system tab active) ======== */}
-      {(setupMode || activeTab === 'system' || !user?.is_admin) && (
+      {(setupMode || (activeTab === 'system' && user?.is_admin)) && (
         <>
 
       {/* Dossier données EPEOR */}
@@ -1042,6 +1069,360 @@ function UsersManagementPanel({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+
+// ─── User Profile Panel ────────────────────────────────────────────────────────
+
+function UserProfilePanel({
+  user,
+  sectors,
+}: {
+  user: {
+    username: string;
+    display_name: string;
+    is_admin: boolean;
+    allowed_sectors?: string[] | null;
+  };
+  sectors: { code: string; libelle: string }[];
+}) {
+  const { t } = useTranslation();
+  const [formData, setFormData] = useState({
+    username: user.username,
+    display_name: user.display_name,
+    new_password: '',
+    new_password_confirm: '',
+    current_password: '',
+  });
+
+  const [formMessage, setFormMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+
+  const getPasswordStrength = (password: string) => {
+    if (!password) {
+      return { percent: 0, label: t('settings.pwdNone', 'Aucun mot de passe'), color: 'bg-slate-300', textColor: 'text-slate-500', icon: '•' };
+    }
+    let score = 0;
+    if (password.length >= 8) score += 1;
+    if (/[a-z]/.test(password)) score += 1;
+    if (/[A-Z]/.test(password)) score += 1;
+    if (/\d/.test(password)) score += 1;
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+    const percent = Math.min(100, Math.round((score / 5) * 100));
+    if (score <= 2) {
+      return { percent, label: t('settings.pwdWeak', 'Faible'), color: 'bg-gradient-to-r from-red-500 to-rose-500', textColor: 'text-red-600', icon: '✕' };
+    }
+    if (score === 3) {
+      return { percent, label: t('settings.pwdMedium', 'Moyen'), color: 'bg-gradient-to-r from-amber-500 to-orange-500', textColor: 'text-amber-600', icon: '!' };
+    }
+    if (score === 4) {
+      return { percent, label: t('settings.pwdGood', 'Bon'), color: 'bg-gradient-to-r from-blue-500 to-cyan-500', textColor: 'text-blue-600', icon: '✓' };
+    }
+    return { percent, label: t('settings.pwdStrong', 'Très fort'), color: 'bg-gradient-to-r from-emerald-500 to-green-500', textColor: 'text-emerald-600', icon: '✓' };
+  };
+
+  const passwordStrength = getPasswordStrength(formData.new_password);
+
+  const isPasswordValid = (password: string) => {
+    if (!password) return false;
+    return password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password);
+  };
+
+  const normalizedUsername = formData.username.trim().toLowerCase();
+  const isUsernameValid = /^[a-z0-9_]{3,32}$/.test(normalizedUsername);
+  const passwordValid = !formData.new_password || isPasswordValid(formData.new_password);
+  const passwordMatch = formData.new_password === formData.new_password_confirm;
+  const isFormValid = isUsernameValid
+    && formData.display_name.trim().length > 0
+    && formData.current_password.length > 0
+    && passwordValid
+    && passwordMatch;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isFormValid) return;
+    setFormLoading(true);
+    setFormMessage(null);
+
+    try {
+      const body: any = {
+        current_password: formData.current_password,
+      };
+
+      if (formData.username.trim().toLowerCase() !== user.username.trim().toLowerCase()) {
+        body.new_username = formData.username.trim().toLowerCase();
+      }
+      if (formData.display_name.trim() !== user.display_name.trim()) {
+        body.new_display_name = formData.display_name.trim();
+      }
+      if (formData.new_password.trim()) {
+        body.new_password = formData.new_password;
+      }
+
+      if (Object.keys(body).length <= 1) {
+        setFormMessage({ type: 'err', text: 'Aucune modification détectée.' });
+        setFormLoading(false);
+        return;
+      }
+
+      const res = await fetch(apiUrl('/api/auth/change'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setFormMessage({ type: 'err', text: data.detail || 'Erreur lors de la mise à jour.' });
+        return;
+      }
+
+      setFormMessage({ type: 'ok', text: 'Profil mis à jour avec succès ! Rechargement de la session...' });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+    } catch (err) {
+      setFormMessage({ type: 'err', text: 'Erreur de communication avec le serveur.' });
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const assignedSectors = sectors.filter(s => (user.allowed_sectors || []).includes(s.code));
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-300">
+      {/* Profil Form Card */}
+      <div className="lg:col-span-2 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 page-card">
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-12 h-12 bg-blue-50 text-[#0D83DE] rounded-2xl flex items-center justify-center font-black text-lg">
+            <User size={22} />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-[#101828]">{t('settings.myProfile', 'Mon Profil')}</h3>
+            <p className="text-sm text-[#667085] mt-1">{t('settings.myProfileSubtitle', 'Modifiez vos informations d\'identification de compte.')}</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 max-w-xl">
+          <label className="block">
+            <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+              <User size={12} /> Nom d'utilisateur
+            </span>
+            <input
+              type="text"
+              required
+              value={formData.username}
+              onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
+              className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.username && !isUsernameValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+              autoComplete="username"
+            />
+            {formData.username && !isUsernameValid && (
+              <p className="mt-1 text-[11px] font-semibold text-red-600">Nom d'utilisateur invalide (3-32 caractères, minuscules/chiffres/_).</p>
+            )}
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-black text-[#344054] uppercase tracking-widest mb-1.5 block">Nom d'affichage</span>
+            <input
+              type="text"
+              required
+              value={formData.display_name}
+              onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
+              className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+            />
+          </label>
+
+          <div className="border-t border-slate-100 pt-4 mt-6">
+            <p className="text-xs font-black text-slate-800 uppercase tracking-widest mb-4">Modifier le mot de passe (laisser vide si inchangé)</p>
+            
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                  <Lock size={12} /> Nouveau mot de passe
+                </span>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.new_password}
+                    onChange={e => setFormData(p => ({ ...p, new_password: e.target.value }))}
+                    className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.new_password && !passwordValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                    placeholder="8 caractères minimum"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(x => !x)}
+                    className="absolute inset-y-0 right-3 flex items-center text-slate-500"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {formData.new_password && (
+                  <div className="mt-2 flex flex-col gap-1 text-[11px]">
+                    <div className="grid grid-cols-2 gap-2">
+                      <span className={`rounded-full px-2 py-1 ${formData.new_password.length >= 8 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>8 caractères</span>
+                      <span className={`rounded-full px-2 py-1 ${/[a-z]/.test(formData.new_password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>minuscule</span>
+                      <span className={`rounded-full px-2 py-1 ${/[A-Z]/.test(formData.new_password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>majuscule</span>
+                      <span className={`rounded-full px-2 py-1 ${/\d/.test(formData.new_password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>chiffre</span>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                        <span>Force</span>
+                        <span className={`font-black ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className={`${passwordStrength.color} h-full`} style={{ width: `${passwordStrength.percent}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </label>
+
+              {formData.new_password && (
+                <label className="block">
+                  <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                    <Lock size={12} /> Confirmer le nouveau mot de passe
+                  </span>
+                  <div className="relative">
+                    <input
+                      type={showPasswordConfirm ? 'text' : 'password'}
+                      required
+                      value={formData.new_password_confirm}
+                      onChange={e => setFormData(p => ({ ...p, new_password_confirm: e.target.value }))}
+                      className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.new_password_confirm && !passwordMatch ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                      placeholder="Confirmez le mot de passe"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordConfirm(x => !x)}
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-500"
+                      tabIndex={-1}
+                    >
+                      {showPasswordConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {formData.new_password_confirm && !passwordMatch && (
+                    <p className="mt-2 text-[11px] text-red-600">Les mots de passe ne correspondent pas.</p>
+                  )}
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-6 mt-6 bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
+            <label className="block">
+              <span className="text-xs font-black text-rose-900 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                <Shield size={14} className="text-rose-500" /> Confirmation de Sécurité Recommandée
+              </span>
+              <p className="text-xs text-[#667085] mb-3 font-medium">Saisissez votre mot de passe actuel pour valider et appliquer les modifications.</p>
+              <div className="relative">
+                <input
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  required
+                  value={formData.current_password}
+                  onChange={e => setFormData(p => ({ ...p, current_password: e.target.value }))}
+                  className="w-full border border-[#D0D5DD] bg-white rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+                  placeholder="Mot de passe actuel"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(x => !x)}
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-500"
+                  tabIndex={-1}
+                >
+                  {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </label>
+          </div>
+
+          {formMessage && (
+            <div className={`p-4 rounded-2xl text-sm font-bold animate-in fade-in duration-200 ${formMessage.type === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+              {formMessage.text}
+            </div>
+          )}
+
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={formLoading || !isFormValid}
+              className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-[#0D83DE] text-white text-sm font-black hover:bg-[#0b72c2] transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 flex items-center justify-center gap-2 ${formLoading || !isFormValid ? 'opacity-80' : ''}`}
+            >
+              {formLoading ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+              ) : (
+                'Enregistrer les modifications'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Rôle et Affectations géographiques (Secteurs) Card */}
+      <div className="lg:col-span-1 space-y-6">
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 page-card">
+          <h3 className="text-lg font-black text-[#101828] mb-4">Statut &amp; Rôle</h3>
+          <div className="space-y-4">
+            <div>
+              <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Type de Compte</span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 mt-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-xs font-black">
+                <Shield size={12} /> {user.is_admin ? 'Administrateur' : 'Utilisateur Ordinaire'}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Accès API</span>
+              <p className="text-xs text-[#667085] mt-1.5 font-medium leading-relaxed">
+                {user.is_admin 
+                  ? 'Accès complet en lecture et écriture à tous les paramètres système et de gestion d\'utilisateurs.'
+                  : 'Accès restreint. Seules les modifications de profil personnelles et la lecture du tableau de bord sont autorisées.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 page-card">
+          <h3 className="text-lg font-black text-[#101828] mb-1">Affectations géographiques</h3>
+          <p className="text-xs text-[#667085] font-medium mb-4">Secteurs associés à votre compte (visualisation seule).</p>
+          
+          <div className="border-t border-[#F2F4F7] pt-4">
+            {user.is_admin ? (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-amber-800 text-xs font-bold leading-relaxed">
+                Accès administrateur complet. La restriction par secteurs géographiques ne s\'applique pas à ce compte.
+              </div>
+            ) : assignedSectors.length === 0 ? (
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-slate-500 text-xs font-bold leading-relaxed">
+                Accès complet. Aucun secteur spécifique n\'est restreint sur votre compte.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {assignedSectors.map(s => (
+                  <div key={s.code} className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0D83DE] border border-blue-100 flex items-center justify-center font-black text-xs">
+                      {s.code
+}                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-black truncate text-slate-800">{s.libelle}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">Rattachement principal</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

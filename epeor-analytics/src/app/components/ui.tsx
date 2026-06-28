@@ -172,12 +172,14 @@ export function SecteurDropdown({
   onSelect,
   uniteLabel,
   loading = false,
+  allowAll = true,
 }: {
   sectors: { code: string; libelle: string }[];
   selectedSecteur: string;
   onSelect: (code: string) => void;
   uniteLabel?: string;
   loading?: boolean;
+  allowAll?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -195,7 +197,7 @@ export function SecteurDropdown({
     ? 'Chargement des centres…'
     : selectedSecteur
       ? (sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
-      : `Tous les centres${uniteLabel ? ` — ${uniteLabel}` : ''}`;
+      : (allowAll ? `Tous les centres${uniteLabel ? ` — ${uniteLabel}` : ''}` : 'Sélectionner un centre');
 
   return (
     <div ref={ref} className="relative w-full sm:w-auto max-w-full">
@@ -214,21 +216,25 @@ export function SecteurDropdown({
 
       {open && (
         <div className="absolute top-full left-0 right-0 sm:right-auto mt-2 w-full sm:w-64 bg-white border border-[#E4E7EC] rounded-2xl shadow-xl z-50 overflow-hidden max-h-[min(70vh,20rem)] overflow-y-auto">
-          <button
-            type="button"
-            onClick={() => { onSelect(''); setOpen(false); }}
-            className={`w-full text-left px-4 py-3 text-xs font-bold flex items-center gap-2 transition-colors ${
-              !selectedSecteur
-                ? 'bg-blue-50 text-[#0D83DE]'
-                : 'text-[#344054] hover:bg-[#F9FAFB]'
-            }`}
-          >
-            <span className="w-5 h-5 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-[9px] font-black shrink-0">
-              ✦
-            </span>
-            Tous les centres{uniteLabel ? ` — ${uniteLabel}` : ''}
-          </button>
-          <div className="border-t border-[#F2F4F7]" />
+          {allowAll && (
+            <>
+              <button
+                type="button"
+                onClick={() => { onSelect(''); setOpen(false); }}
+                className={`w-full text-left px-4 py-3 text-xs font-bold flex items-center gap-2 transition-colors ${
+                  !selectedSecteur
+                    ? 'bg-blue-50 text-[#0D83DE]'
+                    : 'text-[#344054] hover:bg-[#F9FAFB]'
+                }`}
+              >
+                <span className="w-5 h-5 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-[9px] font-black shrink-0">
+                  ✦
+                </span>
+                Tous les centres{uniteLabel ? ` — ${uniteLabel}` : ''}
+              </button>
+              <div className="border-t border-[#F2F4F7]" />
+            </>
+          )}
           {sectors.length === 0 && !loading && (
             <p className="px-4 py-3 text-xs text-[#667085] font-medium">
               Aucun centre chargé. Attendez la fin du chargement des données ou ouvrez Paramètres.

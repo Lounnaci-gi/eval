@@ -792,7 +792,7 @@ export default function Dashboard() {
             <LanguageSwitcher />
           </div>
           <NavItem icon={<HelpCircle size={20} />} label={t('nav.helpCenter')} />
-          {user?.is_admin && (
+          {user && (
             <NavItem
               icon={<Settings size={20} />}
               label={t('nav.settings')}
@@ -1062,6 +1062,7 @@ export default function Dashboard() {
             onSecteurChange={setSelectedSecteur}
             sectorsLoading={sectorsLoading || !stats?.ready}
             onBack={() => setCurrentView('dashboard')}
+            allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
           />
         ) : currentView === 'creances_abonnes' ? (
           <CreancesAbonnesView
@@ -1071,6 +1072,7 @@ export default function Dashboard() {
             uniteLabel={uniteLabel}
             onSecteurChange={setSelectedSecteur}
             sectorsLoading={sectorsLoading || !stats?.ready}
+            allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
           />
         ) : currentView === 'creances_institutions' ? (
           <CreancesInstitutionsView
@@ -1080,6 +1082,7 @@ export default function Dashboard() {
             uniteLabel={uniteLabel}
             onSecteurChange={setSelectedSecteur}
             sectorsLoading={sectorsLoading || !stats?.ready}
+            allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
           />
         ) : currentView === 'settings' ? (
           <SettingsView onBack={() => setCurrentView('dashboard')} user={user} />
@@ -1114,6 +1117,7 @@ export default function Dashboard() {
                     onSelect={(code) => { setSelectedSecteur(code); setCreanceData(null); setVentilationData([]); setLastVentDate(''); }}
                     uniteLabel={uniteLabel}
                     loading={sectorsLoading || !stats?.ready}
+                    allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
                   />
                   <ScrollableTabs className="w-full sm:w-auto sm:max-w-full">
                     {[

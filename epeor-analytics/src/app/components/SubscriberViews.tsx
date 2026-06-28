@@ -31,6 +31,7 @@ export function GestionAbonnesShell({
   onSecteurChange,
   sectorsLoading,
   onBack,
+  allowAll = true,
 }: {
   currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter';
   setCurrentView: (v: any) => void;
@@ -41,6 +42,7 @@ export function GestionAbonnesShell({
   onSecteurChange: (code: string) => void;
   sectorsLoading: boolean;
   onBack: () => void;
+  allowAll?: boolean;
 }) {
   const [gestionStats, setGestionStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -106,6 +108,7 @@ export function GestionAbonnesShell({
               onSelect={onSecteurChange}
               uniteLabel={uniteLabel}
               loading={sectorsLoading}
+              allowAll={allowAll}
             />
             {stats?.ready && !statsLoading && (
               <>

@@ -87,10 +87,7 @@ export function MobileNav({
 }) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
-  const visibleMoreItems = MORE_ITEMS.filter((item) => {
-    if (item.id === "settings") return isAdmin;
-    return true;
-  });
+  const visibleMoreItems = MORE_ITEMS;
   const moreActive = visibleMoreItems.some((item) => isActive(currentView, item));
 
   return (

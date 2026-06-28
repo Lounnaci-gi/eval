@@ -17,6 +17,7 @@ export function CreancesAbonnesView({
   uniteLabel = '',
   onSecteurChange,
   sectorsLoading = false,
+  allowAll = false,
 }: any) {
   const secteurLabel = selectedSecteur
     ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
@@ -1213,6 +1214,7 @@ export function CreancesAbonnesView({
               onSelect={(code: string) => onSecteurChange?.(code)}
               uniteLabel={uniteLabel}
               loading={sectorsLoading}
+              allowAll={allowAll}
             />
             {dataLoaded && !dataLoading && (
               <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-full border border-emerald-100">

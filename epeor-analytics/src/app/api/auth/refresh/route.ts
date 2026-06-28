@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createHash } from 'crypto';
 import { findRefreshTokenByHash, generateRefreshToken, saveRefreshToken, revokeTokenAndDescendants } from '../../../../lib/refreshTokens';
 import { signAccessToken } from '../../../../lib/jwt';
-import { buildSetCookieRefresh, buildClearRefreshCookie } from '../../../../utils/cookies';
+import { buildSetCookieRefresh } from '../../../../utils/cookies';
 import { verifyCsrf } from '../../../../lib/csrf';
 
 export async function POST(req: NextRequest) {

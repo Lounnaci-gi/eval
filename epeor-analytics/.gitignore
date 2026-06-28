@@ -64,4 +64,5 @@ env/
 # backend cache and pickle files
 backend/cache/
 backend/epeor_config.json
+backend/users.db
 *.pkl

@@ -11,7 +11,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@prisma/client": "^7.8.0",
     "bcryptjs": "^2.4.3",
     "exceljs": "^3.10.0",
     "file-saver": "^2.0.5",
@@ -21,7 +20,6 @@
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^1.11.0",
     "next": "^16.2.6",
-    "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-i18next": "^17.0.8",

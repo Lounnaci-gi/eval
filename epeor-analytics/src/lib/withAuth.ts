@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { verifyAccessToken } from './jwt';
 
 export function withAuth(req: Request): { userId?: string; error?: Response } {
@@ -10,7 +9,7 @@ export function withAuth(req: Request): { userId?: string; error?: Response } {
   try {
     const payload = verifyAccessToken(token) as any;
     return { userId: payload.userId };
-  } catch (e) {
+  } catch {
     return { error: new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401 }) };
   }
 }

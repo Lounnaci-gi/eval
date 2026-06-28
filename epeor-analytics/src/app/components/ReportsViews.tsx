@@ -1,18 +1,13 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo, useCallback, Fragment } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { saveAs } from "file-saver";
 import {
-  ChevronRight, ChevronDown, Search, Printer, FileText, FileSpreadsheet,
-  Percent, MapPin, BarChart3, Calendar, RefreshCw, CreditCard, Users, UserX,
+  ChevronRight, Search, Printer, FileText, FileSpreadsheet,
+  MapPin, BarChart3, Users, UserX,
 } from "lucide-react";
-import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area,
-} from "recharts";
-import { apiUrl, apiUrlObject } from "../lib/api";
-import { formatDate, formatPeriodLabel, appendSecteurParam } from "./utils";
-import { SecteurDropdown } from "./ui";
+import { apiUrlObject } from "../lib/api";
+import { formatPeriodLabel, appendSecteurParam } from "./utils";
 
 export function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClose, selectedSecteur = '' }: any) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
@@ -1891,8 +1886,6 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
 
 
 
-
-const NUMERIC_SORT_KEYS = new Set(['montant_creance', 'nombre_creance']);
 
 export function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur = '', sectors = [] }: any) {
   const secteurLabel = selectedSecteur

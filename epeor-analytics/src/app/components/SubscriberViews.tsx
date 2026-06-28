@@ -1,19 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo, useCallback, Fragment } from "react";
+import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
-import { saveAs } from "file-saver";
 import {
-  Users, UserX, TimerOff, Ban, ChevronRight, ChevronDown, MapPin,
-  Search, Printer, FileText, FileSpreadsheet, Percent, RefreshCw, CreditCard,
+  ChevronRight, MapPin, Printer,
 } from "lucide-react";
-import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar,
-  PolarAngleAxis, ReferenceLine, LabelList,
-} from "recharts";
 import { apiUrl, apiUrlObject } from "../lib/api";
-import { ChartContainer, formatDate, buildSubscribersUrl, appendSecteurParam } from "./utils";
+import { buildSubscribersUrl, appendSecteurParam } from "./utils";
 import { SecteurDropdown } from "./ui";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
 
@@ -1997,9 +1990,9 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
   // NEW: sorting and filtering state for the table
-  const [sortKey, setSortKey] = useState<string>('numab');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [filterText, setFilterText] = useState<string>('');
+  const [, setSortKey] = useState<string>('numab');
+  const [, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [, setFilterText] = useState<string>('');
   const printedSubscribersRef = useRef<any[]>([]);
 
   const handleQuartierClick = async (q: any) => {
@@ -3907,6 +3900,49 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
     setLoadingInvoices(false);
   };
 
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+    setPage(1);
+  };
+
+  const filtered = subscribers.filter((sub: any) => {
+    if (!filterText) return true;
+    const q = filterText.toLowerCase();
+    return (
+      (sub.numab || '').toLowerCase().includes(q) ||
+      (sub.name || '').toLowerCase().includes(q) ||
+      (sub.adresse || '').toLowerCase().includes(q) ||
+      (sub.numser || '').toLowerCase().includes(q) ||
+      (sub.type || '').toLowerCase().includes(q) ||
+      (sub.etat_label || '').toLowerCase().includes(q) ||
+      (sub.tournee || '').toLowerCase().includes(q)
+    );
+  });
+
+  const sorted = [...filtered].sort((a: any, b: any) => {
+    if (consecutiveEtatColumn && sortKey === consecutiveEtatColumn.field) {
+      const na = Number(a[consecutiveEtatColumn.field]) || 0;
+      const nb = Number(b[consecutiveEtatColumn.field]) || 0;
+      const cmp = na - nb;
+      return sortDir === 'asc' ? cmp : -cmp;
+    }
+    const va = (a[sortKey] ?? '').toString().toLowerCase();
+    const vb = (b[sortKey] ?? '').toString().toLowerCase();
+    const cmp = va.localeCompare(vb, 'fr', { numeric: true });
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  useEffect(() => {
+    if (printedSubscribersRef) {
+      printedSubscribersRef.current = sorted;
+    }
+  }, [sorted, printedSubscribersRef]);
+
   if (selectedSubForInvoices) {
     const formatYMD = (d: string) => {
       if (!d || d.length !== 8) return d;
@@ -4260,51 +4296,6 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       </div>
     );
   }
-
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
-    setPage(1);
-  };
-
-  // Filter subscribers
-  const filtered = subscribers.filter((sub: any) => {
-    if (!filterText) return true;
-    const q = filterText.toLowerCase();
-    return (
-      (sub.numab || '').toLowerCase().includes(q) ||
-      (sub.name || '').toLowerCase().includes(q) ||
-      (sub.adresse || '').toLowerCase().includes(q) ||
-      (sub.numser || '').toLowerCase().includes(q) ||
-      (sub.type || '').toLowerCase().includes(q) ||
-      (sub.etat_label || '').toLowerCase().includes(q) ||
-      (sub.tournee || '').toLowerCase().includes(q)
-    );
-  });
-
-  // Sort subscribers
-  const sorted = [...filtered].sort((a: any, b: any) => {
-    if (consecutiveEtatColumn && sortKey === consecutiveEtatColumn.field) {
-      const na = Number(a[consecutiveEtatColumn.field]) || 0;
-      const nb = Number(b[consecutiveEtatColumn.field]) || 0;
-      const cmp = na - nb;
-      return sortDir === 'asc' ? cmp : -cmp;
-    }
-    const va = (a[sortKey] ?? '').toString().toLowerCase();
-    const vb = (b[sortKey] ?? '').toString().toLowerCase();
-    const cmp = va.localeCompare(vb, 'fr', { numeric: true });
-    return sortDir === 'asc' ? cmp : -cmp;
-  });
-
-  useEffect(() => {
-    if (printedSubscribersRef) {
-      printedSubscribersRef.current = sorted;
-    }
-  }, [sorted, printedSubscribersRef]);
 
   const total = sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));

@@ -29,10 +29,12 @@ export function useTheme(): { theme: Theme; setTheme: (t: Theme) => void } {
     try {
       localStorage.setItem(STORAGE_KEY, theme);
       // also write cookie so SSR can read it for deterministic renders
-      var expires = new Date();
+      const expires = new Date();
       expires.setFullYear(expires.getFullYear() + 1);
       document.cookie = `${STORAGE_KEY}=${encodeURIComponent(theme)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
-    } catch (e) {}
+    } catch {
+      /* localStorage/cookie indisponible */
+    }
   }, [theme, apply]);
 
   // No system listener: we do not track OS changes once user selected light/dark

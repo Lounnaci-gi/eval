@@ -1,18 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo, useCallback, Fragment } from "react";
-import { saveAs } from "file-saver";
+import { useEffect, useState, useMemo, useCallback, Fragment } from "react";
 import {
-  ChevronRight, ChevronDown, Search, Printer, FileText, FileSpreadsheet,
-  Percent, MapPin, BarChart3, Calendar, RefreshCw, CreditCard, Users, Building2,
+  ChevronRight, ChevronDown, Search, Printer, MapPin, Calendar, Users, FileSpreadsheet,
 } from "lucide-react";
-import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from "recharts";
-import { apiUrl, apiUrlObject } from "../lib/api";
-import { formatDate, appendSecteurParam } from "./utils";
-import { SecteurDropdown, MultiSelectDropdown } from "./ui";
+import { apiUrlObject } from "../lib/api";
+import { appendSecteurParam } from "./utils";
+import { SecteurDropdown } from "./ui";
 
 const NUMERIC_SORT_KEYS = new Set(["montant_creance", "nombre_creance"]);
 

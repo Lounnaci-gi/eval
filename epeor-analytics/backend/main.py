@@ -770,7 +770,53 @@ def _commune_map_for_centre(secteur: str | None) -> dict[str, str]:
     return {
         codcom: str(r.get('LIBCOM', '')).strip()
         for codcom, r in communes_by_code.items()
-        if codcom in allowed_codcoms
+    }
+
+
+def _commune_codcoms_for_user_sectors(user: dict) -> set[str] | None:
+    if not _AUTH_ENABLED or user.get("is_admin"):
+        return None
+    allowed_secs = _normalize_allowed_sectors(user.get("allowed_sectors"))
+    if allowed_secs is None:
+        return None
+    
+    allowed_coms = set()
+    for sec in allowed_secs:
+        coms = _commune_codcoms_for_centre(sec)
+        if coms:
+            allowed_coms.update(coms)
+    return allowed_coms
+
+def _commune_map_for_user_sectors(user: dict) -> dict[str, str]:
+    if not _AUTH_ENABLED or user.get("is_admin"):
+        return {
+            codcom: str(r.get('LIBCOM', '')).strip()
+            for codcom, r in communes_by_code.items()
+        }
+    allowed_coms = _commune_codcoms_for_user_sectors(user)
+    if allowed_coms is None:
+        return {
+            codcom: str(r.get('LIBCOM', '')).strip()
+            for codcom, r in communes_by_code.items()
+        }
+    return {
+        codcom: str(r.get('LIBCOM', '')).strip()
+        for codcom, r in communes_by_code.items()
+        if codcom in allowed_coms
+    }
+
+def _secteur_numabs_set_for_user(user: dict, secteur: str | None) -> set[str] | None:
+    if secteur and str(secteur).strip():
+        return _secteur_numabs_set(secteur)
+    if not _AUTH_ENABLED or user.get("is_admin"):
+        return None
+    allowed_secs = _normalize_allowed_sectors(user.get("allowed_sectors"))
+    if allowed_secs is None:
+        return None
+    return {
+        str(a.get('NUMAB', '')).strip().upper()
+        for a in MEM_ABONNES
+        if str(a.get('SECTEUR', '')).strip().zfill(2) in allowed_secs
     }
 
 
@@ -1417,6 +1463,7 @@ def auth_me(epeor_session: str | None = Cookie(default=None)):
 class ChangeUserRequest(BaseModel):
     current_password: str
     new_username: str | None = None
+    new_display_name: str | None = None
     new_password: str | None = None
 
 
@@ -1438,6 +1485,9 @@ def auth_change(body: ChangeUserRequest, _user: dict = Depends(get_current_user)
             raise HTTPException(status_code=401, detail="Mot de passe actuel incorrect")
 
         updates: list[tuple[str, object]] = []
+        if body.new_display_name is not None:
+            updates.append(("display_name", body.new_display_name.strip()))
+
         if body.new_username:
             try:
                 newu = validate_username(body.new_username)
@@ -1663,7 +1713,10 @@ def delete_user(user_id: int, current_user: dict = Depends(get_current_user)):
 
 
 @app.get("/api/clear_cache")
-def clear_cache_endpoint(_user: dict = Depends(get_current_user)):
+def clear_cache_endpoint(current_user: dict = Depends(get_current_user)):
+    if _AUTH_ENABLED and not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+
     print("[INFO] Clearing cache requested...")
     clear_cache_directory()
     global is_db_ready, cached_dashboard_stats, indexes_ready
@@ -2023,7 +2076,11 @@ def get_subscriber_category_counts(_user: dict = Depends(get_current_user), star
     if not is_db_ready or len(MEM_ABONNES) == 0:
         return {"ready": False, "message": db_loading_status or "Données indisponibles", "communes": []}
 
-    allowed_communes = _commune_codcoms_for_centre(secteur) if secteur and str(secteur).strip() else None
+    if secteur and str(secteur).strip():
+        allowed_communes = _commune_codcoms_for_centre(secteur)
+    else:
+        allowed_communes = _commune_codcoms_for_user_sectors(_user)
+    
     abonment_dates = {
         str(r.get('NUMAB') or '').strip().upper(): str(r.get('DATEINST') or '').strip()
         for r in MEM_ABONMENTS
@@ -2152,16 +2209,20 @@ def get_subscriber_category_counts(_user: dict = Depends(get_current_user), star
     }
 
 
-def _evolution_cache_key(secteur: str | None, commune: str | None, type_abon: str | None) -> tuple[str, str, str]:
+def _evolution_cache_key(secteur: str | None, commune: str | None, type_abon: str | None, allowed_communes: set[str] | None = None) -> tuple:
     return (
         str(secteur or '').strip(),
         str(commune or '').strip(),
         str(type_abon or '').strip(),
+        tuple(sorted(allowed_communes)) if allowed_communes is not None else None,
     )
 
 
-def _compute_subscribers_evolution(secteur: str | None = None, commune: str | None = None, type_abon: str | None = None):
-    allowed_communes = _commune_codcoms_for_centre(secteur) if secteur and str(secteur).strip() else None
+def _compute_subscribers_evolution(secteur: str | None = None, commune: str | None = None, type_abon: str | None = None, allowed_communes: set[str] | None = None):
+    # allowed_communes est passé depuis l'endpoint pour sécuriser l'accès
+    if allowed_communes is None and secteur and str(secteur).strip():
+        allowed_communes = _commune_codcoms_for_centre(secteur)
+        
     commune_filter = str(commune).strip() if commune and str(commune).strip() else ''
     current_year, current_month = _current_period_bounds()
 
@@ -2287,12 +2348,17 @@ def get_subscribers_evolution(_user: dict = Depends(get_current_user), secteur: 
     if not is_db_ready or not indexes_ready or len(MEM_ABONNES) == 0:
         return {"ready": False, "evolution": [], "total": 0, "missing_dates_handled": 0}
 
-    cache_key = _evolution_cache_key(secteur, commune, type_abon)
+    if secteur and str(secteur).strip():
+        allowed_communes = _commune_codcoms_for_centre(secteur)
+    else:
+        allowed_communes = _commune_codcoms_for_user_sectors(_user)
+
+    cache_key = _evolution_cache_key(secteur, commune, type_abon, allowed_communes)
     cached = _subscribers_evolution_cache.get(cache_key)
     if cached is not None:
         return cached
 
-    result = _compute_subscribers_evolution(secteur, commune, type_abon)
+    result = _compute_subscribers_evolution(secteur, commune, type_abon, allowed_communes=allowed_communes)
     _subscribers_evolution_cache[cache_key] = result
     return result
 
@@ -2323,9 +2389,12 @@ def get_data_dir_settings(_user: dict = Depends(get_current_user)):
 
 
 @app.post("/api/data_dir")
-def update_data_dir_settings(body: DataDirUpdate, _user: dict = Depends(get_current_user)):
+def update_data_dir_settings(body: DataDirUpdate, current_user: dict = Depends(get_current_user)):
     """Change le dossier des données, enregistre la config et recharge les DBF."""
     global DATA_DIR, is_db_ready, cached_dashboard_stats, indexes_ready, _load_retry_count, db_loading_status
+
+    if _AUTH_ENABLED and not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
 
     if _env_overrides_data_dir():
         return {
@@ -2371,8 +2440,11 @@ def update_data_dir_settings(body: DataDirUpdate, _user: dict = Depends(get_curr
 
 
 @app.post("/api/reload_data")
-def reload_data_endpoint(_user: dict = Depends(get_current_user)):
+def reload_data_endpoint(current_user: dict = Depends(get_current_user)):
     """Force un rechargement des données en mémoire."""
+    if _AUTH_ENABLED and not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+
     global is_db_ready, cached_dashboard_stats, indexes_ready, _load_retry_count, db_loading_status
     is_db_ready = False
     cached_dashboard_stats = None
@@ -2503,7 +2575,10 @@ def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = Non
             elif code_affec.startswith('E'):
                 etat_map[code_affec[1:]] = libelle
 
-        allowed_communes = _commune_codcoms_for_centre(secteur)
+        if secteur and str(secteur).strip():
+            allowed_communes = _commune_codcoms_for_centre(secteur)
+        else:
+            allowed_communes = _commune_codcoms_for_user_sectors(_user)
 
         results = []
         for record in MEM_ABONNES:
@@ -2688,7 +2763,10 @@ def get_creance(_user: dict = Depends(get_current_user),
         official = get_official_ca(period_label) if period_label else None
 
         # Build commune map: CODCOM -> label, filtered by sector if provided
-        commune_map = _commune_map_for_centre(secteur)
+        if secteur and str(secteur).strip():
+            commune_map = _commune_map_for_centre(secteur)
+        else:
+            commune_map = _commune_map_for_user_sectors(_user)
 
         total_ca_eau        = 0.0
         total_ca_prestation = 0.0
@@ -4154,7 +4232,7 @@ def get_abonne_api(numab: str, _user: dict = Depends(get_current_user)):
 def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str = None):
     secteur = _enforce_sector(_user, secteur)
     try:
-        secteur_numabs = _secteur_numabs_set(secteur)
+        secteur_numabs = _secteur_numabs_set_for_user(_user, secteur)
         date_arrete = _creance_date_arrete()
         debtors = {}
         tournees_set = set()

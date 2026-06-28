@@ -21,6 +21,7 @@ import dynamic from "next/dynamic";
 import {
   Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, Settings, LogOut, ArrowRight,
   LayoutDashboard, BarChart3, Calendar, ChevronRight, Bell, HelpCircle, Building2, Percent,
+  User, Lock, Eye, EyeOff,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
@@ -119,6 +120,7 @@ export default function Dashboard() {
   const [loginRemainingAttempts, setLoginRemainingAttempts] = useState<number | null>(null);
   const [loginRetryAfter, setLoginRetryAfter] = useState<number | null>(null);
   const [loginCountdown, setLoginCountdown] = useState<number | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (loginCountdown === null || loginCountdown <= 0) {
@@ -373,51 +375,66 @@ export default function Dashboard() {
 
   if (authChecked && user === null && backendReachable) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,131,222,0.12),_transparent_55%),#F9FAFB] flex items-center justify-center p-4 sm:p-8">
-        <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-[#E4E7EC] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.12)]">
-          <div className="bg-gradient-to-r from-[#0D83DE] to-[#0B72C2] px-6 py-6 text-white sm:px-8">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl p-1">
-                <Logo variant="login" alt="EPEOR logo" />
-              </div>
-              <div>
-                <h1 className="text-xl font-black">Connexion requise</h1>
-                <p className="mt-1 text-sm text-blue-50">Accédez au tableau de bord EPEOR en toute sécurité.</p>
-              </div>
+      <div className="relative min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,131,222,0.06),_transparent_55%),#F9FAFB] dark:bg-[radial-gradient(circle_at_top,_rgba(13,131,222,0.15),_transparent_55%),#080C14] flex items-center justify-center p-4 sm:p-8 overflow-hidden font-sans">
+        {/* Ambient Decorative Blurry Blobs */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#0D83DE]/8 dark:bg-[#0D83DE]/15 blur-[120px] animate-float-slow pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#00D1FF]/8 dark:bg-[#00D1FF]/15 blur-[120px] animate-float-delayed pointer-events-none" />
+
+        {/* Global actions top header */}
+        <div className="absolute top-4 right-4 flex items-center gap-3 z-10 bg-white/40 dark:bg-[#071127]/40 backdrop-blur-md p-1.5 rounded-full border border-white/20 dark:border-white/5 shadow-sm">
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </div>
+
+        {/* Login Container */}
+        <div className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] border border-white/30 dark:border-white/5 bg-white/70 dark:bg-[#071127]/70 backdrop-blur-2xl shadow-[0_32px_64px_-12px_rgba(16,24,40,0.18)] dark:shadow-[0_32px_64px_-12px_rgba(2,6,23,0.6)]">
+          {/* Top Gradient bar */}
+          <div className="h-1.5 w-full bg-gradient-to-r from-brand-400 via-brand-500 to-[#00D1FF]" />
+
+          {/* Header section */}
+          <div className="px-8 pt-8 pb-6 text-center">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-white dark:bg-[#081225] shadow-[0_8px_16px_-4px_rgba(16,24,40,0.06)] dark:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.4)] border border-slate-100 dark:border-white/10 transition-all duration-500 hover:scale-105 hover:rotate-3">
+              <Logo variant="login" alt="EPEOR logo" className="h-10 w-10" />
             </div>
+            
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">EPEOR Insights</h1>
+            <p className="mt-2 text-sm text-[#475467] dark:text-slate-400 font-medium">
+              Accédez au tableau de bord en toute sécurité.
+            </p>
           </div>
 
-          <div className="p-6 sm:p-8">
+          {/* Body Section */}
+          <div className="p-8 pt-0">
 
           {(loginError || loginRemainingAttempts !== null || loginRetryAfter !== null) && (
-            <div className="mb-5 rounded-[1.25rem] border border-rose-200 bg-gradient-to-br from-rose-50 to-red-50 p-4 sm:p-5 space-y-3">
+            <div className="mb-6 rounded-2xl border border-rose-200 dark:border-rose-900/30 bg-rose-50/50 dark:bg-rose-950/20 p-4 space-y-3 backdrop-blur-sm animate-shake">
               {loginError && (
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 mt-0.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-200">
-                      <span className="text-rose-700 font-black">!</span>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800">
+                      <span className="text-rose-600 dark:text-rose-400 font-black text-sm">!</span>
                     </div>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-rose-900">{loginError}</p>
+                    <p className="text-sm font-bold text-rose-800 dark:text-rose-300">{loginError}</p>
                   </div>
                 </div>
               )}
 
               {loginRemainingAttempts !== null && loginRemainingAttempts > 0 && (
-                <div className="space-y-3 pt-2 border-t border-rose-200">
+                <div className="space-y-3 pt-3 border-t border-rose-200/50 dark:border-rose-900/20">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-black uppercase tracking-wider text-rose-800">Tentatives restantes</p>
-                    <p className="text-xl font-black text-rose-700">{loginRemainingAttempts} / 3</p>
+                    <p className="text-xs font-black uppercase tracking-wider text-rose-800 dark:text-rose-400">Tentatives restantes</p>
+                    <p className="text-lg font-black text-rose-700 dark:text-rose-400">{loginRemainingAttempts} / 3</p>
                   </div>
                   <div className="flex gap-2">
                     {[1, 2, 3].map((i) => (
                       <div
                         key={i}
-                        className={`flex-1 h-2 rounded-full transition-all ${
+                        className={`flex-1 h-1.5 rounded-full transition-all duration-500 ${
                           i <= loginRemainingAttempts
-                            ? 'bg-emerald-400'
-                            : 'bg-rose-300'
+                            ? 'bg-emerald-500 dark:bg-emerald-600'
+                            : 'bg-rose-300 dark:bg-rose-900'
                         }`}
                       />
                     ))}
@@ -494,41 +511,78 @@ export default function Dashboard() {
                 setLoginPending(false);
               }
             }}
-            className="space-y-4"
+            className="space-y-5"
           >
-            <label className="block text-sm font-bold text-[#344054]">
-              <span className="text-xs uppercase tracking-[0.18em] text-[#98A2B3]">Nom d'utilisateur</span>
-              <input
-                type="text"
-                value={loginUsername}
-                onChange={(event) => setLoginUsername(event.target.value)}
-                disabled={loginCountdown !== null && loginCountdown > 0}
-                className="mt-2 w-full rounded-2xl border border-[#D0D5DD] bg-[#F9FAFB] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0D83DE] focus:bg-white focus:ring-4 focus:ring-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-                autoComplete="username"
-                required
-              />
-            </label>
-            <label className="block text-sm font-bold text-[#344054]">
-              <span className="text-xs uppercase tracking-[0.18em] text-[#98A2B3]">Mot de passe</span>
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={(event) => setLoginPassword(event.target.value)}
-                disabled={loginCountdown !== null && loginCountdown > 0}
-                className="mt-2 w-full rounded-2xl border border-[#D0D5DD] bg-[#F9FAFB] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0D83DE] focus:bg-white focus:ring-4 focus:ring-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-                autoComplete="current-password"
-                required
-              />
-            </label>
+            <div>
+              <label className="block text-xs font-black uppercase tracking-[0.15em] text-[#98A2B3] dark:text-slate-400 mb-2">
+                Nom d'utilisateur
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-brand-500 transition-colors">
+                  <User size={18} />
+                </div>
+                <input
+                  type="text"
+                  value={loginUsername}
+                  onChange={(event) => setLoginUsername(event.target.value)}
+                  disabled={loginCountdown !== null && loginCountdown > 0}
+                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-[#D0D5DD] dark:border-white/10 bg-[#F9FAFB] dark:bg-white/5 text-sm font-semibold text-slate-900 dark:text-white outline-none transition-all duration-300 focus:border-brand-500 focus:bg-white dark:focus:bg-[#081225] focus:ring-4 focus:ring-brand-100/50 dark:focus:ring-brand-500/10 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+                  autoComplete="username"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black uppercase tracking-[0.15em] text-[#98A2B3] dark:text-slate-400 mb-2">
+                Mot de passe
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-brand-500 transition-colors">
+                  <Lock size={18} />
+                </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                  disabled={loginCountdown !== null && loginCountdown > 0}
+                  className="w-full pl-11 pr-12 py-3.5 rounded-2xl border border-[#D0D5DD] dark:border-white/10 bg-[#F9FAFB] dark:bg-white/5 text-sm font-semibold text-slate-900 dark:text-white outline-none transition-all duration-300 focus:border-brand-500 focus:bg-white dark:focus:bg-[#081225] focus:ring-4 focus:ring-brand-100/50 dark:focus:ring-brand-500/10 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={loginCountdown !== null && loginCountdown > 0}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={loginPending || (loginCountdown !== null && loginCountdown > 0)}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0D83DE] px-5 py-3 text-sm font-black text-white transition-all hover:bg-[#0B72C2] disabled:cursor-not-allowed disabled:opacity-50"
+              className="relative overflow-hidden group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-3.5 text-sm font-black text-white transition-all duration-300 hover:from-brand-600 hover:to-brand-700 hover:shadow-lg hover:shadow-brand-500/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
             >
-              {loginPending ? 'Connexion…' : loginCountdown !== null && loginCountdown > 0 ? 'Compte à rebours en cours…' : 'Se connecter'}
-              {loginPending || (loginCountdown !== null && loginCountdown > 0) ? null : <ArrowRight size={16} />}
+              {loginPending ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : loginCountdown !== null && loginCountdown > 0 ? (
+                'Temporairement bloqué'
+              ) : (
+                <>
+                  <span>Se connecter</span>
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1 rtl-flip" />
+                </>
+              )}
             </button>
           </form>
+
+          <p className="mt-8 text-center text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold">
+            EPEOR Analytics &copy; {new Date().getFullYear()}
+          </p>
+
           </div>
         </div>
       </div>

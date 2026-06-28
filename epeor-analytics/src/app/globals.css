@@ -16,6 +16,24 @@
   --color-brand-600: #0c75c8;
   --color-brand-700: #0a619f;
   --color-brand-800: #084d7d;
+
+  --animate-float-slow: float-slow 15s ease-in-out infinite;
+  --animate-float-delayed: float-delayed 18s ease-in-out infinite;
+  --animate-shake: shake 0.2s ease-in-out 2;
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.05); }
+}
+@keyframes float-delayed {
+  0%, 100% { transform: translateY(0) scale(1.05); }
+  50% { transform: translateY(20px) scale(0.95); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 
 :root {

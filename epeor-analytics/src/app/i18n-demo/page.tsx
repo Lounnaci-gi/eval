@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import useDirection from '../hooks/useDirection';
 import LanguageSwitcher from '../components/LanguageSwitcher';
@@ -14,7 +15,7 @@ const initialSubscribers = [
 
 export default function I18nDemoPage() {
   const { t, i18n } = useTranslation();
-  const { direction, isRTL } = useDirection();
+  const { isRTL } = useDirection();
   
   // State for user creation form
   const [username, setUsername] = useState('');
@@ -73,12 +74,12 @@ export default function I18nDemoPage() {
         </div>
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
-          <a
+          <Link
             href="/"
             className="px-3 py-1.5 rounded-lg border border-[rgb(var(--color-border))] text-sm hover:bg-[rgb(var(--color-bg-tertiary))] transition-all duration-200"
           >
             ← Back to Dashboard
-          </a>
+          </Link>
         </div>
       </header>
 

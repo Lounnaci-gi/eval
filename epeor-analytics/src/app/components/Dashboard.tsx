@@ -19,8 +19,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import dynamic from "next/dynamic";
 import {
-  Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, Settings, LogOut, User, Lock, ArrowRight,
-  LayoutDashboard, Database, BarChart3, Calendar, ChevronRight, Bell, HelpCircle, Building2, Percent,
+  Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, Settings, LogOut, ArrowRight,
+  LayoutDashboard, BarChart3, Calendar, ChevronRight, Bell, HelpCircle, Building2, Percent,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
@@ -42,7 +42,6 @@ import { SettingsView } from "./SettingsView";
 import { MobileNav, MobileTopBar, type AppView } from "./MobileNav";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
-import { useDirection } from "../hooks/useDirection";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
 
 const viewLoader = (
@@ -86,7 +85,6 @@ const BilanActiviteView = dynamic(
 );
 
 export default function Dashboard() {
-  const { direction, isRTL } = useDirection();
   const { t } = useTranslation();
   const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
@@ -471,7 +469,7 @@ export default function Dashboard() {
                   }
                   return;
                 }
-                const loginData = await res.json();
+                await res.json();
                 const meRes = await fetch(apiUrl('/api/auth/me'), { credentials: 'include' });
                 if (!meRes.ok) {
                   throw new Error('Impossible de récupérer les informations de session');
@@ -490,7 +488,7 @@ export default function Dashboard() {
                 setLoginRetryAfter(null);
                 setLoginCountdown(null);
                 setAuthChecked(true);
-            } catch (err) {
+            } catch {
                 setLoginError('Impossible de contacter le serveur backend.');
               } finally {
                 setLoginPending(false);

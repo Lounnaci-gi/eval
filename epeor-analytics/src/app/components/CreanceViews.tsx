@@ -1,21 +1,18 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo, useCallback, Fragment } from "react";
-import { saveAs } from "file-saver";
+import { useEffect, useState, useRef, Fragment } from "react";
 import {
-  ChevronRight, ChevronDown, Search, Printer, FileText, FileSpreadsheet,
-  Percent, MapPin, BarChart3, Calendar, RefreshCw, CreditCard, Users, Ban, Database,
+  ChevronRight, Search, Printer, MapPin, Calendar, Database,
 } from "lucide-react";
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar,
-  PolarAngleAxis, ReferenceLine, LabelList, AreaChart, Area,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  RadialBarChart, RadialBar, PolarAngleAxis, ReferenceLine,
 } from "recharts";
-import { apiUrl, apiUrlObject } from "../lib/api";
+import { apiUrlObject } from "../lib/api";
 import {
-  ChartContainer, formatDate, formatPeriodLabel, appendSecteurParam,
+  ChartContainer, formatDate, appendSecteurParam,
 } from "./utils";
-import { SecteurDropdown, MultiSelectDropdown, FrenchDateInput } from "./ui";
+import { FrenchDateInput } from "./ui";
 
 export function CreanceDetailView({
   creanceData, setCreanceData, ventilationData, setVentilationData, lastVentDate, setLastVentDate,
@@ -357,95 +354,6 @@ export function CreanceDetailView({
         ? (row.encaissement_total * 12 * 100) / (row.creance_total + row.ca_eau)
         : 0,
   })) || [];
-
-  const [histView, setHistView] = useState<'chart' | 'table'>('chart');
-  const printTable = () => {
-    try {
-      const table = document.getElementById('retrospective-table');
-      if (!table) { window.print(); return; }
-      const hwObj = (data?.history || []).map((row: any) => ({
-        ...row,
-        taux_objectif_atteint: row.taux_objectif_atteint != null
-          ? row.taux_objectif_atteint
-          : (row.creance_total + row.ca_eau) > 0
-            ? (row.encaissement_total * 12 * 100) / (row.creance_total + row.ca_eau)
-            : 0,
-      }));
-      const fmtDA = (n: number) =>
-        new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-          .format(n).replace(/[\u202F\u00A0]/g, ' ') + ' DA';
-      const centreSuffix = secteurLabel ? ` — centre ${secteurLabel}` : '';
-      const periodLabel = histType === 'monthly_12'
-        ? `12 derniers mois${centreSuffix}`
-        : histType === 'years'
-          ? `${histStartYear} → ${histEndYear}${centreSuffix}`
-          : `${formatMonthFr(histStartMonth)} ${histStartYear} → ${formatMonthFr(histEndMonth)} ${histEndYear}${centreSuffix}`;
-      const today = new Date();
-      const dateStr = `${today.getDate().toString().padStart(2,'0')}/${(today.getMonth()+1).toString().padStart(2,'0')}/${today.getFullYear()}`;
-      const origin = window.location.origin;
-      const rows = hwObj.map((row: any) => {
-        const tauxRecov = Number(row.ca_total) > 0
-          ? (Number(row.ca_recouvre_total || 0) / Number(row.ca_total)) * 100 : 0;
-        const bgColor = Number(row.taux_objectif_atteint) >= 90 ? '#F0FDF4' : '#FFF7ED';
-        return `<tr style="background:${bgColor};">
-          <td style="padding:4px 8px;border:1px solid #E4E7EC;white-space:nowrap;font-weight:700;">${row.label || row.month}</td>
-          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_eau||0))}</td>
-          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_prest||0))}</td>
-          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_total||0))}</td>
-          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.ca_recouvre_total||0))}</td>
-          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.encaissement_total||0))}</td>
-          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${fmtDA(Number(row.creance_total||0))}</td>
-          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;">${tauxRecov.toFixed(2)}%</td>
-          <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;color:${Number(row.taux_objectif_atteint)>=90?'#16A34A':'#D97706'};font-weight:700;">${Number(row.taux_objectif_atteint).toFixed(2)}%</td>
-        </tr>`;
-      }).join('');
-      const tableHtml = `<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:10px;">
-        <thead><tr style="background:#F2F4F7;">
-          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:left;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Période</th>
-          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Eau</th>
-          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Prestation</th>
-          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Total</th>
-          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Recouvré</th>
-          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Encaissement</th>
-          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Créance</th>
-          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Taux Recov.</th>
-          <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Objectif atteint</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-      const w = window.open('', '_blank');
-      if (!w) return;
-      w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tableau Rétrospectif</title>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
-        <style>
-          *{box-sizing:border-box;margin:0;padding:0;}
-          @page{size:A4 landscape;margin:12mm;}
-          body{font-family:'Inter',sans-serif;background:white;color:#101828;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-          .hdr{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #E4E7EC;margin-bottom:14px;}
-        </style></head><body>
-        <div class="hdr">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <img src="${origin}/ade.png" style="height:40px;width:auto;object-fit:contain;">
-            <div>
-              <div style="font-size:13px;font-weight:900;color:#101828;">Tableau Détaillé des Indicateurs</div>
-              <div style="font-size:9px;font-weight:600;color:#667085;margin-top:3px;">Période : ${periodLabel}</div>
-              ${secteurLabel ? `<div style="display:inline-block;margin-top:5px;padding:2px 10px;background:#EBF5FF;border:1px solid #BFDBFE;border-radius:20px;font-size:9px;font-weight:800;color:#1D4ED8;letter-spacing:0.02em;">&#128205; Secteur : ${secteurLabel}</div>` : ''}
-            </div>
-          </div>
-          <div style="text-align:right;font-size:8.5px;color:#98A2B3;font-weight:600;line-height:1.7;">
-            <div>Édité le : ${dateStr}</div>
-            <div>Unité : 26 — MEDEA | EPEOR Analytics</div>
-          </div>
-        </div>
-        ${tableHtml}
-        <script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script>
-      </body></html>`);
-      w.document.close();
-    } catch (err) {
-      console.error('Print failed', err);
-      window.print();
-    }
-  };
 
   const handlePrintAllCharts = () => {
     if (!data?.history || data.history.length === 0) {

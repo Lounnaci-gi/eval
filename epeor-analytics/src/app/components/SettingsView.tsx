@@ -53,16 +53,6 @@ export function SettingsView({
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
 
-  // User form states
-  const [formUsername, setFormUsername] = useState('');
-  const [formDisplayName, setFormDisplayName] = useState('');
-  const [formPassword, setFormPassword] = useState('');
-  const [formIsAdmin, setFormIsAdmin] = useState(false);
-  const [formSectors, setFormSectors] = useState<string[]>([]);
-  const [editingUser, setEditingUser] = useState<any | null>(null);
-  const [formMessage, setFormMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-  const [formLoading, setFormLoading] = useState(false);
-
   const fetchUsers = async () => {
     setUsersLoading(true);
     setUsersError(null);
@@ -180,57 +170,6 @@ export function SettingsView({
     } catch {
       setCacheMessage("Erreur lors de la communication avec le serveur.");
       setClearingCache(false);
-    }
-  };
-
-  // --- Change username / password
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newUsername, setNewUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [changingCreds, setChangingCreds] = useState(false);
-  const [changeMessage, setChangeMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-
-  const handleChangeCredentials = async () => {
-    setChangeMessage(null);
-    if (!currentPassword) {
-      setChangeMessage({ type: 'err', text: "Mot de passe actuel requis." });
-      return;
-    }
-    if (newPassword && newPassword !== confirmPassword) {
-      setChangeMessage({ type: 'err', text: "Les nouveaux mots de passe ne correspondent pas." });
-      return;
-    }
-    if (!newUsername && !newPassword) {
-      setChangeMessage({ type: 'err', text: "Indiquez un nouveau nom d'utilisateur ou un nouveau mot de passe." });
-      return;
-    }
-
-    setChangingCreds(true);
-    try {
-      const res = await fetch(apiUrl('/api/auth/change'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_password: currentPassword, new_username: newUsername || undefined, new_password: newPassword || undefined }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setChangeMessage({ type: 'err', text: err.detail || 'Erreur lors de la modification des identifiants.' });
-        return;
-      }
-      const data = await res.json();
-      setChangeMessage({ type: 'ok', text: 'Identifiants mis à jour.' });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      if (newUsername) setNewUsername('');
-      // If username changed, refresh page to reflect it
-      setTimeout(() => window.location.reload(), 800);
-    } catch (e) {
-      setChangeMessage({ type: 'err', text: 'Impossible de contacter le serveur.' });
-    } finally {
-      setChangingCreds(false);
     }
   };
 

@@ -8,7 +8,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Legend,
 } from "recharts";
-import { apiUrl, apiUrlObject } from "../lib/api";
+import { apiUrlObject } from "../lib/api";
 import {
   sanitizeEvolutionRows,
   formatPeriodFrench as formatPeriodFrenchSafe,
@@ -158,32 +158,6 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
     };
   }, [data]);
 
-  const monthsList = [
-    { value: 1, label: t("months.1", "Janvier") },
-    { value: 2, label: t("months.2", "Février") },
-    { value: 3, label: t("months.3", "Mars") },
-    { value: 4, label: t("months.4", "Avril") },
-    { value: 5, label: t("months.5", "Mai") },
-    { value: 6, label: t("months.6", "Juin") },
-    { value: 7, label: t("months.7", "Juillet") },
-    { value: 8, label: t("months.8", "Août") },
-    { value: 9, label: t("months.9", "Septembre") },
-    { value: 10, label: t("months.10", "Octobre") },
-    { value: 11, label: t("months.11", "Novembre") },
-    { value: 12, label: t("months.12", "Décembre") }
-  ];
-
-  const yearsList = useMemo(() => {
-    if (!data || data.length === 0) return Array.from({ length: 27 }, (_, i) => 2000 + i);
-    const firstYear = parseInt(data[0].period.split('-')[0]);
-    const lastYear = parseInt(data[data.length - 1].period.split('-')[0]);
-    const list = [];
-    for (let y = firstYear; y <= lastYear; y++) {
-      list.push(y);
-    }
-    return list;
-  }, [data]);
-
   const { xAxisTicks, formatTick } = useMemo(() => {
     if (!filteredData || filteredData.length === 0) return { xAxisTicks: [], formatTick: (t: string) => t };
     
@@ -202,7 +176,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
     }
 
     const generatedTicks: string[] = [];
-    filteredData.forEach((d, idx) => {
+    filteredData.forEach((d) => {
       if (!d?.period) return;
       const parts = d.period.split('-');
       const y = parseInt(parts[0]);

@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo, useCallback, Fragment } from "react";
-import { saveAs } from "file-saver";
 import {
-  ChevronRight, ChevronDown, Search, Printer, FileText, FileSpreadsheet,
-  Percent, MapPin, RefreshCw, CreditCard, Users, Building2, Ban,
+  ChevronRight, ChevronDown, Search, Printer, MapPin, Building2, Ban, FileSpreadsheet,
 } from "lucide-react";
-import {
-  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from "recharts";
-import { apiUrl, apiUrlObject } from "../lib/api";
+import { apiUrlObject } from "../lib/api";
 import { appendSecteurParam } from "./utils";
 import { SecteurDropdown, MultiSelectDropdown } from "./ui";
 

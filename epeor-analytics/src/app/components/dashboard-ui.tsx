@@ -1,46 +1,162 @@
 "use client";
 
+// ── Glow colors per card variant ──────────────────────────────────────────────
+const glowMap: Record<string, string> = {
+  blue:    "var(--glow-blue,    rgba(13,131,222,0.18))",
+  rose:    "var(--glow-rose,    rgba(244,63,94,0.18))",
+  amber:   "var(--glow-amber,   rgba(245,158,11,0.18))",
+  cyan:    "var(--glow-cyan,    rgba(6,182,212,0.18))",
+  brand:   "var(--glow-blue,    rgba(13,131,222,0.18))",
+  emerald: "var(--glow-emerald, rgba(16,185,129,0.18))",
+  indigo:  "var(--glow-indigo,  rgba(99,102,241,0.18))",
+};
+
+const iconBgMap: Record<string, string> = {
+  blue:    "bg-blue-50   text-[#0D83DE]",
+  rose:    "bg-rose-50   text-rose-500",
+  amber:   "bg-amber-50  text-amber-500",
+  cyan:    "bg-cyan-50   text-cyan-500",
+  brand:   "bg-brand-50  text-brand-500",
+  emerald: "bg-emerald-50 text-emerald-500",
+  indigo:  "bg-indigo-50 text-indigo-500",
+};
+
+// ── StatsCard ────────────────────────────────────────────────────────────────
+
 export function StatsCard({ title, value, icon, trend, color, onClick }: any) {
-  const colorMap: any = {
-    blue: "bg-blue-50 text-[#0D83DE]",
-    rose: "bg-rose-50 text-rose-600",
-    amber: "bg-amber-50 text-amber-600",
-    cyan: "bg-cyan-50 text-cyan-600",
-    brand: "bg-brand-50 text-brand-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    indigo: "bg-slate-50 text-slate-600",
-  };
+  const glow = glowMap[color] || glowMap.blue;
+  const iconCls = iconBgMap[color] || "bg-slate-50 text-slate-500";
 
   return (
     <div
       onClick={onClick}
-      className={`bg-white border border-[#E4E7EC] p-4 sm:p-6 rounded-[1.25rem] sm:rounded-[2rem] shadow-sm hover:shadow-md hover:border-[#D0D5DD] transition-all group min-w-0 ${onClick ? 'cursor-pointer' : ''}`}
+      className={`
+        stats-card-animate
+        relative overflow-hidden
+        bg-white border border-[#E4E7EC]
+        p-4 sm:p-6
+        rounded-[1.25rem] sm:rounded-[2rem]
+        shadow-sm
+        transition-all duration-300 ease-out
+        group
+        min-w-0
+        ${onClick ? "cursor-pointer" : ""}
+      `}
+      style={{
+        background: "var(--glass-bg, #fff)",
+        borderColor: "var(--glass-border, #E4E7EC)",
+        boxShadow: "var(--glass-shadow)",
+      }}
+      onMouseEnter={e => {
+        const el = e.currentTarget;
+        el.style.boxShadow = `var(--glass-shadow-hover), 0 0 0 1px rgba(13,131,222,0.10)`;
+        el.style.transform = "translateY(-3px)";
+        el.style.borderColor = "rgba(13,131,222,0.20)";
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget;
+        el.style.boxShadow = "var(--glass-shadow)";
+        el.style.transform = "translateY(0)";
+        el.style.borderColor = "var(--glass-border, #E4E7EC)";
+      }}
     >
-      <div className="flex justify-between items-start mb-6">
-        <div className={`p-4 rounded-2xl transition-transform group-hover:scale-110 ${colorMap[color] || "bg-slate-50"}`}>
-          {icon}
+      {/* Subtle top-left gradient blob */}
+      <div
+        aria-hidden
+        className="absolute -top-6 -left-6 w-24 h-24 rounded-full opacity-40 pointer-events-none"
+        style={{ background: glow, filter: "blur(20px)" }}
+      />
+
+      <div className="relative flex justify-between items-start mb-6">
+        {/* Icon with glow halo */}
+        <div className="relative">
+          <div
+            className={`p-3.5 sm:p-4 rounded-2xl transition-transform duration-300 group-hover:scale-110 ${iconCls}`}
+            style={{ boxShadow: `0 4px 16px ${glow}` }}
+          >
+            {icon}
+          </div>
         </div>
-        <span className="text-[11px] font-black uppercase tracking-widest text-[#98A2B3]">{trend}</span>
+
+        {/* Trend badge */}
+        {trend && (
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#98A2B3] bg-[#F9FAFB] px-2 py-1 rounded-lg border border-[#F2F4F7]">
+            {trend}
+          </span>
+        )}
       </div>
-      <div>
-        <p className="text-[#475467] text-sm font-bold mb-1">{title}</p>
-        <p className="text-xl sm:text-2xl font-black text-[#101828] tracking-tight break-words">{value}</p>
+
+      <div className="relative">
+        <p className="text-[#475467] text-xs sm:text-sm font-semibold mb-1 tracking-wide">{title}</p>
+        <p className="text-xl sm:text-2xl font-black text-[#101828] tracking-tight break-words tabular-nums">
+          {value}
+        </p>
       </div>
+
+      {/* Bottom gradient line (active indicator) */}
+      <div
+        aria-hidden
+        className="absolute bottom-0 left-6 right-6 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{ background: "var(--gradient-accent)" }}
+      />
     </div>
   );
 }
+
+// ── NavItem ──────────────────────────────────────────────────────────────────
 
 export function NavItem({ icon, label, active = false, onClick }: any) {
   return (
     <div
       onClick={onClick}
-      className={`
-      flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer transition-all
-      ${active ? 'bg-blue-50 text-[#0D83DE] shadow-sm' : 'text-[#475467] hover:bg-[#F9FAFB] hover:text-[#101828]'}
-    `}>
-      <span className={active ? "text-[#0D83DE]" : ""}>{icon}</span>
-      <span className={`font-bold text-sm ${active ? 'text-[#101828]' : ''}`}>{label}</span>
-      {active && <div className="ml-auto w-1.5 h-1.5 bg-[#0D83DE] rounded-full"></div>}
+      className="relative flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-200 group"
+      style={active ? {
+        background: "var(--sidebar-active-bg)",
+        color: "var(--sidebar-active-border)",
+      } : {}}
+      onMouseEnter={e => {
+        if (!active) {
+          (e.currentTarget as HTMLElement).style.background = "var(--gradient-accent-soft)";
+          (e.currentTarget as HTMLElement).style.transform = "translateX(3px)";
+        }
+      }}
+      onMouseLeave={e => {
+        if (!active) {
+          (e.currentTarget as HTMLElement).style.background = "transparent";
+          (e.currentTarget as HTMLElement).style.transform = "translateX(0)";
+        }
+      }}
+    >
+      {/* Active indicator: vertical bar on left */}
+      {active && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
+          style={{ background: "var(--gradient-accent)" }}
+        />
+      )}
+
+      <span
+        className="transition-colors duration-200"
+        style={{ color: active ? "var(--sidebar-active-border)" : "rgb(var(--color-text-secondary))" }}
+      >
+        {icon}
+      </span>
+
+      <span
+        className={`text-sm transition-colors duration-200 ${active ? "font-bold" : "font-semibold"}`}
+        style={{ color: active ? "rgb(var(--color-text-primary))" : "rgb(var(--color-text-secondary))" }}
+      >
+        {label}
+      </span>
+
+      {/* Active dot (right) */}
+      {active && (
+        <div
+          className="ml-auto w-2 h-2 rounded-full"
+          style={{ background: "var(--gradient-accent)", boxShadow: "0 0 6px var(--glow-blue)" }}
+        />
+      )}
     </div>
   );
 }

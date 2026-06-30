@@ -44,6 +44,7 @@ import { MobileNav, MobileTopBar, type AppView } from "./MobileNav";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
+import { ServiceContentieuxView } from "./ServiceContentieuxView";
 
 const viewLoader = (
   <div className="p-12 flex justify-center">
@@ -87,7 +88,7 @@ const BilanActiviteView = dynamic(
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'service_contentieux' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [creanceData, setCreanceData] = useState<any>(null);
@@ -782,6 +783,8 @@ export default function Dashboard() {
           <NavItem
             icon={<Calendar size={20} />}
             label={t('nav.billingPeriods')}
+            active={currentView === 'service_contentieux'}
+            onClick={() => setCurrentView('service_contentieux')}
           />
         </nav>
 
@@ -1086,6 +1089,16 @@ export default function Dashboard() {
           />
         ) : currentView === 'settings' ? (
           <SettingsView onBack={() => setCurrentView('dashboard')} user={user} />
+        ) : currentView === 'service_contentieux' ? (
+          <ServiceContentieuxView
+            onBack={() => setCurrentView('dashboard')}
+            selectedSecteur={selectedSecteur}
+            sectors={sectors}
+            uniteLabel={uniteLabel}
+            onSecteurChange={setSelectedSecteur}
+            sectorsLoading={sectorsLoading || !stats?.ready}
+            allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
+          />
         ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}

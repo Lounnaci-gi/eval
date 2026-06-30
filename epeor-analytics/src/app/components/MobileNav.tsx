@@ -33,6 +33,7 @@ export type AppView =
   | "bilan_activite"
   | "creances_abonnes"
   | "creances_institutions"
+  | "service_contentieux"
   | "settings";
 
 type NavItem = {
@@ -51,6 +52,7 @@ const BOTTOM_NAV: NavItem[] = [
 
 const MORE_ITEMS: NavItem[] = [
   { id: "creances_institutions", labelKey: "nav.institutionDebts", icon: Building2 },
+  { id: "service_contentieux",  labelKey: "nav.billingPeriods",    icon: Calendar },
   { id: "settings",             labelKey: "nav.settings",          icon: Settings },
 ];
 
@@ -137,12 +139,7 @@ export function MobileNav({
           <div className="px-2 py-1">
             <LanguageSwitcher />
           </div>
-          <div className="px-3 py-2 mt-1 border-t border-[#F2F4F7]">
-            <p className="text-[10px] text-[#98A2B3] font-medium flex items-center gap-1.5">
-              <Calendar size={12} />
-              {t('nav.billingPeriods')} — {t('nav.comingSoon', 'bientôt')}
-            </p>
-          </div>
+
           {onLogout && (
             <div className="px-2 pt-1 mt-1 border-t border-[#F2F4F7]">
               <button

@@ -179,6 +179,7 @@ export function GestionAbonnesShell({
 
 function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
+  const [selectedType, setSelectedType] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
@@ -190,7 +191,10 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
     setSelectedNumabs([]);
     setLoadingSubscribers(true);
     try {
-      const res = await fetch(buildSubscribersUrl(q.id, { secteur: selectedSecteur }));
+      const res = await fetch(buildSubscribersUrl(q.id, {
+        secteur: selectedSecteur,
+        ...(selectedType?.code ? { typabon: selectedType.code } : {}),
+      }));
       const data = await res.json();
       setQuartierSubscribers(data);
     } catch (e) {
@@ -902,8 +906,14 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             >
               <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Tous les Abonnés - {selectedQuartier.name}</h3>
-            <p className="text-sm text-[#667085] mt-1">Liste nominative de tous les abonnés du quartier</p>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+              {selectedType ? `${selectedType.name} — ` : ''}Tous les Abonnés - {selectedQuartier.name}
+            </h3>
+            <p className="text-sm text-[#667085] mt-1">
+              {selectedType
+                ? `Liste nominative des abonnés de type « ${selectedType.name} » dans ce quartier`
+                : 'Liste nominative de tous les abonnés du quartier'}
+            </p>
           </div>
           <button
             onClick={handlePrint}
@@ -929,10 +939,17 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
               onClick={() => setSelectedCommune(null)}
               className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
             >
-              <ChevronRight className="rotate-180" size={16} /> Retour aux communes
+              <ChevronRight className="rotate-180" size={16} />
+              {selectedType ? 'Retour aux communes du type' : 'Retour aux communes'}
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Quartiers de {selectedCommune.name}</h3>
-            <p className="text-sm text-[#667085] mt-1">Détail des abonnés pour chaque quartier de cette commune</p>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+              {selectedType ? `Quartiers de ${selectedCommune.name} — ${selectedType.name}` : `Quartiers de ${selectedCommune.name}`}
+            </h3>
+            <p className="text-sm text-[#667085] mt-1">
+              {selectedType
+                ? `Détail des abonnés « ${selectedType.name} » pour chaque quartier de cette commune`
+                : 'Détail des abonnés pour chaque quartier de cette commune'}
+            </p>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -965,6 +982,61 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
               }) : (
                 <tr>
                   <td colSpan={5} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé dans cette commune.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedType) {
+    const typeCommunes = selectedType.communes || [];
+    return (
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <button
+              onClick={() => setSelectedType(null)}
+              className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+            >
+              <ChevronRight className="rotate-180" size={16} /> Retour aux types
+            </button>
+            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Communes — {selectedType.name}</h3>
+            <p className="text-sm text-[#667085] mt-1">Répartition géographique des abonnés de ce type par commune</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
+                <th className="px-8 py-5">Commune</th>
+                <th className="px-6 py-5 text-right">Total Abonnés</th>
+                <th className="px-6 py-5 text-right">Abonnés Actifs</th>
+                <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
+                <th className="px-8 py-5 text-right">Part (%)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F2F4F7]">
+              {typeCommunes.length > 0 ? typeCommunes.map((c: any, i: number) => {
+                const actifs = c.value - (c.resigned || 0);
+                return (
+                  <tr
+                    key={i}
+                    onClick={() => setSelectedCommune(c)}
+                    className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
+                  >
+                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
+                    <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{c.value.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-medium text-rose-600">{c.resigned?.toLocaleString() || 0}</td>
+                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{c.percentage}%</td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={5} className="px-8 py-8 text-center text-[#667085] font-medium">Aucune commune trouvée pour ce type d'abonné.</td>
                 </tr>
               )}
             </tbody>
@@ -1008,7 +1080,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 return (
                   <tr
                     key={i}
-                    onClick={() => setSelectedCommune(c)}
+                    onClick={() => { setSelectedCommune(c); setSelectedType(null); setSelectedQuartier(null); }}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
@@ -1073,7 +1145,11 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
               {types.map((t: any, i: number) => {
                 const actifs = t.value - (t.resigned || 0);
                 return (
-                  <tr key={i} className="hover:bg-[#F9FAFB] transition-colors group">
+                  <tr
+                    key={i}
+                    onClick={() => { setSelectedType(t); setSelectedCommune(null); setSelectedQuartier(null); }}
+                    className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
+                  >
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{t.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
@@ -4135,25 +4211,14 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       });
 
       doc.autoPrint();
-      const blob = doc.output('blob');
-      const blobUrl = URL.createObjectURL(blob);
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
-      iframe.src = blobUrl;
-      document.body.appendChild(iframe);
-      iframe.onload = () => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-          URL.revokeObjectURL(blobUrl);
-        }, 2000);
-      };
+      const blobUrl = doc.output('bloburl');
+      const printWindow = window.open(blobUrl, '_blank');
+      if (!printWindow) {
+        alert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.');
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     };
 
     return (

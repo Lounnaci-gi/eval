@@ -71,10 +71,11 @@ export function appendSecteurParam(url: URL, secteur: string) {
   if (code) url.searchParams.set("secteur", code);
 }
 
-export function buildSubscribersUrl(quartier: string, options?: { etat?: string; secteur?: string }) {
+export function buildSubscribersUrl(quartier: string, options?: { etat?: string; secteur?: string; typabon?: string }) {
   const url = apiUrlObject("/subscribers");
   url.searchParams.set("quartier", quartier);
   if (options?.etat) url.searchParams.set("etat", options.etat);
+  if (options?.typabon) url.searchParams.set("typabon", options.typabon);
   appendSecteurParam(url, options?.secteur || "");
   return url.toString();
 }

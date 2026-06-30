@@ -1189,7 +1189,7 @@ function UserProfilePanel({
         window.location.reload();
       }, 1500);
 
-    } catch (err) {
+    } catch {
       setFormMessage({ type: 'err', text: 'Erreur de communication avec le serveur.' });
     } finally {
       setFormLoading(false);

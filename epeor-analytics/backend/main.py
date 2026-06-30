@@ -766,10 +766,11 @@ def _commune_map_for_centre(secteur: str | None) -> dict[str, str]:
             codcom: str(r.get('LIBCOM', '')).strip()
             for codcom, r in communes_by_code.items()
         }
-    allowed_codcoms = _commune_codcoms_for_centre(secteur)
+    allowed_codcoms = _commune_codcoms_for_centre(secteur) or set()
     return {
         codcom: str(r.get('LIBCOM', '')).strip()
         for codcom, r in communes_by_code.items()
+        if codcom in allowed_codcoms
     }
 
 
@@ -910,8 +911,44 @@ def compute_dashboard_stats(
 
         # Aggregate counts grouped by TYPABON (mimics SQL GROUP BY behavior)
         if t not in type_counts:
-            type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
+            type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "communes": {}}
         type_counts[t]["total"] += 1
+
+        # Geographic breakdown per type (for drill-down by commune/quartier)
+        codcom_t = _abonne_codcom(numab)
+        in_centre_geo = (
+            (allowed_communes is None or codcom_t in allowed_communes)
+            and codcom_t in commune_map
+        )
+        if in_centre_geo:
+            type_communes = type_counts[t]["communes"]
+            if codcom_t not in type_communes:
+                type_communes[codcom_t] = {
+                    "total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}
+                }
+            tc = type_communes[codcom_t]
+            tc["total"] += 1
+            state_t = abonment_state_map.get(numab)
+            is_resigned_t = (state_t == '40')
+            is_stopped_t = (state_t == '20')
+            is_no_meter_t = (state_t == '30')
+            if is_resigned_t:
+                tc["resigned"] += 1
+            if is_stopped_t:
+                tc["stopped"] += 1
+            if is_no_meter_t:
+                tc["no_meter"] += 1
+            prefix_t = numab[:2]
+            if prefix_t not in tc["quartiers"]:
+                tc["quartiers"][prefix_t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
+            tq = tc["quartiers"][prefix_t]
+            tq["total"] += 1
+            if is_resigned_t:
+                tq["resigned"] += 1
+            if is_stopped_t:
+                tq["stopped"] += 1
+            if is_no_meter_t:
+                tq["no_meter"] += 1
 
         # Check if TYPABON maps to a category (only include mapped subscribers
         # in the commune/category breakdowns below)
@@ -1018,6 +1055,44 @@ def compute_dashboard_stats(
         if counts["total"] < 10:
             continue
         label = mapping.get(t_code, f"Autre ({t_code})" if t_code else "Inconnu")
+        formatted_type_communes = []
+        _empty_type_commune = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}}
+        if allowed_communes is not None:
+            type_commune_items = [
+                (codcom, counts.get("communes", {}).get(codcom, _empty_type_commune))
+                for codcom in commune_map
+            ]
+        else:
+            type_commune_items = list(counts.get("communes", {}).items())
+
+        for codcom, c_counts in type_commune_items:
+            if allowed_communes is None and c_counts["total"] == 0:
+                continue
+            c_label = commune_map.get(codcom) or communes_by_code.get(codcom, {}).get('LIBCOM', f'Commune {codcom}')
+            formatted_type_quartiers = []
+            for q_id, q_counts in c_counts.get("quartiers", {}).items():
+                q_label = quartier_names.get(q_id, f"Quartier {q_id}")
+                formatted_type_quartiers.append({
+                    "id": q_id,
+                    "name": q_label,
+                    "value": q_counts["total"],
+                    "resigned": q_counts["resigned"],
+                    "stopped": q_counts["stopped"],
+                    "no_meter": q_counts["no_meter"],
+                    "percentage": round((q_counts["total"] / c_counts["total"]) * 100, 2) if c_counts["total"] > 0 else 0
+                })
+            formatted_type_quartiers.sort(key=lambda x: x['value'], reverse=True)
+            formatted_type_communes.append({
+                "id": codcom,
+                "name": c_label or f"Commune {codcom}",
+                "value": c_counts["total"],
+                "resigned": c_counts["resigned"],
+                "stopped": c_counts["stopped"],
+                "no_meter": c_counts["no_meter"],
+                "percentage": round((c_counts["total"] / counts["total"]) * 100, 2) if counts["total"] > 0 else 0,
+                "quartiers": formatted_type_quartiers
+            })
+        formatted_type_communes.sort(key=lambda x: x['value'], reverse=True)
         stats["subscriber_types"].append({
             "code": t_code,
             "name": label,
@@ -1025,7 +1100,8 @@ def compute_dashboard_stats(
             "resigned": counts["resigned"],
             "stopped": counts["stopped"],
             "no_meter": counts["no_meter"],
-            "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0
+            "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0,
+            "communes": formatted_type_communes
         })
     stats["subscriber_types"].sort(key=lambda x: x['value'], reverse=True)
 
@@ -2560,7 +2636,7 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
         return {"error": str(e)}
 
 @app.get("/subscribers")
-def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = None, etat: str = None, secteur: str = None):
+def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = None, etat: str = None, secteur: str = None, typabon: str = None):
     secteur = _enforce_sector(_user, secteur)
     if not quartier:
         return {"error": "Missing parameters"}
@@ -2598,8 +2674,10 @@ def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = Non
             state = abonment_info.get('ETATCPT')
             if etat and etat.lower() != 'all' and state != etat:
                 continue
-                
+
             t_code = str(record.get('TYPABON', '')).strip()
+            if typabon and t_code != str(typabon).strip():
+                continue
             type_label = type_map.get(t_code, f"Autre ({t_code})" if t_code else "Inconnu")
             
             raisoc = str(record.get('RAISOC', '')).strip()

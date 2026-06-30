@@ -78,12 +78,10 @@ export function MobileNav({
   currentView,
   onNavigate,
   onLogout,
-  isAdmin = false,
 }: {
   currentView: AppView;
   onNavigate: (view: AppView) => void;
   onLogout?: () => void;
-  isAdmin?: boolean;
 }) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);

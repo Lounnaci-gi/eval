@@ -4211,7 +4211,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       });
 
       doc.autoPrint();
-      const blobUrl = doc.output('bloburl');
+      const blobUrl = String(doc.output('bloburl'));
       const printWindow = window.open(blobUrl, '_blank');
       if (!printWindow) {
         alert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.');

@@ -60,6 +60,9 @@ export function ServiceContentieuxView({
   const [sortKey, setSortKey] = useState<string>("nombre_creance");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
+  // ─── Selection state ─────────────────────────────────────────────
+  const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
+
   // ─── Column filters ──────────────────────────────────────────────
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [filterEtats, setFilterEtats] = useState<string[]>([]);
@@ -71,6 +74,7 @@ export function ServiceContentieuxView({
     setError(null);
     setRows([]);
     setPage(1);
+    setSelectedNumabs([]);
     try {
       const url = apiUrlObject("/creances_abonnes");
       appendSecteurParam(url, selectedSecteur);
@@ -145,6 +149,11 @@ export function ServiceContentieuxView({
   const safePage = Math.min(page, totalPages);
   const paged = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+  const visibleNumabs = useMemo(() => paged.map(r => r.numab).filter(Boolean), [paged]);
+  const allVisibleSelected = useMemo(() => visibleNumabs.length > 0 && visibleNumabs.every(id => selectedNumabs.includes(id)), [visibleNumabs, selectedNumabs]);
+  const selectedCount = selectedNumabs.length;
+  const selectedRows = useMemo(() => selectedCount > 0 ? sorted.filter(r => selectedNumabs.includes(r.numab)) : sorted, [selectedCount, selectedNumabs, sorted]);
+
   const handleSort = (key: string) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("desc"); }
@@ -165,7 +174,7 @@ export function ServiceContentieuxView({
   // ─── Export CSV ──────────────────────────────────────────────────
   const exportCSV = () => {
     const header = ["Code Abonné", "Raison Sociale", "Adresse", "Bloc", "N° Dom", "Type Abonné", "État Cpt", "N° Série Cpt", "Tournée", "Date Dernier Paiement", "Nb Factures Impayées", "Montant Créance (DA)"];
-    const rowsData = sorted.map(r => [
+    const rowsData = selectedRows.map(r => [
       r.numab, r.name, r.adresse || "—", r.bloc || "—", r.ndom || "—",
       r.type_abon || "—", r.etat_cpt || "—", r.numser || "—",
       r.tournee || "—", r.derniere_date_paiement || "—",
@@ -190,7 +199,7 @@ export function ServiceContentieuxView({
     const esc = (v: unknown) =>
       String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    const rowsHtml = sorted.map((r, i) => `
+    const rowsHtml = selectedRows.map((r, i) => `
       <tr>
         <td style="text-align:center;color:#98A2B3;font-weight:700;">${i + 1}</td>
         <td style="font-weight:800;">${esc(r.numab)}</td>
@@ -226,11 +235,11 @@ export function ServiceContentieuxView({
       </style>
     </head><body>
       <h1>Service Contentieux</h1>
-      <div class="sub">${secteurLabel ? `Centre : ${esc(secteurLabel)}` : "Toute l'unité"} — ${sorted.length} abonné(s)</div>
+      <div class="sub">${secteurLabel ? `Centre : ${esc(secteurLabel)}` : "Toute l'unité"} — ${selectedRows.length} abonné(s)</div>
       <div class="totals">
-        <div><div class="tot-label">Abonnés</div><div class="tot-val">${totals.abonnes}</div></div>
-        <div><div class="tot-label">Factures impayées</div><div class="tot-val">${totals.factures}</div></div>
-        <div><div class="tot-label">Montant total</div><div class="tot-val">${fmtP(totals.montant)}</div></div>
+        <div><div class="tot-label">Abonnés</div><div class="tot-val">${selectedRows.length}</div></div>
+        <div><div class="tot-label">Factures impayées</div><div class="tot-val">${selectedRows.reduce((a, s) => a + (s.nombre_creance || 0), 0)}</div></div>
+        <div><div class="tot-label">Montant total</div><div class="tot-val">${fmtP(selectedRows.reduce((a, s) => a + (s.montant_creance || 0), 0))}</div></div>
       </div>
       <table>
         <thead><tr>
@@ -390,14 +399,14 @@ export function ServiceContentieuxView({
               disabled={sorted.length === 0}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] hover:border-brand-500 hover:text-brand-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <FileSpreadsheet size={13} /> CSV
+              <FileSpreadsheet size={13} /> CSV ({selectedCount > 0 ? selectedCount : sorted.length})
             </button>
             <button
               onClick={handlePrint}
               disabled={sorted.length === 0}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] hover:border-brand-500 hover:text-brand-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Printer size={13} /> Imprimer
+              <Printer size={13} /> Imprimer ({selectedCount > 0 ? selectedCount : sorted.length})
             </button>
           </div>
         </div>
@@ -457,6 +466,20 @@ export function ServiceContentieuxView({
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-[#F9FAFB] border-b border-[#E4E7EC]">
+                    <th className="py-4 px-3 text-center w-10">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-[#D0D5DD] text-brand-600 focus:ring-brand-500 cursor-pointer"
+                        checked={allVisibleSelected}
+                        onChange={() => {
+                          if (allVisibleSelected) {
+                            setSelectedNumabs(prev => prev.filter(id => !visibleNumabs.includes(id)));
+                          } else {
+                            setSelectedNumabs(prev => Array.from(new Set([...prev, ...visibleNumabs])));
+                          }
+                        }}
+                      />
+                    </th>
                     <th className="py-4 px-3 text-center text-[11px] font-black uppercase tracking-wider text-[#98A2B3] w-10">#</th>
                     <Th label="Code Abonné"       field="numab" />
                     <Th label="Raison Sociale"    field="name" />
@@ -481,6 +504,20 @@ export function ServiceContentieuxView({
                         key={r.numab}
                         className="border-b border-[#F2F4F7] hover:bg-[#F9FAFB] transition-colors group"
                       >
+                        <td className="py-3 px-3 text-center w-10">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-[#D0D5DD] text-brand-600 focus:ring-brand-500 cursor-pointer"
+                            checked={selectedNumabs.includes(r.numab)}
+                            onChange={() => {
+                              setSelectedNumabs(prev =>
+                                prev.includes(r.numab)
+                                  ? prev.filter(id => id !== r.numab)
+                                  : [...prev, r.numab]
+                              );
+                            }}
+                          />
+                        </td>
                         <td className="py-3 px-3 text-center text-[#98A2B3] font-bold">{globalIdx}</td>
 
                         {/* Code abonné */}

@@ -199,9 +199,14 @@ def _init_auth_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
             CREATE TABLE IF NOT EXISTS legal_status (
                 numab TEXT PRIMARY KEY,
-                is_contentieux INTEGER NOT NULL DEFAULT 0
+                is_contentieux INTEGER NOT NULL DEFAULT 0,
+                date_transmission TEXT
             );
         """)
+        try:
+            conn.execute("ALTER TABLE legal_status ADD COLUMN date_transmission TEXT DEFAULT NULL")
+        except sqlite3.OperationalError:
+            pass
         try:
             conn.execute("ALTER TABLE users ADD COLUMN username_hash TEXT DEFAULT ''")
         except sqlite3.OperationalError:
@@ -4320,8 +4325,8 @@ def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str =
         tournees_set = set()
 
         with _get_auth_conn() as conn:
-            rows = conn.execute("SELECT numab FROM legal_status WHERE is_contentieux = 1").fetchall()
-            contentieux_set = {r["numab"] for r in rows}
+            rows = conn.execute("SELECT numab, date_transmission FROM legal_status WHERE is_contentieux = 1").fetchall()
+            contentieux_map = {r["numab"]: r["date_transmission"] for r in rows}
 
         records = itertools.chain(
             ((r, False) for r in MEM_FACTURES),
@@ -4401,8 +4406,8 @@ def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str =
                 else:
                     d["derniere_date_paiement"] = "Aucun"
                     d["raw_last_payment"] = None
-                
-                d["is_contentieux"] = (d["numab"].upper() in contentieux_set)
+                d["is_contentieux"] = (d["numab"].upper() in contentieux_map)
+                d["date_transmission"] = contentieux_map.get(d["numab"].upper())
                 debtor_list.append(d)
 
         debtor_list.sort(key=lambda x: x["montant_creance"], reverse=True)
@@ -4421,11 +4426,12 @@ class LegalStatusUpdate(BaseModel):
 @app.post("/api/abonne/{numab}/legal_status")
 def update_legal_status(numab: str, payload: LegalStatusUpdate, _user: dict = Depends(get_current_user)):
     numab_key = numab.strip().upper()
+    date_trans = datetime.utcnow().isoformat() if payload.is_contentieux else None
     try:
         with _get_auth_conn() as conn:
             conn.execute(
-                "INSERT INTO legal_status (numab, is_contentieux) VALUES (?, ?) ON CONFLICT(numab) DO UPDATE SET is_contentieux=excluded.is_contentieux",
-                (numab_key, 1 if payload.is_contentieux else 0)
+                "INSERT INTO legal_status (numab, is_contentieux, date_transmission) VALUES (?, ?, ?) ON CONFLICT(numab) DO UPDATE SET is_contentieux=excluded.is_contentieux, date_transmission=excluded.date_transmission",
+                (numab_key, 1 if payload.is_contentieux else 0, date_trans)
             )
             conn.commit()
         return {"success": True}

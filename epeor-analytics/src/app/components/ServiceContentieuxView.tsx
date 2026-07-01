@@ -27,6 +27,8 @@ interface AbonneContentieux {
   raw_last_payment: string | null;
   nombre_creance: number;
   montant_creance: number;
+  is_contentieux: boolean;
+  date_transmission: string | null;
 }
 
 type SortDir = "asc" | "desc";
@@ -62,6 +64,9 @@ export function ServiceContentieuxView({
 
   // ─── Selection state ─────────────────────────────────────────────
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
+
+  // ─── Tab state ───────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"tous" | "transmis">("tous");
 
   // ─── Column filters ──────────────────────────────────────────────
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
@@ -118,9 +123,12 @@ export function ServiceContentieuxView({
       if (filterTypes.length > 0 && !filterTypes.includes(r.type_abon)) return false;
       if (filterEtats.length > 0 && !filterEtats.includes(r.etat_cpt)) return false;
       if (filterTournees.length > 0 && !filterTournees.includes(r.tournee)) return false;
+      
+      if (activeTab === "transmis" && !r.is_contentieux) return false;
+      
       return true;
     });
-  }, [rows, search, filterTypes, filterEtats, filterTournees]);
+  }, [rows, search, filterTypes, filterEtats, filterTournees, activeTab]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -174,12 +182,20 @@ export function ServiceContentieuxView({
   // ─── Export CSV ──────────────────────────────────────────────────
   const exportCSV = () => {
     const header = ["Code Abonné", "Raison Sociale", "Adresse", "Bloc", "N° Dom", "Type Abonné", "État Cpt", "N° Série Cpt", "Tournée", "Date Dernier Paiement", "Nb Factures Impayées", "Montant Créance (DA)"];
-    const rowsData = selectedRows.map(r => [
-      r.numab, r.name, r.adresse || "—", r.bloc || "—", r.ndom || "—",
-      r.type_abon || "—", r.etat_cpt || "—", r.numser || "—",
-      r.tournee || "—", r.derniere_date_paiement || "—",
-      r.nombre_creance, r.montant_creance,
-    ]);
+    if (activeTab === "transmis") header.push("Date Transmission");
+    
+    const rowsData = selectedRows.map(r => {
+      const row = [
+        r.numab, r.name, r.adresse || "—", r.bloc || "—", r.ndom || "—",
+        r.type_abon || "—", r.etat_cpt || "—", r.numser || "—",
+        r.tournee || "—", r.derniere_date_paiement || "—",
+        r.nombre_creance, r.montant_creance,
+      ];
+      if (activeTab === "transmis") {
+        row.push(r.date_transmission ? new Date(r.date_transmission).toLocaleDateString('fr-DZ') : "—");
+      }
+      return row;
+    });
     const csv = [header, ...rowsData]
       .map(row => row.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(";"))
       .join("\n");
@@ -214,6 +230,7 @@ export function ServiceContentieuxView({
         <td>${esc(r.derniere_date_paiement)}</td>
         <td style="text-align:right;font-weight:700;color:#E11D48;">${fmtP(r.montant_creance || 0)}</td>
         <td style="text-align:center;font-weight:700;">${r.nombre_creance ?? 0}</td>
+        ${activeTab === "transmis" ? `<td style="text-align:center;">${r.date_transmission ? new Date(r.date_transmission).toLocaleDateString('fr-DZ') : "—"}</td>` : ''}
       </tr>`).join("");
 
     const win = window.open("", "_blank");
@@ -247,6 +264,7 @@ export function ServiceContentieuxView({
           <th>Bloc</th><th>N°Dom</th><th>Type Abonné</th><th>État Cpt</th>
           <th>N° Série Cpt</th><th>Tournée</th><th>Dernier Paiement</th>
           <th style="text-align:right;">Montant Total</th><th style="text-align:center;">Nb Fact. Impayées</th>
+          ${activeTab === "transmis" ? `<th style="text-align:center;">Date Transmission</th>` : ''}
         </tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
@@ -340,6 +358,25 @@ export function ServiceContentieuxView({
         className="obat-card overflow-hidden"
         style={{ background: "var(--glass-bg, #fff)", borderColor: "var(--glass-border, #E4E7EC)" }}
       >
+        {/* Tabs */}
+        <div className="flex border-b border-[#F2F4F7] px-4 sm:px-6">
+          <button
+            onClick={() => { setActiveTab("tous"); setPage(1); }}
+            className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === "tous" ? "border-brand-500 text-brand-600" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
+          >
+            Tous les abonnés
+          </button>
+          <button
+            onClick={() => { setActiveTab("transmis"); setPage(1); }}
+            className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "transmis" ? "border-rose-500 text-rose-600" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
+          >
+            Transmis Service Juridique
+            {activeTab === "tous" && rows.filter(r => r.is_contentieux).length > 0 && (
+              <span className="bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full text-[10px]">{rows.filter(r => r.is_contentieux).length}</span>
+            )}
+          </button>
+        </div>
+
         {/* Toolbar */}
         <div className="px-4 sm:px-6 pt-5 pb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 border-b border-[#F2F4F7]">
           {/* Search */}
@@ -493,6 +530,7 @@ export function ServiceContentieuxView({
                     <Th label="Dernier Paiement"  field="raw_last_payment" className="hidden md:table-cell" />
                     <Th label="Montant total (DA)" field="montant_creance" align="right" />
                     <Th label="Fact. Impayées"    field="nombre_creance" align="right" />
+                    {activeTab === "transmis" && <Th label="Date Transmission" field="date_transmission" align="center" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -600,6 +638,13 @@ export function ServiceContentieuxView({
                             {r.nombre_creance}
                           </span>
                         </td>
+
+                        {/* Date transmission */}
+                        {activeTab === "transmis" && (
+                          <td className="py-3 px-3 text-center text-[#667085] font-medium whitespace-nowrap">
+                            {r.date_transmission ? new Date(r.date_transmission).toLocaleDateString('fr-DZ') : "—"}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

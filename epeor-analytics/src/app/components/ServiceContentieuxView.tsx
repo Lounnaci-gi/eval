@@ -1007,13 +1007,27 @@ export function BilanImpressionView({
     ? (sectors.find((s: any) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
     : null;
 
-  // Match dossiers with subscribers to get type_abon and montant_creance
+  // ─── Type grouping by code range ─────────────────────────────────
+  const getGroupedType = (code: string, label: string): string => {
+    const n = parseInt(code, 10);
+    if (!isNaN(n)) {
+      if (n >= 20 && n <= 29) return "Administration";
+      if (n >= 30 && n <= 39) return "Commerce";
+      if (n >= 40 && n <= 49) return "Activité industrielle";
+    }
+    return label || "Non spécifié";
+  };
+
+  // Match dossiers with subscribers to get grouped type_abon and montant_creance
   const filteredDossiers = useMemo(() => {
     const enriched = dossiers.map(d => {
       const abonne = rows.find(r => r.numab.trim().toUpperCase() === d.numab.trim().toUpperCase());
+      const grouped = abonne
+        ? getGroupedType(abonne.type_abon_code ?? "", abonne.type_abon)
+        : "Non spécifié";
       return {
         ...d,
-        type_abon: abonne ? abonne.type_abon : "Non spécifié",
+        type_abon: grouped,
         montant_creance: abonne ? abonne.montant_creance : 0,
         nombre_creance: abonne ? abonne.nombre_creance : 0,
       };
@@ -1037,20 +1051,20 @@ export function BilanImpressionView({
     });
   }, [dossiers, rows, startDate, endDate]);
 
-  // Unique types computed dynamically
+  // Unique grouped types — derived from filteredDossiers only (already grouped)
   const uniqueTypes = useMemo(() => {
     const typesSet = new Set<string>();
-    rows.forEach(r => {
-      if (r.type_abon) typesSet.add(r.type_abon);
-    });
     filteredDossiers.forEach(d => {
       if (d.type_abon) typesSet.add(d.type_abon);
     });
-    if (typesSet.size === 0) {
-      return ["Ménages", "Administrations", "Commerces", "Non spécifié"];
-    }
-    return Array.from(typesSet).sort();
-  }, [rows, filteredDossiers]);
+    // Fixed categories always shown (even with 0 dossiers)
+    const FIXED = ["Administration", "Commerce", "Activité industrielle"];
+    FIXED.forEach(t => typesSet.add(t));
+    // Preferred display order: fixed first, then any extra types sorted alphabetically
+    const ordered = FIXED.filter(t => typesSet.has(t));
+    const rest = Array.from(typesSet).filter(t => !FIXED.includes(t)).sort();
+    return [...ordered, ...rest];
+  }, [filteredDossiers]);
 
   // First table data
   const table1Data = useMemo(() => {

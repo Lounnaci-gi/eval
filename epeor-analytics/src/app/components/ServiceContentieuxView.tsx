@@ -1058,7 +1058,7 @@ export function BilanImpressionView({
       if (d.type_abon) typesSet.add(d.type_abon);
     });
     // Fixed categories always shown (even with 0 dossiers)
-    const FIXED = ["Administration", "Commerce", "Activité industrielle"];
+    const FIXED = ["MENAGE INDIVIDUEL", "Administration", "Commerce", "Activité industrielle", "VENTE EN GROS"];
     FIXED.forEach(t => typesSet.add(t));
     // Preferred display order: fixed first, then any extra types sorted alphabetically
     const ordered = FIXED.filter(t => typesSet.has(t));

@@ -85,7 +85,7 @@ export function CreancesAbonnesView({
   useEffect(() => { loadData(); }, [loadData]);
 
   // ─── Day helper ──────────────────────────────────────────────────
-  const daysSince = (raw: string | null): number | null => {
+  const daysSince = useCallback((raw: string | null): number | null => {
     if (!raw || raw.length !== 8) return null;
     try {
       const y = parseInt(raw.slice(0, 4));
@@ -94,6 +94,30 @@ export function CreancesAbonnesView({
       const diff = Date.now() - new Date(y, m, d).getTime();
       return Math.floor(diff / 86400000);
     } catch { return null; }
+  }, []);
+
+  const toggleContentieux = async (s: any) => {
+    const newVal = !s.is_contentieux;
+    // Optimistic update
+    setAllSubscribers(prev => prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: newVal } : x));
+    setResults(prev => prev ? prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: newVal } : x) : null);
+
+    try {
+      const url = apiUrlObject(`/api/abonne/${s.numab}/legal_status`);
+      const res = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_contentieux: newVal })
+      });
+      if (!res.ok) {
+        throw new Error('Server error');
+      }
+    } catch (e) {
+      // Revert on error
+      setAllSubscribers(prev => prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: !newVal } : x));
+      setResults(prev => prev ? prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: !newVal } : x) : null);
+      alert("Erreur lors de la mise à jour du statut juridique.");
+    }
   };
 
   // ─── Apply filters ───────────────────────────────────────────────
@@ -352,7 +376,7 @@ export function CreancesAbonnesView({
   };
 
   const exportCSV = () => {
-    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Adresse', 'Bloc', 'N° Dom', 'Type Abonné', 'Code Type', 'État Cpt', 'Code État', 'N° Série Compteur', 'Tournée', 'Dernier Paiement', 'Factures Impayées', 'Montant Créance (DA)'];
+    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Adresse', 'Bloc', 'N° Dom', 'Type Abonné', 'Code Type', 'État Cpt', 'Code État', 'N° Série Compteur', 'Tournée', 'Dernier Paiement', 'Factures Impayées', 'Montant Créance (DA)', 'Statut'];
     const rows = selectedRows.map((s: any) => [
       s.numab,
       s.name,
@@ -367,7 +391,8 @@ export function CreancesAbonnesView({
       s.tournee,
       s.derniere_date_paiement,
       s.nombre_creance,
-      s.montant_creance
+      s.montant_creance,
+      s.is_contentieux ? 'Transmis service juridique' : ''
     ]);
     const csv = [header, ...rows].map(r => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -422,7 +447,8 @@ export function CreancesAbonnesView({
 
     const rowsHtml = selectedRows
       .map(
-        (s: any, i: number) => `
+        (s: any, i: number) => {
+          return `
         <tr>
           <td style="text-align:center;color:#98A2B3;font-weight:700;">${i + 1}</td>
           <td class="font-bold-black">${escapeHtml(s.numab)}</td>
@@ -437,8 +463,10 @@ export function CreancesAbonnesView({
           <td>${escapeHtml(s.derniere_date_paiement)}</td>
           <td style="text-align:center;font-weight:700;">${s.nombre_creance ?? 0}</td>
           <td style="text-align:right;font-weight:700;color:#E11D48;">${montantFmt(s.montant_creance || 0)}</td>
+          <td style="text-align:center;font-weight:700;color:${s.is_contentieux ? '#E11D48' : '#667085'}">${s.is_contentieux ? 'Transmis' : ''}</td>
           <td class="observation-cell"></td>
-        </tr>`
+        </tr>`;
+        }
       )
       .join('');
 
@@ -574,6 +602,7 @@ export function CreancesAbonnesView({
                 <th>Dernier Paiement</th>
                 <th style="text-align:center">Factures</th>
                 <th style="text-align:right">Montant ciblé</th>
+                <th style="text-align:center">Statut</th>
                 <th>Observation</th>
               </tr>
             </thead>
@@ -583,7 +612,7 @@ export function CreancesAbonnesView({
                 <td colspan="11" style="text-transform:uppercase;letter-spacing:0.05em;">TOTAL GÉNÉRAL — ${printTotals.count} abonné${printTotals.count !== 1 ? 's' : ''}</td>
                 <td style="text-align:center;">${printTotals.factures.toLocaleString('fr-FR')}</td>
                 <td style="text-align:right;color:#e11d48;">${montantFmt(printTotals.montant)}</td>
-                <td class="observation-cell"></td>
+                <td colspan="2" class="observation-cell"></td>
               </tr>
             </tfoot>
           </table>
@@ -1712,7 +1741,8 @@ export function CreancesAbonnesView({
                     <Th label="Tournée" field="tournee" align="center" />
                     <Th label="Dernier Paiement" field="raw_last_payment" align="center" />
                     <Th label="Factures Impayées" field="nombre_creance" align="center" />
-                    <Th label="Montant Créance" field="montant_creance" align="right" px="px-8" />
+                    <Th label="Montant Créance" field="montant_creance" align="right" px="px-4" />
+                    <Th label="Statut" field="statut" align="center" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F2F4F7]">
@@ -1771,7 +1801,20 @@ export function CreancesAbonnesView({
                             {s.nombre_creance} facture{s.nombre_creance > 1 ? 's' : ''}
                           </span>
                         </td>
-                        <td className="px-8 py-4 text-right font-black text-sm text-rose-600 font-mono whitespace-nowrap">{fmt(s.montant_creance)}</td>
+                        <td className="px-4 py-4 text-right font-black text-sm text-rose-600 font-mono whitespace-nowrap">{fmt(s.montant_creance)}</td>
+                        <td className="px-4 py-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleContentieux(s)}
+                            className={`inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-500 ${
+                              s.is_contentieux
+                                ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {s.is_contentieux ? 'Transmis' : 'Non transmis'}
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1784,9 +1827,10 @@ export function CreancesAbonnesView({
                     <td className="px-6 py-5 text-center text-amber-300 font-mono text-sm">
                       {tableTotals.factures.toLocaleString('fr-FR')}
                     </td>
-                    <td className="px-8 py-5 text-right text-rose-400 font-mono text-sm">
+                    <td className="px-4 py-5 text-right text-rose-400 font-mono text-sm">
                       {fmt(tableTotals.montant)}
                     </td>
+                    <td className="px-4 py-5"></td>
                   </tr>
                 </tfoot>
               </table>

@@ -1072,6 +1072,7 @@ export function BilanImpressionView({
     let grandTotalAmount = 0;
     let totalHeritiers = 0;
     let totalSuspended = 0;
+    let totalEcheanciers = 0;
 
     const items = uniqueTypes.map(type => {
       const matching = filteredDossiers.filter(d => d.type_abon === type);
@@ -1085,11 +1086,13 @@ export function BilanImpressionView({
         const s = d.statut_abonne || "Actif";
         return s.trim().toLowerCase() === "suspendu";
       }).length;
+      const echeanciers = matching.filter(d => Boolean(d.has_echeancier)).length;
 
       totalCount += count;
       grandTotalAmount += totalAmount;
       totalHeritiers += heritiers;
       totalSuspended += suspended;
+      totalEcheanciers += echeanciers;
 
       return {
         type,
@@ -1097,10 +1100,11 @@ export function BilanImpressionView({
         totalAmount,
         heritiers,
         suspended,
+        echeanciers,
       };
     });
 
-    return { items, totalCount, grandTotalAmount, totalHeritiers, totalSuspended };
+    return { items, totalCount, grandTotalAmount, totalHeritiers, totalSuspended, totalEcheanciers };
   }, [uniqueTypes, filteredDossiers]);
 
   const table2Statuts = useMemo(() => ["Actif", "Décédé"], []);
@@ -1163,6 +1167,7 @@ export function BilanImpressionView({
         <td>${esc(item.type)}</td>
         <td style="text-align:center">${item.count}</td>
         <td style="text-align:center">${item.suspended}</td>
+        <td style="text-align:center">${item.echeanciers}</td>
         <td style="text-align:center">${item.heritiers}</td>
         <td style="text-align:right">${fmt(item.totalAmount)}</td>
       </tr>
@@ -1293,6 +1298,7 @@ export function BilanImpressionView({
           <th>Type d'abonné</th>
           <th style="text-align:center">Nouveaux dossiers reçus</th>
           <th style="text-align:center">Suspendu</th>
+          <th style="text-align:center">Échéancier</th>
           <th style="text-align:center">Héritiers</th>
           <th style="text-align:right">Montant global</th>
         </tr>
@@ -1303,6 +1309,7 @@ export function BilanImpressionView({
           <td>Total général</td>
           <td style="text-align:center">${table1Data.totalCount}</td>
           <td style="text-align:center">${table1Data.totalSuspended}</td>
+          <td style="text-align:center">${table1Data.totalEcheanciers}</td>
           <td style="text-align:center">${table1Data.totalHeritiers}</td>
           <td style="text-align:right">${fmt(table1Data.grandTotalAmount)}</td>
         </tr>
@@ -1440,6 +1447,7 @@ export function BilanImpressionView({
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider">Type d'abonné</th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">Nouveaux dossiers reçus</th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">Suspendu</th>
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">Échéancier</th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">Héritiers</th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-right">Montant global</th>
                 </tr>
@@ -1450,6 +1458,7 @@ export function BilanImpressionView({
                     <td className="py-2.5 px-4 font-bold text-gray-900">{item.type}</td>
                     <td className="py-2.5 px-4 font-bold text-center text-gray-700">{item.count}</td>
                     <td className="py-2.5 px-4 font-bold text-center text-amber-700">{item.suspended}</td>
+                    <td className="py-2.5 px-4 font-bold text-center text-blue-700">{item.echeanciers}</td>
                     <td className="py-2.5 px-4 font-bold text-center text-emerald-700">{item.heritiers}</td>
                     <td className="py-2.5 px-4 font-black text-right text-rose-600 tabular-nums">{fmt(item.totalAmount)}</td>
                   </tr>
@@ -1459,6 +1468,7 @@ export function BilanImpressionView({
                   <td className="py-3 px-4 text-gray-900 uppercase">Total général</td>
                   <td className="py-3 px-4 text-center text-gray-900">{table1Data.totalCount}</td>
                   <td className="py-3 px-4 text-center text-amber-900">{table1Data.totalSuspended}</td>
+                  <td className="py-3 px-4 text-center text-blue-900">{table1Data.totalEcheanciers}</td>
                   <td className="py-3 px-4 text-center text-emerald-900">{table1Data.totalHeritiers}</td>
                   <td className="py-3 px-4 text-right text-rose-700 tabular-nums">{fmt(table1Data.grandTotalAmount)}</td>
                 </tr>

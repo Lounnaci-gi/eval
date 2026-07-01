@@ -3,11 +3,12 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   ChevronRight, Search, FileSpreadsheet, Printer, Users,
-  ArrowUpDown, ArrowUp, ArrowDown, RefreshCw,
+  ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, FolderOpen, CheckCircle2,
 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
 import { appendSecteurParam } from "./utils";
 import { SecteurDropdown } from "./ui";
+import { DossierJuridiquePanel } from "./DossierJuridiquePanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,20 @@ export function ServiceContentieuxView({
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
 
   // ─── Tab state ───────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"tous" | "transmis">("tous");
+  const [activeTab, setActiveTab] = useState<"tous" | "transmis" | "dossiers">("tous");
+
+  // ─── Panel state ─────────────────────────────────────────────────
+  const [selectedDossierAbonne, setSelectedDossierAbonne] = useState<AbonneContentieux | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  // ─── Dossiers tab state ──────────────────────────────────────────
+  const [dossiers, setDossiers] = useState<any[]>([]);
+  const [dossiersLoading, setDossiersLoading] = useState(false);
+  const [dossierSearch, setDossierSearch] = useState("");
+  const [dossierSortKey, setDossierSortKey] = useState("updated_at");
+  const [dossierSortDir, setDossierSortDir] = useState<SortDir>("desc");
+  const [dossierEtapeFilter, setDossierEtapeFilter] = useState("");
+  const [dossierStatutFilter, setDossierStatutFilter] = useState("");
 
   // ─── Column filters ──────────────────────────────────────────────
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
@@ -102,6 +116,22 @@ export function ServiceContentieuxView({
   }, [selectedSecteur]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // ─── Load dossiers ───────────────────────────────────────────────
+  const loadDossiers = useCallback(async () => {
+    setDossiersLoading(true);
+    try {
+      const res = await fetch(apiUrlObject("/api/dossiers").toString());
+      const data = await res.json();
+      setDossiers(data.dossiers || []);
+    } catch {
+      setDossiers([]);
+    } finally {
+      setDossiersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { if (activeTab === "dossiers") loadDossiers(); }, [activeTab, loadDossiers]);
 
   // ─── Distinct filter options ─────────────────────────────────────
   const filterOptions = useMemo(() => ({
@@ -371,12 +401,202 @@ export function ServiceContentieuxView({
             className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "transmis" ? "border-rose-500 text-rose-600" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
           >
             Transmis Service Juridique
-            {activeTab === "tous" && rows.filter(r => r.is_contentieux).length > 0 && (
+            {activeTab !== "transmis" && rows.filter(r => r.is_contentieux).length > 0 && (
               <span className="bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full text-[10px]">{rows.filter(r => r.is_contentieux).length}</span>
             )}
           </button>
+          <button
+            onClick={() => { setActiveTab("dossiers"); setDossierSearch(""); }}
+            className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "dossiers" ? "border-indigo-500 text-indigo-700" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
+          >
+            <FolderOpen size={15} />
+            Dossiers de Recouvrement
+          </button>
         </div>
 
+        {/* ══════════════════════════════════════════════════════════
+            ONGLET : DOSSIERS DE RECOUVREMENT
+        ══════════════════════════════════════════════════════════ */}
+        {activeTab === "dossiers" && (() => {
+          const STEPS = ["Amiable", "Mise en demeure", "Succession Notaire", "Tribunal"];
+          const STATUT_COLORS: Record<string, string> = {
+            "Actif": "bg-emerald-50 text-emerald-700 border-emerald-200",
+            "Suspendu": "bg-amber-50 text-amber-700 border-amber-200",
+            "Décédé": "bg-slate-100 text-slate-600 border-slate-300",
+            "Héritier": "bg-indigo-50 text-indigo-700 border-indigo-200",
+          };
+          const ETAPE_COLORS: Record<string, string> = {
+            "Amiable": "bg-sky-50 text-sky-700 border-sky-200",
+            "Mise en demeure": "bg-amber-50 text-amber-700 border-amber-200",
+            "Succession Notaire": "bg-indigo-50 text-indigo-700 border-indigo-200",
+            "Tribunal": "bg-rose-50 text-rose-700 border-rose-200",
+          };
+          const filtered = dossiers.filter(d => {
+            const q = dossierSearch.toLowerCase();
+            if (q && !(d.numab?.toLowerCase().includes(q) || d.name?.toLowerCase().includes(q) || d.adresse?.toLowerCase().includes(q))) return false;
+            if (dossierEtapeFilter && d.etape_recouvrement !== dossierEtapeFilter) return false;
+            if (dossierStatutFilter && d.statut_abonne !== dossierStatutFilter) return false;
+            return true;
+          });
+          const sortedD = [...filtered].sort((a: any, b: any) => {
+            const va = (a[dossierSortKey] ?? "").toString().toLowerCase();
+            const vb = (b[dossierSortKey] ?? "").toString().toLowerCase();
+            return dossierSortDir === "asc" ? va.localeCompare(vb, "fr", { numeric: true }) : vb.localeCompare(va, "fr", { numeric: true });
+          });
+          const ThD = ({ label, field }: { label: string; field: string }) => {
+            const active = dossierSortKey === field;
+            const Icon = active ? (dossierSortDir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+            return (
+              <th className="py-4 px-3 text-left cursor-pointer select-none group whitespace-nowrap" onClick={() => { if (dossierSortKey === field) setDossierSortDir(d => d === "asc" ? "desc" : "asc"); else { setDossierSortKey(field); setDossierSortDir("asc"); } }}>
+                <span className="inline-flex items-center gap-1">
+                  <span className={`text-[11px] font-black uppercase tracking-wider ${active ? "text-indigo-600" : "text-[#98A2B3] group-hover:text-[#475467]"}`}>{label}</span>
+                  <Icon size={10} className={active ? "text-indigo-600" : "text-[#D0D5DD] group-hover:text-[#98A2B3]"} />
+                </span>
+              </th>
+            );
+          };
+          return (
+            <>
+              {/* Dossiers toolbar */}
+              <div className="px-4 sm:px-6 pt-5 pb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 border-b border-[#F2F4F7]">
+                <div className="relative flex-1 w-full sm:max-w-xs">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
+                  <input type="text" placeholder="Rechercher (code, nom…)" value={dossierSearch} onChange={e => setDossierSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-xs font-semibold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all" />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <select value={dossierEtapeFilter} onChange={e => setDossierEtapeFilter(e.target.value)} className="text-xs font-bold px-3 py-2 rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                    <option value="">Toutes les étapes</option>
+                    {STEPS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select value={dossierStatutFilter} onChange={e => setDossierStatutFilter(e.target.value)} className="text-xs font-bold px-3 py-2 rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                    <option value="">Tous les statuts</option>
+                    {["Actif","Suspendu","Décédé","Héritier"].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <button onClick={loadDossiers} title="Actualiser" className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] hover:border-indigo-500 hover:text-indigo-600 transition-all ml-auto">
+                  <RefreshCw size={13} className={dossiersLoading ? "animate-spin" : ""} />
+                </button>
+              </div>
+
+              {/* Dossiers states */}
+              {dossiersLoading && (
+                <div className="py-20 flex flex-col items-center gap-4 text-[#98A2B3]"><div className="spinner-premium" /><p className="text-sm font-semibold">Chargement des dossiers…</p></div>
+              )}
+              {!dossiersLoading && sortedD.length === 0 && (
+                <div className="py-20 flex flex-col items-center gap-3 text-[#98A2B3]">
+                  <FolderOpen size={40} strokeWidth={1.2} />
+                  <p className="text-sm font-semibold">Aucun dossier de recouvrement</p>
+                  <p className="text-xs">Transmettez des abonnés au service juridique depuis l'onglet "Créances Abonnés".</p>
+                </div>
+              )}
+              {!dossiersLoading && sortedD.length > 0 && (
+                <div className="table-scroll">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-[#F9FAFB] border-b border-[#E4E7EC]">
+                        <th className="py-4 px-3 text-center text-[11px] font-black uppercase tracking-wider text-[#98A2B3] w-10">#</th>
+                        <ThD label="Code Abonné" field="numab" />
+                        <ThD label="Nom / Raison Sociale" field="name" />
+                        <ThD label="Adresse" field="adresse" />
+                        <ThD label="Tournée" field="tournee" />
+                        <th className="py-4 px-3 text-center text-[11px] font-black uppercase tracking-wider text-[#98A2B3]">Statut Abonné</th>
+                        <th className="py-4 px-3 text-center text-[11px] font-black uppercase tracking-wider text-[#98A2B3]">Étape Recouvrement</th>
+                        <th className="py-4 px-3 text-center text-[11px] font-black uppercase tracking-wider text-[#98A2B3]">Démarches</th>
+                        <ThD label="Date Transmission" field="date_transmission" />
+                        <ThD label="Dernière MàJ" field="updated_at" />
+                        <th className="py-4 px-3 text-center text-[11px] font-black uppercase tracking-wider text-[#98A2B3]">Dossier</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedD.map((d, i) => (
+                        <tr key={d.numab} className="border-b border-[#F2F4F7] hover:bg-indigo-50/30 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedDossierAbonne(d as any);
+                            setIsPanelOpen(true);
+                          }}>
+                          <td className="py-3 px-3 text-center text-[#98A2B3] font-bold">{i + 1}</td>
+                          <td className="py-3 px-3">
+                            <span className="font-mono text-xs font-black text-[#101828] bg-[#F9FAFB] px-2 py-0.5 rounded-lg border border-[#E4E7EC]">{d.numab}</span>
+                          </td>
+                          <td className="py-3 px-3 max-w-[180px]">
+                            <span className="font-bold text-[#344054] truncate block">{d.name || "—"}</span>
+                          </td>
+                          <td className="py-3 px-3 max-w-[160px]">
+                            <span className="text-[#667085] truncate block">{d.adresse || "—"}</span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className="inline-flex items-center justify-center w-9 h-6 rounded-lg text-[11px] font-black text-brand-600 bg-brand-50 border border-brand-100">{d.tournee || "—"}</span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black border ${STATUT_COLORS[d.statut_abonne] || "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                              {d.statut_abonne || "Actif"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            {/* Progress indicator */}
+                            <div className="flex flex-col items-center gap-1">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black border ${ETAPE_COLORS[d.etape_recouvrement] || "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                                {d.etape_recouvrement || "Amiable"}
+                              </span>
+                              <div className="flex items-center gap-0.5 mt-0.5">
+                                {STEPS.map((step, idx) => {
+                                  const curIdx = STEPS.indexOf(d.etape_recouvrement);
+                                  return (
+                                    <div key={step} className={`h-1 w-5 rounded-full transition-colors ${idx <= curIdx ? "bg-indigo-500" : "bg-gray-200"}`} title={step} />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex flex-col gap-1 items-start">
+                              {d.has_mise_en_demeure ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700"><CheckCircle2 size={10} /> Mise en demeure</span> : null}
+                              {d.has_echeancier ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700"><CheckCircle2 size={10} /> Échéancier</span> : null}
+                              {d.transmis_cours ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700"><CheckCircle2 size={10} /> Transmis cour</span> : null}
+                              {!d.has_mise_en_demeure && !d.has_echeancier && !d.transmis_cours && <span className="text-[10px] text-[#98A2B3]">—</span>}
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-center text-[#667085] font-medium whitespace-nowrap">
+                            {d.date_transmission ? new Date(d.date_transmission).toLocaleDateString('fr-DZ') : "—"}
+                          </td>
+                          <td className="py-3 px-3 text-center text-[#667085] font-medium whitespace-nowrap">
+                            {d.updated_at ? new Date(d.updated_at).toLocaleDateString('fr-DZ') : "—"}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                              <FolderOpen size={11} /> Ouvrir
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {/* Summary footer */}
+                  <div className="px-4 sm:px-6 py-4 border-t border-[#F2F4F7] flex items-center justify-between">
+                    <p className="text-xs text-[#667085] font-semibold">{sortedD.length} dossier(s)</p>
+                    <div className="flex gap-4 text-xs text-[#667085]">
+                      {STEPS.map(step => {
+                        const count = sortedD.filter(d => d.etape_recouvrement === step).length;
+                        return count > 0 ? (
+                          <span key={step} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold border ${ETAPE_COLORS[step]}`}>
+                            {step}: {count}
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
+
+        {/* ══════════════════════════════════════════════════════════
+            ONGLETS : TOUS / TRANSMIS (existing content)
+        ══════════════════════════════════════════════════════════ */}
+        {activeTab !== "dossiers" && (
+          <>
         {/* Toolbar */}
         <div className="px-4 sm:px-6 pt-5 pb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 border-b border-[#F2F4F7]">
           {/* Search */}
@@ -540,7 +760,14 @@ export function ServiceContentieuxView({
                     return (
                       <tr
                         key={r.numab}
-                        className="border-b border-[#F2F4F7] hover:bg-[#F9FAFB] transition-colors group"
+                        onClick={(e) => {
+                          if ((e.target as HTMLElement).tagName === 'INPUT') return;
+                          if (activeTab === "transmis") {
+                            setSelectedDossierAbonne(r);
+                            setIsPanelOpen(true);
+                          }
+                        }}
+                        className={`border-b border-[#F2F4F7] hover:bg-[#F9FAFB] transition-colors group ${activeTab === "transmis" ? "cursor-pointer" : ""}`}
                       >
                         <td className="py-3 px-3 text-center w-10">
                           <input
@@ -700,7 +927,19 @@ export function ServiceContentieuxView({
             </div>
           </>
         )}
+        </> 
+        )} {/* end activeTab !== dossiers */}
       </div>
+
+      <DossierJuridiquePanel 
+        isOpen={isPanelOpen}
+        onClose={() => {
+          setIsPanelOpen(false);
+          // Reload dossiers in case changes were made
+          if (activeTab === "dossiers") loadDossiers();
+        }}
+        abonne={selectedDossierAbonne}
+      />
     </div>
   );
 }

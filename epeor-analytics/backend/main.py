@@ -202,6 +202,20 @@ def _init_auth_db() -> None:
                 is_contentieux INTEGER NOT NULL DEFAULT 0,
                 date_transmission TEXT
             );
+            CREATE TABLE IF NOT EXISTS dossiers_juridiques (
+                numab TEXT PRIMARY KEY,
+                statut_abonne TEXT NOT NULL DEFAULT 'Actif',
+                etape_recouvrement TEXT NOT NULL DEFAULT 'Amiable',
+                has_mise_en_demeure INTEGER DEFAULT 0,
+                has_echeancier INTEGER DEFAULT 0,
+                transmis_cours INTEGER DEFAULT 0,
+                nom_notaire TEXT,
+                coordonnees_notaire TEXT,
+                liste_heritiers TEXT,
+                date_declaration_creance TEXT,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(numab) REFERENCES legal_status(numab)
+            );
         """)
         try:
             conn.execute("ALTER TABLE legal_status ADD COLUMN date_transmission TEXT DEFAULT NULL")
@@ -4433,11 +4447,195 @@ def update_legal_status(numab: str, payload: LegalStatusUpdate, _user: dict = De
                 "INSERT INTO legal_status (numab, is_contentieux, date_transmission) VALUES (?, ?, ?) ON CONFLICT(numab) DO UPDATE SET is_contentieux=excluded.is_contentieux, date_transmission=excluded.date_transmission",
                 (numab_key, 1 if payload.is_contentieux else 0, date_trans)
             )
+            if payload.is_contentieux:
+                # Initialize dossier if not exists
+                conn.execute(
+                    "INSERT OR IGNORE INTO dossiers_juridiques (numab) VALUES (?)",
+                    (numab_key,)
+                )
             conn.commit()
         return {"success": True}
     except Exception as e:
         print(f"Error updating legal status: {e}")
         raise HTTPException(status_code=500, detail="Database error")
+
+# --- Module Service Juridique (Dossiers & PDF) ---
+
+class DossierJuridiqueUpdate(BaseModel):
+    statut_abonne: str
+    etape_recouvrement: str
+    has_mise_en_demeure: bool = False
+    has_echeancier: bool = False
+    transmis_cours: bool = False
+    nom_notaire: str | None = None
+    coordonnees_notaire: str | None = None
+    liste_heritiers: str | None = None
+    date_declaration_creance: str | None = None
+
+@app.get("/api/abonne/{numab}/dossier")
+def get_dossier_juridique(numab: str, _user: dict = Depends(get_current_user)):
+    numab_key = numab.strip().upper()
+    try:
+        with _get_auth_conn() as conn:
+            row = conn.execute("SELECT * FROM dossiers_juridiques WHERE numab = ?", (numab_key,)).fetchone()
+            if row:
+                return dict(row)
+            else:
+                return {
+                    "numab": numab_key,
+                    "statut_abonne": "Actif",
+                    "etape_recouvrement": "Amiable",
+                    "has_mise_en_demeure": 0,
+                    "has_echeancier": 0,
+                    "transmis_cours": 0,
+                    "nom_notaire": None,
+                    "coordonnees_notaire": None,
+                    "liste_heritiers": None,
+                    "date_declaration_creance": None
+                }
+    except Exception as e:
+        print(f"Error getting dossier: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
+
+@app.get("/api/dossiers")
+def get_all_dossiers(_user: dict = Depends(get_current_user)):
+    """Retourne tous les dossiers juridiques avec les infos abonnés enrichies."""
+    try:
+        with _get_auth_conn() as conn:
+            rows = conn.execute("""
+                SELECT d.*, l.date_transmission
+                FROM dossiers_juridiques d
+                JOIN legal_status l ON UPPER(l.numab) = UPPER(d.numab)
+                WHERE l.is_contentieux = 1
+                ORDER BY d.updated_at DESC
+            """).fetchall()
+            
+            result = []
+            for row in rows:
+                d = dict(row)
+                numab_key = d["numab"].strip().upper()
+                # Enrich with abonné info
+                abonne_rec = abonnes_by_numab.get(numab_key)
+                d["name"] = abonne_rec.get("RAISOC") or abonne_rec.get("NOM") or "Inconnu" if abonne_rec else "Inconnu"
+                d["adresse"] = resolve_rue_adresse(abonne_rec) if abonne_rec else "—"
+                d["tournee"] = str(abonne_rec.get("TOURNEE", "") if abonne_rec else "").strip() or "—"
+                # Enrich with creance info from debtors
+                result.append(d)
+            
+            return {"dossiers": result}
+    except Exception as e:
+        print(f"Error listing dossiers: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
+
+@app.post("/api/abonne/{numab}/dossier")
+def update_dossier_juridique(numab: str, payload: DossierJuridiqueUpdate, _user: dict = Depends(get_current_user)):
+    numab_key = numab.strip().upper()
+    try:
+        with _get_auth_conn() as conn:
+            conn.execute("""
+                INSERT INTO dossiers_juridiques (
+                    numab, statut_abonne, etape_recouvrement, has_mise_en_demeure,
+                    has_echeancier, transmis_cours, nom_notaire, coordonnees_notaire,
+                    liste_heritiers, date_declaration_creance, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(numab) DO UPDATE SET
+                    statut_abonne=excluded.statut_abonne,
+                    etape_recouvrement=excluded.etape_recouvrement,
+                    has_mise_en_demeure=excluded.has_mise_en_demeure,
+                    has_echeancier=excluded.has_echeancier,
+                    transmis_cours=excluded.transmis_cours,
+                    nom_notaire=excluded.nom_notaire,
+                    coordonnees_notaire=excluded.coordonnees_notaire,
+                    liste_heritiers=excluded.liste_heritiers,
+                    date_declaration_creance=excluded.date_declaration_creance,
+                    updated_at=CURRENT_TIMESTAMP
+            """, (
+                numab_key, payload.statut_abonne, payload.etape_recouvrement,
+                1 if payload.has_mise_en_demeure else 0,
+                1 if payload.has_echeancier else 0,
+                1 if payload.transmis_cours else 0,
+                payload.nom_notaire, payload.coordonnees_notaire,
+                payload.liste_heritiers, payload.date_declaration_creance
+            ))
+            conn.commit()
+        return {"success": True}
+    except Exception as e:
+        print(f"Error updating dossier: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
+
+from fastapi.responses import StreamingResponse
+import io
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+except ImportError:
+    pass
+
+@app.get("/api/abonne/{numab}/pdf_mise_en_demeure")
+def generate_pdf_mise_en_demeure(numab: str, _user: dict = Depends(get_current_user)):
+    numab_key = numab.strip().upper()
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, height - 80, "MISE EN DEMEURE AVANT POURSUITES")
+    
+    c.setFont("Helvetica", 12)
+    c.drawString(50, height - 130, f"À l'attention de l'abonné n° {numab_key}")
+    c.drawString(50, height - 160, "Par la présente, nous vous mettons en demeure de bien vouloir")
+    c.drawString(50, height - 180, "régulariser votre situation concernant vos factures impayées.")
+    c.drawString(50, height - 220, "À défaut d'un paiement sous 8 jours, votre dossier sera transmis")
+    c.drawString(50, height - 240, "à la juridiction compétente pour un recouvrement forcé.")
+    
+    c.drawString(50, height - 300, f"Fait le {datetime.now().strftime('%d/%m/%Y')}")
+    c.drawString(50, height - 320, "Le Service Juridique")
+    
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer, 
+        media_type="application/pdf", 
+        headers={"Content-Disposition": f"attachment; filename=mise_en_demeure_{numab_key}.pdf"}
+    )
+
+@app.get("/api/abonne/{numab}/pdf_declaration_creance")
+def generate_pdf_declaration_creance(numab: str, _user: dict = Depends(get_current_user)):
+    numab_key = numab.strip().upper()
+    
+    with _get_auth_conn() as conn:
+        dossier = conn.execute("SELECT * FROM dossiers_juridiques WHERE numab = ?", (numab_key,)).fetchone()
+    
+    notaire = dossier["nom_notaire"] if dossier and dossier["nom_notaire"] else "Maître Inconnu"
+    
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, height - 80, "DÉCLARATION DE CRÉANCE - SUCCESSION")
+    
+    c.setFont("Helvetica", 12)
+    c.drawString(50, height - 130, f"Dossier Abonné Décédé : {numab_key}")
+    c.drawString(50, height - 160, f"Destinataire : Étude de {notaire}")
+    c.drawString(50, height - 200, "Maître,")
+    c.drawString(50, height - 220, "Nous vous prions de bien vouloir trouver ci-joint la déclaration")
+    c.drawString(50, height - 240, "de créance de notre établissement dans le cadre de la succession")
+    c.drawString(50, height - 260, "du titulaire de l'abonnement susmentionné.")
+    
+    c.drawString(50, height - 320, f"Fait le {datetime.now().strftime('%d/%m/%Y')}")
+    c.drawString(50, height - 340, "Le Service Juridique")
+    
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer, 
+        media_type="application/pdf", 
+        headers={"Content-Disposition": f"attachment; filename=declaration_creance_{numab_key}.pdf"}
+    )
+
 
 
 @app.get("/creances_institutions")

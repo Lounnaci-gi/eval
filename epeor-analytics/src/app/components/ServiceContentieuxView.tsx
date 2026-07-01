@@ -67,7 +67,7 @@ export function ServiceContentieuxView({
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
 
   // ─── Tab state ───────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"tous" | "transmis" | "dossiers">("tous");
+  const [activeTab, setActiveTab] = useState<"transmis" | "dossiers" | "bilan">("transmis");
 
   // ─── Panel state ─────────────────────────────────────────────────
   const [selectedDossierAbonne, setSelectedDossierAbonne] = useState<AbonneContentieux | null>(null);
@@ -131,7 +131,7 @@ export function ServiceContentieuxView({
     }
   }, []);
 
-  useEffect(() => { if (activeTab === "dossiers") loadDossiers(); }, [activeTab, loadDossiers]);
+  useEffect(() => { if (activeTab === "dossiers" || activeTab === "bilan") loadDossiers(); }, [activeTab, loadDossiers]);
 
   // ─── Distinct filter options ─────────────────────────────────────
   const filterOptions = useMemo(() => ({
@@ -390,12 +390,7 @@ export function ServiceContentieuxView({
       >
         {/* Tabs */}
         <div className="flex border-b border-[#F2F4F7] px-4 sm:px-6">
-          <button
-            onClick={() => { setActiveTab("tous"); setPage(1); }}
-            className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === "tous" ? "border-brand-500 text-brand-600" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
-          >
-            Tous les abonnés
-          </button>
+
           <button
             onClick={() => { setActiveTab("transmis"); setPage(1); }}
             className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "transmis" ? "border-rose-500 text-rose-600" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
@@ -411,6 +406,13 @@ export function ServiceContentieuxView({
           >
             <FolderOpen size={15} />
             Dossiers de Recouvrement
+          </button>
+          <button
+            onClick={() => { setActiveTab("bilan"); }}
+            className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "bilan" ? "border-amber-500 text-amber-700" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
+          >
+            <Printer size={15} />
+            Bilan & Impression
           </button>
         </div>
 
@@ -593,9 +595,9 @@ export function ServiceContentieuxView({
         })()}
 
         {/* ══════════════════════════════════════════════════════════
-            ONGLETS : TOUS / TRANSMIS (existing content)
+            ONGLETS : TRANSMIS (existing content)
         ══════════════════════════════════════════════════════════ */}
-        {activeTab !== "dossiers" && (
+        {activeTab === "transmis" && (
           <>
         {/* Toolbar */}
         <div className="px-4 sm:px-6 pt-5 pb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 border-b border-[#F2F4F7]">
@@ -927,8 +929,20 @@ export function ServiceContentieuxView({
             </div>
           </>
         )}
-        </> 
-        )} {/* end activeTab !== dossiers */}
+        </>
+        )} {/* end activeTab === transmis */}
+
+        {/* ══════════════════════════════════════════════════════════
+            ONGLET : BILAN & IMPRESSION
+        ══════════════════════════════════════════════════════════ */}
+        {activeTab === "bilan" && (
+          <BilanImpressionView
+            rows={rows}
+            dossiers={dossiers}
+            sectors={sectors}
+            selectedSecteur={selectedSecteur}
+          />
+        )}
       </div>
 
       <DossierJuridiquePanel 
@@ -936,10 +950,538 @@ export function ServiceContentieuxView({
         onClose={() => {
           setIsPanelOpen(false);
           // Reload dossiers in case changes were made
-          if (activeTab === "dossiers") loadDossiers();
+          if (activeTab === "dossiers" || activeTab === "bilan") loadDossiers();
         }}
         abonne={selectedDossierAbonne}
       />
+    </div>
+  );
+}
+
+// ─── BilanImpressionView Component ──────────────────────────────────────────
+
+interface BilanImpressionViewProps {
+  rows: AbonneContentieux[];
+  dossiers: any[];
+  sectors: any[];
+  selectedSecteur: string;
+}
+
+export function BilanImpressionView({
+  rows,
+  dossiers,
+  sectors,
+  selectedSecteur,
+}: BilanImpressionViewProps) {
+  const [periodType, setPeriodType] = useState<"hebdo" | "mensuel" | "annuel" | "perso">("mensuel");
+  
+  // Initialize to last 30 days
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
+
+  const handlePeriodChange = (type: "hebdo" | "mensuel" | "annuel" | "perso") => {
+    setPeriodType(type);
+    const today = new Date();
+    let start = new Date();
+    
+    if (type === "hebdo") {
+      start.setDate(today.getDate() - 7);
+    } else if (type === "mensuel") {
+      start.setDate(today.getDate() - 30);
+    } else if (type === "annuel") {
+      start = new Date(today.getFullYear(), 0, 1);
+    } else {
+      return;
+    }
+    
+    const formatDate = (d: Date) => d.toISOString().split("T")[0];
+    setStartDate(formatDate(start));
+    setEndDate(formatDate(today));
+  };
+
+  const secteurLabel = selectedSecteur
+    ? (sectors.find((s: any) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
+    : null;
+
+  // Match dossiers with subscribers to get type_abon and montant_creance
+  const filteredDossiers = useMemo(() => {
+    const enriched = dossiers.map(d => {
+      const abonne = rows.find(r => r.numab.trim().toUpperCase() === d.numab.trim().toUpperCase());
+      return {
+        ...d,
+        type_abon: abonne ? abonne.type_abon : "Non spécifié",
+        montant_creance: abonne ? abonne.montant_creance : 0,
+        nombre_creance: abonne ? abonne.nombre_creance : 0,
+      };
+    });
+
+    return enriched.filter(d => {
+      if (!d.date_transmission) return false;
+      const dDate = new Date(d.date_transmission);
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate) : null;
+      
+      if (start) {
+        start.setHours(0, 0, 0, 0);
+        if (dDate < start) return false;
+      }
+      if (end) {
+        end.setHours(23, 59, 59, 999);
+        if (dDate > end) return false;
+      }
+      return true;
+    });
+  }, [dossiers, rows, startDate, endDate]);
+
+  // Unique types computed dynamically
+  const uniqueTypes = useMemo(() => {
+    const typesSet = new Set<string>();
+    rows.forEach(r => {
+      if (r.type_abon) typesSet.add(r.type_abon);
+    });
+    filteredDossiers.forEach(d => {
+      if (d.type_abon) typesSet.add(d.type_abon);
+    });
+    if (typesSet.size === 0) {
+      return ["Ménages", "Administrations", "Commerces", "Non spécifié"];
+    }
+    return Array.from(typesSet).sort();
+  }, [rows, filteredDossiers]);
+
+  // First table data
+  const table1Data = useMemo(() => {
+    let totalCount = 0;
+    let grandTotalAmount = 0;
+
+    const items = uniqueTypes.map(type => {
+      const matching = filteredDossiers.filter(d => d.type_abon === type);
+      const count = matching.length;
+      const totalAmount = matching.reduce((sum, d) => sum + (d.montant_creance || 0), 0);
+      
+      totalCount += count;
+      grandTotalAmount += totalAmount;
+
+      return {
+        type,
+        count,
+        totalAmount,
+      };
+    });
+
+    return { items, totalCount, grandTotalAmount };
+  }, [uniqueTypes, filteredDossiers]);
+
+  const STATUTS = ["Actif", "Suspendu", "Décédé", "Héritier"];
+
+  // Second table data (double entry)
+  const table2Data = useMemo(() => {
+    const items = uniqueTypes.map(type => {
+      const rowDossiers = filteredDossiers.filter(d => d.type_abon === type);
+      const countsByStatut: Record<string, number> = {};
+      
+      STATUTS.forEach(statut => {
+        countsByStatut[statut] = rowDossiers.filter(d => {
+          const s = d.statut_abonne || "Actif";
+          return s.trim().toLowerCase() === statut.trim().toLowerCase();
+        }).length;
+      });
+
+      const rowTotal = rowDossiers.length;
+
+      return {
+        type,
+        countsByStatut,
+        rowTotal,
+      };
+    });
+
+    const colTotals: Record<string, number> = {};
+    STATUTS.forEach(statut => {
+      colTotals[statut] = filteredDossiers.filter(d => {
+        const s = d.statut_abonne || "Actif";
+        return s.trim().toLowerCase() === statut.trim().toLowerCase();
+      }).length;
+    });
+
+    const grandTotal = filteredDossiers.length;
+
+    return { items, colTotals, grandTotal };
+  }, [uniqueTypes, filteredDossiers]);
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n).replace(/[\u202F\u00A0]/g, " ") + " DA";
+
+  const formatDateString = (str: string) => {
+    try {
+      const d = new Date(str);
+      return d.toLocaleDateString("fr-DZ");
+    } catch {
+      return str;
+    }
+  };
+
+  // ─── Print handler ─────────────────────────────────────────────────
+  const handlePrint = () => {
+    const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+    // Build table 1 rows HTML
+    const t1Rows = table1Data.items.map(item => `
+      <tr>
+        <td>${esc(item.type)}</td>
+        <td style="text-align:center">${item.count}</td>
+        <td style="text-align:right">${fmt(item.totalAmount)}</td>
+      </tr>
+    `).join("");
+
+    // Build table 2 header columns
+    const t2HeaderCols = STATUTS.map(s => `<th style="text-align:center">${esc(s)}</th>`).join("");
+
+    // Build table 2 rows HTML
+    const t2Rows = table2Data.items.map(row => {
+      const cols = STATUTS.map(s => `<td style="text-align:center">${row.countsByStatut[s] ?? 0}</td>`).join("");
+      return `<tr>
+        <td>${esc(row.type)}</td>
+        ${cols}
+        <td style="text-align:center;font-weight:900">${row.rowTotal}</td>
+      </tr>`;
+    }).join("");
+
+    const t2TotalCols = STATUTS.map(s => `<td style="text-align:center">${table2Data.colTotals[s] ?? 0}</td>`).join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Bilan Service Contentieux</title>
+  <style>
+    @page { size: A4 portrait; margin: 15mm 12mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 10px;
+      color: #101828;
+      margin: 0;
+      padding: 0;
+      background: white;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #101828;
+      padding-bottom: 14px;
+      margin-bottom: 24px;
+    }
+    .header h1 {
+      font-size: 17px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin: 0 0 4px;
+    }
+    .header .sub { font-size: 9px; color: #667085; font-weight: 700; text-transform: uppercase; }
+    .header-right { text-align: right; font-size: 9px; color: #344054; }
+    .header-right span { font-weight: 900; color: #101828; }
+    .section { margin-bottom: 28px; }
+    .section h2 {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #101828;
+      border-left: 4px solid #E11D48;
+      padding-left: 8px;
+      margin: 0 0 10px;
+    }
+    .section h2.indigo { border-left-color: #4F46E5; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9px;
+    }
+    thead tr { background: #F9FAFB; }
+    th {
+      padding: 7px 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      font-size: 8px;
+      letter-spacing: .05em;
+      color: #667085;
+      border-bottom: 2px solid #E4E7EC;
+      text-align: left;
+    }
+    td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #F2F4F7;
+    }
+    tr:nth-child(even) td { background: #FAFAFA; }
+    .total-row td {
+      font-weight: 900;
+      background: #F3F4F6 !important;
+      border-top: 2px solid #D1D5DB;
+      text-transform: uppercase;
+    }
+    .sig-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 48px;
+      font-size: 9px;
+      color: #667085;
+      font-weight: 700;
+    }
+    .sig-box {
+      width: 180px;
+      height: 60px;
+      border: 1px dashed #D1D5DB;
+      border-radius: 6px;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Bilan d'Activité — Service Contentieux</h1>
+      <div class="sub">${secteurLabel ? `Centre / Secteur : ${esc(secteurLabel)}` : "Toute l'unité"}</div>
+    </div>
+    <div class="header-right">
+      <div>Période : <span>${formatDateString(startDate)}</span> au <span>${formatDateString(endDate)}</span></div>
+      <div>Date d'édition : ${new Date().toLocaleDateString("fr-DZ")}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>1. Nouveaux dossiers reçus et montants globaux par type d'abonné</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Type d'abonné</th>
+          <th style="text-align:center">Nouveaux dossiers reçus</th>
+          <th style="text-align:right">Montant global</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${t1Rows}
+        <tr class="total-row">
+          <td>Total général</td>
+          <td style="text-align:center">${table1Data.totalCount}</td>
+          <td style="text-align:right">${fmt(table1Data.grandTotalAmount)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2 class="indigo">2. Répartition des dossiers traités par statut et par type d'abonné</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Type d'abonné</th>
+          ${t2HeaderCols}
+          <th style="text-align:center">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${t2Rows}
+        <tr class="total-row">
+          <td>Total</td>
+          ${t2TotalCols}
+          <td style="text-align:center">${table2Data.grandTotal}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sig-row">
+    <div>
+      <div>Visa du Responsable Contentieux</div>
+      <div class="sig-box"></div>
+    </div>
+    <div style="text-align:right">
+      <div>Visa de la Direction d'Unité</div>
+      <div class="sig-box"></div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) { alert("Veuillez autoriser les popups pour imprimer."); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  };
+
+  return (
+    <div className="p-4 sm:p-6 space-y-6">
+
+      {/* Filter Toolbar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#F9FAFB] p-4 rounded-2xl border border-[#E4E7EC]">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex bg-white border border-[#D0D5DD] rounded-xl p-1 shadow-sm">
+            {(["hebdo", "mensuel", "annuel", "perso"] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => handlePeriodChange(type)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  periodType === type
+                    ? "bg-brand-600 text-white shadow-sm"
+                    : "text-[#344054] hover:bg-[#F9FAFB]"
+                }`}
+              >
+                {type === "hebdo" ? "Hebdomadaire" : type === "mensuel" ? "Mensuel" : type === "annuel" ? "Annuel" : "Perso"}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-black uppercase text-[#667085] tracking-wider">Du</span>
+              <input
+                type="date"
+                value={startDate}
+                disabled={periodType !== "perso"}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="text-xs font-bold px-3 py-2 rounded-xl border border-[#E4E7EC] bg-white text-[#344054] focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-[#F2F4F7] disabled:text-[#98A2B3] cursor-pointer"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-black uppercase text-[#667085] tracking-wider">Au</span>
+              <input
+                type="date"
+                value={endDate}
+                disabled={periodType !== "perso"}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="text-xs font-bold px-3 py-2 rounded-xl border border-[#E4E7EC] bg-white text-[#344054] focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-[#F2F4F7] disabled:text-[#98A2B3] cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handlePrint}
+          className="flex items-center justify-center gap-2 bg-[#101828] text-white px-4 py-2.5 text-xs font-black rounded-xl hover:bg-[#1D2939] transition-all shadow-sm border border-[#101828]"
+        >
+          <Printer size={14} />
+          Imprimer le bilan
+        </button>
+      </div>
+
+      {/* Main Report Container */}
+      <div
+        id="print-root-container"
+        className="bg-white p-6 sm:p-8 rounded-2xl border border-[#E4E7EC] shadow-sm space-y-8"
+      >
+        {/* Header of the document */}
+        <div className="border-b-2 border-gray-900 pb-5 flex justify-between items-start">
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-gray-900 uppercase">
+              Bilan d'Activité - Service Contentieux
+            </h1>
+            <p className="text-xs text-gray-500 font-bold mt-1 uppercase tracking-wider">
+              {secteurLabel ? `Centre / Secteur : ${secteurLabel}` : "Toute l'unité"}
+            </p>
+          </div>
+          <div className="text-right text-xs text-gray-600 font-semibold space-y-1">
+            <p>Période : <span className="font-bold text-gray-900">{formatDateString(startDate)}</span> au <span className="font-bold text-gray-900">{formatDateString(endDate)}</span></p>
+            <p>Date d'édition : {new Date().toLocaleDateString("fr-DZ")}</p>
+          </div>
+        </div>
+
+        {/* Section 1: Nouveaux dossiers */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-black uppercase text-gray-900 tracking-wide border-l-4 border-rose-500 pl-2">
+            1. Nouveaux dossiers reçus et montants globaux par type d'abonné
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border border-gray-200">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider">Type d'abonné</th>
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">Nouveaux dossiers reçus</th>
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-right">Montant global</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {table1Data.items.map((item) => (
+                  <tr key={item.type} className="hover:bg-gray-50/50">
+                    <td className="py-2.5 px-4 font-bold text-gray-900">{item.type}</td>
+                    <td className="py-2.5 px-4 font-bold text-center text-gray-700">{item.count}</td>
+                    <td className="py-2.5 px-4 font-black text-right text-rose-600 tabular-nums">{fmt(item.totalAmount)}</td>
+                  </tr>
+                ))}
+                {/* Total Row */}
+                <tr className="bg-gray-50/80 font-black border-t-2 border-gray-300">
+                  <td className="py-3 px-4 text-gray-900 uppercase">Total général</td>
+                  <td className="py-3 px-4 text-center text-gray-900">{table1Data.totalCount}</td>
+                  <td className="py-3 px-4 text-right text-rose-700 tabular-nums">{fmt(table1Data.grandTotalAmount)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Section 2: Répartition */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-black uppercase text-gray-900 tracking-wide border-l-4 border-indigo-500 pl-2">
+            2. Répartition des dossiers traités par statut et par type d'abonné
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border border-gray-200">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider">Type d'abonné</th>
+                  {STATUTS.map(statut => (
+                    <th key={statut} className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">{statut}</th>
+                  ))}
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center bg-gray-100/50">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {table2Data.items.map((row) => (
+                  <tr key={row.type} className="hover:bg-gray-50/50">
+                    <td className="py-2.5 px-4 font-bold text-gray-900">{row.type}</td>
+                    {STATUTS.map(statut => (
+                      <td key={statut} className="py-2.5 px-4 font-bold text-center text-gray-700 tabular-nums">
+                        {row.countsByStatut[statut]}
+                      </td>
+                    ))}
+                    <td className="py-2.5 px-4 font-black text-center text-gray-900 bg-gray-50/30 tabular-nums">{row.rowTotal}</td>
+                  </tr>
+                ))}
+                {/* Total Row */}
+                <tr className="bg-gray-50/80 font-black border-t-2 border-gray-300">
+                  <td className="py-3 px-4 text-gray-900 uppercase">Total</td>
+                  {STATUTS.map(statut => (
+                    <td key={statut} className="py-3 px-4 text-center text-gray-900 tabular-nums">
+                      {table2Data.colTotals[statut]}
+                    </td>
+                  ))}
+                  <td className="py-3 px-4 text-center text-gray-900 bg-gray-100/80 tabular-nums">{table2Data.grandTotal}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Signature Box (Professional detail) */}
+        <div className="pt-12 flex justify-between items-center text-xs font-semibold text-gray-600">
+          <div>
+            <p>Visa du Responsable Contentieux</p>
+            <div className="h-16 w-48 border border-dashed border-gray-300 rounded-lg mt-1 bg-gray-50/30" />
+          </div>
+          <div className="text-right">
+            <p>Visa de la Direction d'Unité</p>
+            <div className="h-16 w-48 border border-dashed border-gray-300 rounded-lg mt-1 bg-gray-50/30" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

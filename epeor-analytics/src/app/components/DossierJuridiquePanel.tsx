@@ -1,8 +1,20 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, FileText, CheckCircle, Landmark, Check } from "lucide-react";
+import { X, FileText, CheckCircle, Landmark, Check, Plus, Trash2 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
+
+interface Heritier {
+  id: string;
+  nom: string;
+  adresse: string;
+  codeAbonne?: string;
+  telephone?: string;
+  email?: string;
+  numeroIdentite?: string;
+  dateDelivrance?: string;
+  lieuDelivrance?: string;
+}
 
 interface DossierJuridiquePanelProps {
   isOpen: boolean;
@@ -23,7 +35,8 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
     nom_notaire: "",
     coordonnees_notaire: "",
     liste_heritiers: "",
-    date_declaration_creance: ""
+    date_declaration_creance: "",
+    heritiers: [] as Heritier[]
   });
 
   useEffect(() => {
@@ -41,7 +54,8 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
             nom_notaire: data.nom_notaire || "",
             coordonnees_notaire: data.coordonnees_notaire || "",
             liste_heritiers: data.liste_heritiers || "",
-            date_declaration_creance: data.date_declaration_creance || ""
+            date_declaration_creance: data.date_declaration_creance || "",
+            heritiers: data.heritiers || []
           });
         })
         .finally(() => setLoading(false));
@@ -70,6 +84,40 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
   const downloadPDF = (type: string) => {
     const url = apiUrlObject(`/api/abonne/${abonne.numab}/${type}`).toString();
     window.open(url, '_blank');
+  };
+
+  const addHeritier = () => {
+    const newHeritier: Heritier = {
+      id: Date.now().toString(),
+      nom: "",
+      adresse: "",
+      codeAbonne: "",
+      telephone: "",
+      email: "",
+      numeroIdentite: "",
+      dateDelivrance: "",
+      lieuDelivrance: ""
+    };
+    setDossier({
+      ...dossier,
+      heritiers: [...dossier.heritiers, newHeritier]
+    });
+  };
+
+  const removeHeritier = (id: string) => {
+    setDossier({
+      ...dossier,
+      heritiers: dossier.heritiers.filter(h => h.id !== id)
+    });
+  };
+
+  const updateHeritier = (id: string, field: keyof Heritier, value: string) => {
+    setDossier({
+      ...dossier,
+      heritiers: dossier.heritiers.map(h =>
+        h.id === id ? { ...h, [field]: value } : h
+      )
+    });
   };
 
   const steps = ["Amiable", "Mise en demeure", "Succession Notaire", "Tribunal"];
@@ -212,6 +260,137 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                       placeholder="Noms et prénoms des héritiers..."
                     />
                   </div>
+                </div>
+              )}
+
+              {/* Heritier Specific Fields */}
+              {dossier.statut_abonne === "Héritier" && (
+                <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-100 space-y-4 animate-in fade-in zoom-in-95">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-black text-emerald-900">Liste des Héritiers</h3>
+                    <button
+                      onClick={addHeritier}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors"
+                    >
+                      <Plus size={14} /> Ajouter un héritier
+                    </button>
+                  </div>
+
+                  {dossier.heritiers.length === 0 ? (
+                    <p className="text-xs text-emerald-600 italic">Aucun héritier ajouté pour le moment</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {dossier.heritiers.map((heritier, idx) => (
+                        <div key={heritier.id} className="p-4 bg-white rounded-xl border border-emerald-200 space-y-3">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-black text-emerald-700">Héritier {idx + 1}</span>
+                            <button
+                              onClick={() => removeHeritier(heritier.id)}
+                              className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-bold text-emerald-900/60 mb-1">Nom complet *</label>
+                              <input
+                                type="text"
+                                value={heritier.nom}
+                                onChange={e => updateHeritier(heritier.id, "nom", e.target.value)}
+                                className="w-full text-sm font-bold px-3 py-2 rounded-lg border border-emerald-200 bg-white focus:ring-2 focus:ring-emerald-500"
+                                placeholder="Nom et prénom"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-emerald-900/60 mb-1">Code abonné</label>
+                              <input
+                                type="text"
+                                value={heritier.codeAbonne || ""}
+                                onChange={e => updateHeritier(heritier.id, "codeAbonne", e.target.value)}
+                                className="w-full text-sm font-bold px-3 py-2 rounded-lg border border-emerald-200 bg-white focus:ring-2 focus:ring-emerald-500"
+                                placeholder="Code abonné (optionnel)"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-emerald-900/60 mb-1">Adresse *</label>
+                            <input
+                              type="text"
+                              value={heritier.adresse}
+                              onChange={e => updateHeritier(heritier.id, "adresse", e.target.value)}
+                              className="w-full text-sm font-bold px-3 py-2 rounded-lg border border-emerald-200 bg-white focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Adresse complète"
+                              required
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-bold text-emerald-900/60 mb-1">Téléphone</label>
+                              <input
+                                type="tel"
+                                value={heritier.telephone || ""}
+                                onChange={e => updateHeritier(heritier.id, "telephone", e.target.value)}
+                                className="w-full text-sm font-bold px-3 py-2 rounded-lg border border-emerald-200 bg-white focus:ring-2 focus:ring-emerald-500"
+                                placeholder="Numéro de téléphone (optionnel)"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-emerald-900/60 mb-1">Email</label>
+                              <input
+                                type="email"
+                                value={heritier.email || ""}
+                                onChange={e => updateHeritier(heritier.id, "email", e.target.value)}
+                                className="w-full text-sm font-bold px-3 py-2 rounded-lg border border-emerald-200 bg-white focus:ring-2 focus:ring-emerald-500"
+                                placeholder="Email (optionnel)"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="border-t border-emerald-200 pt-3 mt-3">
+                            <h4 className="text-xs font-bold text-emerald-900 mb-3">Pièce d'identité</h4>
+                            <div>
+                              <label className="block text-xs font-bold text-emerald-900/60 mb-1">Numéro de la pièce d'identité (18 chiffres)</label>
+                              <input
+                                type="text"
+                                value={heritier.numeroIdentite || ""}
+                                onChange={e => updateHeritier(heritier.id, "numeroIdentite", e.target.value)}
+                                className="w-full text-sm font-bold px-3 py-2 rounded-lg border border-emerald-200 bg-white focus:ring-2 focus:ring-emerald-500 font-mono"
+                                placeholder="Ex: 128563290140005217"
+                                maxLength={18}
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 mt-3">
+                              <div>
+                                <label className="block text-xs font-bold text-emerald-900/60 mb-1">Date de délivrance</label>
+                                <input
+                                  type="date"
+                                  value={heritier.dateDelivrance || ""}
+                                  onChange={e => updateHeritier(heritier.id, "dateDelivrance", e.target.value)}
+                                  className="w-full text-sm font-bold px-3 py-2 rounded-lg border border-emerald-200 bg-white focus:ring-2 focus:ring-emerald-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-emerald-900/60 mb-1">Lieu de délivrance</label>
+                                <input
+                                  type="text"
+                                  value={heritier.lieuDelivrance || ""}
+                                  onChange={e => updateHeritier(heritier.id, "lieuDelivrance", e.target.value)}
+                                  className="w-full text-sm font-bold px-3 py-2 rounded-lg border border-emerald-200 bg-white focus:ring-2 focus:ring-emerald-500"
+                                  placeholder="Ex: Berrouaghia"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -366,10 +366,10 @@ export function ServiceContentieuxView({
         {!loading && rows.length > 0 && (
           <div className="mt-5 grid grid-cols-3 gap-3">
             {[
-              { label: "Abonnés concernés", value: totals.abonnes.toLocaleString("fr-DZ"), color: "var(--glow-blue)" },
-              { label: "Factures impayées", value: totals.factures.toLocaleString("fr-DZ"), color: "var(--glow-rose)" },
-              { label: "Montant total", value: fmt(totals.montant), color: "var(--glow-amber)" },
-            ].map(({ label, value, color }) => (
+              { label: "Abonnés concernés", value: totals.abonnes.toLocaleString("fr-DZ") },
+              { label: "Factures impayées", value: totals.factures.toLocaleString("fr-DZ") },
+              { label: "Montant total", value: fmt(totals.montant) },
+            ].map(({ label, value }) => (
               <div
                 key={label}
                 className="rounded-2xl px-4 py-3 border"
@@ -1070,34 +1070,48 @@ export function BilanImpressionView({
   const table1Data = useMemo(() => {
     let totalCount = 0;
     let grandTotalAmount = 0;
+    let totalHeritiers = 0;
+    let totalSuspended = 0;
 
     const items = uniqueTypes.map(type => {
       const matching = filteredDossiers.filter(d => d.type_abon === type);
       const count = matching.length;
       const totalAmount = matching.reduce((sum, d) => sum + (d.montant_creance || 0), 0);
-      
+      const heritiers = matching.filter(d => {
+        const s = d.statut_abonne || "Actif";
+        return s.trim().toLowerCase() === "héritier";
+      }).length;
+      const suspended = matching.filter(d => {
+        const s = d.statut_abonne || "Actif";
+        return s.trim().toLowerCase() === "suspendu";
+      }).length;
+
       totalCount += count;
       grandTotalAmount += totalAmount;
+      totalHeritiers += heritiers;
+      totalSuspended += suspended;
 
       return {
         type,
         count,
         totalAmount,
+        heritiers,
+        suspended,
       };
     });
 
-    return { items, totalCount, grandTotalAmount };
+    return { items, totalCount, grandTotalAmount, totalHeritiers, totalSuspended };
   }, [uniqueTypes, filteredDossiers]);
 
-  const STATUTS = ["Actif", "Suspendu", "Décédé", "Héritier"];
+  const table2Statuts = useMemo(() => ["Actif", "Décédé"], []);
 
-  // Second table data (double entry)
+  // Second table data
   const table2Data = useMemo(() => {
     const items = uniqueTypes.map(type => {
       const rowDossiers = filteredDossiers.filter(d => d.type_abon === type);
       const countsByStatut: Record<string, number> = {};
-      
-      STATUTS.forEach(statut => {
+
+      table2Statuts.forEach(statut => {
         countsByStatut[statut] = rowDossiers.filter(d => {
           const s = d.statut_abonne || "Actif";
           return s.trim().toLowerCase() === statut.trim().toLowerCase();
@@ -1114,7 +1128,7 @@ export function BilanImpressionView({
     });
 
     const colTotals: Record<string, number> = {};
-    STATUTS.forEach(statut => {
+    table2Statuts.forEach(statut => {
       colTotals[statut] = filteredDossiers.filter(d => {
         const s = d.statut_abonne || "Actif";
         return s.trim().toLowerCase() === statut.trim().toLowerCase();
@@ -1124,7 +1138,7 @@ export function BilanImpressionView({
     const grandTotal = filteredDossiers.length;
 
     return { items, colTotals, grandTotal };
-  }, [uniqueTypes, filteredDossiers]);
+  }, [uniqueTypes, filteredDossiers, table2Statuts]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -1148,16 +1162,18 @@ export function BilanImpressionView({
       <tr>
         <td>${esc(item.type)}</td>
         <td style="text-align:center">${item.count}</td>
+        <td style="text-align:center">${item.suspended}</td>
+        <td style="text-align:center">${item.heritiers}</td>
         <td style="text-align:right">${fmt(item.totalAmount)}</td>
       </tr>
     `).join("");
 
     // Build table 2 header columns
-    const t2HeaderCols = STATUTS.map(s => `<th style="text-align:center">${esc(s)}</th>`).join("");
+    const t2HeaderCols = table2Statuts.map(s => `<th style="text-align:center">${esc(s)}</th>`).join("");
 
     // Build table 2 rows HTML
     const t2Rows = table2Data.items.map(row => {
-      const cols = STATUTS.map(s => `<td style="text-align:center">${row.countsByStatut[s] ?? 0}</td>`).join("");
+      const cols = table2Statuts.map(s => `<td style="text-align:center">${row.countsByStatut[s] ?? 0}</td>`).join("");
       return `<tr>
         <td>${esc(row.type)}</td>
         ${cols}
@@ -1165,7 +1181,7 @@ export function BilanImpressionView({
       </tr>`;
     }).join("");
 
-    const t2TotalCols = STATUTS.map(s => `<td style="text-align:center">${table2Data.colTotals[s] ?? 0}</td>`).join("");
+    const t2TotalCols = table2Statuts.map(s => `<td style="text-align:center">${table2Data.colTotals[s] ?? 0}</td>`).join("");
 
     const html = `<!DOCTYPE html>
 <html lang="fr">
@@ -1276,6 +1292,8 @@ export function BilanImpressionView({
         <tr>
           <th>Type d'abonné</th>
           <th style="text-align:center">Nouveaux dossiers reçus</th>
+          <th style="text-align:center">Suspendu</th>
+          <th style="text-align:center">Héritiers</th>
           <th style="text-align:right">Montant global</th>
         </tr>
       </thead>
@@ -1284,6 +1302,8 @@ export function BilanImpressionView({
         <tr class="total-row">
           <td>Total général</td>
           <td style="text-align:center">${table1Data.totalCount}</td>
+          <td style="text-align:center">${table1Data.totalSuspended}</td>
+          <td style="text-align:center">${table1Data.totalHeritiers}</td>
           <td style="text-align:right">${fmt(table1Data.grandTotalAmount)}</td>
         </tr>
       </tbody>
@@ -1419,6 +1439,8 @@ export function BilanImpressionView({
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider">Type d'abonné</th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">Nouveaux dossiers reçus</th>
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">Suspendu</th>
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">Héritiers</th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-right">Montant global</th>
                 </tr>
               </thead>
@@ -1427,6 +1449,8 @@ export function BilanImpressionView({
                   <tr key={item.type} className="hover:bg-gray-50/50">
                     <td className="py-2.5 px-4 font-bold text-gray-900">{item.type}</td>
                     <td className="py-2.5 px-4 font-bold text-center text-gray-700">{item.count}</td>
+                    <td className="py-2.5 px-4 font-bold text-center text-amber-700">{item.suspended}</td>
+                    <td className="py-2.5 px-4 font-bold text-center text-emerald-700">{item.heritiers}</td>
                     <td className="py-2.5 px-4 font-black text-right text-rose-600 tabular-nums">{fmt(item.totalAmount)}</td>
                   </tr>
                 ))}
@@ -1434,6 +1458,8 @@ export function BilanImpressionView({
                 <tr className="bg-gray-50/80 font-black border-t-2 border-gray-300">
                   <td className="py-3 px-4 text-gray-900 uppercase">Total général</td>
                   <td className="py-3 px-4 text-center text-gray-900">{table1Data.totalCount}</td>
+                  <td className="py-3 px-4 text-center text-amber-900">{table1Data.totalSuspended}</td>
+                  <td className="py-3 px-4 text-center text-emerald-900">{table1Data.totalHeritiers}</td>
                   <td className="py-3 px-4 text-right text-rose-700 tabular-nums">{fmt(table1Data.grandTotalAmount)}</td>
                 </tr>
               </tbody>
@@ -1451,7 +1477,7 @@ export function BilanImpressionView({
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider">Type d'abonné</th>
-                  {STATUTS.map(statut => (
+                  {table2Statuts.map(statut => (
                     <th key={statut} className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">{statut}</th>
                   ))}
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center bg-gray-100/50">Total</th>
@@ -1461,7 +1487,7 @@ export function BilanImpressionView({
                 {table2Data.items.map((row) => (
                   <tr key={row.type} className="hover:bg-gray-50/50">
                     <td className="py-2.5 px-4 font-bold text-gray-900">{row.type}</td>
-                    {STATUTS.map(statut => (
+                    {table2Statuts.map(statut => (
                       <td key={statut} className="py-2.5 px-4 font-bold text-center text-gray-700 tabular-nums">
                         {row.countsByStatut[statut]}
                       </td>
@@ -1472,7 +1498,7 @@ export function BilanImpressionView({
                 {/* Total Row */}
                 <tr className="bg-gray-50/80 font-black border-t-2 border-gray-300">
                   <td className="py-3 px-4 text-gray-900 uppercase">Total</td>
-                  {STATUTS.map(statut => (
+                  {table2Statuts.map(statut => (
                     <td key={statut} className="py-3 px-4 text-center text-gray-900 tabular-nums">
                       {table2Data.colTotals[statut]}
                     </td>

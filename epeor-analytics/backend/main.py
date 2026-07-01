@@ -197,6 +197,10 @@ def _init_auth_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
             CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+            CREATE TABLE IF NOT EXISTS legal_status (
+                numab TEXT PRIMARY KEY,
+                is_contentieux INTEGER NOT NULL DEFAULT 0
+            );
         """)
         try:
             conn.execute("ALTER TABLE users ADD COLUMN username_hash TEXT DEFAULT ''")
@@ -4315,6 +4319,10 @@ def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str =
         debtors = {}
         tournees_set = set()
 
+        with _get_auth_conn() as conn:
+            rows = conn.execute("SELECT numab FROM legal_status WHERE is_contentieux = 1").fetchall()
+            contentieux_set = {r["numab"] for r in rows}
+
         records = itertools.chain(
             ((r, False) for r in MEM_FACTURES),
             ((r, True) for r in MEM_AVOIRS)
@@ -4393,7 +4401,8 @@ def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str =
                 else:
                     d["derniere_date_paiement"] = "Aucun"
                     d["raw_last_payment"] = None
-
+                
+                d["is_contentieux"] = (d["numab"].upper() in contentieux_set)
                 debtor_list.append(d)
 
         debtor_list.sort(key=lambda x: x["montant_creance"], reverse=True)
@@ -4404,6 +4413,25 @@ def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str =
 
     except Exception as e:
         return {"error": str(e)}
+
+
+class LegalStatusUpdate(BaseModel):
+    is_contentieux: bool
+
+@app.post("/api/abonne/{numab}/legal_status")
+def update_legal_status(numab: str, payload: LegalStatusUpdate, _user: dict = Depends(get_current_user)):
+    numab_key = numab.strip().upper()
+    try:
+        with _get_auth_conn() as conn:
+            conn.execute(
+                "INSERT INTO legal_status (numab, is_contentieux) VALUES (?, ?) ON CONFLICT(numab) DO UPDATE SET is_contentieux=excluded.is_contentieux",
+                (numab_key, 1 if payload.is_contentieux else 0)
+            )
+            conn.commit()
+        return {"success": True}
+    except Exception as e:
+        print(f"Error updating legal status: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
 
 
 @app.get("/creances_institutions")

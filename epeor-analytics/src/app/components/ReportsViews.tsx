@@ -7,7 +7,7 @@ import {
   MapPin, BarChart3, Users, UserX,
 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
-import { formatPeriodLabel, appendSecteurParam } from "./utils";
+import { formatPeriodLabel, appendSecteurParam, showAlert } from "./utils";
 
 export function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClose, selectedSecteur = '' }: any) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
@@ -352,7 +352,7 @@ export function CreanceVentilationView({
       const buffer = await workbook.xlsx.writeBuffer();
       saveAs(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `ventilation_${lastVentDate || 'export'}.xlsx`);
     } catch {
-      alert("Une erreur est survenue lors de l'exportation Excel.");
+      void showAlert("Une erreur est survenue lors de l'exportation Excel.", { icon: "error" });
     }
   };
 

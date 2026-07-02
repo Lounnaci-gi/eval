@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronDown, Search, Printer, MapPin, Building2, Ban, FileSpreadsheet,
 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
-import { appendSecteurParam } from "./utils";
+import { appendSecteurParam, showAlert } from "./utils";
 import { SecteurDropdown, MultiSelectDropdown } from "./ui";
 
 function getQuarterFromMonth(monthStr: string): number {

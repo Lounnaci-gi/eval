@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ResponsiveContainer } from "recharts";
+import Swal from "sweetalert2";
 import { apiUrlObject } from "../lib/api";
 
 // ─── Types partagés ──────────────────────────────────────────────────────────
@@ -65,6 +66,33 @@ export const formatDate = (dateStr: string) => {
   if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
   return dateStr;
 };
+
+export function showAlert(message: string, options?: Partial<import("sweetalert2").SweetAlertOptions>) {
+  const baseOptions: import("sweetalert2").SweetAlertOptions = {
+    title: "Information",
+    text: message,
+    icon: "info",
+    confirmButtonText: "OK",
+    confirmButtonColor: "#0D83DE",
+  };
+  const mergedOptions = { ...baseOptions, ...(options ?? {}) } as import("sweetalert2").SweetAlertOptions;
+  return Swal.fire(mergedOptions);
+}
+
+export function showConfirm(message: string, options?: Partial<import("sweetalert2").SweetAlertOptions>) {
+  const baseOptions: import("sweetalert2").SweetAlertOptions = {
+    title: "Confirmation",
+    text: message,
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Oui",
+    cancelButtonText: "Annuler",
+    confirmButtonColor: "#0D83DE",
+    cancelButtonColor: "#98A2B3",
+  };
+  const mergedOptions = { ...baseOptions, ...(options ?? {}) } as import("sweetalert2").SweetAlertOptions;
+  return Swal.fire(mergedOptions);
+}
 
 export function appendSecteurParam(url: URL, secteur: string) {
   const code = (secteur || "").trim();

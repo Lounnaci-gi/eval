@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, FileText, CheckCircle, Landmark, Check, Plus, Trash2 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
+import { showAlert } from "./utils";
 
 interface Heritier {
   id: string;
@@ -41,8 +42,9 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
     etape_recouvrement: "Amiable",
     has_mise_en_demeure: false,
     has_echeancier: false,
-    transmet_huissier: false,
+    transmis_huissier: false,
     transmis_cours: false,
+    execution_jugement: false,
     nom_notaire: "",
     coordonnees_notaire: "",
     liste_heritiers: "",
@@ -66,6 +68,7 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
             has_echeancier: !!dossierData.has_echeancier,
             transmis_huissier: !!dossierData.transmis_huissier,
             transmis_cours: !!dossierData.transmis_cours,
+            execution_jugement: !!dossierData.execution_jugement,
             nom_notaire: dossierData.nom_notaire || "",
             coordonnees_notaire: dossierData.coordonnees_notaire || "",
             liste_heritiers: dossierData.liste_heritiers || "",
@@ -95,10 +98,10 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
           echeancier_plan: dossier.has_echeancier ? dossier.echeancier_plan : []
         })
       });
-      alert("Dossier mis à jour avec succès");
+      void showAlert("Dossier mis à jour avec succès", { icon: "success" });
       onClose();
     } catch {
-      alert("Erreur lors de la sauvegarde.");
+      void showAlert("Erreur lors de la sauvegarde.", { icon: "error" });
     } finally {
       setSaving(false);
     }
@@ -222,7 +225,7 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert('Veuillez autoriser les pop-ups pour imprimer.');
+      void showAlert('Veuillez autoriser les pop-ups pour imprimer.', { icon: "warning" });
       return;
     }
     printWindow.document.write(htmlContent);
@@ -338,7 +341,7 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
     });
   };
 
-  const steps = ["Amiable", "Mise en demeure", "Succession Notaire", "Tribunal"];
+  const steps = ["Amiable", "Mise en demeure", "Succession Notaire", "Tribunal", "Exécution de Jugement"];
   const currentStepIndex = steps.indexOf(dossier.etape_recouvrement);
 
   return (
@@ -431,6 +434,13 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                     </div>
                     <span className="text-sm font-bold text-gray-700">Transmis à la cour</span>
                     <input type="checkbox" className="hidden" checked={dossier.transmis_cours} onChange={e => setDossier({...dossier, transmis_cours: e.target.checked})} />
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${dossier.execution_jugement ? "bg-amber-600 border-amber-600 text-white" : "bg-white border-gray-300 text-transparent group-hover:border-amber-500"}`}>
+                      <Check size={14} strokeWidth={3} />
+                    </div>
+                    <span className="text-sm font-bold text-gray-700">Exécution de Jugement</span>
+                    <input type="checkbox" className="hidden" checked={dossier.execution_jugement} onChange={e => setDossier({...dossier, execution_jugement: e.target.checked})} />
                   </label>
                 </div>
               </div>

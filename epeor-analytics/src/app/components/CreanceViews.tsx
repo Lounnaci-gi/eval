@@ -10,9 +10,10 @@ import {
 } from "recharts";
 import { apiUrlObject } from "../lib/api";
 import {
-  ChartContainer, formatDate, appendSecteurParam,
+  ChartContainer, formatDate, appendSecteurParam, showAlert,
 } from "./utils";
 import { FrenchDateInput } from "./ui";
+import { escapeHtml } from "../../lib/escape";
 
 export function CreanceDetailView({
   creanceData, setCreanceData, ventilationData, setVentilationData, lastVentDate, setLastVentDate,
@@ -357,7 +358,7 @@ export function CreanceDetailView({
 
   const handlePrintAllCharts = () => {
     if (!data?.history || data.history.length === 0) {
-      alert("Aucune donnée historique disponible. Veuillez d'abord lancer un calcul.");
+      void showAlert("Aucune donnée historique disponible. Veuillez d'abord lancer un calcul.", { icon: "warning" });
       return;
     }
 
@@ -584,7 +585,7 @@ export function CreanceDetailView({
       </div>`;
 
     const printWindow = window.open('', '_blank');
-    if (!printWindow) { alert("Veuillez autoriser les fenêtres pop-up pour imprimer."); return; }
+    if (!printWindow) { void showAlert("Veuillez autoriser les fenêtres pop-up pour imprimer.", { icon: "warning" }); return; }
 
     printWindow.document.write(`<!DOCTYPE html>
 <html>

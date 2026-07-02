@@ -6,7 +6,7 @@ import {
   ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, FolderOpen, CheckCircle2,
 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
-import { appendSecteurParam } from "./utils";
+import { appendSecteurParam, showAlert } from "./utils";
 import { SecteurDropdown } from "./ui";
 import { DossierJuridiquePanel } from "./DossierJuridiquePanel";
 

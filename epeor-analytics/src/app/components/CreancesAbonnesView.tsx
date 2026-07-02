@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronDown, Search, Printer, MapPin, Calendar, Users, FileSpreadsheet,
 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
-import { appendSecteurParam } from "./utils";
+import { appendSecteurParam, showAlert } from "./utils";
 import { SecteurDropdown } from "./ui";
 
 const NUMERIC_SORT_KEYS = new Set(["montant_creance", "nombre_creance"]);
@@ -116,7 +116,7 @@ export function CreancesAbonnesView({
       // Revert on error
       setAllSubscribers(prev => prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: !newVal } : x));
       setResults(prev => prev ? prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: !newVal } : x) : null);
-      alert("Erreur lors de la mise à jour du statut juridique.");
+      void showAlert("Erreur lors de la mise à jour du statut juridique.", { icon: "error" });
     }
   };
 
@@ -216,7 +216,7 @@ export function CreancesAbonnesView({
     
     // Validate: must have 1-3 digits
     if (!digits || digits.length > 3) {
-      alert('Veuillez entrer un nombre entre 0 et 999');
+      void showAlert('Veuillez entrer un nombre entre 0 et 999', { icon: "warning" });
       return;
     }
     
@@ -227,7 +227,7 @@ export function CreancesAbonnesView({
       setCustomTournees(prev => [...prev, formatted]);
       setNewTourneeInput('');
     } else {
-      alert(`${formatted} est déjà ajoutée`);
+      void showAlert(`${formatted} est déjà ajoutée`, { icon: "warning" });
     }
   };
 

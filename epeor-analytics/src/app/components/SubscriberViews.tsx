@@ -6,7 +6,7 @@ import {
   ChevronRight, MapPin, Printer,
 } from "lucide-react";
 import { apiUrl, apiUrlObject } from "../lib/api";
-import { buildSubscribersUrl, appendSecteurParam } from "./utils";
+import { buildSubscribersUrl, appendSecteurParam, showAlert } from "./utils";
 import { SecteurDropdown } from "./ui";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
 

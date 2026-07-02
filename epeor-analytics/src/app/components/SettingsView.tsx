@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import "../../lib/i18n";
 import { ChevronRight, Database, RefreshCw, Search, Plus, Trash2, Edit2, Shield, User, Lock, X, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { apiUrl } from "../lib/api";
+import { showAlert, showConfirm } from "./utils";
 
 export function SettingsView({
   onBack,
@@ -96,7 +97,8 @@ export function SettingsView({
       setDataDirMessage({ type: 'err', text: 'Indiquez le chemin du dossier contenant les fichiers DBF.' });
       return;
     }
-    if (!confirm(`Utiliser ce dossier pour les données EPEOR ?\n\n${trimmed}\n\nLes données seront rechargées (quelques minutes).`)) {
+    const result = await showConfirm(`Utiliser ce dossier pour les données EPEOR ?\n\n${trimmed}\n\nLes données seront rechargées (quelques minutes).`, { title: "Confirmer le changement de dossier", icon: "question" });
+    if (!result.isConfirmed) {
       return;
     }
     setSavingDataDir(true);
@@ -155,7 +157,8 @@ export function SettingsView({
   }, [setupMode]);
 
   const handleClearCache = async () => {
-    if (!confirm("Êtes-vous sûr de vouloir vider le cache et recharger toutes les tables DBF ? Cette opération peut prendre quelques minutes.")) {
+    const result = await showConfirm("Êtes-vous sûr de vouloir vider le cache et recharger toutes les tables DBF ? Cette opération peut prendre quelques minutes.", { title: "Vider le cache", icon: "warning" });
+    if (!result.isConfirmed) {
       return;
     }
     setClearingCache(true);
@@ -749,7 +752,8 @@ function UsersManagementPanel({
   };
 
   const handleDelete = async (userId: number, username: string) => {
-    if (!confirm(t('settings.confirmDelete', 'Supprimer l\'utilisateur') + ` "${username}" ? ` + t('settings.irréversible', 'Cette action est irréversible.'))) return;
+    const result = await showConfirm(t('settings.confirmDelete', 'Supprimer l\'utilisateur') + ` "${username}" ? ` + t('settings.irréversible', 'Cette action est irréversible.'), { title: "Supprimer l'utilisateur", icon: "warning" });
+    if (!result.isConfirmed) return;
     setDeletingId(userId);
     try {
       const res = await fetch(apiUrl(`/api/admin/users/${userId}`), {
@@ -758,12 +762,12 @@ function UsersManagementPanel({
       });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.detail || t('settings.errDelete', 'Erreur lors de la suppression.'));
+        void showAlert(data.detail || t('settings.errDelete', 'Erreur lors de la suppression.'), { icon: "error" });
         return;
       }
       onRefresh();
     } catch {
-      alert(t('settings.errConnection', 'Erreur de connexion au serveur.'));
+      void showAlert(t('settings.errConnection', 'Erreur de connexion au serveur.'), { icon: "error" });
     } finally {
       setDeletingId(null);
     }

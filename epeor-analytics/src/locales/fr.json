@@ -52,6 +52,9 @@
     "comingSoon": "bientôt",
     "otherSections": "Autres sections"
   },
+  "logout": {
+    "confirm": "Êtes-vous sûr de vouloir vous déconnecter ?"
+  },
   "dashboard": {
     "title": "Tableau de bord EPEOR Analytics",
     "welcome": "Bienvenue sur votre espace d'analyse",

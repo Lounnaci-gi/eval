@@ -7,6 +7,7 @@ import {
 import { apiUrlObject } from "../lib/api";
 import { appendSecteurParam, showAlert } from "./utils";
 import { SecteurDropdown } from "./ui";
+import { escapeHtml } from "../../lib/escape";
 
 const NUMERIC_SORT_KEYS = new Set(["montant_creance", "nombre_creance"]);
 
@@ -403,12 +404,8 @@ export function CreancesAbonnesView({
     URL.revokeObjectURL(link.href);
   };
 
-  const escapeHtml = (v: unknown) =>
-    String(v ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  // Utiliser escapeHtml centralisé (&, <, >, ", ', /) — importé depuis lib/escape
+  // (pas de rédéfinition locale incomplète)
 
   const printCreanciersList = () => {
     if (sorted.length === 0) return;

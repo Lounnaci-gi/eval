@@ -9,6 +9,7 @@ import { apiUrlObject } from "../lib/api";
 import { appendSecteurParam, showAlert } from "./utils";
 import { SecteurDropdown } from "./ui";
 import { DossierJuridiquePanel } from "./DossierJuridiquePanel";
+import { escapeHtml } from "../../lib/escape";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -242,8 +243,8 @@ export function ServiceContentieuxView({
     const fmtP = (n: number) =>
       new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         .format(n).replace(/[\u202F\u00A0]/g, " ") + " DA";
-    const esc = (v: unknown) =>
-      String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    // Utiliser escapeHtml centralisé (&, <, >, ", ', /) — pas de fonction locale incomplète
+    const esc = escapeHtml;
 
     const rowsHtml = selectedRows.map((r, i) => `
       <tr>
@@ -1159,7 +1160,8 @@ export function BilanImpressionView({
 
   // ─── Print handler ─────────────────────────────────────────────────
   const handlePrint = () => {
-    const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    // Utiliser escapeHtml centralisé (&, <, >, ", ', /) — pas de fonction locale incomplète
+    const esc = escapeHtml;
 
     // Build table 1 rows HTML
     const t1Rows = table1Data.items.map(item => `

@@ -9,6 +9,7 @@ import { apiUrl, apiUrlObject } from "../lib/api";
 import { buildSubscribersUrl, appendSecteurParam, showAlert } from "./utils";
 import { SecteurDropdown } from "./ui";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
+import { escapeHtml } from "../../lib/escape";
 
 const SubscribersEvolutionView = dynamic(
   () => import("./EvolutionView").then((mod) => ({ default: mod.SubscribersEvolutionView })),
@@ -244,7 +245,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Liste nominative - ${selectedQuartier.name}</title>
+          <title>Liste nominative - ${escapeHtml(selectedQuartier.name)}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
             body {
@@ -392,7 +393,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             </div>
             <div class="meta-item">
               <span class="meta-label">Quartier</span>
-              <span class="meta-value">${selectedQuartier.name}</span>
+              <span class="meta-value">${escapeHtml(selectedQuartier.name)}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Date d'édition</span>
@@ -400,7 +401,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             </div>
             <div class="meta-item">
               <span class="meta-label">Abonnés à imprimer</span>
-              <span class="meta-value">${selectionNote}</span>
+              <span class="meta-value">${escapeHtml(selectionNote)}</span>
             </div>
           </div>
 
@@ -460,7 +461,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
       const actifs = c.value - (c.resigned || 0);
       tableRowsHtml += `
         <tr>
-          <td style="padding: 6px 12px; font-weight: bold;">${c.name}</td>
+          <td style="padding: 6px 12px; font-weight: bold;">${escapeHtml(c.name)}</td>
           <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #0D83DE;">${c.value.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #059669;">${actifs.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #e11d48;">${c.resigned?.toLocaleString() || 0}</td>
@@ -624,7 +625,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
           <div class="meta-grid">
             <div class="meta-item">
               <span class="meta-label">Périmètre</span>
-              <span class="meta-value">${subTitleStr}</span>
+              <span class="meta-value">${escapeHtml(subTitleStr)}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Date d'édition</span>
@@ -688,7 +689,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
       const actifs = t.value - (t.resigned || 0);
       tableRowsHtml += `
         <tr>
-          <td style="padding: 6px 12px; font-weight: bold;">${t.name}</td>
+          <td style="padding: 6px 12px; font-weight: bold;">${escapeHtml(t.name)}</td>
           <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #0D83DE;">${t.value.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #059669;">${actifs.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #e11d48;">${t.resigned?.toLocaleString() || 0}</td>

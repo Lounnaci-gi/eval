@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import "../../lib/i18n";
 import { ChevronRight, Database, RefreshCw, Search, Plus, Trash2, Edit2, Shield, User, Lock, X, Eye, EyeOff, AlertTriangle } from "lucide-react";
@@ -54,7 +54,7 @@ export function SettingsView({
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     setUsersError(null);
     try {
@@ -69,13 +69,13 @@ export function SettingsView({
     } finally {
       setUsersLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     if (activeTab === 'users') {
       fetchUsers();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchUsers]);
 
   const fetchDataDir = async () => {
     setDataDirLoading(true);

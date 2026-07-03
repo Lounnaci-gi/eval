@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       signal: controller.signal,
       cache: 'no-store',
     });
-  } catch (e) {
+  } catch {
     clearTimeout(timeout);
     return new Response(JSON.stringify({ error: 'Auth backend unavailable' }), { status: 503 });
   }

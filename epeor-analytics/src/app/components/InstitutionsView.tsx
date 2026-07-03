@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronDown, Search, Printer, MapPin, Building2, Ban, FileSpreadsheet,
 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
-import { appendSecteurParam, showAlert } from "./utils";
+import { appendSecteurParam } from "./utils";
 import { SecteurDropdown, MultiSelectDropdown } from "./ui";
 import { escapeHtml } from "../../lib/escape";
 

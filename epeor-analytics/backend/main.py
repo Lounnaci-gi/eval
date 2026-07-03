@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Cookie, Response, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -12,7 +13,7 @@ import itertools
 import json
 import math
 from datetime import datetime, timedelta
-import pickle
+import pickle  # nosec B403 - Utilisé uniquement pour le cache interne contrôlé
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -208,17 +209,33 @@ def _init_auth_db() -> None:
                 etape_recouvrement TEXT NOT NULL DEFAULT 'Amiable',
                 has_mise_en_demeure INTEGER DEFAULT 0,
                 has_echeancier INTEGER DEFAULT 0,
+                transmis_huissier INTEGER DEFAULT 0,
                 transmis_cours INTEGER DEFAULT 0,
+                execution_jugement INTEGER DEFAULT 0,
                 nom_notaire TEXT,
                 coordonnees_notaire TEXT,
                 liste_heritiers TEXT,
                 date_declaration_creance TEXT,
+                echeancier_plan TEXT,
+                heritiers TEXT,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(numab) REFERENCES legal_status(numab)
             );
         """)
         try:
-            conn.execute("ALTER TABLE legal_status ADD COLUMN date_transmission TEXT DEFAULT NULL")
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN transmis_huissier INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN execution_jugement INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN echeancier_plan TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN heritiers TEXT")
         except sqlite3.OperationalError:
             pass
         try:
@@ -662,7 +679,7 @@ def load_table_cached(filename, encoding='cp1256'):
                 gc.disable()
                 try:
                     with open(pkl_path, 'rb') as f:
-                        data = pickle.load(f)
+                        data = pickle.load(f)  # nosec B301 - Cache interne contrôlé
                 finally:
                     gc.enable()
                 if len(data) == 0:
@@ -689,7 +706,7 @@ def load_table_cached(filename, encoding='cp1256'):
         # Save parsed list to pickle file
         try:
             with open(pkl_path, 'wb') as f:
-                pickle.dump(records, f, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(records, f, protocol=pickle.HIGHEST_PROTOCOL)  # nosec B301
             print(f"[CACHE] Saved binary cache for {filename}.")
         except Exception as ce:
             print(f"Error writing cache for {filename}: {ce}")
@@ -1507,9 +1524,10 @@ def auth_login(body: LoginRequest, request: Request, response: Response):
     if row is None or not _verify_password(body.password, row["salt"], row["password"]):
         failed_info = _record_failed_login(ip)
         if failed_info["blocked"]:
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Trop de tentatives. Le site est bloqué pendant 10 minutes. Retry-After: {failed_info['retry_after']}",
+                content={"detail": "Trop de tentatives. Le site est bloqué pendant 10 minutes."},
+                headers={"Retry-After": str(failed_info["retry_after"])},
             )
         remaining = failed_info["remaining_attempts"]
         detail_msg = f"Identifiant ou mot de passe incorrect. Tentatives restantes: {remaining}"
@@ -1613,9 +1631,9 @@ def auth_change(body: ChangeUserRequest, _user: dict = Depends(get_current_user)
 
         if updates:
             assignments = build_safe_user_update_assignments(dict(updates))
-            set_clause = ", ".join(f"{column} = ?" for column, _ in assignments)
+            set_clause = ", ".join(f"{column} = ?" for column, _ in assignments)  # nosec B608 - Colonnes whitelistées
             params = [value for _, value in assignments] + [user_id]
-            conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", params)
+            conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", params)  # nosec B608
             conn.commit()
 
     return {"status": "ok", "username": body.new_username or row["username"]}
@@ -1766,9 +1784,9 @@ def update_user(user_id: int, body: UpdateUserRequest, current_user: dict = Depe
             
         if updates:
             assignments = build_safe_user_update_assignments(dict(updates))
-            set_clause = ", ".join(f"{column} = ?" for column, _ in assignments)
+            set_clause = ", ".join(f"{column} = ?" for column, _ in assignments)  # nosec B608 - Colonnes whitelistées
             params = [value for _, value in assignments] + [user_id]
-            conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", params)
+            conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", params)  # nosec B608
             conn.commit()
             
     _log_audit(
@@ -4466,11 +4484,15 @@ class DossierJuridiqueUpdate(BaseModel):
     etape_recouvrement: str
     has_mise_en_demeure: bool = False
     has_echeancier: bool = False
+    transmis_huissier: bool = False
     transmis_cours: bool = False
+    execution_jugement: bool = False
     nom_notaire: str | None = None
     coordonnees_notaire: str | None = None
     liste_heritiers: str | None = None
     date_declaration_creance: str | None = None
+    echeancier_plan: list | None = None
+    heritiers: list | None = None
 
 @app.get("/api/abonne/{numab}/dossier")
 def get_dossier_juridique(numab: str, _user: dict = Depends(get_current_user)):
@@ -4479,7 +4501,13 @@ def get_dossier_juridique(numab: str, _user: dict = Depends(get_current_user)):
         with _get_auth_conn() as conn:
             row = conn.execute("SELECT * FROM dossiers_juridiques WHERE numab = ?", (numab_key,)).fetchone()
             if row:
-                return dict(row)
+                result = dict(row)
+                # Parse JSON fields
+                if result.get('echeancier_plan') and isinstance(result['echeancier_plan'], str):
+                    result['echeancier_plan'] = json.loads(result['echeancier_plan'])
+                if result.get('heritiers') and isinstance(result['heritiers'], str):
+                    result['heritiers'] = json.loads(result['heritiers'])
+                return result
             else:
                 return {
                     "numab": numab_key,
@@ -4487,11 +4515,15 @@ def get_dossier_juridique(numab: str, _user: dict = Depends(get_current_user)):
                     "etape_recouvrement": "Amiable",
                     "has_mise_en_demeure": 0,
                     "has_echeancier": 0,
+                    "transmis_huissier": 0,
                     "transmis_cours": 0,
+                    "execution_jugement": 0,
                     "nom_notaire": None,
                     "coordonnees_notaire": None,
                     "liste_heritiers": None,
-                    "date_declaration_creance": None
+                    "date_declaration_creance": None,
+                    "echeancier_plan": [],
+                    "heritiers": []
                 }
     except Exception as e:
         print(f"Error getting dossier: {e}")
@@ -4535,27 +4567,36 @@ def update_dossier_juridique(numab: str, payload: DossierJuridiqueUpdate, _user:
             conn.execute("""
                 INSERT INTO dossiers_juridiques (
                     numab, statut_abonne, etape_recouvrement, has_mise_en_demeure,
-                    has_echeancier, transmis_cours, nom_notaire, coordonnees_notaire,
-                    liste_heritiers, date_declaration_creance, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    has_echeancier, transmis_huissier, transmis_cours, execution_jugement,
+                    nom_notaire, coordonnees_notaire, liste_heritiers, date_declaration_creance,
+                    echeancier_plan, heritiers, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(numab) DO UPDATE SET
                     statut_abonne=excluded.statut_abonne,
                     etape_recouvrement=excluded.etape_recouvrement,
                     has_mise_en_demeure=excluded.has_mise_en_demeure,
                     has_echeancier=excluded.has_echeancier,
+                    transmis_huissier=excluded.transmis_huissier,
                     transmis_cours=excluded.transmis_cours,
+                    execution_jugement=excluded.execution_jugement,
                     nom_notaire=excluded.nom_notaire,
                     coordonnees_notaire=excluded.coordonnees_notaire,
                     liste_heritiers=excluded.liste_heritiers,
                     date_declaration_creance=excluded.date_declaration_creance,
+                    echeancier_plan=excluded.echeancier_plan,
+                    heritiers=excluded.heritiers,
                     updated_at=CURRENT_TIMESTAMP
             """, (
                 numab_key, payload.statut_abonne, payload.etape_recouvrement,
                 1 if payload.has_mise_en_demeure else 0,
                 1 if payload.has_echeancier else 0,
+                1 if payload.transmis_huissier else 0,
                 1 if payload.transmis_cours else 0,
+                1 if payload.execution_jugement else 0,
                 payload.nom_notaire, payload.coordonnees_notaire,
-                payload.liste_heritiers, payload.date_declaration_creance
+                payload.liste_heritiers, payload.date_declaration_creance,
+                json.dumps(payload.echeancier_plan) if payload.echeancier_plan else None,
+                json.dumps(payload.heritiers) if payload.heritiers else None
             ))
             conn.commit()
         return {"success": True}

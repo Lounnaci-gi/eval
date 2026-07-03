@@ -15,7 +15,7 @@ if (typeof window !== "undefined") {
 }
 
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import dynamic from "next/dynamic";
 import Swal from "sweetalert2";
@@ -150,7 +150,7 @@ export default function Dashboard() {
     }
   }, [loginCountdown]);
 
-  const loadSectors = async () => {
+  const loadSectors = useCallback(async () => {
     setSectorsLoading(true);
     try {
       const res = await fetch(apiUrl('/api/unites_settings'), { credentials: 'include' });
@@ -192,14 +192,14 @@ export default function Dashboard() {
     } finally {
       setSectorsLoading(false);
     }
-  };
+  }, [user, selectedSecteur]);
 
   // Les centres viennent de TABCODE : disponibles seulement après chargement DBF (pas au 1er fetch)
   useEffect(() => {
     if (stats?.ready) {
       loadSectors();
     }
-  }, [stats?.ready, user]);
+  }, [stats?.ready, loadSectors]);
 
   const requestDataReload = async () => {
     setReloadPending(true);
@@ -492,9 +492,9 @@ export default function Dashboard() {
                     }
                   } else if (res.status === 429) {
                     setLoginError(errorMsg);
-                    const retryAfterMatch = String(errorMsg).match(/Retry-After:\s*(\d+)/i);
-                    if (retryAfterMatch) {
-                      const retryAfter = Number(retryAfterMatch[1]);
+                    const retryAfterHeader = res.headers.get('Retry-After');
+                    if (retryAfterHeader) {
+                      const retryAfter = Number(retryAfterHeader);
                       setLoginRetryAfter(retryAfter);
                       setLoginCountdown(retryAfter);
                     }

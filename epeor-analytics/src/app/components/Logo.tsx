@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 
 type Variant = "login" | "sidebar" | "mobile" | "small" | "default";
 
@@ -30,10 +31,13 @@ export default function Logo({ variant = "default", className = "", alt = "EPEOR
   }
 
   return (
-    <img
+    <Image
       src="/logo.png"
       alt={alt}
       className={`${sizeCls} object-contain ${className}`.trim()}
+      width={40}
+      height={40}
+      priority
       role="img"
       aria-hidden={alt ? undefined : true}
     />

@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, FileText, CheckCircle, Landmark, Check, Plus, Trash2 } from "lucide-react";
+import {
+  X,
+  FileText,
+  CheckCircle,
+  Landmark,
+  Check,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { apiUrlObject } from "../lib/api";
 import { showAlert } from "./utils";
 import { escapeHtml } from "../../lib/escape";
@@ -30,14 +38,21 @@ interface EcheanceLine {
   invoiceIds: string[];
 }
 
-export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridiquePanelProps) {
+export function DossierJuridiquePanel({
+  isOpen,
+  onClose,
+  abonne,
+}: DossierJuridiquePanelProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [factures, setFactures] = useState<any[]>([]);
   const [installments, setInstallments] = useState(3);
   const [installmentIntervalMonths, setInstallmentIntervalMonths] = useState(1);
-  const [installmentStartDate, setInstallmentStartDate] = useState(new Date().toISOString().slice(0, 10));
-  
+  const [installmentStartDate, setInstallmentStartDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [installmentTargetAmount, setInstallmentTargetAmount] = useState(0);
+
   const [dossier, setDossier] = useState({
     statut_abonne: "Actif",
     etape_recouvrement: "Amiable",
@@ -51,15 +66,19 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
     liste_heritiers: "",
     date_declaration_creance: "",
     echeancier_plan: [] as EcheanceLine[],
-    heritiers: [] as Heritier[]
+    heritiers: [] as Heritier[],
   });
 
   useEffect(() => {
     if (isOpen && abonne) {
       setLoading(true);
       Promise.all([
-        fetch(apiUrlObject(`/api/abonne/${abonne.numab}/dossier`).toString()).then(res => res.json()),
-        fetch(apiUrlObject(`/api/abonne/${abonne.numab}`).toString()).then(res => res.json())
+        fetch(
+          apiUrlObject(`/api/abonne/${abonne.numab}/dossier`).toString(),
+        ).then((res) => res.json()),
+        fetch(apiUrlObject(`/api/abonne/${abonne.numab}`).toString()).then(
+          (res) => res.json(),
+        ),
       ])
         .then(([dossierData, abonneData]) => {
           setDossier({
@@ -73,9 +92,12 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
             nom_notaire: dossierData.nom_notaire || "",
             coordonnees_notaire: dossierData.coordonnees_notaire || "",
             liste_heritiers: dossierData.liste_heritiers || "",
-            date_declaration_creance: dossierData.date_declaration_creance || "",
-            echeancier_plan: Array.isArray(dossierData.echeancier_plan) ? dossierData.echeancier_plan : [],
-            heritiers: dossierData.heritiers || []
+            date_declaration_creance:
+              dossierData.date_declaration_creance || "",
+            echeancier_plan: Array.isArray(dossierData.echeancier_plan)
+              ? dossierData.echeancier_plan
+              : [],
+            heritiers: dossierData.heritiers || [],
           });
 
           if (abonneData && Array.isArray(abonneData.factures)) {
@@ -91,14 +113,19 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(apiUrlObject(`/api/abonne/${abonne.numab}/dossier`).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...dossier,
-          echeancier_plan: dossier.has_echeancier ? dossier.echeancier_plan : []
-        })
-      });
+      await fetch(
+        apiUrlObject(`/api/abonne/${abonne.numab}/dossier`).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...dossier,
+            echeancier_plan: dossier.has_echeancier
+              ? dossier.echeancier_plan
+              : [],
+          }),
+        },
+      );
       void showAlert("Dossier mis à jour avec succès", { icon: "success" });
       onClose();
     } catch {
@@ -110,18 +137,25 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
 
   const downloadPDF = (type: string) => {
     const url = apiUrlObject(`/api/abonne/${abonne.numab}/${type}`).toString();
-    window.open(url, '_blank');
+    window.open(url, "_blank");
   };
 
   const printEcheancier = () => {
     const totalAmount = dossier.echeancier_plan.reduce((sum, line) => {
-      return sum + line.invoiceIds.reduce((lineSum, invoiceId) => lineSum + getInvoiceAmount(invoiceId), 0);
+      return (
+        sum +
+        line.invoiceIds.reduce(
+          (lineSum, invoiceId) => lineSum + getInvoiceAmount(invoiceId),
+          0,
+        )
+      );
     }, 0);
 
-    const formatAmount = (value: number) => value.toLocaleString('fr-FR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
+    const formatAmount = (value: number) =>
+      value.toLocaleString("fr-FR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
     const htmlContent = `<!DOCTYPE html>
       <html lang="fr">
@@ -165,17 +199,18 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
               <img src="${window.location.origin}/ade.png" alt="ADE" style="height:48px;width:auto;object-fit:contain;" onerror="this.style.display='none'" />
               <div>
                 <div style="font-size:14px;font-weight:900;color:#0f172a;">ADE - Algérienne des Eaux</div>
-                <div style="font-size:11px;color:#475569;letter-spacing:0.08em;">${abonne.nom_secteur ? `Centre : ${escapeHtml(abonne.nom_secteur)}` : abonne.code_secteur ? `Centre : ${escapeHtml(abonne.code_secteur)}` : ''}</div>
+                <div style="font-size:11px;color:#475569;letter-spacing:0.08em;">${abonne.nom_secteur ? `Centre : ${escapeHtml(abonne.nom_secteur)}` : abonne.code_secteur ? `Centre : ${escapeHtml(abonne.code_secteur)}` : ""}</div>
               </div>
             </div>
             <div style="text-align:right;">
               <div style="font-size:20px;font-weight:900;color:#0f172a;">Échéancier</div>
               <div style="font-size:12px;color:#475569;">Abonné ${escapeHtml(abonne.numab)}</div>
-              <div style="font-size:12px;color:#475569;">${new Date().toLocaleDateString('fr-FR')}</div>
+              <div style="font-size:12px;color:#475569;">${new Date().toLocaleDateString("fr-FR")}</div>
             </div>
           </div>
-          <div class="meta"><strong>Abonné :</strong> ${escapeHtml(abonne.numab)} — ${escapeHtml(abonne.name || abonne.nom_prenom || 'Inconnu')}</div>
-          <div class="meta"><strong>Date :</strong> ${new Date().toLocaleDateString('fr-FR')}</div>
+          <div class="meta"><strong>Abonné :</strong> ${escapeHtml(abonne.numab)} — ${escapeHtml(abonne.name || abonne.nom_prenom || "Inconnu")}</div>
+          <div class="meta"><strong>Date :</strong> ${new Date().toLocaleDateString("fr-FR")}</div>
+          <div class="meta"><strong>Montant cible par période :</strong> ${installmentTargetAmount > 0 ? formatAmount(installmentTargetAmount) + " DA" : "Non défini"}</div>
           <table>
             <thead>
               <tr>
@@ -187,15 +222,20 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
               </tr>
             </thead>
             <tbody>
-              ${dossier.echeancier_plan.map((line, idx) => {
-                if (!line.invoiceIds.length) return '';
-                const rowspan = line.invoiceIds.length;
-                const lineAmount = line.invoiceIds.reduce((sum, invoiceId) => sum + getInvoiceAmount(invoiceId), 0);
-                return line.invoiceIds.map((invoiceId, invoiceIndex) => {
-                  const amount = getInvoiceAmount(invoiceId).toFixed(2);
-                  const reference = formatInvoiceReference(invoiceId);
-                  if (invoiceIndex === 0) {
-                    return `
+              ${dossier.echeancier_plan
+                .map((line, idx) => {
+                  if (!line.invoiceIds.length) return "";
+                  const rowspan = line.invoiceIds.length;
+                  const lineAmount = line.invoiceIds.reduce(
+                    (sum, invoiceId) => sum + getInvoiceAmount(invoiceId),
+                    0,
+                  );
+                  return line.invoiceIds
+                    .map((invoiceId, invoiceIndex) => {
+                      const amount = getInvoiceAmount(invoiceId).toFixed(2);
+                      const reference = formatInvoiceReference(invoiceId);
+                      if (invoiceIndex === 0) {
+                        return `
                       <tr>
                         <td rowspan="${rowspan}" style="vertical-align:middle;text-align:center;">${idx + 1}</td>
                         <td rowspan="${rowspan}" style="vertical-align:middle;text-align:center;">${escapeHtml(line.date)}</td>
@@ -204,16 +244,18 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                         <td style="text-align:right;">${formatAmount(Number(amount))}</td>
                       </tr>
                     `;
-                  }
+                      }
 
-                  return `
+                      return `
                     <tr>
                       <td>${escapeHtml(reference)}</td>
                       <td style="text-align:right;">${formatAmount(Number(amount))}</td>
                     </tr>
                   `;
-                }).join('');
-              }).join('')}
+                    })
+                    .join("");
+                })
+                .join("")}
               <tr class="total-row">
                 <td colspan="4" style="text-align:right;">Total échéancier</td>
                 <td style="text-align:right;">${formatAmount(totalAmount)}</td>
@@ -224,9 +266,11 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
         </body>
       </html>`;
 
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      void showAlert('Veuillez autoriser les pop-ups pour imprimer.', { icon: "warning" });
+      void showAlert("Veuillez autoriser les pop-ups pour imprimer.", {
+        icon: "warning",
+      });
       return;
     }
     printWindow.document.write(htmlContent);
@@ -243,16 +287,16 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
       email: "",
       numeroIdentite: "",
       dateDelivrance: "",
-      lieuDelivrance: ""
+      lieuDelivrance: "",
     };
     setDossier({
       ...dossier,
-      heritiers: [...dossier.heritiers, newHeritier]
+      heritiers: [...dossier.heritiers, newHeritier],
     });
   };
 
   const getInvoiceAmount = (invoiceId: string) => {
-    return factures.find(f => f.id === invoiceId)?.montant || 0;
+    return factures.find((f) => f.id === invoiceId)?.montant || 0;
   };
 
   const formatInvoiceReference = (invoiceRef: string) => {
@@ -260,12 +304,12 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
     if (!match) return invoiceRef;
 
     const [, year, month, type] = match;
-    if (type === 'E') {
+    if (type === "E") {
       const trimLabels: Record<string, string> = {
-        '03': '01er Trim',
-        '06': '02ème Trim',
-        '09': '03ème Trim',
-        '12': '04ème Trim'
+        "03": "01er Trim",
+        "06": "02ème Trim",
+        "09": "03ème Trim",
+        "12": "04ème Trim",
       };
       const label = trimLabels[month] || `${month} Trim`;
       return `${label} ${year}`;
@@ -279,41 +323,60 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
   };
 
   const buildAutomaticEcheancier = () => {
-    const unpaidFactures = factures.filter(f => !f.date_reglement);
+    const unpaidFactures = factures.filter((f) => !f.date_reglement);
     if (!unpaidFactures.length) return;
     const sorted = [...unpaidFactures].sort((a, b) => a.montant - b.montant);
     const totalAmount = sorted.reduce((sum, f) => sum + f.montant, 0);
-    const target = totalAmount / installments;
+    const useTargetAmount = installmentTargetAmount > 0;
+    const target = useTargetAmount
+      ? installmentTargetAmount
+      : totalAmount / installments;
     const lines: EcheanceLine[] = [];
     let currentDate = new Date(installmentStartDate);
     let currentLine: EcheanceLine = {
       id: Date.now().toString(),
       date: currentDate.toISOString().slice(0, 10),
-      invoiceIds: []
+      invoiceIds: [],
     };
     let currentSum = 0;
 
     const addLine = () => {
       lines.push({
         ...currentLine,
-        invoiceIds: [...currentLine.invoiceIds]
+        invoiceIds: [...currentLine.invoiceIds],
       });
       currentDate = new Date(currentDate);
       currentDate.setMonth(currentDate.getMonth() + installmentIntervalMonths);
       currentLine = {
         id: (Date.now() + lines.length).toString(),
         date: currentDate.toISOString().slice(0, 10),
-        invoiceIds: []
+        invoiceIds: [],
       };
       currentSum = 0;
     };
 
-    sorted.forEach((invoice) => {
+    sorted.forEach((invoice, idx) => {
       const nextSum = currentSum + invoice.montant;
-      const isLastLine = lines.length === installments - 1;
-      if (currentLine.invoiceIds.length > 0 && nextSum > target && !isLastLine) {
+      const isLastInvoice = idx === sorted.length - 1;
+      const shouldCloseLine =
+        currentLine.invoiceIds.length > 0 &&
+        !isLastInvoice &&
+        (currentSum >= target ||
+          (nextSum > target &&
+            Math.abs(target - currentSum) <= Math.abs(nextSum - target)));
+
+      if (
+        !useTargetAmount &&
+        currentLine.invoiceIds.length > 0 &&
+        !isLastInvoice &&
+        currentSum > 0 &&
+        lines.length === installments - 1
+      ) {
+        // Keep final line as last tranche when using fixed numero de tranches
+      } else if (shouldCloseLine) {
         addLine();
       }
+
       currentLine.invoiceIds.push(invoice.id);
       currentSum += invoice.montant;
     });
@@ -322,27 +385,33 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
       lines.push(currentLine);
     }
 
-    const filteredLines = lines.filter(line => line.invoiceIds.length > 0);
+    const filteredLines = lines.filter((line) => line.invoiceIds.length > 0);
     setDossier({ ...dossier, echeancier_plan: filteredLines });
   };
 
   const removeHeritier = (id: string) => {
     setDossier({
       ...dossier,
-      heritiers: dossier.heritiers.filter(h => h.id !== id)
+      heritiers: dossier.heritiers.filter((h) => h.id !== id),
     });
   };
 
   const updateHeritier = (id: string, field: keyof Heritier, value: string) => {
     setDossier({
       ...dossier,
-      heritiers: dossier.heritiers.map(h =>
-        h.id === id ? { ...h, [field]: value } : h
-      )
+      heritiers: dossier.heritiers.map((h) =>
+        h.id === id ? { ...h, [field]: value } : h,
+      ),
     });
   };
 
-  const steps = ["Amiable", "Mise en demeure", "Succession Notaire", "Tribunal", "Exécution de Jugement"];
+  const steps = [
+    "Amiable",
+    "Mise en demeure",
+    "Succession Notaire",
+    "Tribunal",
+    "Exécution de Jugement",
+  ];
   const currentStepIndex = steps.indexOf(dossier.etape_recouvrement);
 
   return (
@@ -351,7 +420,15 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
         <div className="page-card border-b border-[#E4E7EC] bg-white">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6">
             <div className="min-w-0">
-              <h2 className="page-title" style={{ background: "var(--gradient-accent)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+              <h2
+                className="page-title"
+                style={{
+                  background: "var(--gradient-accent)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
                 Dossier de Recouvrement
               </h2>
               <p className="text-sm text-[#667085] mt-1 font-medium">
@@ -370,7 +447,12 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                 disabled={saving || loading}
                 className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-2 text-sm font-black text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
               >
-                {saving ? <div className="spinner-premium w-4 h-4 border-2" /> : <CheckCircle size={16} />} Sauvegarder
+                {saving ? (
+                  <div className="spinner-premium w-4 h-4 border-2" />
+                ) : (
+                  <CheckCircle size={16} />
+                )}{" "}
+                Sauvegarder
               </button>
             </div>
           </div>
@@ -379,16 +461,25 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
         <div className="overflow-y-auto">
           <div className="px-6 py-6 space-y-8">
             {loading ? (
-              <div className="flex items-center justify-center h-56"><div className="spinner-premium" /></div>
+              <div className="flex items-center justify-center h-56">
+                <div className="spinner-premium" />
+              </div>
             ) : (
               <>
                 <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
                   <div className="rounded-[30px] border border-[#E4E7EC] bg-[#F8FAFC] p-6 space-y-6">
                     <div>
-                      <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-4">Étape du recouvrement</h3>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-4">
+                        Étape du recouvrement
+                      </h3>
                       <div className="relative">
                         <div className="absolute inset-y-1/2 left-0 right-0 h-1 bg-[#E2E8F0] rounded-full" />
-                        <div className="absolute inset-y-1/2 left-0 h-1 bg-brand-500 rounded-full transition-all duration-500" style={{ width: `${(Math.max(0, currentStepIndex) / (steps.length - 1)) * 100}%` }} />
+                        <div
+                          className="absolute inset-y-1/2 left-0 h-1 bg-brand-500 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${(Math.max(0, currentStepIndex) / (steps.length - 1)) * 100}%`,
+                          }}
+                        />
                         <div className="relative grid grid-cols-5 gap-4">
                           {steps.map((step, idx) => {
                             const isCompleted = idx <= currentStepIndex;
@@ -396,13 +487,24 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                               <button
                                 key={step}
                                 type="button"
-                                onClick={() => setDossier({ ...dossier, etape_recouvrement: step })}
+                                onClick={() =>
+                                  setDossier({
+                                    ...dossier,
+                                    etape_recouvrement: step,
+                                  })
+                                }
                                 className="relative flex flex-col items-center gap-2 bg-white/70 rounded-full p-2"
                               >
-                                <span className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${isCompleted ? "border-brand-500 bg-brand-500 text-white" : "border-[#CBD5E1] bg-white text-[#94A3B8]"}`}>
+                                <span
+                                  className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${isCompleted ? "border-brand-500 bg-brand-500 text-white" : "border-[#CBD5E1] bg-white text-[#94A3B8]"}`}
+                                >
                                   {isCompleted ? <Check size={14} /> : idx + 1}
                                 </span>
-                                <span className={`text-[10px] font-black text-center ${isCompleted ? "text-brand-700" : "text-[#94A3B8]"}`}>{step}</span>
+                                <span
+                                  className={`text-[10px] font-black text-center ${isCompleted ? "text-brand-700" : "text-[#94A3B8]"}`}
+                                >
+                                  {step}
+                                </span>
                               </button>
                             );
                           })}
@@ -411,9 +513,20 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {steps.map((step, idx) => (
-                        <div key={step} className="rounded-3xl border border-[#E4E7EC] bg-white p-4">
-                          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#98A2B3]">{step}</p>
-                          <p className="mt-3 text-sm font-bold text-[#334155]">{idx <= currentStepIndex ? "Terminé" : idx === currentStepIndex + 1 ? "Actif" : "À venir"}</p>
+                        <div
+                          key={step}
+                          className="rounded-3xl border border-[#E4E7EC] bg-white p-4"
+                        >
+                          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#98A2B3]">
+                            {step}
+                          </p>
+                          <p className="mt-3 text-sm font-bold text-[#334155]">
+                            {idx <= currentStepIndex
+                              ? "Terminé"
+                              : idx === currentStepIndex + 1
+                                ? "Actif"
+                                : "À venir"}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -421,13 +534,22 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
 
                   <div className="space-y-6">
                     <div className="rounded-[30px] border border-[#E4E7EC] bg-white p-6">
-                      <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-5">Statut du dossier</h3>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-5">
+                        Statut du dossier
+                      </h3>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-xs font-black uppercase tracking-wider text-[#94A3B8] mb-2">Statut de l'abonné</label>
+                          <label className="block text-xs font-black uppercase tracking-wider text-[#94A3B8] mb-2">
+                            Statut de l'abonné
+                          </label>
                           <select
                             value={dossier.statut_abonne}
-                            onChange={e => setDossier({ ...dossier, statut_abonne: e.target.value })}
+                            onChange={(e) =>
+                              setDossier({
+                                ...dossier,
+                                statut_abonne: e.target.value,
+                              })
+                            }
                             className="w-full rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold text-[#0F172A] focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                           >
                             <option value="Actif">Actif</option>
@@ -438,22 +560,54 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                         </div>
                         <div className="grid grid-cols-1 gap-3">
                           {[
-                            { key: "has_mise_en_demeure", label: "Mise en demeure envoyée", color: "amber" },
-                            { key: "has_echeancier", label: "Échéancier accordé", color: "emerald" },
-                            { key: "transmis_huissier", label: "Transmis au huissier", color: "violet" },
-                            { key: "transmis_cours", label: "Transmis à la cour", color: "rose" },
-                            { key: "execution_jugement", label: "Exécution de Jugement", color: "amber" },
+                            {
+                              key: "has_mise_en_demeure",
+                              label: "Mise en demeure envoyée",
+                              color: "amber",
+                            },
+                            {
+                              key: "has_echeancier",
+                              label: "Échéancier accordé",
+                              color: "emerald",
+                            },
+                            {
+                              key: "transmis_huissier",
+                              label: "Transmis au huissier",
+                              color: "violet",
+                            },
+                            {
+                              key: "transmis_cours",
+                              label: "Transmis à la cour",
+                              color: "rose",
+                            },
+                            {
+                              key: "execution_jugement",
+                              label: "Exécution de Jugement",
+                              color: "amber",
+                            },
                           ].map(({ key, label, color }) => {
-                            const value = dossier[key as keyof typeof dossier] as boolean;
+                            const value = dossier[
+                              key as keyof typeof dossier
+                            ] as boolean;
                             return (
-                              <label key={key} className="flex items-center gap-3 rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 cursor-pointer transition-colors hover:border-brand-300">
+                              <label
+                                key={key}
+                                className="flex items-center gap-3 rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 cursor-pointer transition-colors hover:border-brand-300"
+                              >
                                 <input
                                   type="checkbox"
                                   checked={value}
-                                  onChange={e => setDossier({ ...dossier, [key]: e.target.checked })}
+                                  onChange={(e) =>
+                                    setDossier({
+                                      ...dossier,
+                                      [key]: e.target.checked,
+                                    })
+                                  }
                                   className="h-4 w-4 rounded-md border-gray-300 text-brand-600 focus:ring-brand-500"
                                 />
-                                <span className="text-sm font-bold text-[#334155]">{label}</span>
+                                <span className="text-sm font-bold text-[#334155]">
+                                  {label}
+                                </span>
                               </label>
                             );
                           })}
@@ -462,15 +616,25 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                     </div>
 
                     <div className="rounded-[30px] border border-[#E4E7EC] bg-[#F8FAFC] p-6">
-                      <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-5">Résumé rapide</h3>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-5">
+                        Résumé rapide
+                      </h3>
                       <div className="grid gap-3">
                         <div className="rounded-3xl bg-white border border-[#E4E7EC] p-4">
-                          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">État actuel</p>
-                          <p className="mt-2 text-sm font-bold text-[#0F172A]">{dossier.etape_recouvrement}</p>
+                          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                            État actuel
+                          </p>
+                          <p className="mt-2 text-sm font-bold text-[#0F172A]">
+                            {dossier.etape_recouvrement}
+                          </p>
                         </div>
                         <div className="rounded-3xl bg-white border border-[#E4E7EC] p-4">
-                          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Héritiers connus</p>
-                          <p className="mt-2 text-sm text-[#475569]">{dossier.liste_heritiers || 'Aucun renseigné'}</p>
+                          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                            Héritiers connus
+                          </p>
+                          <p className="mt-2 text-sm text-[#475569]">
+                            {dossier.liste_heritiers || "Aucun renseigné"}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -481,70 +645,141 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                   <div className="rounded-[30px] border border-[#E4E7EC] bg-white p-6">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                       <div>
-                        <h3 className="text-sm font-black text-[#0F172A]">Échéancier</h3>
-                        <p className="text-xs text-[#667085]">Planifiez les tranches et imprimez le document.</p>
+                        <h3 className="text-sm font-black text-[#0F172A]">
+                          Échéancier
+                        </h3>
+                        <p className="text-xs text-[#667085]">
+                          Planifiez les tranches et imprimez le document.
+                        </p>
                       </div>
                       <div className="flex flex-wrap gap-3">
                         <button
                           type="button"
                           onClick={buildAutomaticEcheancier}
                           className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-3 text-xs font-black text-white hover:bg-emerald-800 transition-colors"
-                        >Générer automatiquement</button>
+                        >
+                          Générer automatiquement
+                        </button>
                         <button
                           type="button"
                           onClick={printEcheancier}
                           disabled={dossier.echeancier_plan.length === 0}
                           className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700 hover:bg-emerald-100 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                        >Imprimer l'échéancier</button>
+                        >
+                          Imprimer l'échéancier
+                        </button>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 gap-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                         <label className="grid gap-2">
-                          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Nombre de tranches</span>
+                          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                            Date première échéance
+                          </span>
+                          <input
+                            type="date"
+                            value={installmentStartDate}
+                            onChange={(e) =>
+                              setInstallmentStartDate(e.target.value)
+                            }
+                            className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                          />
+                        </label>
+                        <label className="grid gap-2">
+                          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                            Montant cible par période (DA)
+                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={
+                              installmentTargetAmount > 0
+                                ? installmentTargetAmount
+                                : ""
+                            }
+                            onChange={(e) =>
+                              setInstallmentTargetAmount(
+                                Math.max(0, Number(e.target.value) || 0),
+                              )
+                            }
+                            placeholder="2000"
+                            className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                          />
+                        </label>
+                        <label className="grid gap-2">
+                          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                            Nombre de tranches
+                          </span>
                           <input
                             type="number"
                             min={1}
                             value={installments}
-                            onChange={e => setInstallments(Math.max(1, Number(e.target.value) || 1))}
+                            onChange={(e) =>
+                              setInstallments(
+                                Math.max(1, Number(e.target.value) || 1),
+                              )
+                            }
                             className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                           />
                         </label>
                         <label className="grid gap-2">
-                          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Intervalle (mois)</span>
+                          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                            Intervalle (mois)
+                          </span>
                           <input
                             type="number"
                             min={1}
                             value={installmentIntervalMonths}
-                            onChange={e => setInstallmentIntervalMonths(Math.max(1, Number(e.target.value) || 1))}
-                            className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                          />
-                        </label>
-                        <label className="grid gap-2">
-                          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Date première échéance</span>
-                          <input
-                            type="date"
-                            value={installmentStartDate}
-                            onChange={e => setInstallmentStartDate(e.target.value)}
+                            onChange={(e) =>
+                              setInstallmentIntervalMonths(
+                                Math.max(1, Number(e.target.value) || 1),
+                              )
+                            }
                             className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                           />
                         </label>
                       </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <p className="text-sm text-[#475569]">
+                          Total factures impayées :{" "}
+                          {factures.filter((f) => !f.date_reglement).length} ·
+                          Montant total :{" "}
+                          {factures
+                            .filter((f) => !f.date_reglement)
+                            .reduce((sum, f) => sum + f.montant, 0)
+                            .toLocaleString("fr-FR")}{" "}
+                          DA
+                        </p>
+                      </div>
                       <div className="rounded-[28px] border border-[#E4E7EC] bg-[#F8FAFC] p-4">
                         {dossier.echeancier_plan.length === 0 ? (
-                          <p className="text-sm text-[#475569]">Aucun échéancier généré pour le moment.</p>
+                          <p className="text-sm text-[#475569]">
+                            Aucun échéancier généré pour le moment.
+                          </p>
                         ) : (
                           <div className="space-y-3">
                             {dossier.echeancier_plan.map((line, idx) => (
-                              <div key={line.id} className="rounded-3xl border border-[#E4E7EC] bg-white p-4">
+                              <div
+                                key={line.id}
+                                className="rounded-3xl border border-[#E4E7EC] bg-white p-4"
+                              >
                                 <div className="flex items-center justify-between gap-4">
                                   <div>
-                                    <p className="text-[11px] uppercase tracking-[0.2em] text-[#98A2B3]">Tranche {idx + 1}</p>
-                                    <p className="mt-1 text-sm font-black text-[#0F172A]">{line.date}</p>
+                                    <p className="text-[11px] uppercase tracking-[0.2em] text-[#98A2B3]">
+                                      Tranche {idx + 1}
+                                    </p>
+                                    <p className="mt-1 text-sm font-black text-[#0F172A]">
+                                      {line.date}
+                                    </p>
                                   </div>
-                                  <p className="text-sm font-black text-emerald-700">{calculateLineAmount(line).toFixed(2)} DA</p>
+                                  <p className="text-sm font-black text-emerald-700">
+                                    {calculateLineAmount(line).toFixed(2)} DA
+                                  </p>
                                 </div>
-                                <p className="mt-3 text-xs text-[#475569]">Factures : {line.invoiceIds.join(", ") || "Aucune"}</p>
+                                <p className="mt-3 text-xs text-[#475569]">
+                                  Factures :{" "}
+                                  {line.invoiceIds.join(", ") || "Aucune"}
+                                </p>
                               </div>
                             ))}
                           </div>
@@ -558,46 +793,78 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                   <div className="rounded-[30px] border border-[#E4E7EC] bg-[#F8FAFC] p-6">
                     <div className="flex items-center justify-between gap-4 mb-6">
                       <div>
-                        <h3 className="text-sm font-black text-[#0F172A]">Informations de Succession</h3>
-                        <p className="text-xs text-[#667085]">Champs relatifs au notaire et à la créance.</p>
+                        <h3 className="text-sm font-black text-[#0F172A]">
+                          Informations de Succession
+                        </h3>
+                        <p className="text-xs text-[#667085]">
+                          Champs relatifs au notaire et à la créance.
+                        </p>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <label className="grid gap-2">
-                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Nom du Notaire</span>
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                          Nom du Notaire
+                        </span>
                         <input
                           type="text"
                           value={dossier.nom_notaire}
-                          onChange={e => setDossier({ ...dossier, nom_notaire: e.target.value })}
+                          onChange={(e) =>
+                            setDossier({
+                              ...dossier,
+                              nom_notaire: e.target.value,
+                            })
+                          }
                           className="rounded-2xl border border-[#E4E7EC] bg-white px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                           placeholder="Ex: Maître Dupont"
                         />
                       </label>
                       <label className="grid gap-2">
-                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Date déclaration de créance</span>
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                          Date déclaration de créance
+                        </span>
                         <input
                           type="date"
                           value={dossier.date_declaration_creance}
-                          onChange={e => setDossier({ ...dossier, date_declaration_creance: e.target.value })}
+                          onChange={(e) =>
+                            setDossier({
+                              ...dossier,
+                              date_declaration_creance: e.target.value,
+                            })
+                          }
                           className="rounded-2xl border border-[#E4E7EC] bg-white px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                         />
                       </label>
                     </div>
                     <label className="grid gap-2 mt-4">
-                      <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A3B8]">Coordonnées du notaire</span>
+                      <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A3B8]">
+                        Coordonnées du notaire
+                      </span>
                       <input
                         type="text"
                         value={dossier.coordonnees_notaire}
-                        onChange={e => setDossier({ ...dossier, coordonnees_notaire: e.target.value })}
+                        onChange={(e) =>
+                          setDossier({
+                            ...dossier,
+                            coordonnees_notaire: e.target.value,
+                          })
+                        }
                         className="rounded-2xl border border-[#E4E7EC] bg-white px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                         placeholder="Téléphone, adresse email..."
                       />
                     </label>
                     <label className="grid gap-2 mt-4">
-                      <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Liste des héritiers connus</span>
+                      <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                        Liste des héritiers connus
+                      </span>
                       <textarea
                         value={dossier.liste_heritiers}
-                        onChange={e => setDossier({ ...dossier, liste_heritiers: e.target.value })}
+                        onChange={(e) =>
+                          setDossier({
+                            ...dossier,
+                            liste_heritiers: e.target.value,
+                          })
+                        }
                         className="min-h-[96px] rounded-3xl border border-[#E4E7EC] bg-white px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                         placeholder="Noms et prénoms des héritiers..."
                       />
@@ -609,8 +876,12 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                   <div className="rounded-[30px] border border-[#E4E7EC] bg-[#F8FAFC] p-6">
                     <div className="flex items-center justify-between gap-4 mb-6">
                       <div>
-                        <h3 className="text-sm font-black text-[#0F172A]">Liste des Héritiers</h3>
-                        <p className="text-xs text-[#667085]">Ajoutez ou modifiez les héritiers du dossier.</p>
+                        <h3 className="text-sm font-black text-[#0F172A]">
+                          Liste des Héritiers
+                        </h3>
+                        <p className="text-xs text-[#667085]">
+                          Ajoutez ou modifiez les héritiers du dossier.
+                        </p>
                       </div>
                       <button
                         onClick={addHeritier}
@@ -620,15 +891,24 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                       </button>
                     </div>
                     {dossier.heritiers.length === 0 ? (
-                      <p className="text-sm text-[#475569]">Aucun héritier ajouté pour le moment.</p>
+                      <p className="text-sm text-[#475569]">
+                        Aucun héritier ajouté pour le moment.
+                      </p>
                     ) : (
                       <div className="space-y-4">
                         {dossier.heritiers.map((heritier, idx) => (
-                          <div key={heritier.id} className="rounded-[28px] border border-[#E4E7EC] bg-white p-5 space-y-4">
+                          <div
+                            key={heritier.id}
+                            className="rounded-[28px] border border-[#E4E7EC] bg-white p-5 space-y-4"
+                          >
                             <div className="flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-[11px] uppercase tracking-[0.2em] text-[#98A2B3]">Héritier {idx + 1}</p>
-                                <p className="mt-1 text-sm font-black text-[#0F172A]">{heritier.nom || 'Sans nom'}</p>
+                                <p className="text-[11px] uppercase tracking-[0.2em] text-[#98A2B3]">
+                                  Héritier {idx + 1}
+                                </p>
+                                <p className="mt-1 text-sm font-black text-[#0F172A]">
+                                  {heritier.nom || "Sans nom"}
+                                </p>
                               </div>
                               <button
                                 onClick={() => removeHeritier(heritier.id)}
@@ -639,33 +919,57 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                               <label className="grid gap-2">
-                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Nom complet *</span>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                                  Nom complet *
+                                </span>
                                 <input
                                   type="text"
                                   value={heritier.nom}
-                                  onChange={e => updateHeritier(heritier.id, "nom", e.target.value)}
+                                  onChange={(e) =>
+                                    updateHeritier(
+                                      heritier.id,
+                                      "nom",
+                                      e.target.value,
+                                    )
+                                  }
                                   className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                                   placeholder="Nom et prénom"
                                   required
                                 />
                               </label>
                               <label className="grid gap-2">
-                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Code abonné</span>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                                  Code abonné
+                                </span>
                                 <input
                                   type="text"
                                   value={heritier.codeAbonne || ""}
-                                  onChange={e => updateHeritier(heritier.id, "codeAbonne", e.target.value)}
+                                  onChange={(e) =>
+                                    updateHeritier(
+                                      heritier.id,
+                                      "codeAbonne",
+                                      e.target.value,
+                                    )
+                                  }
                                   className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                                   placeholder="Code abonné (optionnel)"
                                 />
                               </label>
                             </div>
                             <label className="grid gap-2">
-                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Adresse *</span>
+                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                                Adresse *
+                              </span>
                               <input
                                 type="text"
                                 value={heritier.adresse}
-                                onChange={e => updateHeritier(heritier.id, "adresse", e.target.value)}
+                                onChange={(e) =>
+                                  updateHeritier(
+                                    heritier.id,
+                                    "adresse",
+                                    e.target.value,
+                                  )
+                                }
                                 className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                                 placeholder="Adresse complète"
                                 required
@@ -673,21 +977,37 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                             </label>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                               <label className="grid gap-2">
-                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Téléphone</span>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                                  Téléphone
+                                </span>
                                 <input
                                   type="tel"
                                   value={heritier.telephone || ""}
-                                  onChange={e => updateHeritier(heritier.id, "telephone", e.target.value)}
+                                  onChange={(e) =>
+                                    updateHeritier(
+                                      heritier.id,
+                                      "telephone",
+                                      e.target.value,
+                                    )
+                                  }
                                   className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                                   placeholder="Numéro de téléphone"
                                 />
                               </label>
                               <label className="grid gap-2">
-                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Email</span>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                                  Email
+                                </span>
                                 <input
                                   type="email"
                                   value={heritier.email || ""}
-                                  onChange={e => updateHeritier(heritier.id, "email", e.target.value)}
+                                  onChange={(e) =>
+                                    updateHeritier(
+                                      heritier.id,
+                                      "email",
+                                      e.target.value,
+                                    )
+                                  }
                                   className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                                   placeholder="Email (optionnel)"
                                 />
@@ -695,22 +1015,38 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                               <label className="grid gap-2">
-                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Numéro de pièce d'identité</span>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                                  Numéro de pièce d'identité
+                                </span>
                                 <input
                                   type="text"
                                   value={heritier.numeroIdentite || ""}
-                                  onChange={e => updateHeritier(heritier.id, "numeroIdentite", e.target.value)}
+                                  onChange={(e) =>
+                                    updateHeritier(
+                                      heritier.id,
+                                      "numeroIdentite",
+                                      e.target.value,
+                                    )
+                                  }
                                   className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 font-mono"
                                   placeholder="Ex: 128563290140005217"
                                   maxLength={18}
                                 />
                               </label>
                               <label className="grid gap-2">
-                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">Lieu de délivrance</span>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                                  Lieu de délivrance
+                                </span>
                                 <input
                                   type="text"
                                   value={heritier.lieuDelivrance || ""}
-                                  onChange={e => updateHeritier(heritier.id, "lieuDelivrance", e.target.value)}
+                                  onChange={(e) =>
+                                    updateHeritier(
+                                      heritier.id,
+                                      "lieuDelivrance",
+                                      e.target.value,
+                                    )
+                                  }
                                   className="rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                                   placeholder="Ex: Berrouaghia"
                                 />
@@ -739,7 +1075,11 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
             disabled={saving || loading}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-brand-600 text-sm font-black text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
           >
-            {saving ? <div className="spinner-premium w-4 h-4 border-2" /> : <CheckCircle size={16} />}
+            {saving ? (
+              <div className="spinner-premium w-4 h-4 border-2" />
+            ) : (
+              <CheckCircle size={16} />
+            )}
             Sauvegarder le dossier
           </button>
         </div>

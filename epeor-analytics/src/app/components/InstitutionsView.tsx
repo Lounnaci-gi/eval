@@ -7,6 +7,7 @@ import {
 import { apiUrlObject } from "../lib/api";
 import { appendSecteurParam, showAlert } from "./utils";
 import { SecteurDropdown, MultiSelectDropdown } from "./ui";
+import { escapeHtml } from "../../lib/escape";
 
 function getQuarterFromMonth(monthStr: string): number {
   const m = parseInt(monthStr, 10);
@@ -1274,7 +1275,7 @@ export function CreancesInstitutionsView({
             </div>
           </div>
 
-          ${filterTexts.length > 0 ? `<div class="filters">${filterTexts.map(t => `<div class="filter-item"><span class="filter-label">Filtres appliqués :</span> ${t}</div>`).join('')}</div>` : ''}
+          ${filterTexts.length > 0 ? `<div class="filters">${filterTexts.map(t => `<div class="filter-item"><span class="filter-label">Filtres appliqués :</span> ${escapeHtml(t)}</div>`).join('')}</div>` : ''}
 
           <div class="meta-grid">
             <div class="meta-item">
@@ -1308,13 +1309,13 @@ export function CreancesInstitutionsView({
             <tbody>
               ${sourceRows.map(r => `
                 <tr>
-                  <td class="font-bold-black">${r.codinstit || '—'}</td>
-                  <td>${r.lib_instit || '—'}</td>
-                  <td class="font-bold-black">${r.numab || '—'}</td>
-                  <td>${r.raisoc || '—'}</td>
-                  <td>${r.type_abon || '—'}</td>
-                  <td>${r.etat_cpt || '—'}</td>
-                  <td>${r.tournee ? `T-${r.tournee}` : '—'}</td>
+                  <td class="font-bold-black">${escapeHtml(r.codinstit || '—')}</td>
+                  <td>${escapeHtml(r.lib_instit || '—')}</td>
+                  <td class="font-bold-black">${escapeHtml(r.numab || '—')}</td>
+                  <td>${escapeHtml(r.raisoc || '—')}</td>
+                  <td>${escapeHtml(r.type_abon || '—')}</td>
+                  <td>${escapeHtml(r.etat_cpt || '—')}</td>
+                  <td>${escapeHtml(r.tournee ? `T-${r.tournee}` : '—')}</td>
                   <td style="text-align: center;">${r.nombre_creance || 0}</td>
                   <td class="amount-right">${fmt(r.montant_creance || 0)}</td>
                 </tr>
@@ -2005,7 +2006,7 @@ export function CreancesInstitutionsView({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Impression Combinaison - ${combo.label}</title>
+          <title>Impression Combinaison - ${escapeHtml(combo.label)}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
             body {
@@ -2170,14 +2171,14 @@ export function CreancesInstitutionsView({
           </div>
 
           <div class="comb-banner">
-            <div class="comb-banner-title">Priorité de la combinaison : ${priorityText}</div>
-            <div class="comb-banner-desc">${PRIORITY_SECTIONS[combo.priority].description}</div>
+            <div class="comb-banner-title">Priorité de la combinaison : ${escapeHtml(priorityText)}</div>
+            <div class="comb-banner-desc">${escapeHtml(PRIORITY_SECTIONS[combo.priority].description)}</div>
           </div>
 
           <div class="meta-grid">
             <div class="meta-item">
               <span class="meta-label">Label Période</span>
-              <span class="meta-value">${combo.label}</span>
+              <span class="meta-value">${escapeHtml(combo.label)}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Abonnés uniques</span>
@@ -2204,13 +2205,13 @@ export function CreancesInstitutionsView({
               ${combo.lines.map((line, idx) => `
                 <tr>
                   <td class="font-bold-black">${String(idx + 1).padStart(2, '0')}</td>
-                  <td class="font-bold-black">${line.numab || '—'}</td>
-                  <td>${line.raisoc || '—'}</td>
+                  <td class="font-bold-black">${escapeHtml(line.numab || '—')}</td>
+                  <td>${escapeHtml(line.raisoc || '—')}</td>
                   <td>
-                    ${line.codinstit || '—'}
-                    ${line.lib_instit !== '—' ? `<br/><span style="font-size: 8px; color: #667085;">${line.lib_instit}</span>` : ''}
+                    ${escapeHtml(line.codinstit || '—')}
+                    ${line.lib_instit !== '—' ? `<br/><span style="font-size: 8px; color: #667085;">${escapeHtml(line.lib_instit)}</span>` : ''}
                   </td>
-                  <td class="font-bold-black">${line.periodLabel}</td>
+                  <td class="font-bold-black">${escapeHtml(line.periodLabel)}</td>
                   <td class="amount-right">${fmt(line.amount)}</td>
                 </tr>
               `).join('')}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import Swal from "sweetalert2";
 import "../../lib/i18n";
 import {
   LayoutDashboard,
@@ -144,7 +145,24 @@ export function MobileNav({
             <div className="px-2 pt-1 mt-1 border-t border-[#F2F4F7]">
               <button
                 type="button"
-                onClick={() => { onLogout(); setMoreOpen(false); }}
+                onClick={async () => {
+                  const result = await Swal.fire({
+                    title: t('nav.logout'),
+                    text: t('logout.confirm', 'Êtes-vous sûr de vouloir vous déconnecter ?'),
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#0D83DE',
+                    cancelButtonColor: '#6B7280',
+                    confirmButtonText: t('common.yes', 'Oui'),
+                    cancelButtonText: t('common.no', 'Non'),
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                  });
+                  if (result.isConfirmed) {
+                    onLogout();
+                    setMoreOpen(false);
+                  }
+                }}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors"
               >
                 <LogOut size={18} />

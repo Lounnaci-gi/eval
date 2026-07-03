@@ -18,6 +18,7 @@ if (typeof window !== "undefined") {
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import dynamic from "next/dynamic";
+import Swal from "sweetalert2";
 import {
   Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, Settings, LogOut, ArrowRight,
   LayoutDashboard, BarChart3, Calendar, ChevronRight, Bell, HelpCircle, Building2, Percent,
@@ -213,14 +214,29 @@ export default function Dashboard() {
   };
 
   const handleLogout = async () => {
-    try {
-      await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
-    } catch (err) {
-      console.error('Erreur logout', err);
-    } finally {
-      setUser(null);
-      setAuthChecked(true);
-      setLoginPassword('');
+    const result = await Swal.fire({
+      title: t('nav.logout'),
+      text: t('logout.confirm', 'Êtes-vous sûr de vouloir vous déconnecter ?'),
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#0D83DE',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: t('common.yes', 'Oui'),
+      cancelButtonText: t('common.no', 'Non'),
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
+      } catch (err) {
+        console.error('Erreur logout', err);
+      } finally {
+        setUser(null);
+        setAuthChecked(true);
+        setLoginPassword('');
+      }
     }
   };
 

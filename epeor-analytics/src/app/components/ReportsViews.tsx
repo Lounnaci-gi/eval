@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
 import { formatPeriodLabel, appendSecteurParam, showAlert } from "./utils";
+import { escapeHtml } from "../../lib/escape";
 
 export function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClose, selectedSecteur = '' }: any) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
@@ -2005,8 +2006,8 @@ export function BilanActiviteView({ data, startDate = '', endDate = '', selected
       new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         .format(n).replace(/[\u202F\u00A0]/g, '\u00a0');
 
-    const escapeHtml = (s: string) =>
-      String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    // Utiliser escapeHtml centralisé (&, <, >, ", ', /) — importé depuis lib/escape
+    // (pas de rédéfinition locale incomplète)
 
     const formatDateStr = (d: string) => {
       if (!d) return '';

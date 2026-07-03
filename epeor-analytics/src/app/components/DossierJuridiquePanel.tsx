@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, FileText, CheckCircle, Landmark, Check, Plus, Trash2 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
 import { showAlert } from "./utils";
+import { escapeHtml } from "../../lib/escape";
 
 interface Heritier {
   id: string;
@@ -126,7 +127,7 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
       <html lang="fr">
         <head>
           <meta charset="UTF-8" />
-          <title>Échéancier - Abonné ${abonne.numab}</title>
+          <title>Échéancier - Abonné ${escapeHtml(abonne.numab)}</title>
           <style>
             @page { size: A4 portrait; margin: 10mm; }
             html, body { width: 190mm; height: 277mm; margin: 0; padding: 0; }
@@ -164,16 +165,16 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
               <img src="${window.location.origin}/ade.png" alt="ADE" style="height:48px;width:auto;object-fit:contain;" onerror="this.style.display='none'" />
               <div>
                 <div style="font-size:14px;font-weight:900;color:#0f172a;">ADE - Algérienne des Eaux</div>
-                <div style="font-size:11px;color:#475569;letter-spacing:0.08em;">${abonne.nom_secteur ? `Centre : ${abonne.nom_secteur}` : abonne.code_secteur ? `Centre : ${abonne.code_secteur}` : ''}</div>
+                <div style="font-size:11px;color:#475569;letter-spacing:0.08em;">${abonne.nom_secteur ? `Centre : ${escapeHtml(abonne.nom_secteur)}` : abonne.code_secteur ? `Centre : ${escapeHtml(abonne.code_secteur)}` : ''}</div>
               </div>
             </div>
             <div style="text-align:right;">
               <div style="font-size:20px;font-weight:900;color:#0f172a;">Échéancier</div>
-              <div style="font-size:12px;color:#475569;">Abonné ${abonne.numab}</div>
+              <div style="font-size:12px;color:#475569;">Abonné ${escapeHtml(abonne.numab)}</div>
               <div style="font-size:12px;color:#475569;">${new Date().toLocaleDateString('fr-FR')}</div>
             </div>
           </div>
-          <div class="meta"><strong>Abonné :</strong> ${abonne.numab} — ${abonne.name || abonne.nom_prenom || 'Inconnu'}</div>
+          <div class="meta"><strong>Abonné :</strong> ${escapeHtml(abonne.numab)} — ${escapeHtml(abonne.name || abonne.nom_prenom || 'Inconnu')}</div>
           <div class="meta"><strong>Date :</strong> ${new Date().toLocaleDateString('fr-FR')}</div>
           <table>
             <thead>
@@ -197,9 +198,9 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
                     return `
                       <tr>
                         <td rowspan="${rowspan}" style="vertical-align:middle;text-align:center;">${idx + 1}</td>
-                        <td rowspan="${rowspan}" style="vertical-align:middle;text-align:center;">${line.date}</td>
+                        <td rowspan="${rowspan}" style="vertical-align:middle;text-align:center;">${escapeHtml(line.date)}</td>
                         <td rowspan="${rowspan}" style="vertical-align:middle;text-align:center;">${formatAmount(lineAmount)}</td>
-                        <td>${reference}</td>
+                        <td>${escapeHtml(reference)}</td>
                         <td style="text-align:right;">${formatAmount(Number(amount))}</td>
                       </tr>
                     `;
@@ -207,7 +208,7 @@ export function DossierJuridiquePanel({ isOpen, onClose, abonne }: DossierJuridi
 
                   return `
                     <tr>
-                      <td>${reference}</td>
+                      <td>${escapeHtml(reference)}</td>
                       <td style="text-align:right;">${formatAmount(Number(amount))}</td>
                     </tr>
                   `;

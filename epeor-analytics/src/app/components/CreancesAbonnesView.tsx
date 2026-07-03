@@ -113,7 +113,7 @@ export function CreancesAbonnesView({
       if (!res.ok) {
         throw new Error('Server error');
       }
-    } catch (e) {
+    } catch {
       // Revert on error
       setAllSubscribers(prev => prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: !newVal } : x));
       setResults(prev => prev ? prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: !newVal } : x) : null);

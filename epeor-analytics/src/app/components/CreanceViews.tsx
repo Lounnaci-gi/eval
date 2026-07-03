@@ -13,7 +13,6 @@ import {
   ChartContainer, formatDate, appendSecteurParam, showAlert,
 } from "./utils";
 import { FrenchDateInput } from "./ui";
-import { escapeHtml } from "../../lib/escape";
 
 export function CreanceDetailView({
   creanceData, setCreanceData, ventilationData, setVentilationData, lastVentDate, setLastVentDate,

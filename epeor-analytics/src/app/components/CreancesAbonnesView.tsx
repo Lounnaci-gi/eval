@@ -138,9 +138,21 @@ export function CreancesAbonnesView({
     setSearch('');
     let filtered = [...allSubscribers];
 
-    // 1. Tournées filter
-    if (customTournees.length > 0) {
-      filtered = filtered.filter(s => customTournees.includes(normalizeTournee(s.tournee)));
+    // 1. Tournées / codes abonnés filter
+    const hasTourneeFilter = customTournees.length > 0;
+    const hasCodeAbonneFilter = customCodesAbonnes.length > 0;
+    if (hasTourneeFilter || hasCodeAbonneFilter) {
+      filtered = filtered.filter((s) => {
+        const matchesTournee = hasTourneeFilter
+          ? customTournees.includes(normalizeTournee(s.tournee))
+          : false;
+        const matchesCode = hasCodeAbonneFilter
+          ? customCodesAbonnes.includes(normalizeCodeAbonne(s.numab))
+          : false;
+        return hasTourneeFilter && hasCodeAbonneFilter
+          ? matchesTournee || matchesCode
+          : matchesTournee || matchesCode;
+      });
     }
 
     // 2. Montant filter
@@ -183,14 +195,6 @@ export function CreancesAbonnesView({
           return true;
         });
       }
-    }
-
-    // 5. Code abonné(s) filter
-    if (customCodesAbonnes.length > 0) {
-      filtered = filtered.filter((s) => {
-        const numab = normalizeCodeAbonne(s.numab);
-        return customCodesAbonnes.includes(numab);
-      });
     }
 
     setFilterTypesAbon([]);

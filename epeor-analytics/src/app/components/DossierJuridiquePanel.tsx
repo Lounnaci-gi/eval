@@ -68,6 +68,35 @@ export function DossierJuridiquePanel({
     heritiers: [] as Heritier[],
   });
 
+  const deriveEtapeRecouvrement = (values: Partial<typeof dossier>) => {
+    if (values.execution_jugement) {
+      return "Exécution de Jugement";
+    }
+    if (values.transmis_huissier) {
+      return "Succession Notaire";
+    }
+    if (values.transmis_cours) {
+      return "Tribunal";
+    }
+    if (values.statut_abonne === "Décédé") {
+      return "Succession Notaire";
+    }
+    if (values.has_mise_en_demeure || values.has_echeancier) {
+      return "Amiable";
+    }
+    return values.etape_recouvrement || "Amiable";
+  };
+
+  const updateDossierState = (updates: Partial<typeof dossier>) => {
+    setDossier((current) => {
+      const next = { ...current, ...updates };
+      return {
+        ...next,
+        etape_recouvrement: deriveEtapeRecouvrement(next),
+      };
+    });
+  };
+
   useEffect(() => {
     if (isOpen && abonne) {
       setLoading(true);
@@ -82,7 +111,16 @@ export function DossierJuridiquePanel({
         .then(([dossierData, abonneData]) => {
           setDossier({
             statut_abonne: dossierData.statut_abonne || "Actif",
-            etape_recouvrement: dossierData.etape_recouvrement || "Amiable",
+            etape_recouvrement: deriveEtapeRecouvrement({
+              ...dossierData,
+              statut_abonne: dossierData.statut_abonne || "Actif",
+              etape_recouvrement: dossierData.etape_recouvrement || "Amiable",
+              has_mise_en_demeure: !!dossierData.has_mise_en_demeure,
+              has_echeancier: !!dossierData.has_echeancier,
+              transmis_huissier: !!dossierData.transmis_huissier,
+              transmis_cours: !!dossierData.transmis_cours,
+              execution_jugement: !!dossierData.execution_jugement,
+            }),
             has_mise_en_demeure: !!dossierData.has_mise_en_demeure,
             has_echeancier: !!dossierData.has_echeancier,
             transmis_huissier: !!dossierData.transmis_huissier,
@@ -417,7 +455,8 @@ export function DossierJuridiquePanel({
     "Exécution de Jugement",
   ];
   const isSuspendedStatus = dossier.statut_abonne === "Suspendu";
-  const currentStepIndex = steps.indexOf(dossier.etape_recouvrement);
+  const effectiveEtapeRecouvrement = deriveEtapeRecouvrement(dossier);
+  const currentStepIndex = steps.indexOf(effectiveEtapeRecouvrement);
 
   return (
     <div className="w-full">
@@ -473,10 +512,7 @@ export function DossierJuridiquePanel({
                                 key={step}
                                 type="button"
                                 onClick={() =>
-                                  setDossier({
-                                    ...dossier,
-                                    etape_recouvrement: step,
-                                  })
+                                  updateDossierState({ etape_recouvrement: step })
                                 }
                                 className="relative flex flex-col items-center gap-2 bg-white/70 rounded-full p-2"
                               >
@@ -531,10 +567,7 @@ export function DossierJuridiquePanel({
                             value={dossier.statut_abonne}
                             onChange={(e) => {
                               const nextStatus = e.target.value;
-                              setDossier({
-                                ...dossier,
-                                statut_abonne: nextStatus,
-                              });
+                              updateDossierState({ statut_abonne: nextStatus });
                               if (nextStatus !== "Suspendu") {
                                 setMotifError("");
                               }
@@ -617,10 +650,7 @@ export function DossierJuridiquePanel({
                                   type="checkbox"
                                   checked={value}
                                   onChange={(e) =>
-                                    setDossier({
-                                      ...dossier,
-                                      [key]: e.target.checked,
-                                    })
+                                    updateDossierState({ [key]: e.target.checked })
                                   }
                                   className="h-4 w-4 rounded-md border-gray-300 text-brand-600 focus:ring-brand-500"
                                 />
@@ -644,7 +674,7 @@ export function DossierJuridiquePanel({
                             État actuel
                           </p>
                           <p className="mt-2 text-sm font-bold text-[#0F172A]">
-                            {dossier.etape_recouvrement}
+                            {effectiveEtapeRecouvrement}
                           </p>
                         </div>
                         <div className="rounded-3xl bg-white border border-[#E4E7EC] p-4">

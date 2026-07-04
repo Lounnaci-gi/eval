@@ -721,6 +721,57 @@ export function ServiceContentieuxView({
                 ? va.localeCompare(vb, "fr", { numeric: true })
                 : vb.localeCompare(va, "fr", { numeric: true });
             });
+            const handlePrintDossiers = (rowsToPrint: any[]) => {
+              const esc = escapeHtml;
+              const rowsHtml = rowsToPrint
+                .map(
+                  (d, i) => `
+                    <tr>
+                      <td style="text-align:center; color:#98A2B3; font-weight:700;">${i + 1}</td>
+                      <td style="font-weight:800;">${esc(d.numab || "—")}</td>
+                      <td style="font-weight:700;">${esc(d.name || "—")}</td>
+                      <td>${esc(d.adresse || "—")}</td>
+                      <td>${esc(d.tournee || "—")}</td>
+                      <td>${esc(d.statut_abonne || "—")}</td>
+                      <td>${esc(d.etape_recouvrement || "—")}</td>
+                      <td>${esc(d.has_mise_en_demeure ? "Mise en demeure envoyée" : "")}${esc(d.has_echeancier ? (d.has_mise_en_demeure ? " • Échéancier accordé" : "Échéancier accordé") : "")}${esc(d.transmis_huissier ? (d.has_mise_en_demeure || d.has_echeancier ? " • Transmis au huissier" : "Transmis au huissier") : "")}${esc(d.transmis_cours ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier ? " • Transmis à la cour" : "Transmis à la cour") : "")}${esc(d.execution_jugement ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier || d.transmis_cours ? " • Exécution de Jugement" : "Exécution de Jugement") : "")}</td>
+                      <td>${esc(d.date_transmission ? new Date(d.date_transmission).toLocaleDateString("fr-DZ") : "—")}</td>
+                      <td>${esc(d.updated_at ? new Date(d.updated_at).toLocaleDateString("fr-DZ") : "—")}</td>
+                    </tr>`,
+                )
+                .join("");
+
+              const win = window.open("", "_blank");
+              if (!win) {
+                alert("Veuillez autoriser les popups pour imprimer.");
+                return;
+              }
+
+              win.document.write(`<!DOCTYPE html><html><head>
+                <title>Dossiers Contentieux</title>
+                <style>
+                  body { font-family: 'Inter', Arial, sans-serif; font-size: 9px; margin: 24px; color: #101828; }
+                  h1 { font-size: 16px; font-weight: 900; margin: 0 0 4px; }
+                  .sub { font-size: 10px; color: #667085; margin-bottom: 12px; }
+                  table { width: 100%; border-collapse: collapse; }
+                  th { background: #F9FAFB; font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; color: #667085; padding: 6px 8px; text-align: left; border-bottom: 1px solid #E4E7EC; }
+                  td { padding: 5px 8px; border-bottom: 1px solid #F2F4F7; font-size: 9px; }
+                  tr:nth-child(even) td { background: #FAFAFA; }
+                  @media print { @page { size: A4 landscape; margin: 0.5cm; } }
+                </style>
+              </head><body>
+                <h1>Dossiers Contentieux</h1>
+                <div class="sub">${esc(dossierSearch || "Tous les dossiers")}${dossierEtapeFilter ? ` • Étape : ${esc(dossierEtapeFilter)}` : ""}${dossierStatutFilter ? ` • Statut : ${esc(dossierStatutFilter)}` : ""}</div>
+                <table>
+                  <thead><tr>
+                    <th>#</th><th>Code Abonné</th><th>Nom / Raison Sociale</th><th>Adresse</th><th>Tournée</th><th>Statut Abonné</th><th>Étape Recouvrement</th><th>Démarches</th><th>Date Transmission</th><th>Dernière MàJ</th>
+                  </tr></thead>
+                  <tbody>${rowsHtml}</tbody>
+                </table>
+              </body></html>`);
+              win.document.close();
+              win.print();
+            };
             const ThD = ({
               label,
               field,
@@ -807,16 +858,25 @@ export function ServiceContentieuxView({
                       ))}
                     </select>
                   </div>
-                  <button
-                    onClick={loadDossiers}
-                    title="Actualiser"
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] hover:border-indigo-500 hover:text-indigo-600 transition-all ml-auto"
-                  >
-                    <RefreshCw
-                      size={13}
-                      className={dossiersLoading ? "animate-spin" : ""}
-                    />
-                  </button>
+                  <div className="flex gap-2 ml-auto">
+                    <button
+                      onClick={() => handlePrintDossiers(sortedD)}
+                      disabled={sortedD.length === 0}
+                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] hover:border-indigo-500 hover:text-indigo-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Printer size={13} /> Imprimer tableau
+                    </button>
+                    <button
+                      onClick={loadDossiers}
+                      title="Actualiser"
+                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] hover:border-indigo-500 hover:text-indigo-600 transition-all"
+                    >
+                      <RefreshCw
+                        size={13}
+                        className={dossiersLoading ? "animate-spin" : ""}
+                      />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Dossiers states */}
@@ -1130,8 +1190,7 @@ export function ServiceContentieuxView({
                   disabled={sorted.length === 0}
                   className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] hover:border-brand-500 hover:text-brand-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <Printer size={13} /> Imprimer (
-                  {selectedCount > 0 ? selectedCount : sorted.length})
+                  <Printer size={13} /> Imprimer tableau
                 </button>
               </div>
             </div>

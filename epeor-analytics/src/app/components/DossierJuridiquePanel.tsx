@@ -429,31 +429,11 @@ export function DossierJuridiquePanel({
                   backgroundClip: "text",
                 }}
               >
-                Dossier de Recouvrement
+                Dossier Contentieux
               </h2>
               <p className="text-sm text-[#667085] mt-1 font-medium">
                 Abonné {abonne.numab} — {abonne.name}
               </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={onClose}
-                className="inline-flex items-center justify-center rounded-2xl border border-[#E4E7EC] py-2 px-4 text-sm font-bold text-[#344054] hover:border-rose-500 hover:text-rose-600 transition-colors"
-              >
-                Fermer
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || loading}
-                className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-2 text-sm font-black text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
-              >
-                {saving ? (
-                  <div className="spinner-premium w-4 h-4 border-2" />
-                ) : (
-                  <CheckCircle size={16} />
-                )}{" "}
-                Sauvegarder
-              </button>
             </div>
           </div>
         </div>

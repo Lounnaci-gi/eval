@@ -336,6 +336,15 @@ export function ServiceContentieuxView({
     // Utiliser escapeHtml centralisé (&, <, >, ", ', /) — pas de fonction locale incomplète
     const esc = escapeHtml;
 
+    const totalFactures = selectedRows.reduce(
+      (a, s) => a + (s.nombre_creance || 0),
+      0,
+    );
+    const totalMontant = selectedRows.reduce(
+      (a, s) => a + (s.montant_creance || 0),
+      0,
+    );
+
     const rowsHtml = selectedRows
       .map(
         (r, i) => `
@@ -357,6 +366,14 @@ export function ServiceContentieuxView({
       </tr>`,
       )
       .join("");
+
+    const totalRowHtml = `
+      <tr style="font-weight:900; background:#F9FAFB;">
+        <td colspan="11" style="text-align:right; padding-top:10px;">Total général</td>
+        <td style="text-align:right; font-weight:900; color:#E11D48; padding-top:10px;">${fmtP(totalMontant)}</td>
+        <td style="text-align:center; font-weight:900; padding-top:10px;">${totalFactures}</td>
+        ${activeTab === "transmis" ? `<td style="text-align:center; padding-top:10px;"></td>` : ""}
+      </tr>`;
 
     const win = window.open("", "_blank");
     if (!win) {
@@ -394,7 +411,7 @@ export function ServiceContentieuxView({
           <th style="text-align:right;">Montant Total</th><th style="text-align:center;">Nb Fact. Impayées</th>
           ${activeTab === "transmis" ? `<th style="text-align:center;">Date Transmission</th>` : ""}
         </tr></thead>
-        <tbody>${rowsHtml}</tbody>
+        <tbody>${rowsHtml}${totalRowHtml}</tbody>
       </table>
     </body></html>`);
     win.document.close();
@@ -582,7 +599,7 @@ export function ServiceContentieuxView({
             className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "dossiers" ? "border-indigo-500 text-indigo-700" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
           >
             <FolderOpen size={15} />
-            Dossiers de Recouvrement
+            Dossiers Contentieux
           </button>
           <button
             onClick={() => {
@@ -595,7 +612,7 @@ export function ServiceContentieuxView({
           </button>
         </div>
         {/* ══════════════════════════════════════════════════════════
-            ONGLET : DOSSIERS DE RECOUVREMENT
+            ONGLET : DOSSIERS CONTENTIEUX
         ══════════════════════════════════════════════════════════ */}
         {activeTab === "dossiers" &&
           (() => {
@@ -759,7 +776,7 @@ export function ServiceContentieuxView({
                   <div className="py-20 flex flex-col items-center gap-3 text-[#98A2B3]">
                     <FolderOpen size={40} strokeWidth={1.2} />
                     <p className="text-sm font-semibold">
-                      Aucun dossier de recouvrement
+                      Aucun dossier contentieux
                     </p>
                     <p className="text-xs">
                       Transmettez des abonnés au service juridique depuis
@@ -1882,27 +1899,6 @@ export function BilanImpressionView({
     </table>
   </div>
 
-  <div class="section">
-    <h2 class="indigo">2. Répartition des dossiers traités par statut et par type d'abonné</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Type d'abonné</th>
-          ${t2HeaderCols}
-          <th style="text-align:center">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${t2Rows}
-        <tr class="total-row">
-          <td>Total</td>
-          ${t2TotalCols}
-          <td style="text-align:center">${table2Data.grandTotal}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
   <div class="sig-row">
     <div>
       <div>Visa du Responsable Contentieux</div>
@@ -2101,81 +2097,6 @@ export function BilanImpressionView({
           </div>
         </div>
 
-        {/* Section 2: Répartition */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-black uppercase text-gray-900 tracking-wide border-l-4 border-indigo-500 pl-2">
-            2. Répartition des dossiers traités par statut et par type d'abonné
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border border-gray-200">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider">
-                    Type d'abonné
-                  </th>
-                  {table2Statuts.map((statut) => (
-                    <th
-                      key={statut}
-                      className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center"
-                    >
-                      {statut}
-                    </th>
-                  ))}
-                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center bg-gray-100/50">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {table2Data.items.map((row) => (
-                  <tr key={row.type} className="hover:bg-gray-50/50">
-                    <td className="py-2.5 px-4 font-bold text-gray-900">
-                      {row.type}
-                    </td>
-                    {table2Statuts.map((statut) => (
-                      <td
-                        key={statut}
-                        className="py-2.5 px-4 font-bold text-center text-gray-700 tabular-nums"
-                      >
-                        {row.countsByStatut[statut]}
-                      </td>
-                    ))}
-                    <td className="py-2.5 px-4 font-black text-center text-gray-900 bg-gray-50/30 tabular-nums">
-                      {row.rowTotal}
-                    </td>
-                  </tr>
-                ))}
-                {/* Total Row */}
-                <tr className="bg-gray-50/80 font-black border-t-2 border-gray-300">
-                  <td className="py-3 px-4 text-gray-900 uppercase">Total</td>
-                  {table2Statuts.map((statut) => (
-                    <td
-                      key={statut}
-                      className="py-3 px-4 text-center text-gray-900 tabular-nums"
-                    >
-                      {table2Data.colTotals[statut]}
-                    </td>
-                  ))}
-                  <td className="py-3 px-4 text-center text-gray-900 bg-gray-100/80 tabular-nums">
-                    {table2Data.grandTotal}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Signature Box (Professional detail) */}
-        <div className="pt-12 flex justify-between items-center text-xs font-semibold text-gray-600">
-          <div>
-            <p>Visa du Responsable Contentieux</p>
-            <div className="h-16 w-48 border border-dashed border-gray-300 rounded-lg mt-1 bg-gray-50/30" />
-          </div>
-          <div className="text-right">
-            <p>Visa de la Direction d'Unité</p>
-            <div className="h-16 w-48 border border-dashed border-gray-300 rounded-lg mt-1 bg-gray-50/30" />
-          </div>
-        </div>
       </div>
     </div>
   );

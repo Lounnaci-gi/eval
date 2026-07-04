@@ -728,7 +728,7 @@ export function CreanceDetailView({
       {loading && (
         <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-300">
           <div className="relative">
-            <div className="animate-spin rounded-full h-20 w-20 border-b-2 border-brand-500"></div>
+            <div className="spinner-premium" style={{ width: 64, height: 64 }}></div>
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-[10px] font-black text-brand-600">{Math.round(calcProgress)}%</span>
             </div>

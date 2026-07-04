@@ -1293,7 +1293,7 @@ export function CreancesAbonnesView({
         <div className="p-8">
           {dataLoading ? (
             <div className="flex items-center justify-center gap-3 py-10">
-              <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+              <div className="spinner-premium" />
               <p className="text-sm font-bold text-[#667085]">Chargement des données...</p>
             </div>
           ) : error ? (

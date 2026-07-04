@@ -35,7 +35,8 @@ export function CreancesAbonnesView({
 
   // ─── Filter state ────────────────────────────────────────────────
   const [allQuartiers, setAllQuartiers] = useState<{code: string, name: string}[]>([]);
-  const [selectedQuartier, setSelectedQuartier] = useState<string>('all');
+  const [customQuartiers, setCustomQuartiers] = useState<string[]>([]);
+  const [newQuartierInput, setNewQuartierInput] = useState<string>('');
   const [customTournees, setCustomTournees] = useState<string[]>([]);
   const [newTourneeInput, setNewTourneeInput] = useState('');
   const [customCodesAbonnes, setCustomCodesAbonnes] = useState<string[]>([]);
@@ -141,26 +142,23 @@ export function CreancesAbonnesView({
     setPage(1);
     setSearch('');
     let filtered = [...allSubscribers];
-
-    // 0. Quartier filter
-    if (selectedQuartier !== 'all') {
-      filtered = filtered.filter(s => s.quartier_code === selectedQuartier);
-    }
-
-    // 1. Tournées / codes abonnés filter
+    // 0+1. Quartier / Tournées / Codes abonnés — filtre inclusif (OR)
+    // Un abonné est retenu s'il correspond à au moins un critère parmi les trois listes.
+    const hasQuartierFilter = customQuartiers.length > 0;
     const hasTourneeFilter = customTournees.length > 0;
     const hasCodeAbonneFilter = customCodesAbonnes.length > 0;
-    if (hasTourneeFilter || hasCodeAbonneFilter) {
+    if (hasQuartierFilter || hasTourneeFilter || hasCodeAbonneFilter) {
       filtered = filtered.filter((s) => {
+        const matchesQuartier = hasQuartierFilter
+          ? customQuartiers.includes(s.quartier_code)
+          : false;
         const matchesTournee = hasTourneeFilter
           ? customTournees.includes(normalizeTournee(s.tournee))
           : false;
         const matchesCode = hasCodeAbonneFilter
           ? customCodesAbonnes.includes(normalizeCodeAbonne(s.numab))
           : false;
-        return hasTourneeFilter && hasCodeAbonneFilter
-          ? matchesTournee || matchesCode
-          : matchesTournee || matchesCode;
+        return matchesQuartier || matchesTournee || matchesCode;
       });
     }
 
@@ -215,7 +213,8 @@ export function CreancesAbonnesView({
   };
 
   const resetFilters = () => {
-    setSelectedQuartier('all');
+    setCustomQuartiers([]);
+    setNewQuartierInput('');
     setCustomTournees([]);
     setNewTourneeInput('');
     setCustomCodesAbonnes([]);
@@ -269,6 +268,21 @@ export function CreancesAbonnesView({
 
   const removeTournee = (t: string) => {
     setCustomTournees(prev => prev.filter(x => x !== t));
+  };
+
+  const addQuartier = (code: string) => {
+    if (!code) return;
+    if (!customQuartiers.includes(code)) {
+      setCustomQuartiers(prev => [...prev, code]);
+      setNewQuartierInput('');
+    } else {
+      const q = allQuartiers.find(q => q.code === code);
+      void showAlert(`Quartier ${q ? q.code + ' - ' + q.name : code} est déjà ajouté`, { icon: 'warning' });
+    }
+  };
+
+  const removeQuartier = (code: string) => {
+    setCustomQuartiers(prev => prev.filter(x => x !== code));
   };
 
   const addCodeAbonne = () => {
@@ -480,9 +494,12 @@ export function CreancesAbonnesView({
     }
 
     const filterParts: string[] = [];
-    if (selectedQuartier !== 'all') {
-      const qObj = allQuartiers.find(q => q.code === selectedQuartier);
-      filterParts.push(`Quartier: ${qObj ? `${qObj.code} - ${qObj.name}` : selectedQuartier}`);
+    if (customQuartiers.length > 0) {
+      const labels = customQuartiers.map(code => {
+        const q = allQuartiers.find(q => q.code === code);
+        return q ? `${q.code} - ${q.name}` : code;
+      });
+      filterParts.push(`Quartiers: ${labels.join(', ')}`);
     }
     if (filterTypesAbon.length > 0) filterParts.push(`Types: ${filterTypesAbon.join(', ')}`);
     if (filterEtatsCpt.length > 0) filterParts.push(`États: ${filterEtatsCpt.join(', ')}`);
@@ -1412,19 +1429,30 @@ export function CreancesAbonnesView({
                       Quartier
                     </span>
                   </label>
-                  <select
-                    value={selectedQuartier}
-                    onChange={e => setSelectedQuartier(e.target.value)}
-                    className={selectCls}
-                  >
-                    <option value="all">Tous les quartiers</option>
-                    {allQuartiers.map(q => (
-                      <option key={q.code} value={q.code}>
-                        {q.code} - {q.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Filtrer par quartier géographique</p>
+                  <div className="flex gap-2">
+                    <select
+                      value={newQuartierInput}
+                      onChange={e => setNewQuartierInput(e.target.value)}
+                      className={selectCls}
+                    >
+                      <option value="">-- Sélectionner --</option>
+                      {allQuartiers
+                        .filter(q => !customQuartiers.includes(q.code))
+                        .map(q => (
+                          <option key={q.code} value={q.code}>
+                            {q.code} - {q.name}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      onClick={() => addQuartier(newQuartierInput)}
+                      disabled={!newQuartierInput}
+                      className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Vide = tous les quartiers</p>
                 </div>
 
                 {/* 3. Montant de créance */}
@@ -1552,8 +1580,23 @@ export function CreancesAbonnesView({
 
               </div>
 
-              {(customTournees.length > 0 || customCodesAbonnes.length > 0) && (
+              {(customTournees.length > 0 || customCodesAbonnes.length > 0 || customQuartiers.length > 0) && (
                 <div className="flex flex-col gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl mt-6">
+                  {customQuartiers.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700">Quartiers ajoutés :</span>
+                      {customQuartiers.map(code => {
+                        const q = allQuartiers.find(q => q.code === code);
+                        return (
+                          <span key={code} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-indigo-700 rounded-lg text-[11px] font-black border border-indigo-200 shadow-sm">
+                            <span className="font-mono">{code}</span>
+                            {q && <span className="opacity-70 font-medium">{q.name}</span>}
+                            <button onClick={() => removeQuartier(code)} className="text-indigo-400 hover:text-indigo-700 font-bold">×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                   {customTournees.length > 0 && (
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Tournées ajoutées :</span>
@@ -1576,7 +1619,7 @@ export function CreancesAbonnesView({
                       ))}
                     </div>
                   )}
-                  <button onClick={() => { setCustomTournees([]); setCustomCodesAbonnes([]); }} className="text-[10px] text-rose-500 font-bold hover:text-rose-700 ml-auto">Tout effacer</button>
+                  <button onClick={() => { setCustomTournees([]); setCustomCodesAbonnes([]); setCustomQuartiers([]); setNewQuartierInput(''); }} className="text-[10px] text-rose-500 font-bold hover:text-rose-700 ml-auto">Tout effacer</button>
                 </div>
               )}
             </>

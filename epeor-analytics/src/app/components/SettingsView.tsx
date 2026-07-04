@@ -385,7 +385,7 @@ export function SettingsView({
 
       {!setupMode && (loading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E4E7EC] rounded-[2rem] shadow-sm">
-          <div className="w-12 h-12 border-4 border-slate-200 border-t-[#0D83DE] rounded-full animate-spin"></div>
+          <div className="spinner-premium" style={{ width: 48, height: 48 }}></div>
           <p className="mt-4 text-sm font-bold text-[#475467]">{t('settings.loadingOrg', 'Chargement de la structure organisationnelle...')}</p>
         </div>
       ) : error ? (
@@ -793,7 +793,7 @@ function UsersManagementPanel({
 
         {usersLoading ? (
           <div className="flex items-center justify-center p-8">
-            <div className="w-8 h-8 border-4 border-blue-100 border-t-[#0D83DE] rounded-full animate-spin" />
+            <div className="spinner-premium" style={{ width: 32, height: 32 }} />
           </div>
         ) : usersError ? (
           <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-700 text-sm font-bold">
@@ -1062,7 +1062,7 @@ function UsersManagementPanel({
                     className={`flex-1 py-3 rounded-2xl bg-[#0D83DE] text-white text-sm font-black hover:bg-[#0b72c2] transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 flex items-center justify-center gap-2 ${formLoading || !isFormValid ? 'opacity-80' : ''}`}
                   >
                     {formLoading ? (
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                      <span className="spinner-premium" style={{ width: 16, height: 16, display: 'inline-block' }} />
                     ) : (
                       editingUser ? t('common.save') : t('settings.createUserBtn', "Créer l'utilisateur")
                     )}

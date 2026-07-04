@@ -216,6 +216,7 @@ def _init_auth_db() -> None:
                 coordonnees_notaire TEXT,
                 liste_heritiers TEXT,
                 date_declaration_creance TEXT,
+                motif TEXT,
                 echeancier_plan TEXT,
                 heritiers TEXT,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -224,6 +225,10 @@ def _init_auth_db() -> None:
         """)
         try:
             conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN transmis_huissier INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN motif TEXT")
         except sqlite3.OperationalError:
             pass
         try:
@@ -4523,6 +4528,7 @@ class DossierJuridiqueUpdate(BaseModel):
     coordonnees_notaire: str | None = None
     liste_heritiers: str | None = None
     date_declaration_creance: str | None = None
+    motif: str | None = None
     echeancier_plan: list | None = None
     heritiers: list | None = None
 
@@ -4554,6 +4560,7 @@ def get_dossier_juridique(numab: str, _user: dict = Depends(get_current_user)):
                     "coordonnees_notaire": None,
                     "liste_heritiers": None,
                     "date_declaration_creance": None,
+                    "motif": None,
                     "echeancier_plan": [],
                     "heritiers": []
                 }
@@ -4601,8 +4608,8 @@ def update_dossier_juridique(numab: str, payload: DossierJuridiqueUpdate, _user:
                     numab, statut_abonne, etape_recouvrement, has_mise_en_demeure,
                     has_echeancier, transmis_huissier, transmis_cours, execution_jugement,
                     nom_notaire, coordonnees_notaire, liste_heritiers, date_declaration_creance,
-                    echeancier_plan, heritiers, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    motif, echeancier_plan, heritiers, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(numab) DO UPDATE SET
                     statut_abonne=excluded.statut_abonne,
                     etape_recouvrement=excluded.etape_recouvrement,
@@ -4615,6 +4622,7 @@ def update_dossier_juridique(numab: str, payload: DossierJuridiqueUpdate, _user:
                     coordonnees_notaire=excluded.coordonnees_notaire,
                     liste_heritiers=excluded.liste_heritiers,
                     date_declaration_creance=excluded.date_declaration_creance,
+                    motif=excluded.motif,
                     echeancier_plan=excluded.echeancier_plan,
                     heritiers=excluded.heritiers,
                     updated_at=CURRENT_TIMESTAMP
@@ -4627,6 +4635,7 @@ def update_dossier_juridique(numab: str, payload: DossierJuridiqueUpdate, _user:
                 1 if payload.execution_jugement else 0,
                 payload.nom_notaire, payload.coordonnees_notaire,
                 payload.liste_heritiers, payload.date_declaration_creance,
+                payload.motif,
                 json.dumps(payload.echeancier_plan) if payload.echeancier_plan else None,
                 json.dumps(payload.heritiers) if payload.heritiers else None
             ))

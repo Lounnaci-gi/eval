@@ -1207,7 +1207,7 @@ export function CreanceDetailView({
                 className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50 rounded-xl text-xs font-black transition-all shadow-sm h-[38px] active:scale-95 cursor-pointer"
               >
                 {loadingHistory ? (
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="spinner-premium" style={{ width: 12, height: 12 }} />
                 ) : (
                   <Search size={12} />
                 )}
@@ -1229,7 +1229,7 @@ export function CreanceDetailView({
               {loadingHistory && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[2px] rounded-3xl transition-all">
                   <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-200">
-                    <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+                    <div className="spinner-premium" style={{ width: 32, height: 32 }} />
                     <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest">Calcul de l'Évolution...</p>
                   </div>
                 </div>

@@ -130,7 +130,7 @@ export function SubscriberDrillDownView({ targetName, column, startDate, endDate
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-56 gap-4">
-            <div className="w-10 h-10 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+            <div className="spinner-premium" style={{ width: 40, height: 40 }} />
             <p className="text-sm font-medium text-[#667085]">Chargement des abonnés...</p>
           </div>
         ) : error ? (

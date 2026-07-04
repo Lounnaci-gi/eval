@@ -585,7 +585,7 @@ export default function Dashboard() {
               className="relative overflow-hidden group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-3.5 text-sm font-black text-white transition-all duration-300 hover:from-brand-600 hover:to-brand-700 hover:shadow-lg hover:shadow-brand-500/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
             >
               {loginPending ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="spinner-premium" style={{ width: 20, height: 20 }} />
               ) : loginCountdown !== null && loginCountdown > 0 ? (
                 'Temporairement bloqué'
               ) : (
@@ -668,7 +668,7 @@ export default function Dashboard() {
         <div className="bg-white border border-[#E4E7EC] shadow-2xl rounded-2xl sm:rounded-[3rem] p-6 sm:p-16 flex flex-col items-center gap-8 max-w-lg w-full text-center mx-4">
           {!isLoadError && (
             <div className="relative">
-              <div className="animate-spin rounded-full h-24 w-24 border-4 border-brand-100 border-t-brand-600"></div>
+              <div className="spinner-premium" style={{ width: 96, height: 96 }}></div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="text-[10px] font-black text-brand-600 uppercase tracking-widest animate-pulse">EPEOR</span>
               </div>
@@ -1079,7 +1079,7 @@ export default function Dashboard() {
             </div>
             ) : (
             <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-8 page-card flex flex-col items-center justify-center gap-3 min-h-[200px]">
-                <div className="w-10 h-10 border-4 border-blue-100 border-t-[#0D83DE] rounded-full animate-spin" />
+                <div className="spinner-premium" style={{ width: 40, height: 40 }} />
                 <p className="text-sm font-bold text-[#667085]">{t('dashboard.loadingCharts')}</p>
               </div>
             )}

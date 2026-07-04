@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 
 const viewLoader = (
   <div className="p-12 flex justify-center">
-    <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+    <div className="spinner-premium" />
   </div>
 );
 

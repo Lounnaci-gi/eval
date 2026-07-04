@@ -231,7 +231,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
   if (loading) {
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-16 flex flex-col items-center justify-center gap-4 min-h-[400px]">
-        <div className="w-12 h-12 border-4 border-blue-100 border-t-[#0D83DE] rounded-full animate-spin" />
+        <div className="spinner-premium" style={{ width: 48, height: 48 }} />
         <p className="text-base font-bold text-[#475467] animate-pulse">{t('subscribers.loadingSubscribersEvolution', "Calcul de l'évolution des abonnés...")}</p>
       </div>
     );

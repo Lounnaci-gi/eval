@@ -2,10 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  X,
-  FileText,
   CheckCircle,
-  Landmark,
   Check,
   Plus,
   Trash2,
@@ -133,11 +130,6 @@ export function DossierJuridiquePanel({
     } finally {
       setSaving(false);
     }
-  };
-
-  const downloadPDF = (type: string) => {
-    const url = apiUrlObject(`/api/abonne/${abonne.numab}/${type}`).toString();
-    window.open(url, "_blank");
   };
 
   const printEcheancier = () => {
@@ -565,7 +557,7 @@ export function DossierJuridiquePanel({
                               label: "Exécution de Jugement",
                               color: "amber",
                             },
-                          ].map(({ key, label, color }) => {
+                          ].map(({ key, label }) => {
                             const value = dossier[
                               key as keyof typeof dossier
                             ] as boolean;

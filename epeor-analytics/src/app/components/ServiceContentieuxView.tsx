@@ -1666,43 +1666,6 @@ export function BilanImpressionView({
     };
   }, [uniqueTypes, filteredDossiers]);
 
-  const table2Statuts = useMemo(() => ["Actif", "Décédé"], []);
-
-  // Second table data
-  const table2Data = useMemo(() => {
-    const items = uniqueTypes.map((type) => {
-      const rowDossiers = filteredDossiers.filter((d) => d.type_abon === type);
-      const countsByStatut: Record<string, number> = {};
-
-      table2Statuts.forEach((statut) => {
-        countsByStatut[statut] = rowDossiers.filter((d) => {
-          const s = d.statut_abonne || "Actif";
-          return s.trim().toLowerCase() === statut.trim().toLowerCase();
-        }).length;
-      });
-
-      const rowTotal = rowDossiers.length;
-
-      return {
-        type,
-        countsByStatut,
-        rowTotal,
-      };
-    });
-
-    const colTotals: Record<string, number> = {};
-    table2Statuts.forEach((statut) => {
-      colTotals[statut] = filteredDossiers.filter((d) => {
-        const s = d.statut_abonne || "Actif";
-        return s.trim().toLowerCase() === statut.trim().toLowerCase();
-      }).length;
-    });
-
-    const grandTotal = filteredDossiers.length;
-
-    return { items, colTotals, grandTotal };
-  }, [uniqueTypes, filteredDossiers, table2Statuts]);
-
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", {
       minimumFractionDigits: 2,
@@ -1738,35 +1701,6 @@ export function BilanImpressionView({
         <td style="text-align:right">${fmt(item.totalAmount)}</td>
       </tr>
     `,
-      )
-      .join("");
-
-    // Build table 2 header columns
-    const t2HeaderCols = table2Statuts
-      .map((s) => `<th style="text-align:center">${esc(s)}</th>`)
-      .join("");
-
-    // Build table 2 rows HTML
-    const t2Rows = table2Data.items
-      .map((row) => {
-        const cols = table2Statuts
-          .map(
-            (s) =>
-              `<td style="text-align:center">${row.countsByStatut[s] ?? 0}</td>`,
-          )
-          .join("");
-        return `<tr>
-        <td>${esc(row.type)}</td>
-        ${cols}
-        <td style="text-align:center;font-weight:900">${row.rowTotal}</td>
-      </tr>`;
-      })
-      .join("");
-
-    const t2TotalCols = table2Statuts
-      .map(
-        (s) =>
-          `<td style="text-align:center">${table2Data.colTotals[s] ?? 0}</td>`,
       )
       .join("");
 

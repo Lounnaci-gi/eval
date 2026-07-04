@@ -109,21 +109,30 @@ export function NavItem({ icon, label, active = false, onClick }: any) {
   return (
     <div
       onClick={onClick}
-      className="relative flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-200 group"
-      style={active ? {
-        background: "var(--sidebar-active-bg)",
-        color: "var(--sidebar-active-border)",
-      } : {}}
+      className="relative flex h-12 min-h-12 flex-none items-center gap-3 px-4 py-0 rounded-2xl cursor-pointer transition-[background-color,box-shadow,color] duration-200 ease-out group overflow-hidden will-change-transform"
+      style={{
+        height: 48,
+        minHeight: 48,
+        ...(active ? {
+          background: "linear-gradient(135deg, rgba(13,131,222,0.16) 0%, rgba(99,102,241,0.12) 100%)",
+          color: "var(--sidebar-active-border)",
+          boxShadow: "inset 0 0 0 1px rgba(13,131,222,0.16), 0 6px 18px rgba(13,131,222,0.08)",
+        } : {}),
+      }}
       onMouseEnter={e => {
         if (!active) {
-          (e.currentTarget as HTMLElement).style.background = "var(--gradient-accent-soft)";
-          (e.currentTarget as HTMLElement).style.transform = "translateX(3px)";
+          const target = e.currentTarget as HTMLElement;
+          target.style.background = "var(--gradient-accent-soft)";
+          target.style.transform = "translateX(0)";
+          target.style.boxShadow = "none";
         }
       }}
       onMouseLeave={e => {
         if (!active) {
-          (e.currentTarget as HTMLElement).style.background = "transparent";
-          (e.currentTarget as HTMLElement).style.transform = "translateX(0)";
+          const target = e.currentTarget as HTMLElement;
+          target.style.background = "transparent";
+          target.style.transform = "translateX(0)";
+          target.style.boxShadow = "none";
         }
       }}
     >
@@ -137,14 +146,14 @@ export function NavItem({ icon, label, active = false, onClick }: any) {
       )}
 
       <span
-        className="transition-colors duration-200"
+        className="flex-none transition-colors duration-200 leading-none"
         style={{ color: active ? "var(--sidebar-active-border)" : "rgb(var(--color-text-secondary))" }}
       >
         {icon}
       </span>
 
       <span
-        className={`text-sm transition-colors duration-200 ${active ? "font-bold" : "font-semibold"}`}
+        className={`min-w-0 flex-1 truncate text-sm leading-none transition-colors duration-200 tracking-[0.01em] ${active ? "font-bold" : "font-semibold"}`}
         style={{ color: active ? "rgb(var(--color-text-primary))" : "rgb(var(--color-text-secondary))" }}
       >
         {label}
@@ -153,7 +162,7 @@ export function NavItem({ icon, label, active = false, onClick }: any) {
       {/* Active dot (right) */}
       {active && (
         <div
-          className="ml-auto w-2 h-2 rounded-full"
+          className="ml-auto h-2 w-2 shrink-0 rounded-full"
           style={{ background: "var(--gradient-accent)", boxShadow: "0 0 6px var(--glow-blue)" }}
         />
       )}

@@ -5,6 +5,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 import sqlite3
+import contextlib
 import hashlib
 import secrets
 from dbfread import DBF
@@ -170,10 +171,15 @@ _AUTH_ENABLED = os.environ.get("EPEOR_AUTH_ENABLED", "1").strip() not in ("0", "
 # AUTH DATABASE — SQLite (stdlib, pas de dépendance supplémentaire)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _get_auth_conn() -> sqlite3.Connection:
+@contextlib.contextmanager
+def _get_auth_conn():
     conn = sqlite3.connect(AUTH_DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def _init_auth_db() -> None:
@@ -4413,10 +4419,14 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None) -> dict:
                 numser = str(abonment_rec.get('NUMSER', '') if abonment_rec else '').strip() or '—'
                 raw_etat = str(abonment_rec.get('ETATCPT', '') if abonment_rec else '').strip()
 
+                prefix = numab[:2]
+                quart_name = quartier_names.get(prefix, f"Quartier {prefix}")
                 debtors[numab] = {
                     "numab": numab,
                     "name": name,
                     "tournee": tournee if tournee else "—",
+                    "quartier_code": prefix,
+                    "quartier_name": quart_name,
                     "type_abon": resolve_typabon_label(raw_typabon),
                     "type_abon_code": raw_typabon or '—',
                     "etat_cpt": resolve_etatcpt_label(raw_etat),
@@ -4469,7 +4479,18 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None) -> dict:
 
         tournees_list = sorted(tournees_set)
 
-        return {"subscribers": debtor_list, "tournees": tournees_list}
+        quartiers_set = set()
+        for d in debtor_list:
+            q_code = d["quartier_code"]
+            q_name = d["quartier_name"]
+            quartiers_set.add((q_code, q_name))
+        quartiers_list = [{"code": q_c, "name": q_n} for q_c, q_n in sorted(quartiers_set, key=lambda x: x[0])]
+
+        return {
+            "subscribers": debtor_list,
+            "tournees": tournees_list,
+            "quartiers": quartiers_list
+        }
 
     except Exception as e:
         return {"error": str(e)}

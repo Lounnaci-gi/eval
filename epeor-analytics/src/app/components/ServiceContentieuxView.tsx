@@ -455,6 +455,8 @@ export function ServiceContentieuxView({
     win.document.write(`<!DOCTYPE html><html><head>
       <title>Service Contentieux</title>
       <style>
+        .print-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+        .print-logo { height:48px; width:auto; object-fit:contain; }
         body { font-family: 'Inter', Arial, sans-serif; font-size: 9px; margin: 30px; color: #101828; }
         h1 { font-size: 16px; font-weight: 900; margin: 0 0 4px; }
         .sub { font-size: 10px; color: #667085; margin-bottom: 16px; }
@@ -468,8 +470,13 @@ export function ServiceContentieuxView({
         @media print { @page { size: A4 landscape; margin: 0.5cm; } }
       </style>
     </head><body>
-      <h1>Service Contentieux</h1>
-      <div class="sub">${secteurLabel ? `Centre : ${esc(secteurLabel)}` : "Toute l'unité"} — ${selectedRows.length} abonné(s)</div>
+      <div class="print-header">
+        <img class="print-logo" src="${window.location.origin}/ade.png" alt="ADE" />
+        <div style="text-align:right;">
+          <h1>Service Contentieux</h1>
+          <div class="sub">${secteurLabel ? `Centre : ${esc(secteurLabel)}` : "Toute l'unité"} — ${selectedRows.length} abonné(s)</div>
+        </div>
+      </div>
       <div class="totals">
         <div><div class="tot-label">Abonnés</div><div class="tot-val">${selectedRows.length}</div></div>
         <div><div class="tot-label">Factures impayées</div><div class="tot-val">${selectedRows.reduce((a, s) => a + (s.nombre_creance || 0), 0)}</div></div>
@@ -750,6 +757,8 @@ export function ServiceContentieuxView({
               win.document.write(`<!DOCTYPE html><html><head>
                 <title>Dossiers Contentieux</title>
                 <style>
+                  .print-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+                  .print-logo { height:48px; width:auto; object-fit:contain; }
                   body { font-family: 'Inter', Arial, sans-serif; font-size: 9px; margin: 24px; color: #101828; }
                   h1 { font-size: 16px; font-weight: 900; margin: 0 0 4px; }
                   .sub { font-size: 10px; color: #667085; margin-bottom: 12px; }
@@ -760,8 +769,15 @@ export function ServiceContentieuxView({
                   @media print { @page { size: A4 landscape; margin: 0.5cm; } }
                 </style>
               </head><body>
-                <h1>Dossiers Contentieux</h1>
-                <div class="sub">${esc(dossierSearch || "Tous les dossiers")}${dossierEtapeFilter ? ` • Étape : ${esc(dossierEtapeFilter)}` : ""}${dossierStatutFilter ? ` • Statut : ${esc(dossierStatutFilter)}` : ""}</div>
+                <div class="print-header">
+                  <img class="print-logo" src="${window.location.origin}/ade.png" alt="ADE" />
+                  <div style="text-align:right;">
+                    <h1>Dossiers Contentieux</h1>
+                    <div class="sub">${secteurLabel ? `Centre : ${esc(secteurLabel)}` : "Toute l'unité"}</div>
+                    <div class="sub">${esc(dossierSearch || "Tous les dossiers")}${dossierEtapeFilter ? ` • Étape : ${esc(dossierEtapeFilter)}` : ""}${dossierStatutFilter ? ` • Statut : ${esc(dossierStatutFilter)}` : ""}</div>
+                    <div class="sub">Date d'édition : ${new Date().toLocaleDateString("fr-DZ")}</div>
+                  </div>
+                </div>
                 <table>
                   <thead><tr>
                     <th>#</th><th>Code Abonné</th><th>Nom / Raison Sociale</th><th>Adresse</th><th>Tournée</th><th>Statut Abonné</th><th>Étape Recouvrement</th><th>Démarches</th><th>Date Transmission</th><th>Dernière MàJ</th>
@@ -1732,9 +1748,11 @@ export function BilanImpressionView({
   const table1Data = useMemo(() => {
     let totalCount = 0;
     let grandTotalAmount = 0;
-    let totalHeritiers = 0;
     let totalSuspended = 0;
     let totalEcheanciers = 0;
+    let totalSuccessionNotaire = 0;
+    let totalTribunal = 0;
+    let totalExecutionJugement = 0;
 
     const items = uniqueTypes.map((type) => {
       const matching = filteredDossiers.filter((d) => d.type_abon === type);
@@ -1743,10 +1761,6 @@ export function BilanImpressionView({
         (sum, d) => sum + (d.montant_creance || 0),
         0,
       );
-      const heritiers = matching.filter((d) => {
-        const s = d.statut_abonne || "Actif";
-        return s.trim().toLowerCase() === "héritier";
-      }).length;
       const suspended = matching.filter((d) => {
         const s = d.statut_abonne || "Actif";
         return s.trim().toLowerCase() === "suspendu";
@@ -1754,20 +1768,33 @@ export function BilanImpressionView({
       const echeanciers = matching.filter((d) =>
         Boolean(d.has_echeancier),
       ).length;
+      const successionNotaire = matching.filter((d) => {
+        const etape = (d.etape_recouvrement || "").trim().toLowerCase();
+        return etape === "succession notaire";
+      }).length;
+      const tribunal = matching.filter((d) => {
+        const etape = (d.etape_recouvrement || "").trim().toLowerCase();
+        return etape === "tribunal";
+      }).length;
+      const executionJugement = matching.filter((d) => Boolean(d.execution_jugement)).length;
 
       totalCount += count;
       grandTotalAmount += totalAmount;
-      totalHeritiers += heritiers;
       totalSuspended += suspended;
       totalEcheanciers += echeanciers;
+      totalSuccessionNotaire += successionNotaire;
+      totalTribunal += tribunal;
+      totalExecutionJugement += executionJugement;
 
       return {
         type,
         count,
         totalAmount,
-        heritiers,
         suspended,
         echeanciers,
+        successionNotaire,
+        tribunal,
+        executionJugement,
       };
     });
 
@@ -1775,9 +1802,11 @@ export function BilanImpressionView({
       items,
       totalCount,
       grandTotalAmount,
-      totalHeritiers,
       totalSuspended,
       totalEcheanciers,
+      totalSuccessionNotaire,
+      totalTribunal,
+      totalExecutionJugement,
     };
   }, [uniqueTypes, filteredDossiers]);
 
@@ -1812,7 +1841,9 @@ export function BilanImpressionView({
         <td style="text-align:center">${item.count}</td>
         <td style="text-align:center">${item.suspended}</td>
         <td style="text-align:center">${item.echeanciers}</td>
-        <td style="text-align:center">${item.heritiers}</td>
+        <td style="text-align:center">${item.successionNotaire}</td>
+        <td style="text-align:center">${item.tribunal}</td>
+        <td style="text-align:center">${item.executionJugement}</td>
         <td style="text-align:right">${fmt(item.totalAmount)}</td>
       </tr>
     `,
@@ -1839,9 +1870,43 @@ export function BilanImpressionView({
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      gap: 16px;
       border-bottom: 2px solid #101828;
       padding-bottom: 14px;
       margin-bottom: 24px;
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-width: 0;
+      width: 100%;
+    }
+    .header-logo {
+      width: 82px;
+      height: auto;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .header-title {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      flex: 1;
+      min-width: 0;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .header-title .title-line {
+      font-size: 16px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin: 0;
+      line-height: 1.2;
     }
     .header h1 {
       font-size: 17px;
@@ -1911,9 +1976,13 @@ export function BilanImpressionView({
 </head>
 <body>
   <div class="header">
-    <div>
-      <h1>Bilan d'Activité — Service Contentieux</h1>
-      <div class="sub">${secteurLabel ? `Centre / Secteur : ${esc(secteurLabel)}` : "Toute l'unité"}</div>
+    <div class="header-brand">
+      <img class="header-logo" src="${window.location.origin}/ade.png" alt="ADE" />
+      <div class="header-title">
+        <div class="title-line">SERVICE CONTENTIEUX</div>
+        <div class="title-line">BILAN D'ACTIVITÉ</div>
+        <div class="sub">${secteurLabel ? `Centre / Secteur : ${esc(secteurLabel)}` : "Toute l'unité"}</div>
+      </div>
     </div>
     <div class="header-right">
       <div>Période : <span>${formatDateString(startDate)}</span> au <span>${formatDateString(endDate)}</span></div>
@@ -1930,7 +1999,9 @@ export function BilanImpressionView({
           <th style="text-align:center">Nouveaux dossiers reçus</th>
           <th style="text-align:center">Suspendu</th>
           <th style="text-align:center">Échéancier</th>
-          <th style="text-align:center">Héritiers</th>
+          <th style="text-align:center">Succession Notaire</th>
+          <th style="text-align:center">Tribunal</th>
+          <th style="text-align:center">Exécution de Jugement</th>
           <th style="text-align:right">Montant global</th>
         </tr>
       </thead>
@@ -1941,7 +2012,9 @@ export function BilanImpressionView({
           <td style="text-align:center">${table1Data.totalCount}</td>
           <td style="text-align:center">${table1Data.totalSuspended}</td>
           <td style="text-align:center">${table1Data.totalEcheanciers}</td>
-          <td style="text-align:center">${table1Data.totalHeritiers}</td>
+          <td style="text-align:center">${table1Data.totalSuccessionNotaire}</td>
+          <td style="text-align:center">${table1Data.totalTribunal}</td>
+          <td style="text-align:center">${table1Data.totalExecutionJugement}</td>
           <td style="text-align:right">${fmt(table1Data.grandTotalAmount)}</td>
         </tr>
       </tbody>
@@ -1951,10 +2024,6 @@ export function BilanImpressionView({
   <div class="sig-row">
     <div>
       <div>Visa du Responsable Contentieux</div>
-      <div class="sig-box"></div>
-    </div>
-    <div style="text-align:right">
-      <div>Visa de la Direction d'Unité</div>
       <div class="sig-box"></div>
     </div>
   </div>
@@ -2090,7 +2159,13 @@ export function BilanImpressionView({
                     Échéancier
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
-                    Héritiers
+                    Succession Notaire
+                  </th>
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
+                    Tribunal
+                  </th>
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
+                    Exécution de Jugement
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-right">
                     Montant global
@@ -2112,8 +2187,14 @@ export function BilanImpressionView({
                     <td className="py-2.5 px-4 font-bold text-center text-blue-700">
                       {item.echeanciers}
                     </td>
-                    <td className="py-2.5 px-4 font-bold text-center text-emerald-700">
-                      {item.heritiers}
+                    <td className="py-2.5 px-4 font-bold text-center text-indigo-700">
+                      {item.successionNotaire}
+                    </td>
+                    <td className="py-2.5 px-4 font-bold text-center text-violet-700">
+                      {item.tribunal}
+                    </td>
+                    <td className="py-2.5 px-4 font-bold text-center text-rose-700">
+                      {item.executionJugement}
                     </td>
                     <td className="py-2.5 px-4 font-black text-right text-rose-600 tabular-nums">
                       {fmt(item.totalAmount)}
@@ -2134,8 +2215,14 @@ export function BilanImpressionView({
                   <td className="py-3 px-4 text-center text-blue-900">
                     {table1Data.totalEcheanciers}
                   </td>
-                  <td className="py-3 px-4 text-center text-emerald-900">
-                    {table1Data.totalHeritiers}
+                  <td className="py-3 px-4 text-center text-indigo-900">
+                    {table1Data.totalSuccessionNotaire}
+                  </td>
+                  <td className="py-3 px-4 text-center text-violet-900">
+                    {table1Data.totalTribunal}
+                  </td>
+                  <td className="py-3 px-4 text-center text-rose-900">
+                    {table1Data.totalExecutionJugement}
                   </td>
                   <td className="py-3 px-4 text-right text-rose-700 tabular-nums">
                     {fmt(table1Data.grandTotalAmount)}

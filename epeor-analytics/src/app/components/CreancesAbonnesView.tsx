@@ -34,6 +34,8 @@ export function CreancesAbonnesView({
   const [filterExpanded, setFilterExpanded] = useState(false);
 
   // ─── Filter state ────────────────────────────────────────────────
+  const [allQuartiers, setAllQuartiers] = useState<{code: string, name: string}[]>([]);
+  const [selectedQuartier, setSelectedQuartier] = useState<string>('all');
   const [customTournees, setCustomTournees] = useState<string[]>([]);
   const [newTourneeInput, setNewTourneeInput] = useState('');
   const [customCodesAbonnes, setCustomCodesAbonnes] = useState<string[]>([]);
@@ -76,6 +78,7 @@ export function CreancesAbonnesView({
     setDataLoaded(false);
     setResults(null);
     setAllSubscribers([]);
+    setAllQuartiers([]);
     try {
       const url = apiUrlObject('/creances_abonnes');
       appendSecteurParam(url, selectedSecteur);
@@ -85,6 +88,7 @@ export function CreancesAbonnesView({
         setError(data.error);
       } else {
         setAllSubscribers(data.subscribers || []);
+        setAllQuartiers(data.quartiers || []);
         setDataLoaded(true);
       }
     } catch {
@@ -137,6 +141,11 @@ export function CreancesAbonnesView({
     setPage(1);
     setSearch('');
     let filtered = [...allSubscribers];
+
+    // 0. Quartier filter
+    if (selectedQuartier !== 'all') {
+      filtered = filtered.filter(s => s.quartier_code === selectedQuartier);
+    }
 
     // 1. Tournées / codes abonnés filter
     const hasTourneeFilter = customTournees.length > 0;
@@ -206,6 +215,7 @@ export function CreancesAbonnesView({
   };
 
   const resetFilters = () => {
+    setSelectedQuartier('all');
     setCustomTournees([]);
     setNewTourneeInput('');
     setCustomCodesAbonnes([]);
@@ -428,7 +438,7 @@ export function CreancesAbonnesView({
   };
 
   const exportCSV = () => {
-    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Adresse', 'Bloc', 'N° Dom', 'Type Abonné', 'Code Type', 'État Cpt', 'Code État', 'N° Série Compteur', 'Tournée', 'Dernier Paiement', 'Factures Impayées', 'Montant Créance (DA)', 'Statut'];
+    const header = ['Code Abonné', 'Nom / Raison Sociale', 'Adresse', 'Bloc', 'N° Dom', 'Type Abonné', 'Code Type', 'État Cpt', 'Code État', 'N° Série Compteur', 'Code Quartier', 'Nom Quartier', 'Tournée', 'Dernier Paiement', 'Factures Impayées', 'Montant Créance (DA)', 'Statut'];
     const rows = selectedRows.map((s: any) => [
       s.numab,
       s.name,
@@ -440,6 +450,8 @@ export function CreancesAbonnesView({
       s.etat_cpt || '—',
       s.etat_cpt_code || '—',
       s.numser || '—',
+      s.quartier_code || '—',
+      s.quartier_name || '—',
       s.tournee,
       s.derniere_date_paiement,
       s.nombre_creance,
@@ -468,6 +480,10 @@ export function CreancesAbonnesView({
     }
 
     const filterParts: string[] = [];
+    if (selectedQuartier !== 'all') {
+      const qObj = allQuartiers.find(q => q.code === selectedQuartier);
+      filterParts.push(`Quartier: ${qObj ? `${qObj.code} - ${qObj.name}` : selectedQuartier}`);
+    }
     if (filterTypesAbon.length > 0) filterParts.push(`Types: ${filterTypesAbon.join(', ')}`);
     if (filterEtatsCpt.length > 0) filterParts.push(`États: ${filterEtatsCpt.join(', ')}`);
     if (filterTourneesTable.length > 0) filterParts.push(`Tournées: ${filterTourneesTable.join(', ')}`);
@@ -507,6 +523,7 @@ export function CreancesAbonnesView({
           <td>${escapeHtml(s.type_abon)}</td>
           <td>${escapeHtml(s.etat_cpt)}</td>
           <td>${escapeHtml(s.numser)}</td>
+          <td>${escapeHtml(s.quartier_code)} - ${escapeHtml(s.quartier_name)}</td>
           <td class="tournee-badge">${escapeHtml(s.tournee)}</td>
           <td>${escapeHtml(s.derniere_date_paiement)}</td>
           <td style="text-align:center;font-weight:700;">${s.nombre_creance ?? 0}</td>
@@ -646,6 +663,7 @@ export function CreancesAbonnesView({
                 <th>Type Abonné</th>
                 <th>État Cpt</th>
                 <th>N° Série</th>
+                <th>Quartier</th>
                 <th>Tournée</th>
                 <th>Dernier Paiement</th>
                 <th style="text-align:center">Factures</th>
@@ -657,7 +675,7 @@ export function CreancesAbonnesView({
             <tbody>${rowsHtml}</tbody>
             <tfoot>
               <tr>
-                <td colspan="11" style="text-transform:uppercase;letter-spacing:0.05em;">TOTAL GÉNÉRAL — ${printTotals.count} abonné${printTotals.count !== 1 ? 's' : ''}</td>
+                <td colspan="12" style="text-transform:uppercase;letter-spacing:0.05em;">TOTAL GÉNÉRAL — ${printTotals.count} abonné${printTotals.count !== 1 ? 's' : ''}</td>
                 <td style="text-align:center;">${printTotals.factures.toLocaleString('fr-FR')}</td>
                 <td style="text-align:right;color:#e11d48;">${montantFmt(printTotals.montant)}</td>
                 <td colspan="2" class="observation-cell"></td>
@@ -1356,7 +1374,7 @@ export function CreancesAbonnesView({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 items-start">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
 
                 {/* 1. Tournées */}
                 <div>
@@ -1386,11 +1404,34 @@ export function CreancesAbonnesView({
                   <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Vide = toutes les tournées</p>
                 </div>
 
-                {/* 2. Montant de créance */}
+                {/* 2. Quartier */}
                 <div>
                   <label className={labelCls}>
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-rose-100 rounded-md flex items-center justify-center text-rose-600 text-[9px] font-black">2</span>
+                      <span className="w-4 h-4 bg-indigo-100 rounded-md flex items-center justify-center text-indigo-600 text-[9px] font-black">2</span>
+                      Quartier
+                    </span>
+                  </label>
+                  <select
+                    value={selectedQuartier}
+                    onChange={e => setSelectedQuartier(e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="all">Tous les quartiers</option>
+                    {allQuartiers.map(q => (
+                      <option key={q.code} value={q.code}>
+                        {q.code} - {q.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Filtrer par quartier géographique</p>
+                </div>
+
+                {/* 3. Montant de créance */}
+                <div>
+                  <label className={labelCls}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-rose-100 rounded-md flex items-center justify-center text-rose-600 text-[9px] font-black">3</span>
                       Montant de Créance (DA)
                     </span>
                   </label>
@@ -1416,11 +1457,11 @@ export function CreancesAbonnesView({
                   <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer</p>
                 </div>
 
-                {/* 3. Nombre de créances */}
+                {/* 4. Factures Impayées */}
                 <div>
                   <label className={labelCls}>
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-amber-100 rounded-md flex items-center justify-center text-amber-600 text-[9px] font-black">3</span>
+                      <span className="w-4 h-4 bg-amber-100 rounded-md flex items-center justify-center text-amber-600 text-[9px] font-black">4</span>
                       Factures Impayées
                     </span>
                   </label>
@@ -1447,11 +1488,11 @@ export function CreancesAbonnesView({
                   <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer</p>
                 </div>
 
-                {/* 4. Dernier paiement */}
+                {/* 5. Ancienneté Paiement */}
                 <div>
                   <label className={labelCls}>
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-teal-100 rounded-md flex items-center justify-center text-teal-600 text-[9px] font-black">4</span>
+                      <span className="w-4 h-4 bg-teal-100 rounded-md flex items-center justify-center text-teal-600 text-[9px] font-black">5</span>
                       Ancienneté Paiement
                     </span>
                   </label>
@@ -1481,11 +1522,11 @@ export function CreancesAbonnesView({
                   <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Sans paiement = inclus</p>
                 </div>
 
-                {/* 5. Codes abonnés */}
+                {/* 6. Codes abonnés */}
                 <div>
                   <label className={labelCls}>
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-violet-100 rounded-md flex items-center justify-center text-violet-600 text-[9px] font-black">5</span>
+                      <span className="w-4 h-4 bg-violet-100 rounded-md flex items-center justify-center text-violet-600 text-[9px] font-black">6</span>
                       Code Abonné(s)
                     </span>
                   </label>
@@ -1829,6 +1870,7 @@ export function CreancesAbonnesView({
                     <Th label="Type Abonné" field="type_abon" align="center" />
                     <Th label="État Cpt" field="etat_cpt" align="center" />
                     <Th label="N° Série Compteur" field="numser" align="center" />
+                    <Th label="Quartier" field="quartier_code" align="center" />
                     <Th label="Tournée" field="tournee" align="center" />
                     <Th label="Dernier Paiement" field="raw_last_payment" align="center" />
                     <Th label="Factures Impayées" field="nombre_creance" align="center" />
@@ -1867,6 +1909,12 @@ export function CreancesAbonnesView({
                         <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[200px]" title={s.type_abon_code ? `Code T${s.type_abon_code}` : undefined}>{s.type_abon}</td>
                         <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[180px]" title={s.etat_cpt_code ? `Code ${s.etat_cpt_code}` : undefined}>{s.etat_cpt}</td>
                         <td className="px-6 py-4 text-center text-xs font-mono font-bold text-[#101828]">{s.numser}</td>
+                        <td className="px-6 py-4 text-center text-xs text-[#475467] font-medium max-w-[150px] truncate" title={s.quartier_name}>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-black border bg-indigo-50 text-indigo-700 border-indigo-100">
+                            {s.quartier_code}
+                          </span>
+                          <span className="ml-1.5 text-[11px] font-bold text-[#475467]">{s.quartier_name}</span>
+                        </td>
                         <td className="px-6 py-4 text-center">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black border bg-blue-50 text-blue-600 border-blue-100">{s.tournee}</span>
                         </td>

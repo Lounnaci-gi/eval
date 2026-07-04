@@ -479,6 +479,26 @@ export function DossierJuridiquePanel({
                 Abonné {abonne.numab} — {abonne.name}
               </p>
             </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-end">
+              <button
+                onClick={onClose}
+                className="px-6 py-3 rounded-2xl text-sm font-black text-[#475569] bg-white border border-[#E4E7EC] hover:border-rose-500 hover:text-rose-600 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || loading}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-brand-600 text-sm font-black text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? (
+                  <div className="spinner-premium w-4 h-4 border-2" />
+                ) : (
+                  <CheckCircle size={16} />
+                )}
+                Sauvegarder le dossier
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1112,26 +1132,6 @@ export function DossierJuridiquePanel({
           </div>
         </div>
 
-        <div className="p-6 border-t border-[#E4E7EC] bg-[#F8FAFC] flex flex-col sm:flex-row gap-3 justify-end">
-          <button
-            onClick={onClose}
-            className="px-6 py-3 rounded-2xl text-sm font-black text-[#475569] bg-white border border-[#E4E7EC] hover:border-rose-500 hover:text-rose-600 transition-colors"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || loading}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-brand-600 text-sm font-black text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? (
-              <div className="spinner-premium w-4 h-4 border-2" />
-            ) : (
-              <CheckCircle size={16} />
-            )}
-            Sauvegarder le dossier
-          </button>
-        </div>
       </div>
     </div>
   );

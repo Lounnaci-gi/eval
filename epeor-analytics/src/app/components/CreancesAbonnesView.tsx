@@ -36,6 +36,8 @@ export function CreancesAbonnesView({
   // ─── Filter state ────────────────────────────────────────────────
   const [customTournees, setCustomTournees] = useState<string[]>([]);
   const [newTourneeInput, setNewTourneeInput] = useState('');
+  const [customCodesAbonnes, setCustomCodesAbonnes] = useState<string[]>([]);
+  const [newCodeAbonneInput, setNewCodeAbonneInput] = useState('');
   const [montantOp, setMontantOp] = useState<'>='|'='|'<='>('>=');
   const [montantVal, setMontantVal] = useState('');
   const [nbCreanceOp, setNbCreanceOp] = useState<'>='|'='|'<='>('>=');
@@ -58,6 +60,15 @@ export function CreancesAbonnesView({
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(n).replace(/[\u202F\u00A0]/g, ' ') + " DA";
+
+  const normalizeTournee = useCallback((value: any) => {
+    const digits = String(value ?? "").trim().replace(/\D/g, "");
+    return digits ? digits.padStart(3, "0") : "";
+  }, []);
+
+  const normalizeCodeAbonne = useCallback((value: any) => {
+    return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  }, []);
 
   const loadData = useCallback(async () => {
     setDataLoading(true);
@@ -129,7 +140,7 @@ export function CreancesAbonnesView({
 
     // 1. Tournées filter
     if (customTournees.length > 0) {
-      filtered = filtered.filter(s => customTournees.includes(s.tournee));
+      filtered = filtered.filter(s => customTournees.includes(normalizeTournee(s.tournee)));
     }
 
     // 2. Montant filter
@@ -174,6 +185,14 @@ export function CreancesAbonnesView({
       }
     }
 
+    // 5. Code abonné(s) filter
+    if (customCodesAbonnes.length > 0) {
+      filtered = filtered.filter((s) => {
+        const numab = normalizeCodeAbonne(s.numab);
+        return customCodesAbonnes.includes(numab);
+      });
+    }
+
     setFilterTypesAbon([]);
     setFilterEtatsCpt([]);
     setFilterTourneesTable([]);
@@ -185,6 +204,8 @@ export function CreancesAbonnesView({
   const resetFilters = () => {
     setCustomTournees([]);
     setNewTourneeInput('');
+    setCustomCodesAbonnes([]);
+    setNewCodeAbonneInput('');
     setMontantOp('>='); setMontantVal('');
     setNbCreanceOp('>='); setNbCreanceVal('');
     setDernierPaiementOp('>'); setDernierPaiementDays('');
@@ -234,6 +255,32 @@ export function CreancesAbonnesView({
 
   const removeTournee = (t: string) => {
     setCustomTournees(prev => prev.filter(x => x !== t));
+  };
+
+  const addCodeAbonne = () => {
+    const trimmed = newCodeAbonneInput.trim().toUpperCase();
+    if (!trimmed) return;
+
+    const normalized = trimmed.replace(/[^A-Z0-9]/g, '');
+    if (!normalized) {
+      void showAlert('Veuillez entrer un code abonné valide', { icon: 'warning' });
+      return;
+    }
+    if (normalized.length > 6) {
+      void showAlert('Le code abonné ne peut dépasser 6 caractères', { icon: 'warning' });
+      return;
+    }
+
+    if (!customCodesAbonnes.includes(normalized)) {
+      setCustomCodesAbonnes(prev => [...prev, normalized]);
+      setNewCodeAbonneInput('');
+    } else {
+      void showAlert(`${normalized} est déjà ajouté`, { icon: 'warning' });
+    }
+  };
+
+  const removeCodeAbonne = (code: string) => {
+    setCustomCodesAbonnes(prev => prev.filter(x => x !== code));
   };
 
   const filterOptions = useMemo(() => {
@@ -1305,7 +1352,7 @@ export function CreancesAbonnesView({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 items-start">
 
                 {/* 1. Tournées */}
                 <div>
@@ -1430,18 +1477,61 @@ export function CreancesAbonnesView({
                   <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Sans paiement = inclus</p>
                 </div>
 
+                {/* 5. Codes abonnés */}
+                <div>
+                  <label className={labelCls}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-violet-100 rounded-md flex items-center justify-center text-violet-600 text-[9px] font-black">5</span>
+                      Code Abonné(s)
+                    </span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="ex: 00123"
+                      value={newCodeAbonneInput}
+                      onChange={e => setNewCodeAbonneInput(e.target.value.toUpperCase().slice(0, 6))}
+                      onKeyPress={e => e.key === 'Enter' && addCodeAbonne()}
+                      className={inputCls}
+                    />
+                    <button
+                      onClick={addCodeAbonne}
+                      disabled={!newCodeAbonneInput.trim()}
+                      className="px-4 py-2.5 bg-violet-600 text-white rounded-xl text-xs font-black hover:bg-violet-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Ajoutez un code à la fois puis validez</p>
+                </div>
+
               </div>
 
-              {customTournees.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap p-4 bg-blue-50 border border-blue-100 rounded-xl mt-6">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Tournées ajoutées :</span>
-                  {customTournees.map(t => (
-                    <span key={t} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 rounded-lg text-[11px] font-black border border-blue-200 shadow-sm">
-                      {t}
-                      <button onClick={() => removeTournee(t)} className="text-blue-400 hover:text-blue-700 font-bold">×</button>
-                    </span>
-                  ))}
-                  <button onClick={() => setCustomTournees([])} className="text-[10px] text-rose-500 font-bold hover:text-rose-700 ml-auto">Tout effacer</button>
+              {(customTournees.length > 0 || customCodesAbonnes.length > 0) && (
+                <div className="flex flex-col gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl mt-6">
+                  {customTournees.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Tournées ajoutées :</span>
+                      {customTournees.map(t => (
+                        <span key={t} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 rounded-lg text-[11px] font-black border border-blue-200 shadow-sm">
+                          {t}
+                          <button onClick={() => removeTournee(t)} className="text-blue-400 hover:text-blue-700 font-bold">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {customCodesAbonnes.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-violet-700">Codes abonnés ajoutés :</span>
+                      {customCodesAbonnes.map(code => (
+                        <span key={code} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-violet-700 rounded-lg text-[11px] font-black border border-violet-200 shadow-sm">
+                          {code}
+                          <button onClick={() => removeCodeAbonne(code)} className="text-violet-400 hover:text-violet-700 font-bold">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => { setCustomTournees([]); setCustomCodesAbonnes([]); }} className="text-[10px] text-rose-500 font-bold hover:text-rose-700 ml-auto">Tout effacer</button>
                 </div>
               )}
             </>

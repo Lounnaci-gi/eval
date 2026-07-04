@@ -626,17 +626,19 @@ _secteur_stats_cache: dict = {}
 _subscribers_evolution_cache: dict = {}
 _invoice_state_history_cache: dict[str, dict[tuple[int, int], str]] = {}
 _commune_codcoms_cache: dict[str | None, set[str] | None] = {}
+_creances_abonnes_cache: dict[tuple, dict] = {}
 _abonment_dates_by_numab: dict[str, str] = {}
 _abonment_state_by_numab: dict[str, str] = {}
 
 
 def _invalidate_runtime_caches() -> None:
     global _secteur_stats_cache, _subscribers_evolution_cache, _invoice_state_history_cache
-    global _commune_codcoms_cache, _abonment_dates_by_numab, _abonment_state_by_numab
+    global _commune_codcoms_cache, _creances_abonnes_cache, _abonment_dates_by_numab, _abonment_state_by_numab
     _secteur_stats_cache = {}
     _subscribers_evolution_cache = {}
     _invoice_state_history_cache = {}
     _commune_codcoms_cache = {}
+    _creances_abonnes_cache = {}
     _abonment_dates_by_numab = {}
     _abonment_state_by_numab = {}
 
@@ -4347,11 +4349,24 @@ def get_abonne_api(numab: str, _user: dict = Depends(get_current_user)):
         "factures": factures_formatted
     }
 
-@app.get("/creances_abonnes")
-def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str = None):
-    secteur = _enforce_sector(_user, secteur)
+def _cache_key_for_creances_abonnes(user: dict, secteur: str | None) -> tuple:
+    sector_value = str(secteur or "").strip()
+    if not _AUTH_ENABLED or user.get("is_admin"):
+        return ("admin", sector_value)
+    allowed_secs = _normalize_allowed_sectors(user.get("allowed_sectors"))
+    if allowed_secs is None:
+        return (user.get("username") or user.get("id") or "anon", sector_value)
+    return (
+        user.get("username") or user.get("id") or "anon",
+        sector_value,
+        tuple(sorted(allowed_secs)),
+    )
+
+
+def _compute_creances_abonnes_payload(user: dict, secteur: str | None) -> dict:
+    secteur = _enforce_sector(user, secteur)
     try:
-        secteur_numabs = _secteur_numabs_set_for_user(_user, secteur)
+        secteur_numabs = _secteur_numabs_set_for_user(user, secteur)
         date_arrete = _creance_date_arrete()
         debtors = {}
         tournees_set = set()
@@ -4367,8 +4382,10 @@ def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str =
 
         for r, is_avoir in records:
             numab = str(r.get('NUMAB', '') or '').strip()
-            if not numab: continue
-            if secteur_numabs is not None and numab.upper() not in secteur_numabs: continue
+            if not numab:
+                continue
+            if secteur_numabs is not None and numab.upper() not in secteur_numabs:
+                continue
 
             datreg = str(r.get('DATREG') or '').strip()
             is_creance = is_unpaid_creance(r, is_avoir, date_arrete)
@@ -4377,7 +4394,8 @@ def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str =
                 numab_key = numab.strip().upper()
                 abonne_rec = abonnes_by_numab.get(numab_key)
                 name = abonne_rec.get('RAISOC', '') or abonne_rec.get('NOM', '') if abonne_rec else 'Nom inconnu'
-                if not name: name = 'Nom inconnu'
+                if not name:
+                    name = 'Nom inconnu'
                 tournee = str(abonne_rec.get('TOURNEE', '') if abonne_rec else '').strip()
                 if tournee:
                     tournees_set.add(tournee)
@@ -4452,6 +4470,18 @@ def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str =
         return {"error": str(e)}
 
 
+@app.get("/creances_abonnes")
+def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str = None):
+    cache_key = _cache_key_for_creances_abonnes(_user, secteur)
+    cached = _creances_abonnes_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    payload = _compute_creances_abonnes_payload(_user, secteur)
+    _creances_abonnes_cache[cache_key] = payload
+    return payload
+
+
 class LegalStatusUpdate(BaseModel):
     is_contentieux: bool
 
@@ -4472,6 +4502,8 @@ def update_legal_status(numab: str, payload: LegalStatusUpdate, _user: dict = De
                     (numab_key,)
                 )
             conn.commit()
+        global _creances_abonnes_cache
+        _creances_abonnes_cache.clear()
         return {"success": True}
     except Exception as e:
         print(f"Error updating legal status: {e}")

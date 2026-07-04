@@ -16,7 +16,7 @@ const SubscribersEvolutionView = dynamic(
   {
     loading: () => (
       <div className="p-12 flex justify-center">
-        <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+        <div className="spinner-premium" style={{ width: 32, height: 32 }} />
       </div>
     ),
   }
@@ -152,7 +152,7 @@ export function GestionAbonnesShell({
         {statsLoading && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[2px] rounded-[2rem] min-h-[120px]">
             <div className="flex flex-col items-center gap-2">
-              <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+              <div className="spinner-premium" style={{ width: 32, height: 32 }} />
               <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest">Calcul par centre…</p>
             </div>
           </div>
@@ -3872,6 +3872,7 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
     cyan: { spinner: "border-cyan-500", badge: "bg-cyan-50 text-cyan-600 border-cyan-200", dot: "bg-cyan-500" },
   };
   const style = accentMap[accentColor] || accentMap.blue;
+  void style;
 
   return (
         <div className="overflow-x-auto table-scroll relative">
@@ -3943,7 +3944,7 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
 
       {loading ? (
         <div className="p-12 flex justify-center items-center">
-          <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${style.spinner}`}></div>
+          <div className="spinner-premium" style={{ width: 32, height: 32 }}></div>
         </div>
       ) : (
         <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} printedSubscribersRef={printedSubscribersRef} />
@@ -3953,6 +3954,7 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
 }
 
 function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef }: any) {
+  void style;
   const ITEMS_PER_PAGE = 20;
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<string>('numab');
@@ -4263,7 +4265,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
         <div className="flex-1 overflow-x-auto p-0">
           {loadingInvoices ? (
             <div className="flex justify-center items-center py-20">
-              <div className={`animate-spin rounded-full h-10 w-10 border-b-2 ${style.spinner}`}></div>
+              <div className="spinner-premium" style={{ width: 40, height: 40 }}></div>
             </div>
           ) : (
             <table className="w-full text-left border-collapse">

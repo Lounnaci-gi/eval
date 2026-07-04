@@ -267,6 +267,78 @@ export function ServiceContentieuxView({
       .format(n)
       .replace(/[\u202F\u00A0]/g, " ") + " DA";
 
+  const summaryCards = useMemo(() => {
+    if (activeTab === "dossiers") {
+      const filteredDossiers = dossiers.filter((d) => {
+        const q = dossierSearch.toLowerCase();
+        if (
+          q &&
+          !(
+            d.numab?.toLowerCase().includes(q) ||
+            d.name?.toLowerCase().includes(q) ||
+            d.adresse?.toLowerCase().includes(q)
+          )
+        ) {
+          return false;
+        }
+        if (dossierEtapeFilter && d.etape_recouvrement !== dossierEtapeFilter) {
+          return false;
+        }
+        if (dossierStatutFilter && d.statut_abonne !== dossierStatutFilter) {
+          return false;
+        }
+        return true;
+      });
+
+      const etapes = new Set(
+        filteredDossiers
+          .map((d) => d.etape_recouvrement)
+          .filter(Boolean),
+      ).size;
+      const statuts = new Set(
+        filteredDossiers.map((d) => d.statut_abonne).filter(Boolean),
+      ).size;
+
+      return [
+        {
+          label: "Dossiers affichés",
+          value: filteredDossiers.length.toLocaleString("fr-DZ"),
+        },
+        {
+          label: "Étapes utilisées",
+          value: etapes.toLocaleString("fr-DZ"),
+        },
+        {
+          label: "Statuts distincts",
+          value: statuts.toLocaleString("fr-DZ"),
+        },
+      ];
+    }
+
+    if (activeTab === "transmis") {
+      return [
+        {
+          label: "Abonnés concernés",
+          value: totals.abonnes.toLocaleString("fr-DZ"),
+        },
+        {
+          label: "Factures impayées",
+          value: totals.factures.toLocaleString("fr-DZ"),
+        },
+        { label: "Montant total", value: fmt(totals.montant) },
+      ];
+    }
+
+    return [];
+  }, [
+    activeTab,
+    dossiers,
+    dossierEtapeFilter,
+    dossierSearch,
+    dossierStatutFilter,
+    totals,
+  ]);
+
   // ─── Export CSV ──────────────────────────────────────────────────
   const exportCSV = () => {
     const header = [
@@ -530,19 +602,9 @@ export function ServiceContentieuxView({
         </div>
 
         {/* ── KPI totals ── */}
-        {!loading && rows.length > 0 && (
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            {[
-              {
-                label: "Abonnés concernés",
-                value: totals.abonnes.toLocaleString("fr-DZ"),
-              },
-              {
-                label: "Factures impayées",
-                value: totals.factures.toLocaleString("fr-DZ"),
-              },
-              { label: "Montant total", value: fmt(totals.montant) },
-            ].map(({ label, value }) => (
+        {!loading && summaryCards.length > 0 && (
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {summaryCards.map(({ label, value }) => (
               <div
                 key={label}
                 className="rounded-2xl px-4 py-3 border"
@@ -584,12 +646,6 @@ export function ServiceContentieuxView({
             className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "transmis" ? "border-rose-500 text-rose-600" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
           >
             Transmis Service Juridique
-            {activeTab !== "transmis" &&
-              rows.filter((r) => r.is_contentieux).length > 0 && (
-                <span className="bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full text-[10px]">
-                  {rows.filter((r) => r.is_contentieux).length}
-                </span>
-              )}
           </button>
           <button
             onClick={() => {

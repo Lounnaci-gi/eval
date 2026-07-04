@@ -42,6 +42,7 @@ export function DossierJuridiquePanel({
 }: DossierJuridiquePanelProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [motifError, setMotifError] = useState("");
   const [factures, setFactures] = useState<any[]>([]);
   const [installments, setInstallments] = useState(3);
   const [installmentIntervalMonths, setInstallmentIntervalMonths] = useState(1);
@@ -62,6 +63,7 @@ export function DossierJuridiquePanel({
     coordonnees_notaire: "",
     liste_heritiers: "",
     date_declaration_creance: "",
+    motif: "",
     echeancier_plan: [] as EcheanceLine[],
     heritiers: [] as Heritier[],
   });
@@ -91,6 +93,7 @@ export function DossierJuridiquePanel({
             liste_heritiers: dossierData.liste_heritiers || "",
             date_declaration_creance:
               dossierData.date_declaration_creance || "",
+            motif: dossierData.motif || dossierData.motif_suspension || "",
             echeancier_plan: Array.isArray(dossierData.echeancier_plan)
               ? dossierData.echeancier_plan
               : [],
@@ -108,6 +111,15 @@ export function DossierJuridiquePanel({
   if (!isOpen || !abonne) return null;
 
   const handleSave = async () => {
+    if (dossier.statut_abonne === "Suspendu" && !dossier.motif.trim()) {
+      setMotifError("Veuillez préciser le motif de suspension.");
+      void showAlert("Veuillez fournir un motif pour un dossier suspendu.", {
+        icon: "warning",
+      });
+      return;
+    }
+
+    setMotifError("");
     setSaving(true);
     try {
       await fetch(
@@ -404,6 +416,7 @@ export function DossierJuridiquePanel({
     "Tribunal",
     "Exécution de Jugement",
   ];
+  const isSuspendedStatus = dossier.statut_abonne === "Suspendu";
   const currentStepIndex = steps.indexOf(dossier.etape_recouvrement);
 
   return (
@@ -516,12 +529,16 @@ export function DossierJuridiquePanel({
                           </label>
                           <select
                             value={dossier.statut_abonne}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const nextStatus = e.target.value;
                               setDossier({
                                 ...dossier,
-                                statut_abonne: e.target.value,
-                              })
-                            }
+                                statut_abonne: nextStatus,
+                              });
+                              if (nextStatus !== "Suspendu") {
+                                setMotifError("");
+                              }
+                            }}
                             className="w-full rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold text-[#0F172A] focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                           >
                             <option value="Actif">Actif</option>
@@ -530,6 +547,36 @@ export function DossierJuridiquePanel({
                             <option value="Héritier">Héritier</option>
                           </select>
                         </div>
+                        {isSuspendedStatus && (
+                          <label className="grid gap-2">
+                            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
+                              Motif de suspension <span className="text-red-500">*</span>
+                            </span>
+                            <textarea
+                              value={dossier.motif}
+                              onChange={(e) => {
+                                setDossier({
+                                  ...dossier,
+                                  motif: e.target.value,
+                                });
+                                if (motifError) {
+                                  setMotifError("");
+                                }
+                              }}
+                              className={`min-h-[96px] rounded-3xl border bg-white px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 ${motifError ? "border-red-300 focus:border-red-500 focus:ring-red-100" : "border-[#E4E7EC] focus:border-brand-500 focus:ring-brand-100"}`}
+                              placeholder="Ex : Paiement non effectué, changement de situation..."
+                            />
+                            {motifError ? (
+                              <p className="text-xs font-semibold text-red-600">
+                                {motifError}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-[#667085]">
+                                Le motif est obligatoire pour un dossier suspendu.
+                              </p>
+                            )}
+                          </label>
+                        )}
                         <div className="grid grid-cols-1 gap-3">
                           {[
                             {

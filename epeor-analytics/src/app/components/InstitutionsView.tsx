@@ -2323,7 +2323,7 @@ export function CreancesInstitutionsView({
             >
               {combinationSearching ? (
                 <>
-                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="spinner-premium" style={{ width: 14, height: 14 }} />
                   Recherche… {Math.round(combinationProgress * 100)}%
                 </>
               ) : (
@@ -2364,7 +2364,7 @@ export function CreancesInstitutionsView({
                 </p>
                 {combinationSearching && (
                   <span className="inline-flex items-center gap-2 text-xs font-bold text-brand-700">
-                    <span className="w-3 h-3 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+                    <span className="spinner-premium" style={{ width: 12, height: 12 }} />
                     {combinationCurrentPriority
                       ? `${PRIORITY_SECTIONS[combinationCurrentPriority].title}…`
                       : 'Recherche en cours…'}{' '}
@@ -2398,7 +2398,7 @@ export function CreancesInstitutionsView({
                         <div className="text-right text-[10px] font-bold">
                           {isActive && (
                             <span className="inline-flex items-center gap-1.5">
-                              <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                              <span className="spinner-premium" style={{ width: 10, height: 10 }} />
                               En cours…
                             </span>
                           )}
@@ -2619,7 +2619,7 @@ export function CreancesInstitutionsView({
 
         {dataLoading ? (
           <div className="flex items-center justify-center gap-3 py-20">
-            <div className="w-8 h-8 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin" />
+            <div className="spinner-premium" style={{ width: 32, height: 32 }} />
             <p className="text-sm font-bold text-[#667085]">Calcul des créances institutions…</p>
           </div>
         ) : error ? (

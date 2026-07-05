@@ -4594,21 +4594,14 @@ def get_all_dossiers(_user: dict = Depends(get_current_user)):
     """Retourne tous les dossiers juridiques avec les infos abonnés enrichies."""
     try:
         with _get_auth_conn() as conn:
-            # Sync/repair: auto-insert missing dossiers_juridiques
-            conn.execute("""
-                INSERT OR IGNORE INTO dossiers_juridiques (numab)
-                SELECT numab FROM legal_status 
-                WHERE is_contentieux = 1 
-                  AND UPPER(numab) NOT IN (SELECT UPPER(numab) FROM dossiers_juridiques)
-            """)
-            conn.commit()
-            
             rows = conn.execute("""
-                SELECT d.*, l.date_transmission
-                FROM dossiers_juridiques d
-                JOIN legal_status l ON UPPER(l.numab) = UPPER(d.numab)
+                SELECT l.numab, l.date_transmission, d.numab AS has_dossier, d.statut_abonne, d.etape_recouvrement,
+                       d.has_mise_en_demeure, d.has_echeancier, d.transmis_huissier, d.transmis_cours,
+                       d.execution_jugement, d.updated_at, d.motif, d.echeancier_plan, d.heritiers
+                FROM legal_status l
+                LEFT JOIN dossiers_juridiques d ON UPPER(d.numab) = UPPER(l.numab)
                 WHERE l.is_contentieux = 1
-                ORDER BY d.updated_at DESC
+                ORDER BY COALESCE(d.updated_at, l.date_transmission) DESC
             """).fetchall()
             
             result = []
@@ -4624,6 +4617,20 @@ def get_all_dossiers(_user: dict = Depends(get_current_user)):
                 d["type_abon_code"] = raw_typabon or '—'
                 d["type_abon"] = resolve_typabon_label(raw_typabon)
                 d["secteur"] = str(abonne_rec.get("SECTEUR", "") if abonne_rec else "").strip().zfill(2) or "—"
+                
+                # Default empty values for dossiers that are not taken charge of yet
+                if d.get("has_dossier") is None:
+                    d["has_dossier"] = None
+                    d["statut_abonne"] = "Actif"
+                    d["etape_recouvrement"] = "Amiable"
+                    d["has_mise_en_demeure"] = 0
+                    d["has_echeancier"] = 0
+                    d["transmis_huissier"] = 0
+                    d["transmis_cours"] = 0
+                    d["execution_jugement"] = 0
+                    d["updated_at"] = d["date_transmission"]
+                else:
+                    d["has_dossier"] = d["numab"]
                 # Enrich with creance info from debtors
                 result.append(d)
             

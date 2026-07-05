@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   CheckCircle,
   Check,
@@ -68,7 +68,28 @@ export function DossierJuridiquePanel({
     heritiers: [] as Heritier[],
   });
 
-  const deriveEtapeRecouvrement = (values: Partial<typeof dossier>) => {
+  const sanitizeDossierForStatus = useCallback(
+    (values: Partial<typeof dossier>) => {
+      if (values.statut_abonne === "Suspendu") {
+        return {
+          ...values,
+          has_mise_en_demeure: false,
+          has_echeancier: false,
+          transmis_huissier: false,
+          transmis_cours: false,
+          execution_jugement: false,
+        };
+      }
+      return values;
+    },
+    [],
+  );
+
+  const deriveEtapeRecouvrement = useCallback(
+    (values: Partial<typeof dossier>) => {
+    if (values.statut_abonne === "Suspendu") {
+      return "Suspendu";
+    }
     if (values.execution_jugement) {
       return "Exécution de Jugement";
     }
@@ -81,15 +102,17 @@ export function DossierJuridiquePanel({
     if (values.statut_abonne === "Décédé") {
       return "Succession Notaire";
     }
-    if (values.has_mise_en_demeure || values.has_echeancier) {
-      return "Amiable";
-    }
-    return values.etape_recouvrement || "Amiable";
-  };
+      if (values.has_mise_en_demeure || values.has_echeancier) {
+        return "Amiable";
+      }
+      return values.etape_recouvrement || "Amiable";
+    },
+    [],
+  );
 
   const updateDossierState = (updates: Partial<typeof dossier>) => {
     setDossier((current) => {
-      const next = { ...current, ...updates };
+      const next = sanitizeDossierForStatus({ ...current, ...updates });
       return {
         ...next,
         etape_recouvrement: deriveEtapeRecouvrement(next),
@@ -109,7 +132,7 @@ export function DossierJuridiquePanel({
         ),
       ])
         .then(([dossierData, abonneData]) => {
-          setDossier({
+          const initialDossier = sanitizeDossierForStatus({
             statut_abonne: dossierData.statut_abonne || "Actif",
             etape_recouvrement: deriveEtapeRecouvrement({
               ...dossierData,
@@ -138,13 +161,15 @@ export function DossierJuridiquePanel({
             heritiers: dossierData.heritiers || [],
           });
 
+          setDossier(initialDossier);
+
           if (abonneData && Array.isArray(abonneData.factures)) {
             setFactures(abonneData.factures);
           }
         })
         .finally(() => setLoading(false));
     }
-  }, [isOpen, abonne]);
+  }, [abonne, deriveEtapeRecouvrement, isOpen, sanitizeDossierForStatus]);
 
   if (!isOpen || !abonne) return null;
 
@@ -448,6 +473,7 @@ export function DossierJuridiquePanel({
   };
 
   const steps = [
+    "Suspendu",
     "Amiable",
     "Mise en demeure",
     "Succession Notaire",
@@ -524,7 +550,7 @@ export function DossierJuridiquePanel({
                             width: `${(Math.max(0, currentStepIndex) / (steps.length - 1)) * 100}%`,
                           }}
                         />
-                        <div className="relative grid grid-cols-5 gap-4">
+                        <div className="relative flex flex-wrap justify-between gap-3">
                           {steps.map((step, idx) => {
                             const isCompleted = idx <= currentStepIndex;
                             return (
@@ -630,6 +656,11 @@ export function DossierJuridiquePanel({
                             )}
                           </label>
                         )}
+                        {isSuspendedStatus && (
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
+                            Aucune démarche ne peut être attribuée lorsque le dossier est suspendu.
+                          </div>
+                        )}
                         <div className="grid grid-cols-1 gap-3">
                           {[
                             {
@@ -669,10 +700,11 @@ export function DossierJuridiquePanel({
                                 <input
                                   type="checkbox"
                                   checked={value}
+                                  disabled={isSuspendedStatus}
                                   onChange={(e) =>
                                     updateDossierState({ [key]: e.target.checked })
                                   }
-                                  className="h-4 w-4 rounded-md border-gray-300 text-brand-600 focus:ring-brand-500"
+                                  className="h-4 w-4 rounded-md border-gray-300 text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
                                 />
                                 <span className="text-sm font-bold text-[#334155]">
                                   {label}

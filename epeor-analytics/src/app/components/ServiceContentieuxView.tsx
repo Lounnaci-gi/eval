@@ -47,6 +47,38 @@ type SortDir = "asc" | "desc";
 const SORT_NUMERIC = new Set(["nombre_creance", "montant_creance"]);
 const PAGE_SIZE = 25;
 
+const getDossierDemarches = (d: any) => {
+  const items: Array<{ label: string; className: string }> = [];
+
+  if (d.statut_abonne === "Suspendu") {
+    return items;
+  }
+
+  if (d.has_mise_en_demeure) {
+    items.push({ label: "Mise en demeure", className: "text-amber-700" });
+  }
+  if (d.has_echeancier) {
+    items.push({ label: "Échéancier", className: "text-emerald-700" });
+  }
+  if (d.transmis_huissier) {
+    items.push({
+      label: "Transmis au huissier",
+      className: "text-violet-700",
+    });
+  }
+  if (d.transmis_cours) {
+    items.push({ label: "Transmis à la cour", className: "text-rose-700" });
+  }
+  if (d.execution_jugement) {
+    items.push({
+      label: "Exécution de jugement",
+      className: "text-sky-700",
+    });
+  }
+
+  return items;
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ServiceContentieuxView({
@@ -687,6 +719,7 @@ export function ServiceContentieuxView({
         {activeTab === "dossiers" &&
           (() => {
             const STEPS = [
+              "Suspendu",
               "Amiable",
               "Mise en demeure",
               "Succession Notaire",
@@ -699,6 +732,7 @@ export function ServiceContentieuxView({
               Héritier: "bg-indigo-50 text-indigo-700 border-indigo-200",
             };
             const ETAPE_COLORS: Record<string, string> = {
+              Suspendu: "bg-amber-50 text-amber-700 border-amber-200",
               Amiable: "bg-sky-50 text-sky-700 border-sky-200",
               "Mise en demeure": "bg-amber-50 text-amber-700 border-amber-200",
               "Succession Notaire":
@@ -754,7 +788,7 @@ export function ServiceContentieuxView({
                       <td>${esc(d.tournee || "—")}</td>
                       <td>${esc(d.statut_abonne || "—")}</td>
                       <td>${esc(d.etape_recouvrement || "—")}</td>
-                      <td>${esc(d.has_mise_en_demeure ? "Mise en demeure envoyée" : "")}${esc(d.has_echeancier ? (d.has_mise_en_demeure ? " • Échéancier accordé" : "Échéancier accordé") : "")}${esc(d.transmis_huissier ? (d.has_mise_en_demeure || d.has_echeancier ? " • Transmis au huissier" : "Transmis au huissier") : "")}${esc(d.transmis_cours ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier ? " • Transmis à la cour" : "Transmis à la cour") : "")}${esc(d.execution_jugement ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier || d.transmis_cours ? " • Exécution de Jugement" : "Exécution de Jugement") : "")}</td>
+                      <td>${esc(d.statut_abonne === "Suspendu" ? "" : [d.has_mise_en_demeure ? "Mise en demeure envoyée" : "", d.has_echeancier ? (d.has_mise_en_demeure ? " • Échéancier accordé" : "Échéancier accordé") : "", d.transmis_huissier ? (d.has_mise_en_demeure || d.has_echeancier ? " • Transmis au huissier" : "Transmis au huissier") : "", d.transmis_cours ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier ? " • Transmis à la cour" : "Transmis à la cour") : "", d.execution_jugement ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier || d.transmis_cours ? " • Exécution de Jugement" : "Exécution de Jugement") : ""].filter(Boolean).join(""))}</td>
                       <td>${esc(d.date_transmission ? new Date(d.date_transmission).toLocaleDateString("fr-DZ") : "—")}</td>
                       <td>${esc(d.updated_at ? new Date(d.updated_at).toLocaleDateString("fr-DZ") : "—")}</td>
                     </tr>`,
@@ -1026,28 +1060,25 @@ export function ServiceContentieuxView({
                             </td>
                             <td className="py-3 px-3 text-center">
                               <div className="flex flex-col gap-1 items-start">
-                                {d.has_mise_en_demeure ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700">
-                                    <CheckCircle2 size={10} /> Mise en demeure
-                                  </span>
-                                ) : null}
-                                {d.has_echeancier ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700">
-                                    <CheckCircle2 size={10} /> Échéancier
-                                  </span>
-                                ) : null}
-                                {d.transmis_cours ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700">
-                                    <CheckCircle2 size={10} /> Transmis cour
-                                  </span>
-                                ) : null}
-                                {!d.has_mise_en_demeure &&
-                                  !d.has_echeancier &&
-                                  !d.transmis_cours && (
-                                    <span className="text-[10px] text-[#98A2B3]">
-                                      —
+                                {(() => {
+                                  const demarches = getDossierDemarches(d);
+                                  if (demarches.length === 0) {
+                                    return (
+                                      <span className="text-[10px] text-[#98A2B3]">
+                                        —
+                                      </span>
+                                    );
+                                  }
+
+                                  return demarches.map((item) => (
+                                    <span
+                                      key={item.label}
+                                      className={`inline-flex items-center gap-1 text-[10px] font-bold ${item.className}`}
+                                    >
+                                      <CheckCircle2 size={10} /> {item.label}
                                     </span>
-                                  )}
+                                  ));
+                                })()}
                               </div>
                             </td>
                             <td className="py-3 px-3 text-center text-[#667085] font-medium whitespace-nowrap">

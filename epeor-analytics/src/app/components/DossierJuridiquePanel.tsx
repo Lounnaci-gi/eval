@@ -536,70 +536,49 @@ export function DossierJuridiquePanel({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
-                  <div className="rounded-[30px] border border-[#E4E7EC] bg-[#F8FAFC] p-6 space-y-6">
-                    <div>
-                      <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-4">
-                        Étape du recouvrement
-                      </h3>
-                      <div className="relative">
-                        <div className="absolute inset-y-1/2 left-0 right-0 h-1 bg-[#E2E8F0] rounded-full" />
-                        <div
-                          className="absolute inset-y-1/2 left-0 h-1 bg-brand-500 rounded-full transition-all duration-500"
-                          style={{
-                            width: `${(Math.max(0, currentStepIndex) / (steps.length - 1)) * 100}%`,
-                          }}
-                        />
-                        <div className="relative flex flex-wrap justify-between gap-3">
-                          {steps.map((step, idx) => {
-                            const isCompleted = idx <= currentStepIndex;
-                            return (
-                              <button
-                                key={step}
-                                type="button"
-                                onClick={() =>
-                                  updateDossierState({ etape_recouvrement: step })
-                                }
-                                className="relative flex flex-col items-center gap-2 bg-white/70 rounded-full p-2"
-                              >
-                                <span
-                                  className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${isCompleted ? "border-brand-500 bg-brand-500 text-white" : "border-[#CBD5E1] bg-white text-[#94A3B8]"}`}
+                <div className="grid grid-cols-1 gap-6">
+                  <div className="space-y-6">
+                    <div className="rounded-[30px] border border-[#E4E7EC] bg-[#F8FAFC] p-6 space-y-6">
+                      <div>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-4">
+                          Étape du recouvrement
+                        </h3>
+                        <div className="relative">
+                          <div className="absolute inset-y-1/2 left-0 right-0 h-1 bg-[#E2E8F0] rounded-full" />
+                          <div
+                            className="absolute inset-y-1/2 left-0 h-1 bg-brand-500 rounded-full transition-all duration-500"
+                            style={{
+                              width: `${(Math.max(0, currentStepIndex) / (steps.length - 1)) * 100}%`,
+                            }}
+                          />
+                          <div className="relative flex flex-wrap justify-between gap-3">
+                            {steps.map((step, idx) => {
+                              const isCompleted = idx <= currentStepIndex;
+                              return (
+                                <button
+                                  key={step}
+                                  type="button"
+                                  onClick={() => updateDossierState({ etape_recouvrement: step })}
+                                  className="relative flex flex-col items-center gap-2 bg-white/70 rounded-full p-2"
                                 >
-                                  {isCompleted ? <Check size={14} /> : idx + 1}
-                                </span>
-                                <span
-                                  className={`text-[10px] font-black text-center ${isCompleted ? "text-brand-700" : "text-[#94A3B8]"}`}
-                                >
-                                  {step}
-                                </span>
-                              </button>
-                            );
-                          })}
+                                  <span
+                                    className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${isCompleted ? "border-brand-500 bg-brand-500 text-white" : "border-[#CBD5E1] bg-white text-[#94A3B8]"}`}
+                                  >
+                                    {isCompleted ? <Check size={14} /> : idx + 1}
+                                  </span>
+                                  <span
+                                    className={`text-[10px] font-black text-center ${isCompleted ? "text-brand-700" : "text-[#94A3B8]"}`}
+                                  >
+                                    {step}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {steps.map((step, idx) => (
-                        <div
-                          key={step}
-                          className="rounded-3xl border border-[#E4E7EC] bg-white p-4"
-                        >
-                          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#98A2B3]">
-                            {step}
-                          </p>
-                          <p className="mt-3 text-sm font-bold text-[#334155]">
-                            {idx <= currentStepIndex
-                              ? "Terminé"
-                              : idx === currentStepIndex + 1
-                                ? "Actif"
-                                : "À venir"}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
 
-                  <div className="space-y-6">
                     <div className="rounded-[30px] border border-[#E4E7EC] bg-white p-6">
                       <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-5">
                         Statut du dossier

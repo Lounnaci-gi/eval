@@ -4594,6 +4594,15 @@ def get_all_dossiers(_user: dict = Depends(get_current_user)):
     """Retourne tous les dossiers juridiques avec les infos abonnés enrichies."""
     try:
         with _get_auth_conn() as conn:
+            # Sync/repair: auto-insert missing dossiers_juridiques
+            conn.execute("""
+                INSERT OR IGNORE INTO dossiers_juridiques (numab)
+                SELECT numab FROM legal_status 
+                WHERE is_contentieux = 1 
+                  AND UPPER(numab) NOT IN (SELECT UPPER(numab) FROM dossiers_juridiques)
+            """)
+            conn.commit()
+            
             rows = conn.execute("""
                 SELECT d.*, l.date_transmission
                 FROM dossiers_juridiques d
@@ -4611,6 +4620,10 @@ def get_all_dossiers(_user: dict = Depends(get_current_user)):
                 d["name"] = abonne_rec.get("RAISOC") or abonne_rec.get("NOM") or "Inconnu" if abonne_rec else "Inconnu"
                 d["adresse"] = resolve_rue_adresse(abonne_rec) if abonne_rec else "—"
                 d["tournee"] = str(abonne_rec.get("TOURNEE", "") if abonne_rec else "").strip() or "—"
+                raw_typabon = str(abonne_rec.get('TYPABON', '') if abonne_rec else '').strip()
+                d["type_abon_code"] = raw_typabon or '—'
+                d["type_abon"] = resolve_typabon_label(raw_typabon)
+                d["secteur"] = str(abonne_rec.get("SECTEUR", "") if abonne_rec else "").strip().zfill(2) or "—"
                 # Enrich with creance info from debtors
                 result.append(d)
             

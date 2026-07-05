@@ -270,6 +270,11 @@ export function ServiceContentieuxView({
   const summaryCards = useMemo(() => {
     if (activeTab === "dossiers") {
       const filteredDossiers = dossiers.filter((d) => {
+        if (selectedSecteur && selectedSecteur.trim() && selectedSecteur.toLowerCase() !== "all" && selectedSecteur.toLowerCase() !== "tout") {
+          const selSec = selectedSecteur.trim().replace(/^0+/, "").padStart(2, "0");
+          const dosSec = (d.secteur ?? "").trim().replace(/^0+/, "").padStart(2, "0");
+          if (selSec !== dosSec) return false;
+        }
         const q = dossierSearch.toLowerCase();
         if (
           q &&
@@ -337,6 +342,7 @@ export function ServiceContentieuxView({
     dossierSearch,
     dossierStatutFilter,
     totals,
+    selectedSecteur,
   ]);
 
   // ─── Export CSV ──────────────────────────────────────────────────
@@ -699,6 +705,11 @@ export function ServiceContentieuxView({
               Tribunal: "bg-rose-50 text-rose-700 border-rose-200",
             };
             const filtered = dossiers.filter((d) => {
+              if (selectedSecteur && selectedSecteur.trim() && selectedSecteur.toLowerCase() !== "all" && selectedSecteur.toLowerCase() !== "tout") {
+                const selSec = selectedSecteur.trim().replace(/^0+/, "").padStart(2, "0");
+                const dosSec = (d.secteur ?? "").trim().replace(/^0+/, "").padStart(2, "0");
+                if (selSec !== dosSec) return false;
+              }
               const q = dossierSearch.toLowerCase();
               if (
                 q &&
@@ -1692,9 +1703,9 @@ export function BilanImpressionView({
       const abonne = rows.find(
         (r) => r.numab.trim().toUpperCase() === d.numab.trim().toUpperCase(),
       );
-      const grouped = abonne
-        ? getGroupedType(abonne.type_abon_code ?? "", abonne.type_abon)
-        : "Non spécifié";
+      const typeCode = abonne ? (abonne.type_abon_code ?? "") : (d.type_abon_code ?? "");
+      const typeLabel = abonne ? abonne.type_abon : (d.type_abon ?? "");
+      const grouped = getGroupedType(typeCode, typeLabel);
       return {
         ...d,
         type_abon: grouped,
@@ -1704,6 +1715,11 @@ export function BilanImpressionView({
     });
 
     return enriched.filter((d) => {
+      if (selectedSecteur && selectedSecteur.trim() && selectedSecteur.toLowerCase() !== "all" && selectedSecteur.toLowerCase() !== "tout") {
+        const selSec = selectedSecteur.trim().replace(/^0+/, "").padStart(2, "0");
+        const dosSec = (d.secteur ?? "").trim().replace(/^0+/, "").padStart(2, "0");
+        if (selSec !== dosSec) return false;
+      }
       if (!d.date_transmission) return false;
       const dDate = new Date(d.date_transmission);
       const start = startDate ? new Date(startDate) : null;
@@ -1719,7 +1735,7 @@ export function BilanImpressionView({
       }
       return true;
     });
-  }, [dossiers, rows, startDate, endDate]);
+  }, [dossiers, rows, startDate, endDate, selectedSecteur]);
 
   // Unique grouped types — derived from filteredDossiers only (already grouped)
   const uniqueTypes = useMemo(() => {

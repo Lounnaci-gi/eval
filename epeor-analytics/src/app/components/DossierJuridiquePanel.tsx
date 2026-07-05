@@ -94,13 +94,13 @@ export function DossierJuridiquePanel({
       return "Exécution de Jugement";
     }
     if (values.transmis_huissier) {
-      return "Succession Notaire";
+      return "Transmis Huissier";
     }
     if (values.transmis_cours) {
       return "Tribunal";
     }
     if (values.statut_abonne === "Décédé") {
-      return "Succession Notaire";
+      return "Transmis Huissier";
     }
       if (values.has_mise_en_demeure || values.has_echeancier) {
         return "Amiable";
@@ -476,7 +476,7 @@ export function DossierJuridiquePanel({
     "Suspendu",
     "Amiable",
     "Mise en demeure",
-    "Succession Notaire",
+    "Transmis Huissier",
     "Tribunal",
     "Exécution de Jugement",
   ];

@@ -328,27 +328,51 @@ export function ServiceContentieuxView({
         return true;
       });
 
-      const etapes = new Set(
-        filteredDossiers
-          .map((d) => d.etape_recouvrement)
-          .filter(Boolean),
-      ).size;
-      const statuts = new Set(
-        filteredDossiers.map((d) => d.statut_abonne).filter(Boolean),
-      ).size;
+      const dossiersAmiable = filteredDossiers.filter((d) => {
+        const etape = (d.etape_recouvrement || "Amiable").toString().trim().toLowerCase();
+        return etape === "amiable";
+      }).length;
+      const dossiersSuspendus = filteredDossiers.filter((d) => {
+        const statut = (d.statut_abonne || "Actif").toString().trim().toLowerCase();
+        return statut === "suspendu";
+      }).length;
+      const dossiersHuissier = filteredDossiers.filter((d) => Boolean(d.transmis_huissier)).length;
+      const dossiersTribunal = filteredDossiers.filter((d) => {
+        const etape = (d.etape_recouvrement || "").toString().trim().toLowerCase();
+        return etape === "tribunal";
+      }).length;
+      const dossiersExecutionJugement = filteredDossiers.filter((d) => Boolean(d.execution_jugement)).length;
 
       return [
         {
           label: "Dossiers affichés",
           value: filteredDossiers.length.toLocaleString("fr-DZ"),
+          tone: "blue",
         },
         {
-          label: "Étapes utilisées",
-          value: etapes.toLocaleString("fr-DZ"),
+          label: "dossiers Amiable",
+          value: dossiersAmiable.toLocaleString("fr-DZ"),
+          tone: "sky",
         },
         {
-          label: "Statuts distincts",
-          value: statuts.toLocaleString("fr-DZ"),
+          label: "Suspendu",
+          value: dossiersSuspendus.toLocaleString("fr-DZ"),
+          tone: "amber",
+        },
+        {
+          label: "dossiers Huissier",
+          value: dossiersHuissier.toLocaleString("fr-DZ"),
+          tone: "violet",
+        },
+        {
+          label: "dossiers Tribunal",
+          value: dossiersTribunal.toLocaleString("fr-DZ"),
+          tone: "rose",
+        },
+        {
+          label: "Exécution de Jugement",
+          value: dossiersExecutionJugement.toLocaleString("fr-DZ"),
+          tone: "teal",
         },
       ];
     }
@@ -358,12 +382,14 @@ export function ServiceContentieuxView({
         {
           label: "Abonnés concernés",
           value: totals.abonnes.toLocaleString("fr-DZ"),
+          tone: "indigo",
         },
         {
           label: "Factures impayées",
           value: totals.factures.toLocaleString("fr-DZ"),
+          tone: "orange",
         },
-        { label: "Montant total", value: fmt(totals.montant) },
+        { label: "Montant total", value: fmt(totals.montant), tone: "emerald" },
       ];
     }
 
@@ -650,26 +676,72 @@ export function ServiceContentieuxView({
         {/* ── KPI totals ── */}
         {!loading && summaryCards.length > 0 && (
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {summaryCards.map(({ label, value }) => (
-              <div
-                key={label}
-                className="rounded-2xl px-4 py-3 border"
-                style={{
-                  background: "var(--gradient-accent-soft)",
-                  borderColor: "var(--glass-border, #E4E7EC)",
-                }}
-              >
-                <p className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3]">
-                  {label}
-                </p>
-                <p
-                  className="text-base sm:text-lg font-black text-[#101828] tabular-nums mt-0.5"
-                  style={{ color: `rgb(var(--color-text-primary))` }}
-                >
-                  {value}
-                </p>
-              </div>
-            ))}
+            {summaryCards.map(({ label, value, tone = "slate" }) => {
+              const toneStyles: Record<string, { container: string; label: string; value: string }> = {
+                slate: {
+                  container: "bg-slate-50 border-slate-200",
+                  label: "text-slate-600",
+                  value: "text-slate-900",
+                },
+                blue: {
+                  container: "bg-blue-50 border-blue-200",
+                  label: "text-blue-700",
+                  value: "text-blue-900",
+                },
+                sky: {
+                  container: "bg-sky-50 border-sky-200",
+                  label: "text-sky-700",
+                  value: "text-sky-900",
+                },
+                amber: {
+                  container: "bg-amber-50 border-amber-200",
+                  label: "text-amber-700",
+                  value: "text-amber-900",
+                },
+                violet: {
+                  container: "bg-violet-50 border-violet-200",
+                  label: "text-violet-700",
+                  value: "text-violet-900",
+                },
+                rose: {
+                  container: "bg-rose-50 border-rose-200",
+                  label: "text-rose-700",
+                  value: "text-rose-900",
+                },
+                teal: {
+                  container: "bg-teal-50 border-teal-200",
+                  label: "text-teal-700",
+                  value: "text-teal-900",
+                },
+                indigo: {
+                  container: "bg-indigo-50 border-indigo-200",
+                  label: "text-indigo-700",
+                  value: "text-indigo-900",
+                },
+                orange: {
+                  container: "bg-orange-50 border-orange-200",
+                  label: "text-orange-700",
+                  value: "text-orange-900",
+                },
+                emerald: {
+                  container: "bg-emerald-50 border-emerald-200",
+                  label: "text-emerald-700",
+                  value: "text-emerald-900",
+                },
+              };
+              const styles = toneStyles[tone] ?? toneStyles.slate;
+
+              return (
+                <div key={label} className={`rounded-2xl px-4 py-3 border ${styles.container}`}>
+                  <p className={`text-[10px] font-black uppercase tracking-wider ${styles.label}`}>
+                    {label}
+                  </p>
+                  <p className={`text-base sm:text-lg font-black tabular-nums mt-0.5 ${styles.value}`}>
+                    {value}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -722,8 +794,9 @@ export function ServiceContentieuxView({
               "Suspendu",
               "Amiable",
               "Mise en demeure",
-              "Succession Notaire",
+              "Transmis Huissier",
               "Tribunal",
+              "Exécution de Jugement",
             ];
             const STATUT_COLORS: Record<string, string> = {
               Actif: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -735,9 +808,10 @@ export function ServiceContentieuxView({
               Suspendu: "bg-amber-50 text-amber-700 border-amber-200",
               Amiable: "bg-sky-50 text-sky-700 border-sky-200",
               "Mise en demeure": "bg-amber-50 text-amber-700 border-amber-200",
-              "Succession Notaire":
+              "Transmis Huissier":
                 "bg-indigo-50 text-indigo-700 border-indigo-200",
               Tribunal: "bg-rose-50 text-rose-700 border-rose-200",
+              "Exécution de Jugement": "bg-teal-50 text-teal-700 border-teal-200",
             };
             const filtered = dossiers.filter((d) => {
               if (!d.has_dossier) return false;
@@ -1111,17 +1185,35 @@ export function ServiceContentieuxView({
                       </p>
                       <div className="flex gap-4 text-xs text-[#667085]">
                         {STEPS.map((step) => {
-                          const count = sortedD.filter(
-                            (d) => d.etape_recouvrement === step,
-                          ).length;
-                          return count > 0 ? (
+                          const count =
+                            step === "Transmis Huissier"
+                              ? sortedD.filter(
+                                  (d) => Boolean(d.transmis_huissier) || (d.etape_recouvrement || "").toLowerCase() === "transmis huissier",
+                                ).length
+                              : step === "Tribunal"
+                                ? sortedD.filter(
+                                    (d) => Boolean(d.transmis_cours) || (d.etape_recouvrement || "").toLowerCase() === "tribunal",
+                                  ).length
+                                : step === "Exécution de Jugement"
+                                  ? sortedD.filter(
+                                      (d) =>
+                                        Boolean(d.execution_jugement) ||
+                                        (d.etape_recouvrement || "").toLowerCase() === "exécution de jugement" ||
+                                        (d.etape_recouvrement || "").toLowerCase() === "execution de jugement",
+                                    ).length
+                                  : sortedD.filter((d) => d.etape_recouvrement === step).length;
+                          const badgeLabel =
+                            step === "Transmis Huissier"
+                              ? "Transmis au huissier"
+                              : step;
+                          return (
                             <span
                               key={step}
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold border ${ETAPE_COLORS[step]}`}
                             >
-                              {step}: {count}
+                              {badgeLabel}: {count}
                             </span>
-                          ) : null;
+                          );
                         })}
                       </div>
                     </div>
@@ -1851,10 +1943,7 @@ export function BilanImpressionView({
       const echeanciers = matchingAll.filter((d) =>
         Boolean(d.has_echeancier),
       ).length;
-      const successionNotaire = matchingAll.filter((d) => {
-        const etape = (d.etape_recouvrement || "").trim().toLowerCase();
-        return etape === "succession notaire";
-      }).length;
+      const successionNotaire = matchingAll.filter((d) => Boolean(d.transmis_huissier)).length;
       const tribunal = matchingAll.filter((d) => {
         const etape = (d.etape_recouvrement || "").trim().toLowerCase();
         return etape === "tribunal";
@@ -2092,7 +2181,7 @@ export function BilanImpressionView({
           <th style="text-align:center">Dossiers traités à l'amiable</th>
           <th style="text-align:center">Suspendu</th>
           <th style="text-align:center">Échéancier</th>
-          <th style="text-align:center">Succession Notaire</th>
+          <th style="text-align:center">Transmis Huissier</th>
           <th style="text-align:center">Tribunal</th>
           <th style="text-align:center">Exécution de Jugement</th>
           <th style="text-align:right">Montant global</th>
@@ -2260,7 +2349,7 @@ export function BilanImpressionView({
                     Échéancier
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
-                    Succession Notaire
+                    Transmis Huissier
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
                     Tribunal

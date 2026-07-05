@@ -270,6 +270,7 @@ export function ServiceContentieuxView({
   const summaryCards = useMemo(() => {
     if (activeTab === "dossiers") {
       const filteredDossiers = dossiers.filter((d) => {
+        if (!d.has_dossier) return false;
         if (selectedSecteur && selectedSecteur.trim() && selectedSecteur.toLowerCase() !== "all" && selectedSecteur.toLowerCase() !== "tout") {
           const selSec = selectedSecteur.trim().replace(/^0+/, "").padStart(2, "0");
           const dosSec = (d.secteur ?? "").trim().replace(/^0+/, "").padStart(2, "0");
@@ -705,6 +706,7 @@ export function ServiceContentieuxView({
               Tribunal: "bg-rose-50 text-rose-700 border-rose-200",
             };
             const filtered = dossiers.filter((d) => {
+              if (!d.has_dossier) return false;
               if (selectedSecteur && selectedSecteur.trim() && selectedSecteur.toLowerCase() !== "all" && selectedSecteur.toLowerCase() !== "tout") {
                 const selSec = selectedSecteur.trim().replace(/^0+/, "").padStart(2, "0");
                 const dosSec = (d.secteur ?? "").trim().replace(/^0+/, "").padStart(2, "0");
@@ -1439,9 +1441,25 @@ export function ServiceContentieuxView({
 
                             {/* Code abonné */}
                             <td className="py-3 px-3">
-                              <span className="font-black text-[#101828] tracking-wide">
-                                {r.numab}
-                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-black text-[#101828] tracking-wide">
+                                  {r.numab}
+                                </span>
+                                {activeTab === "transmis" &&
+                                  dossiers.some(
+                                    (d) =>
+                                      d.numab.trim().toUpperCase() ===
+                                        r.numab.trim().toUpperCase() &&
+                                      d.has_dossier,
+                                  ) && (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100"
+                                      title="Dossier Contentieux en cours"
+                                    >
+                                      <FolderOpen size={9} strokeWidth={3} /> Dossier
+                                    </span>
+                                  )}
+                              </div>
                             </td>
 
                             {/* Raison sociale */}
@@ -1698,8 +1716,8 @@ export function BilanImpressionView({
   };
 
   // Match dossiers with subscribers to get grouped type_abon and montant_creance
-  const filteredDossiers = useMemo(() => {
-    const enriched = dossiers.map((d) => {
+  const enrichedDossiers = useMemo(() => {
+    return dossiers.map((d) => {
       const abonne = rows.find(
         (r) => r.numab.trim().toUpperCase() === d.numab.trim().toUpperCase(),
       );
@@ -1713,13 +1731,21 @@ export function BilanImpressionView({
         nombre_creance: abonne ? abonne.nombre_creance : 0,
       };
     });
+  }, [dossiers, rows]);
 
-    return enriched.filter((d) => {
+  const allSectorDossiers = useMemo(() => {
+    return enrichedDossiers.filter((d) => {
       if (selectedSecteur && selectedSecteur.trim() && selectedSecteur.toLowerCase() !== "all" && selectedSecteur.toLowerCase() !== "tout") {
         const selSec = selectedSecteur.trim().replace(/^0+/, "").padStart(2, "0");
         const dosSec = (d.secteur ?? "").trim().replace(/^0+/, "").padStart(2, "0");
         if (selSec !== dosSec) return false;
       }
+      return true;
+    });
+  }, [enrichedDossiers, selectedSecteur]);
+
+  const filteredDossiers = useMemo(() => {
+    return allSectorDossiers.filter((d) => {
       if (!d.date_transmission) return false;
       const dDate = new Date(d.date_transmission);
       const start = startDate ? new Date(startDate) : null;
@@ -1735,12 +1761,12 @@ export function BilanImpressionView({
       }
       return true;
     });
-  }, [dossiers, rows, startDate, endDate, selectedSecteur]);
+  }, [allSectorDossiers, startDate, endDate]);
 
-  // Unique grouped types — derived from filteredDossiers only (already grouped)
+  // Unique grouped types — derived from allSectorDossiers only (already grouped)
   const uniqueTypes = useMemo(() => {
     const typesSet = new Set<string>();
-    filteredDossiers.forEach((d) => {
+    allSectorDossiers.forEach((d) => {
       if (d.type_abon) typesSet.add(d.type_abon);
     });
     // Fixed categories always shown (even with 0 dossiers)
@@ -1758,11 +1784,13 @@ export function BilanImpressionView({
       .filter((t) => !FIXED.includes(t))
       .sort();
     return [...ordered, ...rest];
-  }, [filteredDossiers]);
+  }, [allSectorDossiers]);
 
   // First table data
   const table1Data = useMemo(() => {
     let totalCount = 0;
+    let totalPrisEnCharge = 0;
+    let totalAmiable = 0;
     let grandTotalAmount = 0;
     let totalSuspended = 0;
     let totalEcheanciers = 0;
@@ -1771,30 +1799,40 @@ export function BilanImpressionView({
     let totalExecutionJugement = 0;
 
     const items = uniqueTypes.map((type) => {
-      const matching = filteredDossiers.filter((d) => d.type_abon === type);
-      const count = matching.length;
-      const totalAmount = matching.reduce(
+      const matchingFiltered = filteredDossiers.filter((d) => d.type_abon === type);
+      const count = matchingFiltered.length;
+
+      const matchingAll = allSectorDossiers.filter((d) => d.type_abon === type && d.has_dossier);
+      const prisEnCharge = matchingAll.length;
+
+      const totalAmount = matchingAll.reduce(
         (sum, d) => sum + (d.montant_creance || 0),
         0,
       );
-      const suspended = matching.filter((d) => {
+      const amiable = matchingAll.filter((d) => {
+        const etape = (d.etape_recouvrement || "").trim().toLowerCase();
+        return etape === "amiable";
+      }).length;
+      const suspended = matchingAll.filter((d) => {
         const s = d.statut_abonne || "Actif";
         return s.trim().toLowerCase() === "suspendu";
       }).length;
-      const echeanciers = matching.filter((d) =>
+      const echeanciers = matchingAll.filter((d) =>
         Boolean(d.has_echeancier),
       ).length;
-      const successionNotaire = matching.filter((d) => {
+      const successionNotaire = matchingAll.filter((d) => {
         const etape = (d.etape_recouvrement || "").trim().toLowerCase();
         return etape === "succession notaire";
       }).length;
-      const tribunal = matching.filter((d) => {
+      const tribunal = matchingAll.filter((d) => {
         const etape = (d.etape_recouvrement || "").trim().toLowerCase();
         return etape === "tribunal";
       }).length;
-      const executionJugement = matching.filter((d) => Boolean(d.execution_jugement)).length;
+      const executionJugement = matchingAll.filter((d) => Boolean(d.execution_jugement)).length;
 
       totalCount += count;
+      totalPrisEnCharge += prisEnCharge;
+      totalAmiable += amiable;
       grandTotalAmount += totalAmount;
       totalSuspended += suspended;
       totalEcheanciers += echeanciers;
@@ -1805,6 +1843,8 @@ export function BilanImpressionView({
       return {
         type,
         count,
+        prisEnCharge,
+        amiable,
         totalAmount,
         suspended,
         echeanciers,
@@ -1817,6 +1857,8 @@ export function BilanImpressionView({
     return {
       items,
       totalCount,
+      totalPrisEnCharge,
+      totalAmiable,
       grandTotalAmount,
       totalSuspended,
       totalEcheanciers,
@@ -1824,7 +1866,7 @@ export function BilanImpressionView({
       totalTribunal,
       totalExecutionJugement,
     };
-  }, [uniqueTypes, filteredDossiers]);
+  }, [uniqueTypes, filteredDossiers, allSectorDossiers]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", {
@@ -1855,6 +1897,8 @@ export function BilanImpressionView({
       <tr>
         <td>${esc(item.type)}</td>
         <td style="text-align:center">${item.count}</td>
+        <td style="text-align:center">${item.prisEnCharge}</td>
+        <td style="text-align:center">${item.amiable}</td>
         <td style="text-align:center">${item.suspended}</td>
         <td style="text-align:center">${item.echeanciers}</td>
         <td style="text-align:center">${item.successionNotaire}</td>
@@ -2013,6 +2057,8 @@ export function BilanImpressionView({
         <tr>
           <th>Type d'abonné</th>
           <th style="text-align:center">Nouveaux dossiers reçus</th>
+          <th style="text-align:center">Dossier pris en charge</th>
+          <th style="text-align:center">Dossiers traités à l'amiable</th>
           <th style="text-align:center">Suspendu</th>
           <th style="text-align:center">Échéancier</th>
           <th style="text-align:center">Succession Notaire</th>
@@ -2026,6 +2072,8 @@ export function BilanImpressionView({
         <tr class="total-row">
           <td>Total général</td>
           <td style="text-align:center">${table1Data.totalCount}</td>
+          <td style="text-align:center">${table1Data.totalPrisEnCharge}</td>
+          <td style="text-align:center">${table1Data.totalAmiable}</td>
           <td style="text-align:center">${table1Data.totalSuspended}</td>
           <td style="text-align:center">${table1Data.totalEcheanciers}</td>
           <td style="text-align:center">${table1Data.totalSuccessionNotaire}</td>
@@ -2169,6 +2217,12 @@ export function BilanImpressionView({
                     Nouveaux dossiers reçus
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
+                    Dossier pris en charge
+                  </th>
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
+                    Dossiers traités à l'amiable
+                  </th>
+                  <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
                     Suspendu
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
@@ -2197,6 +2251,12 @@ export function BilanImpressionView({
                     <td className="py-2.5 px-4 font-bold text-center text-gray-700">
                       {item.count}
                     </td>
+                    <td className="py-2.5 px-4 font-bold text-center text-gray-700">
+                      {item.prisEnCharge}
+                    </td>
+                    <td className="py-2.5 px-4 font-bold text-center text-emerald-700">
+                      {item.amiable}
+                    </td>
                     <td className="py-2.5 px-4 font-bold text-center text-amber-700">
                       {item.suspended}
                     </td>
@@ -2224,6 +2284,12 @@ export function BilanImpressionView({
                   </td>
                   <td className="py-3 px-4 text-center text-gray-900">
                     {table1Data.totalCount}
+                  </td>
+                  <td className="py-3 px-4 text-center text-gray-900">
+                    {table1Data.totalPrisEnCharge}
+                  </td>
+                  <td className="py-3 px-4 text-center text-emerald-900">
+                    {table1Data.totalAmiable}
                   </td>
                   <td className="py-3 px-4 text-center text-amber-900">
                     {table1Data.totalSuspended}

@@ -2072,7 +2072,7 @@ export function BilanImpressionView({
       <div class="header-title">
         <div class="title-line">SERVICE CONTENTIEUX</div>
         <div class="title-line">BILAN D'ACTIVITÉ</div>
-        <div class="sub">${secteurLabel ? `Centre / Secteur : ${esc(secteurLabel)}` : "Toute l'unité"}</div>
+        <div class="sub">${secteurLabel ? `Centre : ${esc(secteurLabel)}` : "Toute l'unité"}</div>
       </div>
     </div>
     <div class="header-right">
@@ -2087,7 +2087,7 @@ export function BilanImpressionView({
       <thead>
         <tr>
           <th>Type d'abonné</th>
-          <th style="text-align:center">Nouveaux dossiers reçus</th>
+          <th style="text-align:center">Nbr dossiers reçus</th>
           <th style="text-align:center">Dossier pris en charge</th>
           <th style="text-align:center">Dossiers traités à l'amiable</th>
           <th style="text-align:center">Suspendu</th>
@@ -2213,7 +2213,7 @@ export function BilanImpressionView({
             </h1>
             <p className="text-xs text-gray-500 font-bold mt-1 uppercase tracking-wider">
               {secteurLabel
-                ? `Centre / Secteur : ${secteurLabel}`
+                ? `Centre : ${secteurLabel}`
                 : "Toute l'unité"}
             </p>
           </div>
@@ -2245,7 +2245,7 @@ export function BilanImpressionView({
                     Type d'abonné
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
-                    Nouveaux dossiers reçus
+                    Nbr dossiers reçus
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
                     Dossier pris en charge

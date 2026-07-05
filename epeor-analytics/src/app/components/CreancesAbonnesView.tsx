@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronDown, Search, Printer, MapPin, Calendar, Users, FileSpreadsheet,
 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
-import { appendSecteurParam, showAlert } from "./utils";
+import { appendSecteurParam, showAlert, showConfirm } from "./utils";
 import { SecteurDropdown } from "./ui";
 import { escapeHtml } from "../../lib/escape";
 
@@ -115,6 +115,34 @@ export function CreancesAbonnesView({
 
   const toggleContentieux = async (s: any) => {
     const newVal = !s.is_contentieux;
+    const confirmationTitle = newVal
+      ? "Transmettre au service juridique"
+      : "Retirer la transmission";
+    const confirmationText = newVal
+      ? "Voulez-vous transmettre ce dossier au service juridique ?"
+      : "Voulez-vous retirer la transmission de ce dossier ?";
+    const confirmationHtml = `
+      <div style="text-align:left; line-height:1.5;">
+        <p>${confirmationText}</p>
+        <ul style="margin:8px 0 0 16px; padding:0;">
+          <li><strong>Code abonné :</strong> ${s.numab || "—"}</li>
+          <li><strong>Nom et prénom :</strong> ${s.name || "—"}</li>
+          <li><strong>Montant des créances :</strong> ${fmt(s.montant_creance || 0)}</li>
+        </ul>
+      </div>`;
+
+    const confirmResult = await showConfirm("", {
+      title: confirmationTitle,
+      html: confirmationHtml,
+      icon: "question",
+      confirmButtonText: newVal ? "Oui, transmettre" : "Oui, retirer",
+      cancelButtonText: "Non",
+    });
+
+    if (!confirmResult.isConfirmed) {
+      return;
+    }
+
     // Optimistic update
     setAllSubscribers(prev => prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: newVal } : x));
     setResults(prev => prev ? prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: newVal } : x) : null);

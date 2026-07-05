@@ -35,6 +35,40 @@ interface EcheanceLine {
   invoiceIds: string[];
 }
 
+interface DossierState {
+  statut_abonne: string;
+  etape_recouvrement: string;
+  has_mise_en_demeure: boolean;
+  has_echeancier: boolean;
+  transmis_huissier: boolean;
+  transmis_cours: boolean;
+  execution_jugement: boolean;
+  nom_notaire: string;
+  coordonnees_notaire: string;
+  liste_heritiers: string;
+  date_declaration_creance: string;
+  motif: string;
+  echeancier_plan: EcheanceLine[];
+  heritiers: Heritier[];
+}
+
+const initialDossierState: DossierState = {
+  statut_abonne: "Actif",
+  etape_recouvrement: "Amiable",
+  has_mise_en_demeure: false,
+  has_echeancier: false,
+  transmis_huissier: false,
+  transmis_cours: false,
+  execution_jugement: false,
+  nom_notaire: "",
+  coordonnees_notaire: "",
+  liste_heritiers: "",
+  date_declaration_creance: "",
+  motif: "",
+  echeancier_plan: [],
+  heritiers: [],
+};
+
 export function DossierJuridiquePanel({
   isOpen,
   onClose,
@@ -51,28 +85,18 @@ export function DossierJuridiquePanel({
   );
   const [installmentTargetAmount, setInstallmentTargetAmount] = useState(0);
 
-  const [dossier, setDossier] = useState({
-    statut_abonne: "Actif",
-    etape_recouvrement: "Amiable",
-    has_mise_en_demeure: false,
-    has_echeancier: false,
-    transmis_huissier: false,
-    transmis_cours: false,
-    execution_jugement: false,
-    nom_notaire: "",
-    coordonnees_notaire: "",
-    liste_heritiers: "",
-    date_declaration_creance: "",
-    motif: "",
-    echeancier_plan: [] as EcheanceLine[],
-    heritiers: [] as Heritier[],
-  });
+  const [dossier, setDossier] = useState<DossierState>(initialDossierState);
 
   const sanitizeDossierForStatus = useCallback(
-    (values: Partial<typeof dossier>) => {
-      if (values.statut_abonne === "Suspendu") {
+    (values: Partial<DossierState>): DossierState => {
+      const base: DossierState = {
+        ...initialDossierState,
+        ...values,
+      };
+
+      if (base.statut_abonne === "Suspendu") {
         return {
-          ...values,
+          ...base,
           has_mise_en_demeure: false,
           has_echeancier: false,
           transmis_huissier: false,
@@ -80,13 +104,13 @@ export function DossierJuridiquePanel({
           execution_jugement: false,
         };
       }
-      return values;
+      return base;
     },
     [],
   );
 
   const deriveEtapeRecouvrement = useCallback(
-    (values: Partial<typeof dossier>) => {
+    (values: Partial<DossierState>) => {
     if (values.statut_abonne === "Suspendu") {
       return "Suspendu";
     }
@@ -110,7 +134,7 @@ export function DossierJuridiquePanel({
     [],
   );
 
-  const updateDossierState = (updates: Partial<typeof dossier>) => {
+  const updateDossierState = (updates: Partial<DossierState>) => {
     setDossier((current) => {
       const next = sanitizeDossierForStatus({ ...current, ...updates });
       return {

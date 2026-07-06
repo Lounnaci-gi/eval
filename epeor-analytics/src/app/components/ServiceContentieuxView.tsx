@@ -55,7 +55,7 @@ const getDossierDemarches = (d: any) => {
   }
 
   if (d.has_mise_en_demeure) {
-    items.push({ label: "Mise en demeure", className: "text-amber-700" });
+    items.push({ label: "Dernière mise en demeure avant les poursuites judiciaires", className: "text-amber-700" });
   }
   if (d.has_echeancier) {
     items.push({ label: "Échéancier", className: "text-emerald-700" });
@@ -67,11 +67,11 @@ const getDossierDemarches = (d: any) => {
     });
   }
   if (d.transmis_cours) {
-    items.push({ label: "Transmis à la cour", className: "text-rose-700" });
+    items.push({ label: "Enregistrement du dossier au tribunal", className: "text-rose-700" });
   }
   if (d.execution_jugement) {
     items.push({
-      label: "Exécution de jugement",
+      label: "Procédures d'exécution de l'arrêt",
       className: "text-sky-700",
     });
   }
@@ -341,9 +341,9 @@ export function ServiceContentieuxView({
       const dossiersHuissier = filteredDossiers.filter((d) => Boolean(d.transmis_huissier)).length;
       const dossiersTribunal = filteredDossiers.filter((d) => {
         const etape = (d.etape_recouvrement || "").toString().trim().toLowerCase();
-        return etape === "tribunal";
+        return Boolean(d.transmis_cours) || etape === "tribunal" || etape === "enregistrement du dossier au tribunal";
       }).length;
-      const dossiersExecutionJugement = filteredDossiers.filter((d) => Boolean(d.execution_jugement)).length;
+      const dossiersExecutionJugement = filteredDossiers.filter((d) => Boolean(d.execution_jugement) || (d.etape_recouvrement || "").toString().toLowerCase().includes("exécution")).length;
 
       return [
         {
@@ -367,12 +367,12 @@ export function ServiceContentieuxView({
           tone: "violet",
         },
         {
-          label: "dossiers Tribunal",
+          label: "dossiers Enregistrement du dossier au tribunal",
           value: dossiersTribunal.toLocaleString("fr-DZ"),
           tone: "rose",
         },
         {
-          label: "Exécution de Jugement",
+          label: "Procédures d'exécution de l'arrêt",
           value: dossiersExecutionJugement.toLocaleString("fr-DZ"),
           tone: "teal",
         },
@@ -795,10 +795,19 @@ export function ServiceContentieuxView({
             const STEPS = [
               "Suspendu",
               "Amiable",
-              "Mise en demeure",
+              "Dernière mise en demeure avant les poursuites judiciaires",
+              "Règlement / Conciliation",
               "Transmis Huissier",
-              "Tribunal",
-              "Exécution de Jugement",
+              "Enregistrement du dossier au tribunal",
+              "Dossier en délibéré",
+              "Prononcé d'un jugement de première instance",
+              "Notification du jugement",
+              "Jugement définitif",
+              "Appel du jugement",
+              "Dossier en délibéré (Appel)",
+              "Rendu de l'arrêt",
+              "Notification de l'arrêt",
+              "Procédures d'exécution de l'arrêt",
             ];
             const STATUT_COLORS: Record<string, string> = {
               Actif: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -809,11 +818,19 @@ export function ServiceContentieuxView({
             const ETAPE_COLORS: Record<string, string> = {
               Suspendu: "bg-amber-50 text-amber-700 border-amber-200",
               Amiable: "bg-sky-50 text-sky-700 border-sky-200",
-              "Mise en demeure": "bg-amber-50 text-amber-700 border-amber-200",
-              "Transmis Huissier":
-                "bg-indigo-50 text-indigo-700 border-indigo-200",
-              Tribunal: "bg-rose-50 text-rose-700 border-rose-200",
-              "Exécution de Jugement": "bg-teal-50 text-teal-700 border-teal-200",
+              "Dernière mise en demeure avant les poursuites judiciaires": "bg-amber-50 text-amber-700 border-amber-200",
+              "Règlement / Conciliation": "bg-emerald-50 text-emerald-700 border-emerald-200",
+              "Transmis Huissier": "bg-indigo-50 text-indigo-700 border-indigo-200",
+              "Enregistrement du dossier au tribunal": "bg-rose-50 text-rose-700 border-rose-200",
+              "Dossier en délibéré": "bg-amber-50 text-amber-700 border-amber-200",
+              "Prononcé d'un jugement de première instance": "bg-rose-50 text-rose-700 border-rose-200",
+              "Notification du jugement": "bg-slate-50 text-slate-700 border-slate-200",
+              "Jugement définitif": "bg-teal-50 text-teal-700 border-teal-200",
+              "Appel du jugement": "bg-violet-50 text-violet-700 border-violet-200",
+              "Dossier en délibéré (Appel)": "bg-violet-50 text-violet-700 border-violet-200",
+              "Rendu de l'arrêt": "bg-sky-50 text-sky-700 border-sky-200",
+              "Notification de l'arrêt": "bg-slate-50 text-slate-700 border-slate-200",
+              "Procédures d'exécution de l'arrêt": "bg-teal-50 text-teal-700 border-teal-200",
             };
             const filtered = dossiers.filter((d) => {
               if (!d.has_dossier) return false;
@@ -864,7 +881,7 @@ export function ServiceContentieuxView({
                       <td>${esc(d.tournee || "—")}</td>
                       <td>${esc(d.statut_abonne || "—")}</td>
                       <td>${esc(d.etape_recouvrement || "—")}</td>
-                      <td>${esc(d.statut_abonne === "Suspendu" ? "" : [d.has_mise_en_demeure ? "Mise en demeure envoyée" : "", d.has_echeancier ? (d.has_mise_en_demeure ? " • Échéancier accordé" : "Échéancier accordé") : "", d.transmis_huissier ? (d.has_mise_en_demeure || d.has_echeancier ? " • Transmis au huissier" : "Transmis au huissier") : "", d.transmis_cours ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier ? " • Transmis à la cour" : "Transmis à la cour") : "", d.execution_jugement ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier || d.transmis_cours ? " • Exécution de Jugement" : "Exécution de Jugement") : ""].filter(Boolean).join(""))}</td>
+                      <td>${esc(d.statut_abonne === "Suspendu" ? "" : [d.has_mise_en_demeure ? "Dernière mise en demeure avant les poursuites judiciaires" : "", d.has_echeancier ? (d.has_mise_en_demeure ? " • Échéancier accordé" : "Échéancier accordé") : "", d.transmis_huissier ? (d.has_mise_en_demeure || d.has_echeancier ? " • Transmis au huissier" : "Transmis au huissier") : "", d.transmis_cours ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier ? " • Enregistrement du dossier au tribunal" : "Enregistrement du dossier au tribunal") : "", d.execution_jugement ? (d.has_mise_en_demeure || d.has_echeancier || d.transmis_huissier || d.transmis_cours ? " • Procédures d'exécution de l'arrêt" : "Procédures d'exécution de l'arrêt") : ""].filter(Boolean).join(""))}</td>
                       <td>${esc(d.date_transmission ? new Date(d.date_transmission).toLocaleDateString("fr-DZ") : "—")}</td>
                       <td>${esc(d.updated_at ? new Date(d.updated_at).toLocaleDateString("fr-DZ") : "—")}</td>
                     </tr>`,
@@ -1187,27 +1204,16 @@ export function ServiceContentieuxView({
                       </p>
                       <div className="flex gap-4 text-xs text-[#667085]">
                         {STEPS.map((step) => {
-                          const count =
-                            step === "Transmis Huissier"
-                              ? sortedD.filter(
-                                  (d) => Boolean(d.transmis_huissier) || (d.etape_recouvrement || "").toLowerCase() === "transmis huissier",
-                                ).length
-                              : step === "Tribunal"
-                                ? sortedD.filter(
-                                    (d) => Boolean(d.transmis_cours) || (d.etape_recouvrement || "").toLowerCase() === "tribunal",
-                                  ).length
-                                : step === "Exécution de Jugement"
-                                  ? sortedD.filter(
-                                      (d) =>
-                                        Boolean(d.execution_jugement) ||
-                                        (d.etape_recouvrement || "").toLowerCase() === "exécution de jugement" ||
-                                        (d.etape_recouvrement || "").toLowerCase() === "execution de jugement",
-                                    ).length
-                                  : sortedD.filter((d) => d.etape_recouvrement === step).length;
-                          const badgeLabel =
-                            step === "Transmis Huissier"
-                              ? "Transmis au huissier"
-                              : step;
+                          const count = sortedD.filter((d) => {
+                            const et = (d.etape_recouvrement || "").toString().trim();
+                            if (step === "Transmis Huissier") return Boolean(d.transmis_huissier) || et === "Transmis Huissier";
+                            if (step === "Enregistrement du dossier au tribunal") return Boolean(d.transmis_cours) || et === "Enregistrement du dossier au tribunal" || et.toLowerCase() === "tribunal";
+                            if (step === "Procédures d'exécution de l'arrêt") return Boolean(d.execution_jugement) || et === "Procédures d'exécution de l'arrêt" || et.toLowerCase().includes("exécution");
+                            if (step === "Dernière mise en demeure avant les poursuites judiciaires") return Boolean(d.has_mise_en_demeure) || et === "Dernière mise en demeure avant les poursuites judiciaires" || et.toLowerCase().includes("mise en demeure");
+                            if (step === "Amiable") return Boolean(d.has_echeancier) || et === "Amiable";
+                            return et === step;
+                          }).length;
+                          const badgeLabel = step === "Transmis Huissier" ? "Transmis au huissier" : step;
                           return (
                             <span
                               key={step}
@@ -1953,9 +1959,12 @@ export function BilanImpressionView({
       const successionNotaire = matchingAll.filter((d) => Boolean(d.transmis_huissier)).length;
       const tribunal = matchingAll.filter((d) => {
         const etape = (d.etape_recouvrement || "").trim().toLowerCase();
-        return etape === "tribunal";
+        return Boolean(d.transmis_cours) || etape === "tribunal" || etape === "enregistrement du dossier au tribunal";
       }).length;
-      const executionJugement = matchingAll.filter((d) => Boolean(d.execution_jugement)).length;
+      const executionJugement = matchingAll.filter((d) => {
+        const etape = (d.etape_recouvrement || "").toString().trim().toLowerCase();
+        return Boolean(d.execution_jugement) || etape === "procédures d'exécution de l'arrêt" || etape.includes("exécution");
+      }).length;
 
       totalCount += count;
       totalPrisEnCharge += prisEnCharge;
@@ -2189,8 +2198,8 @@ export function BilanImpressionView({
           <th style="text-align:center">Suspendu</th>
           <th style="text-align:center">Échéancier</th>
           <th style="text-align:center">Transmis Huissier</th>
-          <th style="text-align:center">Tribunal</th>
-          <th style="text-align:center">Exécution de Jugement</th>
+          <th style="text-align:center">Enregistrement du dossier au tribunal</th>
+          <th style="text-align:center">Procédures d'exécution de l'arrêt</th>
           <th style="text-align:right">Montant global</th>
         </tr>
       </thead>
@@ -2359,10 +2368,10 @@ export function BilanImpressionView({
                     Transmis Huissier
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
-                    Tribunal
+                    Enregistrement du dossier au tribunal
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-center">
-                    Exécution de Jugement
+                    Procédures d'exécution de l'arrêt
                   </th>
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider text-right">
                     Montant global

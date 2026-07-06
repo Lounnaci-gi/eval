@@ -43,6 +43,15 @@ interface DossierState {
   transmis_huissier: boolean;
   transmis_cours: boolean;
   execution_jugement: boolean;
+  reglement_conciliation: boolean;
+  jugement_definitif: string | null; // 'par_defaut' | 'contradictoire' | null
+  appel: boolean;
+  dossier_en_delibere_appel: boolean;
+  rendu_arret: boolean;
+  notification_jugement: boolean;
+  notification_arret: boolean;
+  dossier_en_delibere: boolean;
+  prononce_jugement: boolean;
   nom_notaire: string;
   coordonnees_notaire: string;
   liste_heritiers: string;
@@ -60,6 +69,15 @@ const initialDossierState: DossierState = {
   transmis_huissier: false,
   transmis_cours: false,
   execution_jugement: false,
+  reglement_conciliation: false,
+  jugement_definitif: null,
+  appel: false,
+  dossier_en_delibere_appel: false,
+  rendu_arret: false,
+  notification_jugement: false,
+  notification_arret: false,
+  dossier_en_delibere: false,
+  prononce_jugement: false,
   nom_notaire: "",
   coordonnees_notaire: "",
   liste_heritiers: "",
@@ -102,6 +120,15 @@ export function DossierJuridiquePanel({
           transmis_huissier: false,
           transmis_cours: false,
           execution_jugement: false,
+          reglement_conciliation: false,
+          jugement_definitif: null,
+          appel: false,
+          dossier_en_delibere_appel: false,
+          rendu_arret: false,
+          notification_jugement: false,
+          notification_arret: false,
+          dossier_en_delibere: false,
+          prononce_jugement: false,
         };
       }
       return base;
@@ -115,20 +142,35 @@ export function DossierJuridiquePanel({
       return "Suspendu";
     }
     if (values.execution_jugement) {
-      return "Exécution de Jugement";
+      return "Procédures d'exécution de l'arrêt";
     }
     if (values.transmis_huissier) {
       return "Transmis Huissier";
     }
     if (values.transmis_cours) {
-      return "Tribunal";
+      return "Enregistrement du dossier au tribunal";
     }
     if (values.statut_abonne === "Décédé") {
       return "Transmis Huissier";
     }
-      if (values.has_mise_en_demeure || values.has_echeancier) {
+      // Follow diagram flow
+      if (values.has_mise_en_demeure) {
+        if (values.reglement_conciliation) return "Règlement / Conciliation";
+        return "Dernière mise en demeure avant les poursuites judiciaires";
+      }
+      if (values.has_echeancier) {
         return "Amiable";
       }
+
+      if (values.jugement_definitif) return "Jugement définitif";
+      if (values.prononce_jugement) return "Prononcé d'un jugement de première instance";
+      if (values.notification_jugement) return "Notification du jugement";
+      if (values.jugement_definitif) return "Jugement définitif";
+      if (values.appel) return "Appel du jugement";
+      if (values.dossier_en_delibere_appel) return "Dossier en délibéré (Appel)";
+      if (values.rendu_arret) return "Rendu de l'arrêt";
+      if (values.notification_arret) return "Notification de l'arrêt";
+
       return values.etape_recouvrement || "Amiable";
     },
     [],
@@ -136,7 +178,64 @@ export function DossierJuridiquePanel({
 
   const updateDossierState = (updates: Partial<DossierState>) => {
     setDossier((current) => {
-      const next = sanitizeDossierForStatus({ ...current, ...updates });
+      const merged = { ...current, ...updates } as DossierState;
+
+      // Enforce workflow sequence (cannot skip steps)
+      const enforced = { ...merged } as DossierState;
+
+      // Step A: has_mise_en_demeure is prerequisite for reglement_conciliation and transmis_cours
+      if (enforced.reglement_conciliation && !enforced.has_mise_en_demeure) enforced.has_mise_en_demeure = true;
+      if (enforced.transmis_cours && !enforced.has_mise_en_demeure) enforced.has_mise_en_demeure = true;
+
+      // After transmis_cours -> dossier_en_delibere
+      if (enforced.transmis_cours && !enforced.dossier_en_delibere) enforced.dossier_en_delibere = true;
+      if (enforced.dossier_en_delibere && !enforced.transmis_cours) enforced.transmis_cours = true;
+
+      // Prononcé requires dossier_en_delibere
+      if (enforced.prononce_jugement && !enforced.dossier_en_delibere) enforced.dossier_en_delibere = true;
+      if (enforced.prononce_jugement && !enforced.transmis_cours) enforced.transmis_cours = true;
+
+      // Notification du jugement requires prononcé
+      if (enforced.notification_jugement && !enforced.prononce_jugement) enforced.prononce_jugement = true;
+
+      // Jugement définitif or Appel require notification_jugement
+      if ((enforced.jugement_definitif || enforced.appel) && !enforced.notification_jugement) enforced.notification_jugement = true;
+
+      // If appel set, ensure notification_jugement true
+      if (enforced.appel && !enforced.notification_jugement) enforced.notification_jugement = true;
+
+      // Appel flow: appel -> dossier_en_delibere_appel -> rendu_arret -> notification_arret -> execution_jugement
+      if (enforced.appel && !enforced.dossier_en_delibere_appel) enforced.dossier_en_delibere_appel = true;
+      if (enforced.dossier_en_delibere_appel && !enforced.appel) enforced.appel = true;
+      if (enforced.rendu_arret && !enforced.dossier_en_delibere_appel) enforced.dossier_en_delibere_appel = true;
+      if (enforced.notification_arret && !enforced.rendu_arret) enforced.rendu_arret = true;
+      if (enforced.execution_jugement && !enforced.notification_arret) enforced.notification_arret = true;
+
+      // If earlier step unset, clear downstream steps
+      if (!enforced.has_mise_en_demeure) {
+        enforced.reglement_conciliation = false;
+        enforced.transmis_cours = false;
+        enforced.dossier_en_delibere = false;
+        enforced.prononce_jugement = false;
+        enforced.notification_jugement = false;
+        enforced.jugement_definitif = null;
+        enforced.appel = false;
+        enforced.dossier_en_delibere_appel = false;
+        enforced.rendu_arret = false;
+        enforced.notification_arret = false;
+        enforced.execution_jugement = false;
+      }
+
+      if (!enforced.transmis_cours) {
+        enforced.dossier_en_delibere = false;
+        enforced.prononce_jugement = false;
+        enforced.notification_jugement = false;
+        enforced.jugement_definitif = null;
+        enforced.appel = false;
+        enforced.dossier_en_delibere_appel = false;
+      }
+
+      const next = sanitizeDossierForStatus(enforced);
       return {
         ...next,
         etape_recouvrement: deriveEtapeRecouvrement(next),
@@ -173,6 +272,13 @@ export function DossierJuridiquePanel({
             transmis_huissier: !!dossierData.transmis_huissier,
             transmis_cours: !!dossierData.transmis_cours,
             execution_jugement: !!dossierData.execution_jugement,
+            reglement_conciliation: !!dossierData.reglement_conciliation,
+            jugement_definitif: dossierData.jugement_definitif || null,
+            appel: !!dossierData.appel,
+            dossier_en_delibere_appel: !!dossierData.dossier_en_delibere_appel,
+            rendu_arret: !!dossierData.rendu_arret,
+            notification_jugement: !!dossierData.notification_jugement,
+            notification_arret: !!dossierData.notification_arret,
             nom_notaire: dossierData.nom_notaire || "",
             coordonnees_notaire: dossierData.coordonnees_notaire || "",
             liste_heritiers: dossierData.liste_heritiers || "",
@@ -499,10 +605,19 @@ export function DossierJuridiquePanel({
   const steps = [
     "Suspendu",
     "Amiable",
-    "Mise en demeure",
+    "Dernière mise en demeure avant les poursuites judiciaires",
+    "Règlement / Conciliation",
     "Transmis Huissier",
-    "Tribunal",
-    "Exécution de Jugement",
+    "Enregistrement du dossier au tribunal",
+    "Dossier en délibéré",
+    "Prononcé d'un jugement de première instance",
+    "Notification du jugement",
+    "Jugement définitif",
+    "Appel du jugement",
+    "Dossier en délibéré (Appel)",
+    "Rendu de l'arrêt",
+    "Notification de l'arrêt",
+    "Procédures d'exécution de l'arrêt",
   ];
   const isSuspendedStatus = dossier.statut_abonne === "Suspendu";
   const effectiveEtapeRecouvrement = deriveEtapeRecouvrement(dossier);
@@ -578,12 +693,17 @@ export function DossierJuridiquePanel({
                           <div className="relative flex flex-wrap justify-between gap-3">
                             {steps.map((step, idx) => {
                               const isCompleted = idx <= currentStepIndex;
+                              const canActivate = idx <= currentStepIndex + 1; // allow only next step or previous
                               return (
                                 <button
                                   key={step}
                                   type="button"
-                                  onClick={() => updateDossierState({ etape_recouvrement: step })}
-                                  className="relative flex flex-col items-center gap-2 bg-white/70 rounded-full p-2"
+                                  onClick={() => {
+                                    if (!canActivate) return;
+                                    updateDossierState({ etape_recouvrement: step });
+                                  }}
+                                  disabled={!canActivate}
+                                  className={`relative flex flex-col items-center gap-2 bg-white/70 rounded-full p-2 ${!canActivate ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                   <span
                                     className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${isCompleted ? "border-brand-500 bg-brand-500 text-white" : "border-[#CBD5E1] bg-white text-[#94A3B8]"}`}
@@ -668,7 +788,7 @@ export function DossierJuridiquePanel({
                           {[
                             {
                               key: "has_mise_en_demeure",
-                              label: "Mise en demeure envoyée",
+                              label: "Dernière mise en demeure avant les poursuites judiciaires",
                               color: "amber",
                             },
                             {
@@ -677,37 +797,119 @@ export function DossierJuridiquePanel({
                               color: "emerald",
                             },
                             {
+                              key: "reglement_conciliation",
+                              label: "Règlement / Conciliation",
+                              color: "blue",
+                            },
+                            {
                               key: "transmis_huissier",
                               label: "Transmis au huissier",
                               color: "violet",
                             },
                             {
                               key: "transmis_cours",
-                              label: "Transmis à la cour",
+                              label: "Enregistrement du dossier au tribunal",
                               color: "rose",
                             },
                             {
+                              key: "dossier_en_delibere",
+                              label: "Dossier en délibéré",
+                              color: "amber",
+                            },
+                            {
+                              key: "prononce_jugement",
+                              label: "Prononcé d'un jugement de première instance",
+                              color: "rose",
+                            },
+                            {
+                              key: "dossier_en_delibere_appel",
+                              label: "Dossier en délibéré (Appel)",
+                              color: "violet",
+                            },
+                            {
+                              key: "appel",
+                              label: "Appel du jugement",
+                              color: "violet",
+                            },
+                            {
+                              key: "rendu_arret",
+                              label: "Rendu de l'arrêt",
+                              color: "sky",
+                            },
+                            {
+                              key: "notification_jugement",
+                              label: "Notification du jugement",
+                              color: "slate",
+                            },
+                            {
+                              key: "notification_arret",
+                              label: "Notification de l'arrêt",
+                              color: "slate",
+                            },
+                            {
                               key: "execution_jugement",
-                              label: "Exécution de Jugement",
+                                              label: "Procédures d'exécution de l'arrêt",
                               color: "amber",
                             },
                           ].map(({ key, label }) => {
                             const value = dossier[
                               key as keyof typeof dossier
                             ] as boolean;
+                            // compute prerequisite-based disabling to enforce sequence
+                            let disabled = isSuspendedStatus;
+                            if (!disabled) {
+                              switch (key) {
+                                case "reglement_conciliation":
+                                  disabled = !dossier.has_mise_en_demeure;
+                                  break;
+                                case "transmis_huissier":
+                                  disabled = !dossier.has_mise_en_demeure;
+                                  break;
+                                case "transmis_cours":
+                                  disabled = !dossier.has_mise_en_demeure;
+                                  break;
+                                case "dossier_en_delibere":
+                                  disabled = !dossier.transmis_cours;
+                                  break;
+                                case "prononce_jugement":
+                                  disabled = !dossier.dossier_en_delibere;
+                                  break;
+                                case "notification_jugement":
+                                  disabled = !dossier.prononce_jugement;
+                                  break;
+                                case "appel":
+                                  disabled = !dossier.notification_jugement;
+                                  break;
+                                case "dossier_en_delibere_appel":
+                                  disabled = !dossier.appel;
+                                  break;
+                                case "rendu_arret":
+                                  disabled = !dossier.dossier_en_delibere_appel;
+                                  break;
+                                case "notification_arret":
+                                  disabled = !dossier.rendu_arret;
+                                  break;
+                                case "execution_jugement":
+                                  disabled = !dossier.notification_arret;
+                                  break;
+                                default:
+                                  disabled = isSuspendedStatus;
+                              }
+                            }
+
                             return (
                               <label
                                 key={key}
-                                className="flex items-center gap-3 rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 cursor-pointer transition-colors hover:border-brand-300"
+                                className={`flex items-center gap-3 rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 cursor-pointer transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-brand-300'}`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={value}
-                                  disabled={isSuspendedStatus}
+                                  disabled={disabled}
                                   onChange={(e) =>
                                     updateDossierState({ [key]: e.target.checked })
                                   }
-                                  className="h-4 w-4 rounded-md border-gray-300 text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="h-4 w-4 rounded-md border-gray-300 text-brand-600 focus:ring-brand-500"
                                 />
                                 <span className="text-sm font-bold text-[#334155]">
                                   {label}
@@ -715,6 +917,24 @@ export function DossierJuridiquePanel({
                               </label>
                             );
                           })}
+                        
+                          <div className="mt-3">
+                            <label className="block text-xs font-black uppercase tracking-wider text-[#94A3B8] mb-2">Jugement définitif (type)</label>
+                            <div className="flex gap-3">
+                              <label className="inline-flex items-center gap-2">
+                                <input type="radio" name="jugement_definitif" value="par_defaut" checked={dossier.jugement_definitif === 'par_defaut'} disabled={!dossier.notification_jugement} onChange={() => updateDossierState({ jugement_definitif: 'par_defaut' })} />
+                                <span className="text-sm font-bold">Par défaut</span>
+                              </label>
+                              <label className="inline-flex items-center gap-2">
+                                <input type="radio" name="jugement_definitif" value="contradictoire" checked={dossier.jugement_definitif === 'contradictoire'} disabled={!dossier.notification_jugement} onChange={() => updateDossierState({ jugement_definitif: 'contradictoire' })} />
+                                <span className="text-sm font-bold">Contradictoire</span>
+                              </label>
+                              <label className="inline-flex items-center gap-2">
+                                <input type="radio" name="jugement_definitif" value="none" checked={!dossier.jugement_definitif} disabled={!dossier.notification_jugement} onChange={() => updateDossierState({ jugement_definitif: null })} />
+                                <span className="text-sm font-bold">Aucun</span>
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

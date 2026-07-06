@@ -79,6 +79,8 @@ const getDossierDemarches = (d: any) => {
   return items;
 };
 
+// (removed) display helper — keep original `type_abon` from API for listing
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ServiceContentieuxView({
@@ -1831,6 +1833,11 @@ export function BilanImpressionView({
   const getGroupedType = (code: string, label: string): string => {
     const n = parseInt(code, 10);
     if (!isNaN(n)) {
+      // Types 10-19 mapped to MENAGE INDIVIDUEL, except 15 -> VENTE EN GROS
+      if (n >= 10 && n <= 19) {
+        if (n === 15) return "VENTE EN GROS";
+        return "MENAGE INDIVIDUEL";
+      }
       if (n >= 20 && n <= 29) return "Administration";
       if (n >= 30 && n <= 39) return "Commerce";
       if (n >= 40 && n <= 49) return "Activité industrielle";

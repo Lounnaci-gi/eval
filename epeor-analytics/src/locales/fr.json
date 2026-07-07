@@ -8,7 +8,7 @@
     "reloading": "Rechargement…",
     "reloadData": "Relancer le chargement des données",
     "configureFolder": "Configurer le dossier de données",
-    "alternativeRestart": "Ou fermez « EPEOR Backend » et relancez start.bat — vérifiez le dossier de données (variable EPEOR_DATA_DIR)"
+    "alternativeRestart": ""
   },
   "restricted": {
     "title": "Aucune donnée pour votre compte",

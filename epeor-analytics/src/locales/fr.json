@@ -302,5 +302,13 @@
     "startDate": "Date de début",
     "endDate": "Date de fin",
     "period": "Période"
+  },
+  "sidebar": {
+    "main": "Accueil",
+    "reports": "Rapports",
+    "finance": "Finance",
+    "utility": "Paramètres",
+    "show": "Afficher le menu",
+    "hide": "Masquer le menu"
   }
 }

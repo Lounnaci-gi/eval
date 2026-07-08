@@ -40,6 +40,7 @@ import { SecteurDropdown } from "./ui";
 import Countdown from "./Countdown";
 import Logo from "./Logo";
 import { StatsCard, NavItem } from "./dashboard-ui";
+import { FloatingExpandableSidebar } from "./FloatingExpandableSidebar";
 import { SettingsView } from "./SettingsView";
 import { MobileNav, MobileTopBar, type AppView } from "./MobileNav";
 import ThemeToggle from "./ThemeToggle";
@@ -123,7 +124,6 @@ export default function Dashboard() {
   const [loginRetryAfter, setLoginRetryAfter] = useState<number | null>(null);
   const [loginCountdown, setLoginCountdown] = useState<number | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (loginCountdown === null || loginCountdown <= 0) {
@@ -754,98 +754,14 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-screen min-h-[100dvh] bg-[#F9FAFB] text-[#101828] relative">
-      {/* Sidebar — desktop / large tablet landscape */}
-      <aside className={`sidebar ${isSidebarCollapsed ? 'w-20' : 'w-72'} bg-white/95 border-r border-[#E4E7EC] p-4 md:p-6 flex flex-col gap-6 hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:self-start shrink-0 no-print no-print-charts-only overflow-y-auto overflow-x-hidden backdrop-blur-sm transition-all duration-300 ease-out`}>
-        <div className="flex items-center justify-between gap-3 px-2 py-1 rounded-2xl bg-gradient-to-r from-[#f8fbff] to-[#f7f7ff] border border-[#eef4fb]">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center p-1">
-            <Logo variant="sidebar" alt="EPEOR" />
-          </div>
-          <div className={`${isSidebarCollapsed ? 'hidden' : 'block'}`}>
-            <span className="text-xl font-extrabold tracking-tight text-[#101828]">EPEOR</span>
-            <span className="block text-[10px] uppercase tracking-widest font-bold text-[#0D83DE]">Analytics Pro</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-xl border border-[#E4E7EC] bg-white text-[#475467] shadow-sm transition hover:bg-[#F9FAFB]"
-            aria-label={isSidebarCollapsed ? 'Afficher le sidebar' : 'Masquer le sidebar'}
-            title={isSidebarCollapsed ? 'Afficher le sidebar' : 'Masquer le sidebar'}
-          >
-            {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronRight size={16} className="rotate-180" />}
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <nav className="flex flex-col gap-1.5">
-            <NavItem
-              icon={<LayoutDashboard size={20} />}
-              label={isSidebarCollapsed ? '' : t('nav.dashboard')}
-              active={currentView === 'dashboard'}
-              onClick={() => setCurrentView('dashboard')}
-            />
-            <NavItem
-              icon={<Users size={20} />}
-              label={isSidebarCollapsed ? '' : t('nav.subscribers')}
-              active={['details', 'evolution', 'resigned', 'stopped', 'no_meter'].includes(currentView)}
-              onClick={() => setCurrentView('details')}
-            />
-            <NavItem
-              icon={<BarChart3 size={20} />}
-              label={isSidebarCollapsed ? '' : t('nav.financials')}
-              active={currentView === 'creance' || currentView === 'repartition' || currentView === 'commune' || currentView === 'ventilation'}
-              onClick={() => setCurrentView('creance')}
-            />
-            <NavItem
-              icon={<CreditCard size={20} />}
-              label={isSidebarCollapsed ? '' : t('nav.subscriberDebts')}
-              active={currentView === 'creances_abonnes'}
-              onClick={() => setCurrentView('creances_abonnes')}
-            />
-            <NavItem
-              icon={<Building2 size={20} />}
-              label={isSidebarCollapsed ? '' : t('nav.institutionDebts')}
-              active={currentView === 'creances_institutions'}
-              onClick={() => setCurrentView('creances_institutions')}
-            />
-            <NavItem
-              icon={<Calendar size={20} />}
-              label={isSidebarCollapsed ? '' : t('nav.billingPeriods')}
-              active={currentView === 'service_contentieux'}
-              onClick={() => setCurrentView('service_contentieux')}
-            />
-          </nav>
-
-          <div className="mt-auto flex flex-col gap-1 pt-5 border-t border-[#F2F4F7]">
-            <NavItem icon={<Bell size={20} />} label={isSidebarCollapsed ? '' : t('nav.notifications')} />
-            {!isSidebarCollapsed && (
-              <div className="px-1 flex flex-col gap-2">
-                <ThemeToggle />
-                <LanguageSwitcher />
-              </div>
-            )}
-            <NavItem icon={<HelpCircle size={20} />} label={isSidebarCollapsed ? '' : t('nav.helpCenter')} />
-            {user && (
-              <NavItem
-                icon={<Settings size={20} />}
-                label={isSidebarCollapsed ? '' : t('nav.settings')}
-                active={currentView === 'settings'}
-                onClick={() => setCurrentView('settings')}
-              />
-            )}
-            <NavItem icon={<LogOut size={20} />} label={isSidebarCollapsed ? '' : t('nav.logout')} onClick={handleLogout} />
-          </div>
-        </div>
-
-        <div className={`bg-[#F9FAFB] p-4 rounded-2xl flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-          <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center font-bold text-slate-600 shrink-0">{user?.username?.[0]?.toUpperCase() || 'A'}</div>
-          {!isSidebarCollapsed && (
-            <div>
-              <p className="text-sm font-bold">{user?.username || 'Administrateur'}</p>
-              <p className="text-xs text-[#475467]">{user?.username ? `${user.username}@epeor.dz` : 'admin@epeor.dz'}</p>
-            </div>
-          )}
-        </div>
-      </aside>
+      {/* Floating Expandable Sidebar */}
+      <FloatingExpandableSidebar
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        user={user}
+        onLogout={handleLogout}
+        t={t}
+      />
 
       <div className="flex flex-1 flex-col min-w-0">
         <MobileTopBar />

@@ -1041,12 +1041,51 @@ def compute_dashboard_stats(
             code_affec in ('T10', 'T11', 'T19')
         )
         
-        # Skip subscribers with TYPABON not mapped to any category
-        if not is_mapped:
-            continue
-
         codcom = _abonne_codcom(numab)
         if codcom not in commune_map:
+            continue
+
+        # Skip category assignment for unmapped types, but keep them in totals.
+        if not is_mapped:
+            if codcom not in commune_counts:
+                commune_counts[codcom] = {
+                    "total": 0,
+                    "resigned": 0,
+                    "stopped": 0,
+                    "forfait": 0,
+                    "no_meter": 0,
+                    "quartiers": {},
+                    "categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0},
+                    "resigned_categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}
+                }
+            commune_counts[codcom]["total"] += 1
+            is_resigned = (abonment_state_map.get(numab) == '40')
+            is_stopped = (abonment_state_map.get(numab) == '20')
+            is_no_meter = (abonment_state_map.get(numab) == '30')
+            if is_resigned:
+                commune_counts[codcom]['resigned'] += 1
+                type_counts[t]['resigned'] += 1
+            if is_stopped:
+                commune_counts[codcom]['stopped'] += 1
+                type_counts[t]['stopped'] += 1
+            if str(numab).strip().upper() in invoice_forfait_set:
+                commune_counts[codcom]['forfait'] += 1
+                type_counts[t]['forfait'] += 1
+            if is_no_meter:
+                commune_counts[codcom]['no_meter'] += 1
+                type_counts[t]['no_meter'] += 1
+            prefix = numab[:2]
+            if prefix not in commune_counts[codcom]['quartiers']:
+                commune_counts[codcom]['quartiers'][prefix] = {'total': 0, 'resigned': 0, 'stopped': 0, 'forfait': 0, 'no_meter': 0}
+            commune_counts[codcom]['quartiers'][prefix]['total'] += 1
+            if is_resigned:
+                commune_counts[codcom]['quartiers'][prefix]['resigned'] += 1
+            if is_stopped:
+                commune_counts[codcom]['quartiers'][prefix]['stopped'] += 1
+            if str(numab).strip().upper() in invoice_forfait_set:
+                commune_counts[codcom]['quartiers'][prefix]['forfait'] += 1
+            if is_no_meter:
+                commune_counts[codcom]['quartiers'][prefix]['no_meter'] += 1
             continue
 
         if codcom not in commune_counts:
@@ -1124,6 +1163,63 @@ def compute_dashboard_stats(
         if is_no_meter:
             commune_counts[codcom]["quartiers"][prefix]["no_meter"] += 1
 
+    # Account for resigned subscribers not yet counted (no ABONNE record or empty TYPABON)
+    abonne_numabs_seen = {str(r.get('NUMAB', '')).strip().upper() for r in MEM_ABONNES}
+    for numab, abonment in abonments_by_numab.items():
+        numab = str(numab).strip().upper()
+        # Skip if already processed or not resigned
+        if numab in abonne_numabs_seen:
+            continue
+        if not _abonne_in_centre(numab, allowed_communes):
+            continue
+        if not _abonne_sector_allowed(numab, abonne_sec_set):
+            continue
+        etat = str(abonment.get('ETATCPT', '')).strip()
+        if etat != '40':
+            continue
+        
+        # This is a resigned subscriber not in ABONNE (or with empty TYPABON)
+        # Add it to the "Unmapped" type and its commune
+        t_code = '__unmapped__'
+        if t_code not in type_counts:
+            type_counts[t_code] = {"total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0, "communes": {}}
+        type_counts[t_code]["resigned"] += 1
+        type_counts[t_code]["total"] += 1
+        
+        codcom = _abonne_codcom(numab)
+        if codcom in commune_map:
+            if codcom not in type_counts[t_code]["communes"]:
+                type_counts[t_code]["communes"][codcom] = {
+                    "total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0, "quartiers": {}
+                }
+            type_counts[t_code]["communes"][codcom]["resigned"] += 1
+            type_counts[t_code]["communes"][codcom]["total"] += 1
+            
+            if codcom not in commune_counts:
+                commune_counts[codcom] = {
+                    "total": 0,
+                    "resigned": 0,
+                    "stopped": 0,
+                    "forfait": 0,
+                    "no_meter": 0,
+                    "quartiers": {},
+                    "categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0},
+                    "resigned_categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}
+                }
+            commune_counts[codcom]["resigned"] += 1
+            commune_counts[codcom]["total"] += 1
+            
+            prefix = numab[:2]
+            if prefix not in type_counts[t_code]["communes"][codcom]["quartiers"]:
+                type_counts[t_code]["communes"][codcom]["quartiers"][prefix] = {"total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0}
+            type_counts[t_code]["communes"][codcom]["quartiers"][prefix]["resigned"] += 1
+            type_counts[t_code]["communes"][codcom]["quartiers"][prefix]["total"] += 1
+            
+            if prefix not in commune_counts[codcom]["quartiers"]:
+                commune_counts[codcom]["quartiers"][prefix] = {"total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0}
+            commune_counts[codcom]["quartiers"][prefix]["resigned"] += 1
+            commune_counts[codcom]["quartiers"][prefix]["total"] += 1
+
     # Sans filtre centre : n'afficher que les communes ayant des abonnés
     if allowed_communes is None:
         commune_map = {
@@ -1134,8 +1230,6 @@ def compute_dashboard_stats(
     total = stats["total_subscribers"]
 
     for t_code, counts in type_counts.items():
-        if counts["total"] < 10:
-            continue
         label = mapping.get(t_code, f"Autre ({t_code})" if t_code else "Inconnu")
         formatted_type_communes = []
         _empty_type_commune = {"total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0, "quartiers": {}}

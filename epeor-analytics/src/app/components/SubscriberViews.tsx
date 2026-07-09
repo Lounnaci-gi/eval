@@ -459,11 +459,13 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
     let tableRowsHtml = "";
     communes.forEach((c: any) => {
       const actifs = c.value - (c.resigned || 0);
+      const forfait = c.forfait_count ?? 0;
       tableRowsHtml += `
         <tr>
           <td style="padding: 6px 12px; font-weight: bold;">${escapeHtml(c.name)}</td>
           <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #0D83DE;">${c.value.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #059669;">${actifs.toLocaleString()}</td>
+          <td style="padding: 6px 12px; text-align: right; color: #c2410c;">${forfait.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #e11d48;">${c.resigned?.toLocaleString() || 0}</td>
           <td style="padding: 6px 12px; text-align: right; font-weight: bold;">${c.percentage}%</td>
         </tr>
@@ -473,6 +475,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
     const totalVal = communes.reduce((acc: number, curr: any) => acc + curr.value, 0);
     const totalResigned = communes.reduce((acc: number, curr: any) => acc + (curr.resigned || 0), 0);
     const totalActifs = totalVal - totalResigned;
+    const totalForfait = communes.reduce((acc: number, curr: any) => acc + (curr.forfait_count || 0), 0);
     const totalPct = communes.reduce((acc: number, curr: any) => acc + (curr.percentage || 0), 0);
 
     tableRowsHtml += `
@@ -639,6 +642,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 <th>Commune</th>
                 <th style="text-align: right;">Total Abonnés</th>
                 <th style="text-align: right;">Abonnés Actifs</th>
+                <th style="text-align: right; color: #c2410c;">Forfait</th>
                 <th style="text-align: right;">Abonnés Résiliés</th>
                 <th style="text-align: right; width: 80px;">Part (%)</th>
               </tr>
@@ -960,6 +964,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 <th className="px-8 py-5">Quartier</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
                 <th className="px-6 py-5 text-right">Abonnés Actifs</th>
+                <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
                 <th className="px-8 py-5 text-right">Part (%)</th>
               </tr>
@@ -967,6 +972,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <tbody className="divide-y divide-[#F2F4F7]">
               {quartiers.length > 0 ? quartiers.map((q: any, i: number) => {
                 const actifs = q.value - (q.resigned || 0);
+                const forfait = q.forfait_count ?? 0;
                 return (
                   <tr
                     key={i}
@@ -976,13 +982,14 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{q.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{q.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{q.resigned?.toLocaleString() || 0}</td>
                     <td className="px-8 py-5 text-right font-bold text-[#475467]">{q.percentage}%</td>
                   </tr>
                 );
               }) : (
                 <tr>
-                  <td colSpan={5} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé dans cette commune.</td>
+                  <td colSpan={6} className="px-8 py-8 text-center text-[#667085] font-medium">Aucun abonné trouvé dans cette commune.</td>
                 </tr>
               )}
             </tbody>
@@ -1015,6 +1022,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 <th className="px-8 py-5">Commune</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
                 <th className="px-6 py-5 text-right">Abonnés Actifs</th>
+                <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
                 <th className="px-8 py-5 text-right">Part (%)</th>
               </tr>
@@ -1022,6 +1030,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <tbody className="divide-y divide-[#F2F4F7]">
               {typeCommunes.length > 0 ? typeCommunes.map((c: any, i: number) => {
                 const actifs = c.value - (c.resigned || 0);
+                const forfait = c.forfait_count ?? 0;
                 return (
                   <tr
                     key={i}
@@ -1031,13 +1040,14 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{c.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{c.resigned?.toLocaleString() || 0}</td>
                     <td className="px-8 py-5 text-right font-bold text-[#475467]">{c.percentage}%</td>
                   </tr>
                 );
               }) : (
                 <tr>
-                  <td colSpan={5} className="px-8 py-8 text-center text-[#667085] font-medium">Aucune commune trouvée pour ce type d'abonné.</td>
+                  <td colSpan={6} className="px-8 py-8 text-center text-[#667085] font-medium">Aucune commune trouvée pour ce type d'abonné.</td>
                 </tr>
               )}
             </tbody>
@@ -1071,6 +1081,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 <th className="px-8 py-5">Commune</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
                 <th className="px-6 py-5 text-right">Abonnés Actifs</th>
+                <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
                 <th className="px-8 py-5 text-right">Part (%)</th>
               </tr>
@@ -1078,6 +1089,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <tbody className="divide-y divide-[#F2F4F7]">
               {communes.map((c: any, i: number) => {
                 const actifs = c.value - (c.resigned || 0);
+                const forfait = c.forfait_count ?? 0;
                 return (
                   <tr
                     key={i}
@@ -1087,6 +1099,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{c.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{c.resigned?.toLocaleString() || 0}</td>
                     <td className="px-8 py-5 text-right font-bold text-[#475467]">{c.percentage}%</td>
                   </tr>
@@ -1098,14 +1111,19 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 const totals = communes.reduce((acc: any, c: any) => {
                   acc.total += (c.value || 0);
                   acc.resigned += (c.resigned || 0);
+                  acc.forfait += (c.forfait_count || 0);
                   return acc;
-                }, { total: 0, resigned: 0 });
+                }, { total: 0, resigned: 0, forfait: 0 });
                 const actifsTotal = totals.total - totals.resigned;
+                const forfaitTotal = typeof stats?.forfait_subscribers === 'number'
+                  ? stats.forfait_subscribers
+                  : totals.forfait;
                 return (
                   <tr className="bg-[#F9FAFB] font-bold">
                     <td className="px-8 py-5 text-sm text-[#101828]">Totaux</td>
                     <td className="px-6 py-5 text-right text-[#0D83DE]">{totals.total.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-emerald-600">{actifsTotal.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right text-orange-600">{forfaitTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-rose-600">{totals.resigned.toLocaleString()}</td>
                     <td className="px-8 py-5 text-right text-[#475467]">100%</td>
                   </tr>
@@ -1138,6 +1156,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 <th className="px-8 py-5">Catégorie / Type</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
                 <th className="px-6 py-5 text-right">Abonnés Actifs</th>
+                <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
                 <th className="px-8 py-5 text-right">Part (%)</th>
               </tr>
@@ -1145,6 +1164,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <tbody className="divide-y divide-[#F2F4F7]">
               {types.map((t: any, i: number) => {
                 const actifs = t.value - (t.resigned || 0);
+                const forfait = t.forfait_count ?? 0;
                 return (
                   <tr
                     key={i}
@@ -1154,6 +1174,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{t.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{t.resigned?.toLocaleString() || 0}</td>
                     <td className="px-8 py-5 text-right font-bold text-[#475467]">{t.percentage}%</td>
                   </tr>
@@ -1165,14 +1186,19 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 const totals = types.reduce((acc: any, t: any) => {
                   acc.total += (t.value || 0);
                   acc.resigned += (t.resigned || 0);
+                  acc.forfait += (t.forfait_count || 0);
                   return acc;
-                }, { total: 0, resigned: 0 });
+                }, { total: 0, resigned: 0, forfait: 0 });
                 const actifsTotal = totals.total - totals.resigned;
+                const forfaitTotal = typeof stats?.forfait_subscribers === 'number'
+                  ? stats.forfait_subscribers
+                  : totals.forfait;
                 return (
                   <tr className="bg-[#F9FAFB] font-bold">
                     <td className="px-8 py-5 text-sm text-[#101828]">Totaux</td>
                     <td className="px-6 py-5 text-right text-[#0D83DE]">{totals.total.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-emerald-600">{actifsTotal.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right text-orange-600">{forfaitTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-rose-600">{totals.resigned.toLocaleString()}</td>
                     <td className="px-8 py-5 text-right text-[#475467]">100%</td>
                   </tr>

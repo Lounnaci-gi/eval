@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   LayoutDashboard, Users, BarChart3, CreditCard, Building2, Calendar,
@@ -35,6 +35,34 @@ export function FloatingExpandableSidebar({
 }: FloatingExpandableSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [localUser, setLocalUser] = useState<any>(null);
+
+  useEffect(() => {
+    // If parent didn't provide user prop (or it's null), try fetching current user.
+    if (user) {
+      setLocalUser(user);
+      return;
+    }
+    let cancelled = false;
+    import('../lib/api').then(({ apiUrl }) => {
+      fetch(apiUrl('/api/auth/me'), { credentials: 'include' })
+        .then((r) => {
+          if (!r.ok) throw new Error('not auth');
+          return r.json();
+        })
+        .then((data) => {
+          if (cancelled) return;
+          setLocalUser({
+            username: data.username,
+            display_name: data.display_name,
+            is_admin: !!data.is_admin,
+          });
+        })
+        .catch(() => {})
+        .finally(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [user]);
 
   const navItems: NavItem[] = [
     {
@@ -152,10 +180,19 @@ export function FloatingExpandableSidebar({
               </div>
               <div className="flex-1">
                 <p className="text-sm font-bold text-[#101828]">
-                  {user?.display_name || user?.username || 'User'}
+                  {(() => {
+                    const dn = (localUser?.display_name || '').trim();
+                    const un = (localUser?.username || '').trim();
+                    // If display_name is missing or generic like 'Administrateur'/'Admin', prefer username (capitalized)
+                    if (!dn || /^(admin|administrateur)$/i.test(dn)) {
+                      if (un) return un.charAt(0).toUpperCase() + un.slice(1);
+                      return 'Utilisateur';
+                    }
+                    return dn;
+                  })()}
                 </p>
                 <p className="text-xs text-[#667085]">
-                  {user?.is_admin ? '👑 Admin' : '👤 User'}
+                  {localUser?.is_admin ? '👑 Admin' : '👤 User'}
                 </p>
               </div>
             </div>

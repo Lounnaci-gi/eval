@@ -915,6 +915,7 @@ def compute_dashboard_stats(
         "total_subscribers": 0,
         "resigned_subscribers": 0,
         "stopped_subscribers": 0,
+        "forfait_subscribers": 0,
         "no_meter_subscribers": 0,
         "invoice_stopped_subscribers": 0,
         "total_revenue": 0,
@@ -924,7 +925,7 @@ def compute_dashboard_stats(
     }
 
     abonment_state_map = {}
-    resigned = stopped = no_meter = 0
+    resigned = stopped = no_meter = forfait_subscribers = 0
     for record in MEM_ABONMENTS:
         numab = str(record.get('NUMAB', '')).strip()
         if not _abonne_in_centre(numab, allowed_communes):
@@ -937,11 +938,26 @@ def compute_dashboard_stats(
             resigned += 1
         elif etat == '20':
             stopped += 1
+            # Keep stopped count from ABONMENT, but forfait (forfait_subscribers)
+            # will be computed from FACTURES (latest invoice ETATCPT == '20')
         elif etat == '30':
             no_meter += 1
 
     stats["resigned_subscribers"] = resigned
     stats["stopped_subscribers"] = stopped
+    # Compute forfait subscribers from latest invoice ETATCPT == '20'
+    invoice_forfait_set: set[str] = set()
+    for numab, invoices in factures_by_numab.items():
+        if not _abonne_in_centre(numab, allowed_communes):
+            continue
+        if not _abonne_sector_allowed(numab, abonne_sec_set):
+            continue
+        if invoices:
+            etat = _normalize_etatcpt_code(invoices[0].get('ETATCPT'))
+            if etat == '20':
+                invoice_forfait_set.add(numab)
+    forfait_subscribers = len(invoice_forfait_set)
+    stats["forfait_subscribers"] = forfait_subscribers
     stats["no_meter_subscribers"] = no_meter
 
     type_counts = {}
@@ -964,7 +980,7 @@ def compute_dashboard_stats(
 
         # Aggregate counts grouped by TYPABON (mimics SQL GROUP BY behavior)
         if t not in type_counts:
-            type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "communes": {}}
+            type_counts[t] = {"total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0, "communes": {}}
         type_counts[t]["total"] += 1
 
         # Geographic breakdown per type (for drill-down by commune/quartier)
@@ -977,7 +993,7 @@ def compute_dashboard_stats(
             type_communes = type_counts[t]["communes"]
             if codcom_t not in type_communes:
                 type_communes[codcom_t] = {
-                    "total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}
+                    "total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0, "quartiers": {}
                 }
             tc = type_communes[codcom_t]
             tc["total"] += 1
@@ -985,21 +1001,27 @@ def compute_dashboard_stats(
             is_resigned_t = (state_t == '40')
             is_stopped_t = (state_t == '20')
             is_no_meter_t = (state_t == '30')
+            is_forfait_invoice = str(numab).strip().upper() in invoice_forfait_set
             if is_resigned_t:
                 tc["resigned"] += 1
             if is_stopped_t:
                 tc["stopped"] += 1
+            # Forfait counts are derived from invoice state, not abonment state
+            if is_forfait_invoice:
+                tc["forfait"] += 1
             if is_no_meter_t:
                 tc["no_meter"] += 1
             prefix_t = numab[:2]
             if prefix_t not in tc["quartiers"]:
-                tc["quartiers"][prefix_t] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
+                tc["quartiers"][prefix_t] = {"total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0}
             tq = tc["quartiers"][prefix_t]
             tq["total"] += 1
             if is_resigned_t:
                 tq["resigned"] += 1
             if is_stopped_t:
                 tq["stopped"] += 1
+            if is_forfait_invoice:
+                tq["forfait"] += 1
             if is_no_meter_t:
                 tq["no_meter"] += 1
 
@@ -1032,6 +1054,7 @@ def compute_dashboard_stats(
                 "total": 0,
                 "resigned": 0,
                 "stopped": 0,
+                "forfait": 0,
                 "no_meter": 0,
                 "quartiers": {},
                 "categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0},
@@ -1080,18 +1103,24 @@ def compute_dashboard_stats(
         if is_stopped:
             commune_counts[codcom]["stopped"] += 1
             type_counts[t]["stopped"] += 1
+        # Forfait increments use invoice-derived set
+        if str(numab).strip().upper() in invoice_forfait_set:
+            commune_counts[codcom]["forfait"] += 1
+            type_counts[t]["forfait"] += 1
         if is_no_meter:
             commune_counts[codcom]["no_meter"] += 1
             type_counts[t]["no_meter"] += 1
 
         prefix = numab[:2]
         if prefix not in commune_counts[codcom]["quartiers"]:
-            commune_counts[codcom]["quartiers"][prefix] = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0}
+            commune_counts[codcom]["quartiers"][prefix] = {"total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0}
         commune_counts[codcom]["quartiers"][prefix]["total"] += 1
         if is_resigned:
             commune_counts[codcom]["quartiers"][prefix]["resigned"] += 1
         if is_stopped:
             commune_counts[codcom]["quartiers"][prefix]["stopped"] += 1
+        if str(numab).strip().upper() in invoice_forfait_set:
+            commune_counts[codcom]["quartiers"][prefix]["forfait"] += 1
         if is_no_meter:
             commune_counts[codcom]["quartiers"][prefix]["no_meter"] += 1
 
@@ -1109,7 +1138,7 @@ def compute_dashboard_stats(
             continue
         label = mapping.get(t_code, f"Autre ({t_code})" if t_code else "Inconnu")
         formatted_type_communes = []
-        _empty_type_commune = {"total": 0, "resigned": 0, "stopped": 0, "no_meter": 0, "quartiers": {}}
+        _empty_type_commune = {"total": 0, "resigned": 0, "stopped": 0, "forfait": 0, "no_meter": 0, "quartiers": {}}
         if allowed_communes is not None:
             type_commune_items = [
                 (codcom, counts.get("communes", {}).get(codcom, _empty_type_commune))
@@ -1131,6 +1160,7 @@ def compute_dashboard_stats(
                     "value": q_counts["total"],
                     "resigned": q_counts["resigned"],
                     "stopped": q_counts["stopped"],
+                    "forfait_count": q_counts.get("forfait", q_counts.get("stopped", 0)),
                     "no_meter": q_counts["no_meter"],
                     "percentage": round((q_counts["total"] / c_counts["total"]) * 100, 2) if c_counts["total"] > 0 else 0
                 })
@@ -1141,6 +1171,7 @@ def compute_dashboard_stats(
                 "value": c_counts["total"],
                 "resigned": c_counts["resigned"],
                 "stopped": c_counts["stopped"],
+                "forfait_count": c_counts.get("forfait", c_counts.get("stopped", 0)),
                 "no_meter": c_counts["no_meter"],
                 "percentage": round((c_counts["total"] / counts["total"]) * 100, 2) if counts["total"] > 0 else 0,
                 "quartiers": formatted_type_quartiers
@@ -1152,6 +1183,7 @@ def compute_dashboard_stats(
             "value": counts["total"],
             "resigned": counts["resigned"],
             "stopped": counts["stopped"],
+            "forfait_count": counts.get("forfait", counts.get("stopped", 0)),
             "no_meter": counts["no_meter"],
             "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0,
             "communes": formatted_type_communes
@@ -1164,6 +1196,7 @@ def compute_dashboard_stats(
             "total": 0,
             "resigned": 0,
             "stopped": 0,
+            "forfait": 0,
             "no_meter": 0,
             "quartiers": {},
             "categories": {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0},
@@ -1183,6 +1216,7 @@ def compute_dashboard_stats(
                 "value": q_counts["total"],
                 "resigned": q_counts["resigned"],
                 "stopped": q_counts["stopped"],
+                "forfait_count": q_counts.get("forfait", q_counts.get("stopped", 0)),
                 "no_meter": q_counts["no_meter"],
                 "percentage": round((q_counts["total"] / counts["total"]) * 100, 2) if counts["total"] > 0 else 0
             })
@@ -1193,6 +1227,7 @@ def compute_dashboard_stats(
             "value": counts["total"],
             "resigned": counts["resigned"],
             "stopped": counts["stopped"],
+            "forfait_count": counts.get("forfait", counts.get("stopped", 0)),
             "no_meter": counts["no_meter"],
             "percentage": round((counts["total"] / total) * 100, 2) if total > 0 else 0,
             "categories": counts.get("categories", {"menages": 0, "administrations": 0, "commerce": 0, "industriel": 0, "vente_en_gros": 0}),
@@ -1251,6 +1286,8 @@ def compute_dashboard_stats(
     stats["subscriber_sectors"].sort(key=lambda x: x['value'], reverse=True)
 
     stats["invoice_stopped_subscribers"] = count_latest_invoice_etatcpt(allowed_communes, '20')
+    # Also expose invoice-derived count for "Sans Compteur" (ETATCPT == '30')
+    stats["invoice_no_meter_subscribers"] = count_latest_invoice_etatcpt(allowed_communes, '30')
 
     months = {
         "01": "Janvier", "02": "Février", "03": "Mars", "04": "Avril",
@@ -2808,6 +2845,37 @@ def get_official_ca(period_name: str):
     return None
 
 
+def _collect_forfait_records_from_abonments(abonments: dict[str, dict], abonnes: dict[str, dict], secteur: str | None = None) -> list[dict]:
+    """Collecte les abonnés forfait à partir de ABONMENT.DBF, où ETATCPT='20'."""
+    secteur_zfill = str(secteur).strip().zfill(2) if secteur else None
+    records: list[dict] = []
+
+    for numab, abonment in abonments.items():
+        etatcpt = str(abonment.get('ETATCPT') or '').strip()
+        if etatcpt != '20':
+            continue
+
+        abonne = abonnes.get(numab)
+        if not abonne:
+            continue
+
+        centre = str(abonne.get('SECTEUR') or abonment.get('CENTRE') or '').strip().zfill(2)
+        if secteur_zfill is not None and centre != secteur_zfill:
+            continue
+
+        typabon = str(abonne.get('TYPABON') or abonment.get('TYPABON') or '').strip()
+        if not typabon:
+            continue
+
+        records.append({
+            'NUMAB': str(numab).strip().upper(),
+            'TYPABON': typabon,
+            'CENTRE': centre,
+        })
+
+    return records
+
+
 def get_forfait_date_bounds(target_date_str: str) -> tuple[str | None, str | None]:
     import calendar
     if not target_date_str or len(target_date_str) != 8 or not target_date_str.isdigit():
@@ -3007,40 +3075,17 @@ def get_creance(_user: dict = Depends(get_current_user),
             
             sub_counts_global.add(sub_tuple)
 
-        # Count forfait subscribers (ETATCPT = '20') using the new priority-based method
+        # Count forfait subscribers based on ABONMENT.DBF ETATCPT = '20'
+        winning_forfait_records = _collect_forfait_records_from_abonments(
+            abonments_by_numab,
+            abonnes_by_numab,
+            secteur=secteur,
+        )
+
         lower_bound, upper_bound = get_forfait_date_bounds(target_date)
         if not lower_bound or not upper_bound:
             lower_bound = '19000101'
             upper_bound = target_date
-
-        winning_forfait_records = []
-        for numab, r_list in factures_by_numab.items():
-            candidates = []
-            for r in r_list:
-                etatcpt = str(r.get('ETATCPT') or '').strip()
-                if etatcpt != '20':
-                    continue
-                datsaisie = str(r.get('DATSAISIE') or '').strip()
-                if not (lower_bound <= datsaisie <= upper_bound):
-                    continue
-                typabon = str(r.get('TYPABON') or '').strip()
-                if not typabon:
-                    continue
-                candidates.append(r)
-            
-            if candidates:
-                def get_prio_key(rec):
-                    ds = str(rec.get('DATSAISIE') or '').strip()
-                    if ds == target_date:
-                        prio = 0
-                    elif ds > target_date:
-                        prio = 1
-                    else:
-                        prio = 2
-                    return (prio, ds)
-                
-                winning_rec = min(candidates, key=get_prio_key)
-                winning_forfait_records.append(winning_rec)
 
         # Count sans compteur subscribers (ETATCPT = '30') using the same priority-based method
         winning_sc_records = []

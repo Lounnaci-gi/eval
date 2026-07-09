@@ -375,7 +375,7 @@ export default function Dashboard() {
   );
 
   const totalSubs = stats?.total_subscribers || 0;
-  const targetSubs = (stats?.stopped_subscribers || 0) + (stats?.no_meter_subscribers || 0);
+  const targetSubs = (stats?.invoice_stopped_subscribers || stats?.stopped_subscribers || 0) + (stats?.invoice_no_meter_subscribers || stats?.no_meter_subscribers || 0);
   const pctCpt2030 = totalSubs > 0 ? (targetSubs / totalSubs) * 100 : 0;
 
   if (stats?.error && isBackendConnectionError(stats)) {
@@ -682,11 +682,7 @@ export default function Dashboard() {
             <p className="text-sm text-[#475467] font-medium min-h-[40px] flex items-center justify-center text-left w-full">
               {sanitizeUserFacingMessage(stats?.message || stats?.error) || t('loading.connecting')}
             </p>
-            {stats?.data_dir && (
-              <p className="text-xs text-[#98A2B3] font-mono bg-[#F9FAFB] px-3 py-2 rounded-lg border border-[#E4E7EC]">
-                {t('loading.folder')} {stats.data_dir}
-              </p>
-            )}
+            {/* data directory display removed per request */}
           </div>
           {!isLoadError && (
             <>
@@ -798,7 +794,7 @@ export default function Dashboard() {
               />
               <StatsCard
                 title={t('kpi.stopped')}
-                value={stats?.stopped_subscribers?.toLocaleString() || "..."}
+                value={(stats?.invoice_stopped_subscribers ?? stats?.stopped_subscribers)?.toLocaleString() || "..."}
                 icon={<TimerOff className="text-amber-500" size={24} />}
                 trend="Code 20"
                 color="amber"
@@ -806,7 +802,7 @@ export default function Dashboard() {
               />
               <StatsCard
                 title={t('kpi.noMeter')}
-                value={stats?.no_meter_subscribers?.toLocaleString() || "..."}
+                value={(stats?.invoice_no_meter_subscribers ?? stats?.no_meter_subscribers)?.toLocaleString() || "..."}
                 icon={<Ban className="text-cyan-500" size={24} />}
                 trend="Code 30"
                 color="cyan"

@@ -50,27 +50,11 @@ export function GestionAbonnesShell({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchSortKey, setSearchSortKey] = useState<string>('NUMAB');
-  const [searchSortDir, setSearchSortDir] = useState<'asc' | 'desc'>('asc');
-
-  const handleSearchSort = (key: string) => {
-    if (searchSortKey === key) {
-      setSearchSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSearchSortKey(key);
-      setSearchSortDir('asc');
-    }
-  };
-
-  const sortedSearchResults = [...searchResults].sort((a: any, b: any) => {
-    const va = (a[searchSortKey] ?? '').toString().toLowerCase();
-    const vb = (b[searchSortKey] ?? '').toString().toLowerCase();
-    const cmp = va.localeCompare(vb, 'fr', { numeric: true });
-    return searchSortDir === 'asc' ? cmp : -cmp;
-  });
+  const [selectedSearchNumabs, setSelectedSearchNumabs] = useState<string[]>([]);
 
   const handleSearch = useCallback((qStr: string) => {
     setSearchQuery(qStr);
+    setSelectedSearchNumabs([]);
     if (!qStr.trim()) {
       setSearchResults([]);
       return;
@@ -249,129 +233,26 @@ export function GestionAbonnesShell({
               )}
             </div>
 
-            <div className="overflow-x-auto table-scroll">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('NUMAB')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`transition-colors ${searchSortKey === 'NUMAB' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>N° Abonné</span>
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NUMAB' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'NUMAB' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                      </span>
-                    </th>
-                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('NOM')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`transition-colors ${searchSortKey === 'NOM' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Nom / Raison Sociale</span>
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NOM' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'NOM' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                      </span>
-                    </th>
-                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('ADRESSE')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`transition-colors ${searchSortKey === 'ADRESSE' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Adresse</span>
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'ADRESSE' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'ADRESSE' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                      </span>
-                    </th>
-                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('TOURNEE')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`transition-colors ${searchSortKey === 'TOURNEE' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Tournée</span>
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'TOURNEE' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'TOURNEE' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                      </span>
-                    </th>
-                    <th className="px-4 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('BLOC')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`transition-colors ${searchSortKey === 'BLOC' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Bloc</span>
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'BLOC' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'BLOC' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                      </span>
-                    </th>
-                    <th className="px-4 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('NDOM')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`transition-colors ${searchSortKey === 'NDOM' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>N° Dom</span>
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NDOM' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'NDOM' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                      </span>
-                    </th>
-                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('NUMSER')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`transition-colors ${searchSortKey === 'NUMSER' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>N° Série</span>
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NUMSER' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'NUMSER' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                      </span>
-                    </th>
-                    <th className="px-6 py-5 text-right cursor-pointer select-none group" onClick={() => handleSearchSort('NOUVELX')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NOUVELX' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'NOUVELX' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                        <span className={`transition-colors ${searchSortKey === 'NOUVELX' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Nouvel Index</span>
-                      </span>
-                    </th>
-                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('TYPE_LABEL')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`transition-colors ${searchSortKey === 'TYPE_LABEL' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Type d&apos;Abonnement</span>
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'TYPE_LABEL' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'TYPE_LABEL' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                      </span>
-                    </th>
-                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('ETATCPT')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`transition-colors ${searchSortKey === 'ETATCPT' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>État</span>
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'ETATCPT' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'ETATCPT' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                      </span>
-                    </th>
-                    <th className="px-6 py-5 text-right cursor-pointer select-none group" onClick={() => handleSearchSort('NUMORDRE')}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NUMORDRE' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
-                          {searchSortKey === 'NUMORDRE' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                        </span>
-                        <span className={`transition-colors ${searchSortKey === 'NUMORDRE' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>N° Ordre</span>
-                      </span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F2F4F7]">
-                  {searchResults.length > 0 ? (
-                    sortedSearchResults.map((sub, idx) => (
-                      <tr key={sub.NUMAB || idx} className="hover:bg-[#F9FAFB] transition-colors">
-                        <td className="px-6 py-4 font-black text-[13px] text-[#101828] whitespace-nowrap">{sub.NUMAB || '—'}</td>
-                        <td className="px-6 py-4 font-medium text-[13px] text-[#101828] min-w-[200px]">{sub.NOM || '—'}</td>
-                        <td className="px-6 py-4 font-medium text-[13px] text-[#667085] min-w-[180px]">{sub.ADRESSE || '—'}</td>
-                        <td className="px-6 py-4 font-bold text-[13px] text-[#0D83DE] whitespace-nowrap">{sub.TOURNEE ? `T-${sub.TOURNEE}` : '—'}</td>
-                        <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.BLOC || '—'}</td>
-                        <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.NDOM || '—'}</td>
-                        <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap">{sub.NUMSER || '---'}</td>
-                        <td className="px-6 py-4 font-bold text-[13px] text-[#101828] text-right">
-                          {sub.NOUVELX !== undefined ? Number(sub.NOUVELX).toLocaleString('fr-FR') : '—'}
-                        </td>
-                        <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{sub.TYPE_LABEL || '—'}</td>
-                        <td className="px-6 py-4">{etatBadge(sub.ETATCPT, sub.ETAT_LABEL)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467]">{sub.NUMORDRE || '—'}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={11} className="px-6 py-12 text-center text-[#667085] font-medium">
-                        {searchLoading ? 'Chargement...' : 'Aucun abonné trouvé.'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <NominativeTable
+              subscribers={searchResults.map((sub: any) => ({
+                numab: sub.NUMAB || '—',
+                name: sub.NOM || '—',
+                adresse: sub.ADRESSE || '—',
+                tournee: sub.TOURNEE || '—',
+                bloc: sub.BLOC || '—',
+                ndom: sub.NDOM || '—',
+                numser: sub.NUMSER || '---',
+                nouvelx: sub.NOUVELX !== undefined ? sub.NOUVELX : 0,
+                type: sub.TYPE_LABEL || '—',
+                etatcpt: sub.ETATCPT || '—',
+                etat_label: sub.ETAT_LABEL || '—',
+                numordre: sub.NUMORDRE || '—'
+              }))}
+              loading={searchLoading}
+              accentColor="blue"
+              selectedNumabs={selectedSearchNumabs}
+              onSelectedNumabsChange={setSelectedSearchNumabs}
+            />
           </div>
         ) : (
           <>

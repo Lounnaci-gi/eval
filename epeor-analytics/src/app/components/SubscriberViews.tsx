@@ -1114,17 +1114,18 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                   acc.forfait += (c.forfait_count || 0);
                   return acc;
                 }, { total: 0, resigned: 0, forfait: 0 });
-                const actifsTotal = totals.total - totals.resigned;
+                const actifsTotal = totals.total - (typeof stats?.resigned_subscribers === 'number' ? stats.resigned_subscribers : totals.resigned);
                 const forfaitTotal = typeof stats?.forfait_subscribers === 'number'
                   ? stats.forfait_subscribers
                   : totals.forfait;
+                const resignedTotal = typeof stats?.resigned_subscribers === 'number' ? stats.resigned_subscribers : totals.resigned;
                 return (
                   <tr className="bg-[#F9FAFB] font-bold">
                     <td className="px-8 py-5 text-sm text-[#101828]">Totaux</td>
                     <td className="px-6 py-5 text-right text-[#0D83DE]">{totals.total.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-emerald-600">{actifsTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-orange-600">{forfaitTotal.toLocaleString()}</td>
-                    <td className="px-6 py-5 text-right text-rose-600">{totals.resigned.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right text-rose-600">{resignedTotal.toLocaleString()}</td>
                     <td className="px-8 py-5 text-right text-[#475467]">100%</td>
                   </tr>
                 );
@@ -1189,17 +1190,18 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                   acc.forfait += (t.forfait_count || 0);
                   return acc;
                 }, { total: 0, resigned: 0, forfait: 0 });
-                const actifsTotal = totals.total - totals.resigned;
+                const actifsTotal = totals.total - (typeof stats?.resigned_subscribers === 'number' ? stats.resigned_subscribers : totals.resigned);
                 const forfaitTotal = typeof stats?.forfait_subscribers === 'number'
                   ? stats.forfait_subscribers
                   : totals.forfait;
+                const resignedTotal = typeof stats?.resigned_subscribers === 'number' ? stats.resigned_subscribers : totals.resigned;
                 return (
                   <tr className="bg-[#F9FAFB] font-bold">
                     <td className="px-8 py-5 text-sm text-[#101828]">Totaux</td>
                     <td className="px-6 py-5 text-right text-[#0D83DE]">{totals.total.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-emerald-600">{actifsTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-orange-600">{forfaitTotal.toLocaleString()}</td>
-                    <td className="px-6 py-5 text-right text-rose-600">{totals.resigned.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right text-rose-600">{resignedTotal.toLocaleString()}</td>
                     <td className="px-8 py-5 text-right text-[#475467]">100%</td>
                   </tr>
                 );

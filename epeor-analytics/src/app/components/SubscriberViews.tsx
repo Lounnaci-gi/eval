@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import {
-  ChevronRight, MapPin, Printer,
+  ChevronRight, MapPin, Printer, Search,
 } from "lucide-react";
 import { apiUrl, apiUrlObject } from "../lib/api";
 import { buildSubscribersUrl, appendSecteurParam } from "./utils";
@@ -47,6 +47,60 @@ export function GestionAbonnesShell({
 }) {
   const [gestionStats, setGestionStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchSortKey, setSearchSortKey] = useState<string>('NUMAB');
+  const [searchSortDir, setSearchSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSearchSort = (key: string) => {
+    if (searchSortKey === key) {
+      setSearchSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSearchSortKey(key);
+      setSearchSortDir('asc');
+    }
+  };
+
+  const sortedSearchResults = [...searchResults].sort((a: any, b: any) => {
+    const va = (a[searchSortKey] ?? '').toString().toLowerCase();
+    const vb = (b[searchSortKey] ?? '').toString().toLowerCase();
+    const cmp = va.localeCompare(vb, 'fr', { numeric: true });
+    return searchSortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const handleSearch = useCallback((qStr: string) => {
+    setSearchQuery(qStr);
+    if (!qStr.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    const url = apiUrlObject('/search');
+    url.searchParams.append('query', qStr);
+    if (selectedSecteur) {
+      url.searchParams.append('secteur', selectedSecteur);
+    }
+    fetch(url.toString())
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setSearchResults(data);
+        } else {
+          setSearchResults([]);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setSearchLoading(false);
+      });
+  }, [selectedSecteur]);
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      handleSearch(searchQuery);
+    }
+  }, [selectedSecteur, handleSearch, searchQuery]);
 
   const secteurLabel = selectedSecteur
     ? (sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
@@ -124,16 +178,40 @@ export function GestionAbonnesShell({
           </div>
         </div>
         <div className="mt-4 sm:mt-6">
-          <ScrollableTabs className="w-full">
-            {tabs.map(tab => (
-              <ScrollableTab
-                key={tab.id}
-                active={currentView === tab.id}
-                onClick={() => setCurrentView(tab.id)}
-              >
-                {tab.label}
-              </ScrollableTab>
-            ))}
+          <ScrollableTabs className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              {tabs.map(tab => (
+                <ScrollableTab
+                  key={tab.id}
+                  active={currentView === tab.id && !searchQuery}
+                  onClick={() => {
+                    setCurrentView(tab.id);
+                    setSearchQuery('');
+                  }}
+                >
+                  {tab.label}
+                </ScrollableTab>
+              ))}
+            </div>
+
+            <div className="relative shrink-0 w-48 sm:w-64 ml-auto mr-1 py-0.5">
+              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Chercher abonnés..."
+                className="w-full text-[11px] font-black pl-8 pr-7 py-1.5 rounded-xl border border-[#E4E7EC]/80 bg-white text-[#101828] placeholder-[#98A2B3] focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => handleSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#98A2B3] hover:text-[#101828] text-[10px] font-black"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </ScrollableTabs>
         </div>
       </div>
@@ -157,20 +235,162 @@ export function GestionAbonnesShell({
             </div>
           </div>
         )}
-        {currentView === 'details' && (
-          <DetailedStatsView key={`details-${selectedSecteur}`} {...viewProps} />
-        )}
-        {currentView === 'evolution' && (
-          <SubscribersEvolutionView key={`evolution-${selectedSecteur}`} {...viewProps} />
-        )}
-        {currentView === 'resigned' && (
-          <ResignedDetailView key={`resigned-${selectedSecteur}`} {...viewProps} />
-        )}
-        {currentView === 'stopped' && (
-          <StoppedDetailView key={`stopped-${selectedSecteur}`} {...viewProps} />
-        )}
-        {currentView === 'no_meter' && (
-          <NoMeterDetailView key={`no_meter-${selectedSecteur}`} {...viewProps} />
+        {searchQuery.trim().length > 0 ? (
+          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="text-[11px] sm:text-xs font-black text-[#101828] uppercase tracking-wider flex items-center gap-2">
+                🔍 Résultats de recherche ({searchResults.length})
+              </h3>
+              {searchLoading && (
+                <div className="flex items-center gap-1.5 text-xs text-brand-600 font-bold">
+                  <div className="spinner-premium animate-spin w-3 h-3 border-2 border-brand-600 border-t-transparent rounded-full" />
+                  Recherche en cours...
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-x-auto table-scroll">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
+                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('NUMAB')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`transition-colors ${searchSortKey === 'NUMAB' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>N° Abonné</span>
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NUMAB' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'NUMAB' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </span>
+                    </th>
+                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('NOM')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`transition-colors ${searchSortKey === 'NOM' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Nom / Raison Sociale</span>
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NOM' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'NOM' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </span>
+                    </th>
+                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('ADRESSE')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`transition-colors ${searchSortKey === 'ADRESSE' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Adresse</span>
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'ADRESSE' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'ADRESSE' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </span>
+                    </th>
+                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('TOURNEE')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`transition-colors ${searchSortKey === 'TOURNEE' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Tournée</span>
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'TOURNEE' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'TOURNEE' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </span>
+                    </th>
+                    <th className="px-4 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('BLOC')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`transition-colors ${searchSortKey === 'BLOC' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Bloc</span>
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'BLOC' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'BLOC' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </span>
+                    </th>
+                    <th className="px-4 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('NDOM')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`transition-colors ${searchSortKey === 'NDOM' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>N° Dom</span>
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NDOM' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'NDOM' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </span>
+                    </th>
+                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('NUMSER')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`transition-colors ${searchSortKey === 'NUMSER' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>N° Série</span>
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NUMSER' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'NUMSER' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </span>
+                    </th>
+                    <th className="px-6 py-5 text-right cursor-pointer select-none group" onClick={() => handleSearchSort('NOUVELX')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NOUVELX' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'NOUVELX' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                        <span className={`transition-colors ${searchSortKey === 'NOUVELX' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Nouvel Index</span>
+                      </span>
+                    </th>
+                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('TYPE_LABEL')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`transition-colors ${searchSortKey === 'TYPE_LABEL' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>Type d&apos;Abonnement</span>
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'TYPE_LABEL' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'TYPE_LABEL' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </span>
+                    </th>
+                    <th className="px-6 py-5 cursor-pointer select-none group" onClick={() => handleSearchSort('ETATCPT')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`transition-colors ${searchSortKey === 'ETATCPT' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>État</span>
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'ETATCPT' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'ETATCPT' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </span>
+                    </th>
+                    <th className="px-6 py-5 text-right cursor-pointer select-none group" onClick={() => handleSearchSort('NUMORDRE')}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`text-[10px] transition-colors ${searchSortKey === 'NUMORDRE' ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+                          {searchSortKey === 'NUMORDRE' ? (searchSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                        <span className={`transition-colors ${searchSortKey === 'NUMORDRE' ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>N° Ordre</span>
+                      </span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F2F4F7]">
+                  {searchResults.length > 0 ? (
+                    sortedSearchResults.map((sub, idx) => (
+                      <tr key={sub.NUMAB || idx} className="hover:bg-[#F9FAFB] transition-colors">
+                        <td className="px-6 py-4 font-black text-[13px] text-[#101828] whitespace-nowrap">{sub.NUMAB || '—'}</td>
+                        <td className="px-6 py-4 font-medium text-[13px] text-[#101828] min-w-[200px]">{sub.NOM || '—'}</td>
+                        <td className="px-6 py-4 font-medium text-[13px] text-[#667085] min-w-[180px]">{sub.ADRESSE || '—'}</td>
+                        <td className="px-6 py-4 font-bold text-[13px] text-[#0D83DE] whitespace-nowrap">{sub.TOURNEE ? `T-${sub.TOURNEE}` : '—'}</td>
+                        <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.BLOC || '—'}</td>
+                        <td className="px-4 py-4 font-medium text-[13px] text-[#667085]">{sub.NDOM || '—'}</td>
+                        <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap">{sub.NUMSER || '---'}</td>
+                        <td className="px-6 py-4 font-bold text-[13px] text-[#101828] text-right">
+                          {sub.NOUVELX !== undefined ? Number(sub.NOUVELX).toLocaleString('fr-FR') : '—'}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{sub.TYPE_LABEL || '—'}</td>
+                        <td className="px-6 py-4">{etatBadge(sub.ETATCPT, sub.ETAT_LABEL)}</td>
+                        <td className="px-6 py-4 text-right font-medium text-[13px] text-[#475467]">{sub.NUMORDRE || '—'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={11} className="px-6 py-12 text-center text-[#667085] font-medium">
+                        {searchLoading ? 'Chargement...' : 'Aucun abonné trouvé.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <>
+            {currentView === 'details' && (
+              <DetailedStatsView key={`details-${selectedSecteur}`} {...viewProps} />
+            )}
+            {currentView === 'evolution' && (
+              <SubscribersEvolutionView key={`evolution-${selectedSecteur}`} {...viewProps} />
+            )}
+            {currentView === 'resigned' && (
+              <ResignedDetailView key={`resigned-${selectedSecteur}`} {...viewProps} />
+            )}
+            {currentView === 'stopped' && (
+              <StoppedDetailView key={`stopped-${selectedSecteur}`} {...viewProps} />
+            )}
+            {currentView === 'no_meter' && (
+              <NoMeterDetailView key={`no_meter-${selectedSecteur}`} {...viewProps} />
+            )}
+          </>
         )}
       </div>
     </div>
@@ -3874,7 +4094,25 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
 }
 
 function etatBadge(etatcpt: string, etatLabel?: string) {
-  const label = etatLabel || etatcpt || '—';
+  const customMap: Record<string, string> = {
+    '10': 'EN MARCHE',
+    '11': "PAS D'EAU",
+    '12': 'LIGNE INUTILISEE',
+    '13': 'DEPASSEMENT INDEX',
+    '14': 'COMPTEUR COUPE',
+    '15': 'PUIT',
+    '16': 'LOT DE TERRAIN',
+    '17': 'NICHE FERMEE',
+    '18': 'MAISON INHABITEE',
+    '19': 'LIGNE INUTILISEE',
+    '20': "A L'ARRET",
+    '21': 'HORLOGERIE CASSEE',
+    '22': "MANQUE D'EAU",
+    '30': 'SANS COMPT.',
+    '40': 'RESILIE',
+    '41': 'NON BRANCHE',
+  };
+  const label = customMap[etatcpt] || etatLabel || etatcpt || '—';
   const leading = (etatcpt || '').charAt(0);
   switch (leading) {
     case '1': // 10-19: active states

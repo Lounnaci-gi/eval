@@ -2761,7 +2761,7 @@ def get_unites_settings(_user: dict = Depends(get_current_user)):
         return {"error": str(e)}
 
 @app.get("/search")
-def search_subscribers(_user: dict = Depends(get_current_user), query: str = None, q: str = None):
+def search_subscribers(_user: dict = Depends(get_current_user), query: str = None, q: str = None, secteur: str = None):
     search_term = query or q
     if not search_term: return []
     
@@ -2774,10 +2774,18 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
         search_term_lower = search_term.lower()
         results = []
         for record in MEM_ABONNES:
+            rec_secteur = str(record.get('SECTEUR', '')).strip().zfill(2)
+            
+            # Check user sector restrictions
             if allowed_sectors is not None:
-                rec_secteur = str(record.get('SECTEUR', '')).strip().zfill(2)
                 if rec_secteur not in allowed_sectors:
                     continue
+            
+            # Check selected sector filter
+            if secteur and secteur.strip():
+                if rec_secteur != str(secteur).strip().zfill(2):
+                    continue
+
             numab = str(record.get('NUMAB', ''))
             raisoc = str(record.get('RAISOC', ''))
             nom = str(record.get('NOM', ''))
@@ -2797,17 +2805,31 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
                 bloc = str(record.get('BLOC', '')).strip()
                 ndom = str(record.get('NDOM', '')).strip()
                 
-                full_address = f"{street}"
-                if bloc: full_address += f" Bloc: {bloc}"
-                if ndom: full_address += f" N°: {ndom}"
-                res['ADRESSE'] = full_address
+                res['ADRESSE'] = street
+                res['BLOC'] = bloc
+                res['NDOM'] = ndom
                 
                 res['TOURNEE'] = str(record.get('TOURNEE', '')).strip()
                 res['NUMORDRE'] = str(record.get('NUMORDRE', '')).strip()
                 
                 abonment_info = abonments_by_numab.get(numab, {})
                 res['NUMSER'] = abonment_info.get('NUMSER', '---')
-                res['ETATCPT'] = abonment_info.get('ETATCPT', '---')
+                
+                # Resolve ETATCPT label
+                etatcpt = abonment_info.get('ETATCPT', '')
+                res['ETATCPT'] = etatcpt
+                etat_lookup = "E" + etatcpt if etatcpt else ""
+                etat_rec = tabcodes_by_code.get(etat_lookup) if etat_lookup else None
+                res['ETAT_LABEL'] = etat_rec.get('LIBELLE', '') if etat_rec else (etatcpt if etatcpt else '---')
+                
+                # Resolve Nouvel index (nouveau_index / nouvelx)
+                sub_invoices = factures_by_numab.get(numab, [])
+                raw_nouvelx = sub_invoices[0].get('NOUVELX') if sub_invoices else 0
+                try:
+                    nouvelx = float(raw_nouvelx) if raw_nouvelx is not None else 0
+                except:
+                    nouvelx = 0
+                res['NOUVELX'] = nouvelx
                 
                 t_code = str(record.get('TYPABON', '')).strip()
                 t_rec = tabcodes_by_code.get("T" + t_code)

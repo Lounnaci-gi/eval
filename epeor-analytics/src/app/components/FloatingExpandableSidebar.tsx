@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
-  LayoutDashboard, Users, BarChart3, CreditCard, Building2, Calendar,
+  LayoutDashboard, Users, CreditCard, Building2, Calendar,
   Bell, HelpCircle, Settings, LogOut, X, Menu,
-  TrendingUp, User, Moon, Sun, Globe
+  TrendingUp, User
 } from 'lucide-react';
-import Logo from './Logo';
 
 interface NavItem {
   id: string;

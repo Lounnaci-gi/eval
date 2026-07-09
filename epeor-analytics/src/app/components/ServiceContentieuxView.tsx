@@ -1338,6 +1338,13 @@ export function ServiceContentieuxView({
                   />
                 </button>
                 <button
+                  onClick={exportCSV}
+                  disabled={sorted.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] hover:border-brand-500 hover:text-brand-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <FileSpreadsheet size={13} /> Exporter CSV
+                </button>
+                <button
                   onClick={handlePrint}
                   disabled={sorted.length === 0}
                   className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] text-[#344054] hover:border-brand-500 hover:text-brand-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"

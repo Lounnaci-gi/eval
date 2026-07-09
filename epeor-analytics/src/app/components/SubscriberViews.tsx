@@ -483,6 +483,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
         <td style="padding: 9px 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; color: #101828;">Total Général</td>
         <td style="padding: 9px 12px; text-align: right; color: #1d4ed8; border-bottom: none;">${totalVal.toLocaleString()}</td>
         <td style="padding: 9px 12px; text-align: right; color: #047857; border-bottom: none;">${totalActifs.toLocaleString()}</td>
+        <td style="padding: 9px 12px; text-align: right; color: #c2410c; border-bottom: none;">${totalForfait.toLocaleString()}</td>
         <td style="padding: 9px 12px; text-align: right; color: #b91c1c; border-bottom: none;">${totalResigned.toLocaleString()}</td>
         <td style="padding: 9px 12px; text-align: right; color: #101828; border-bottom: none;">${totalPct.toFixed(0)}%</td>
       </tr>

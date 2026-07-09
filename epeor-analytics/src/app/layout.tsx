@@ -1,8 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import Script from "next/script";
+import { Poppins } from "next/font/google";
 import { SweetAlertBridge } from "./components/SweetAlertBridge";
 import "./globals.css";
+
+const poppins = Poppins({
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  subsets: ["latin"],
+  display: "swap",
+});
 
 
 export const metadata: Metadata = {
@@ -39,11 +46,8 @@ export default async function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {"(function(){try{var key='theme';var m=document.cookie.match(new RegExp('(^| )'+key+'=([^;]+)'));var v=m?decodeURIComponent(m[2]):null;var root=document.documentElement;if(v==='dark'){root.setAttribute('data-theme','dark');}else if(v==='light'){root.removeAttribute('data-theme');}else{var isDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(isDark){root.setAttribute('data-theme','dark');}else{root.removeAttribute('data-theme');}}}catch(e){} })()"}
         </Script>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
-      <body className="min-h-full min-h-[100dvh] flex flex-col overflow-x-hidden">
+      <body className={`${poppins.className} min-h-full min-h-[100dvh] flex flex-col overflow-x-hidden`}>
         <SweetAlertBridge />
         {children}
       </body>

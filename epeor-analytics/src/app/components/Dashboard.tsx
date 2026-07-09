@@ -20,9 +20,8 @@ import { useTranslation } from "react-i18next";
 import dynamic from "next/dynamic";
 import Swal from "sweetalert2";
 import {
-  Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, Settings, LogOut, ArrowRight,
-  LayoutDashboard, BarChart3, Calendar, ChevronRight, Bell, HelpCircle, Building2, Percent,
-  User, Lock, Eye, EyeOff,
+  Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, ArrowRight,
+  ChevronRight, Percent, User, Lock, Eye, EyeOff,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
@@ -39,7 +38,7 @@ import {
 import { SecteurDropdown } from "./ui";
 import Countdown from "./Countdown";
 import Logo from "./Logo";
-import { StatsCard, NavItem } from "./dashboard-ui";
+import { StatsCard } from "./dashboard-ui";
 import { FloatingExpandableSidebar } from "./FloatingExpandableSidebar";
 import { SettingsView } from "./SettingsView";
 import { MobileNav, MobileTopBar, type AppView } from "./MobileNav";

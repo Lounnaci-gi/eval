@@ -263,6 +263,8 @@ export function DossierJuridiquePanel({
             reglement_conciliation: !!dossierData.reglement_conciliation,
             jugement_definitif: dossierData.jugement_definitif || null,
             appel: !!dossierData.appel,
+            dossier_en_delibere: !!dossierData.dossier_en_delibere,
+            prononce_jugement: !!dossierData.prononce_jugement,
             dossier_en_delibere_appel: !!dossierData.dossier_en_delibere_appel,
             rendu_arret: !!dossierData.rendu_arret,
             notification_jugement: !!dossierData.notification_jugement,

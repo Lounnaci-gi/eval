@@ -4821,7 +4821,10 @@ def get_all_dossiers(_user: dict = Depends(get_current_user)):
             rows = conn.execute("""
                 SELECT l.numab, l.date_transmission, d.numab AS has_dossier, d.statut_abonne, d.etape_recouvrement,
                        d.has_mise_en_demeure, d.has_echeancier, d.transmis_huissier, d.transmis_cours,
-                       d.execution_jugement, d.updated_at, d.motif, d.echeancier_plan, d.heritiers
+                       d.execution_jugement, d.reglement_conciliation, d.jugement_definitif, d.appel,
+                       d.dossier_en_delibere, d.prononce_jugement, d.dossier_en_delibere_appel,
+                       d.rendu_arret, d.notification_jugement, d.notification_arret,
+                       d.updated_at, d.motif, d.echeancier_plan, d.heritiers
                 FROM legal_status l
                 LEFT JOIN dossiers_juridiques d ON UPPER(d.numab) = UPPER(l.numab)
                 WHERE l.is_contentieux = 1

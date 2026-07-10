@@ -156,7 +156,7 @@ export function DossierJuridiquePanel({
     }
       // Follow diagram flow
       if (values.has_mise_en_demeure) {
-        if (values.reglement_conciliation) return "Règlement / Conciliation";
+        if (values.reglement_conciliation) return "Échéancier accordé";
         return "Dernière mise en demeure avant les poursuites judiciaires";
       }
       if (values.has_echeancier) {
@@ -184,12 +184,9 @@ export function DossierJuridiquePanel({
       // Enforce workflow sequence (cannot skip steps)
       const enforced = { ...merged } as DossierState;
 
-      // Step A: has_mise_en_demeure is prerequisite for reglement_conciliation and transmis_cours
-      if (enforced.reglement_conciliation && !enforced.has_mise_en_demeure) enforced.has_mise_en_demeure = true;
-      if (enforced.transmis_cours && !enforced.has_mise_en_demeure) enforced.has_mise_en_demeure = true;
-
-      // NOTE: no bidirectional enforcement — prerequisites are enforced via UI disabling only.
-      // When a step is unchecked, its downstream steps are cleared (cascade-clear below).
+      // Prerequisites are enforced via UI disabling only — no upstream auto-enforcement here.
+      // has_echeancier mirrors reglement_conciliation (same concept, one-directional copy).
+      enforced.has_echeancier = enforced.reglement_conciliation;
 
       // Notification du jugement requires prononcé
       if (enforced.notification_jugement && !enforced.prononce_jugement) enforced.prononce_jugement = true;
@@ -204,6 +201,7 @@ export function DossierJuridiquePanel({
       // If earlier step unset, clear downstream steps
       if (!enforced.has_mise_en_demeure) {
         enforced.reglement_conciliation = false;
+        enforced.has_echeancier = false;
         enforced.transmis_cours = false;
         enforced.dossier_en_delibere = false;
         enforced.prononce_jugement = false;
@@ -596,7 +594,7 @@ export function DossierJuridiquePanel({
     "Suspendu",
     "Amiable",
     "Dernière mise en demeure avant les poursuites judiciaires",
-    "Règlement / Conciliation",
+    "Échéancier accordé",
     "Transmis Huissier",
     "Enregistrement du dossier au tribunal",
     "Dossier en délibéré",
@@ -803,18 +801,11 @@ export function DossierJuridiquePanel({
                             actorColor: "bg-slate-100 text-slate-600 border-slate-200",
                             prereq: null,
                           },
-                          {
-                            key: "has_echeancier",
-                            label: "Échéancier accordé",
-                            description: "Plan de paiement échelonné convenu avec l'abonné",
-                            actor: "Régie",
-                            actorColor: "bg-slate-100 text-slate-600 border-slate-200",
-                            prereq: null,
-                          },
+
                           {
                             key: "reglement_conciliation",
-                            label: "Règlement / Conciliation",
-                            description: "Accord amiable mettant fin au litige",
+                            label: "Échéancier accordé",
+                            description: "Plan de paiement échelonné convenu avec l'abonné, mettant fin au litige amiable",
                             actor: "Régie",
                             actorColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
                             prereq: "has_mise_en_demeure" as keyof typeof dossier,

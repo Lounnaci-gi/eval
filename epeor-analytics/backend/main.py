@@ -218,6 +218,15 @@ def _init_auth_db() -> None:
                 transmis_huissier INTEGER DEFAULT 0,
                 transmis_cours INTEGER DEFAULT 0,
                 execution_jugement INTEGER DEFAULT 0,
+                reglement_conciliation INTEGER DEFAULT 0,
+                jugement_definitif TEXT,
+                appel INTEGER DEFAULT 0,
+                dossier_en_delibere INTEGER DEFAULT 0,
+                prononce_jugement INTEGER DEFAULT 0,
+                dossier_en_delibere_appel INTEGER DEFAULT 0,
+                rendu_arret INTEGER DEFAULT 0,
+                notification_jugement INTEGER DEFAULT 0,
+                notification_arret INTEGER DEFAULT 0,
                 nom_notaire TEXT,
                 coordonnees_notaire TEXT,
                 liste_heritiers TEXT,
@@ -247,6 +256,42 @@ def _init_auth_db() -> None:
             pass
         try:
             conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN heritiers TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN reglement_conciliation INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN jugement_definitif TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN appel INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN dossier_en_delibere INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN prononce_jugement INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN dossier_en_delibere_appel INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN rendu_arret INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN notification_jugement INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE dossiers_juridiques ADD COLUMN notification_arret INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
             pass
         try:
@@ -4706,6 +4751,15 @@ class DossierJuridiqueUpdate(BaseModel):
     transmis_huissier: bool = False
     transmis_cours: bool = False
     execution_jugement: bool = False
+    reglement_conciliation: bool = False
+    jugement_definitif: str | None = None
+    appel: bool = False
+    dossier_en_delibere: bool = False
+    prononce_jugement: bool = False
+    dossier_en_delibere_appel: bool = False
+    rendu_arret: bool = False
+    notification_jugement: bool = False
+    notification_arret: bool = False
     nom_notaire: str | None = None
     coordonnees_notaire: str | None = None
     liste_heritiers: str | None = None
@@ -4738,6 +4792,15 @@ def get_dossier_juridique(numab: str, _user: dict = Depends(get_current_user)):
                     "transmis_huissier": 0,
                     "transmis_cours": 0,
                     "execution_jugement": 0,
+                    "reglement_conciliation": 0,
+                    "jugement_definitif": None,
+                    "appel": 0,
+                    "dossier_en_delibere": 0,
+                    "prononce_jugement": 0,
+                    "dossier_en_delibere_appel": 0,
+                    "rendu_arret": 0,
+                    "notification_jugement": 0,
+                    "notification_arret": 0,
                     "nom_notaire": None,
                     "coordonnees_notaire": None,
                     "liste_heritiers": None,
@@ -4789,6 +4852,15 @@ def get_all_dossiers(_user: dict = Depends(get_current_user)):
                     d["transmis_huissier"] = 0
                     d["transmis_cours"] = 0
                     d["execution_jugement"] = 0
+                    d["reglement_conciliation"] = 0
+                    d["jugement_definitif"] = None
+                    d["appel"] = 0
+                    d["dossier_en_delibere"] = 0
+                    d["prononce_jugement"] = 0
+                    d["dossier_en_delibere_appel"] = 0
+                    d["rendu_arret"] = 0
+                    d["notification_jugement"] = 0
+                    d["notification_arret"] = 0
                     d["updated_at"] = d["date_transmission"]
                 else:
                     d["has_dossier"] = d["numab"]
@@ -4809,9 +4881,12 @@ def update_dossier_juridique(numab: str, payload: DossierJuridiqueUpdate, _user:
                 INSERT INTO dossiers_juridiques (
                     numab, statut_abonne, etape_recouvrement, has_mise_en_demeure,
                     has_echeancier, transmis_huissier, transmis_cours, execution_jugement,
+                    reglement_conciliation, jugement_definitif, appel,
+                    dossier_en_delibere, prononce_jugement, dossier_en_delibere_appel,
+                    rendu_arret, notification_jugement, notification_arret,
                     nom_notaire, coordonnees_notaire, liste_heritiers, date_declaration_creance,
                     motif, echeancier_plan, heritiers, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(numab) DO UPDATE SET
                     statut_abonne=excluded.statut_abonne,
                     etape_recouvrement=excluded.etape_recouvrement,
@@ -4820,6 +4895,15 @@ def update_dossier_juridique(numab: str, payload: DossierJuridiqueUpdate, _user:
                     transmis_huissier=excluded.transmis_huissier,
                     transmis_cours=excluded.transmis_cours,
                     execution_jugement=excluded.execution_jugement,
+                    reglement_conciliation=excluded.reglement_conciliation,
+                    jugement_definitif=excluded.jugement_definitif,
+                    appel=excluded.appel,
+                    dossier_en_delibere=excluded.dossier_en_delibere,
+                    prononce_jugement=excluded.prononce_jugement,
+                    dossier_en_delibere_appel=excluded.dossier_en_delibere_appel,
+                    rendu_arret=excluded.rendu_arret,
+                    notification_jugement=excluded.notification_jugement,
+                    notification_arret=excluded.notification_arret,
                     nom_notaire=excluded.nom_notaire,
                     coordonnees_notaire=excluded.coordonnees_notaire,
                     liste_heritiers=excluded.liste_heritiers,
@@ -4835,6 +4919,15 @@ def update_dossier_juridique(numab: str, payload: DossierJuridiqueUpdate, _user:
                 1 if payload.transmis_huissier else 0,
                 1 if payload.transmis_cours else 0,
                 1 if payload.execution_jugement else 0,
+                1 if payload.reglement_conciliation else 0,
+                payload.jugement_definitif,
+                1 if payload.appel else 0,
+                1 if payload.dossier_en_delibere else 0,
+                1 if payload.prononce_jugement else 0,
+                1 if payload.dossier_en_delibere_appel else 0,
+                1 if payload.rendu_arret else 0,
+                1 if payload.notification_jugement else 0,
+                1 if payload.notification_arret else 0,
                 payload.nom_notaire, payload.coordonnees_notaire,
                 payload.liste_heritiers, payload.date_declaration_creance,
                 payload.motif,

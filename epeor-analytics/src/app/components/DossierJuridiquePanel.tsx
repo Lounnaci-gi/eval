@@ -10,6 +10,7 @@ import {
 import { apiUrlObject } from "../lib/api";
 import { showAlert } from "./utils";
 import { escapeHtml } from "../../lib/escape";
+import SuiviRecouvrementAbonne from "./SuiviRecouvrementAbonne";
 
 interface Heritier {
   id: string;
@@ -187,27 +188,16 @@ export function DossierJuridiquePanel({
       if (enforced.reglement_conciliation && !enforced.has_mise_en_demeure) enforced.has_mise_en_demeure = true;
       if (enforced.transmis_cours && !enforced.has_mise_en_demeure) enforced.has_mise_en_demeure = true;
 
-      // After transmis_cours -> dossier_en_delibere
-      if (enforced.transmis_cours && !enforced.dossier_en_delibere) enforced.dossier_en_delibere = true;
-      if (enforced.dossier_en_delibere && !enforced.transmis_cours) enforced.transmis_cours = true;
-
-      // Prononcé requires dossier_en_delibere
-      if (enforced.prononce_jugement && !enforced.dossier_en_delibere) enforced.dossier_en_delibere = true;
-      if (enforced.prononce_jugement && !enforced.transmis_cours) enforced.transmis_cours = true;
+      // NOTE: no bidirectional enforcement — prerequisites are enforced via UI disabling only.
+      // When a step is unchecked, its downstream steps are cleared (cascade-clear below).
 
       // Notification du jugement requires prononcé
       if (enforced.notification_jugement && !enforced.prononce_jugement) enforced.prononce_jugement = true;
 
-      // Jugement définitif or Appel require notification_jugement
-      if ((enforced.jugement_definitif || enforced.appel) && !enforced.notification_jugement) enforced.notification_jugement = true;
+      // Jugement définitif requires notification_jugement
+      if (enforced.jugement_definitif && !enforced.notification_jugement) enforced.notification_jugement = true;
 
-      // If appel set, ensure notification_jugement true
-      if (enforced.appel && !enforced.notification_jugement) enforced.notification_jugement = true;
-
-      // Appel flow: appel -> dossier_en_delibere_appel -> rendu_arret -> notification_arret -> execution_jugement
-      if (enforced.appel && !enforced.dossier_en_delibere_appel) enforced.dossier_en_delibere_appel = true;
-      if (enforced.dossier_en_delibere_appel && !enforced.appel) enforced.appel = true;
-      if (enforced.rendu_arret && !enforced.dossier_en_delibere_appel) enforced.dossier_en_delibere_appel = true;
+      // Appel flow forward-only enforcement
       if (enforced.notification_arret && !enforced.rendu_arret) enforced.rendu_arret = true;
       if (enforced.execution_jugement && !enforced.notification_arret) enforced.notification_arret = true;
 
@@ -623,6 +613,48 @@ export function DossierJuridiquePanel({
   const effectiveEtapeRecouvrement = deriveEtapeRecouvrement(dossier);
   const currentStepIndex = steps.indexOf(effectiveEtapeRecouvrement);
 
+  // Calcul du pas de recouvrement actuel (1 à 8) et de son état pour le SuiviRecouvrementAbonne
+  let currentStepNumber = 1;
+  let currentStepStatus: "en_attente" | "en_cours" | "valide" = "en_cours";
+
+  if (dossier.execution_jugement) {
+    currentStepNumber = 8;
+    currentStepStatus = "valide";
+  } else if (dossier.notification_arret) {
+    currentStepNumber = 8;
+    currentStepStatus = "en_cours";
+  } else if (dossier.rendu_arret) {
+    currentStepNumber = 7;
+    currentStepStatus = "valide";
+  } else if (dossier.dossier_en_delibere_appel) {
+    currentStepNumber = 7;
+    currentStepStatus = "en_cours";
+  } else if (dossier.appel) {
+    currentStepNumber = 6;
+    currentStepStatus = "en_cours";
+  } else if (dossier.jugement_definitif) {
+    currentStepNumber = 8;
+    currentStepStatus = "en_cours";
+  } else if (dossier.notification_jugement) {
+    currentStepNumber = 5;
+    currentStepStatus = "en_cours";
+  } else if (dossier.prononce_jugement) {
+    currentStepNumber = 4;
+    currentStepStatus = "valide";
+  } else if (dossier.dossier_en_delibere) {
+    currentStepNumber = 4;
+    currentStepStatus = "en_cours";
+  } else if (dossier.transmis_cours) {
+    currentStepNumber = 3;
+    currentStepStatus = "en_cours";
+  } else if (dossier.has_mise_en_demeure) {
+    currentStepNumber = 2;
+    currentStepStatus = "en_cours";
+  } else {
+    currentStepNumber = 1;
+    currentStepStatus = "en_cours";
+  }
+
   return (
     <div className="w-full">
       <div className="w-full rounded-[32px] border border-[#E4E7EC] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.08)] overflow-hidden animate-in fade-in duration-300">
@@ -677,60 +709,34 @@ export function DossierJuridiquePanel({
               <>
                 <div className="grid grid-cols-1 gap-6">
                   <div className="space-y-6">
-                    <div className="rounded-[30px] border border-[#E4E7EC] bg-[#F8FAFC] p-6 space-y-6">
-                      <div>
-                        <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-4">
-                          Étape du recouvrement
-                        </h3>
-                        <div className="relative">
-                          <div className="absolute inset-y-1/2 left-0 right-0 h-1 bg-[#E2E8F0] rounded-full" />
-                          <div
-                            className="absolute inset-y-1/2 left-0 h-1 bg-brand-500 rounded-full transition-all duration-500"
-                            style={{
-                              width: `${(Math.max(0, currentStepIndex) / (steps.length - 1)) * 100}%`,
-                            }}
-                          />
-                          <div className="relative flex flex-wrap justify-between gap-3">
-                            {steps.map((step, idx) => {
-                              const isCompleted = idx <= currentStepIndex;
-                              const canActivate = idx <= currentStepIndex + 1; // allow only next step or previous
-                              return (
-                                <button
-                                  key={step}
-                                  type="button"
-                                  onClick={() => {
-                                    if (!canActivate) return;
-                                    updateDossierState({ etape_recouvrement: step });
-                                  }}
-                                  disabled={!canActivate}
-                                  className={`relative flex flex-col items-center gap-2 bg-white/70 rounded-full p-2 ${!canActivate ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                  <span
-                                    className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${isCompleted ? "border-brand-500 bg-brand-500 text-white" : "border-[#CBD5E1] bg-white text-[#94A3B8]"}`}
-                                  >
-                                    {isCompleted ? <Check size={14} /> : idx + 1}
-                                  </span>
-                                  <span
-                                    className={`text-[10px] font-black text-center ${isCompleted ? "text-brand-700" : "text-[#94A3B8]"}`}
-                                  >
-                                    {step}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
+                    <div className="rounded-[30px] border border-[#E4E7EC] bg-white p-6 shadow-sm">
+                      <SuiviRecouvrementAbonne
+                        abonne={{
+                          id_abonnement: abonne.numab,
+                          nom_abonne: abonne.name || abonne.nom_prenom || "Abonné Inconnu",
+                          montant_creance: abonne.solde || 0,
+                          ref_dossier_justice: abonne.ref_dossier || "",
+                          current_step: currentStepNumber,
+                          step_status: currentStepStatus,
+                          reglement_conciliation: dossier.reglement_conciliation,
+                          jugement_definitif: dossier.jugement_definitif as "par_defaut" | "contradictoire" | null,
+                          appel: dossier.appel,
+                        }}
+                        onStepClick={(stepId, fieldName, value) => {
+                          updateDossierState({ [fieldName]: value });
+                        }}
+                      />
                     </div>
 
-                    <div className="rounded-[30px] border border-[#E4E7EC] bg-white p-6">
-                      <h3 className="text-xs font-black uppercase tracking-wider text-[#667085] mb-5">
-                        Statut du dossier
-                      </h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-black uppercase tracking-wider text-[#94A3B8] mb-2">
-                            Statut de l'abonné
+                    <div className="rounded-[30px] border border-[#E4E7EC] bg-white p-6 space-y-6">
+                      {/* ── EN-TÊTE + STATUT ABONNÉ ── */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <h3 className="text-xs font-black uppercase tracking-wider text-[#667085]">
+                          Statut du dossier
+                        </h3>
+                        <div className="flex items-center gap-3">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8] whitespace-nowrap">
+                            Statut abonné
                           </label>
                           <select
                             value={dossier.statut_abonne}
@@ -741,7 +747,7 @@ export function DossierJuridiquePanel({
                                 setMotifError("");
                               }
                             }}
-                            className="w-full rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 text-sm font-bold text-[#0F172A] focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                            className="rounded-xl border border-[#E4E7EC] bg-[#F8FAFC] px-3 py-2 text-xs font-bold text-[#0F172A] focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                           >
                             <option value="Actif">Actif</option>
                             <option value="Suspendu">Suspendu</option>
@@ -749,7 +755,11 @@ export function DossierJuridiquePanel({
                             <option value="Héritier">Héritier</option>
                           </select>
                         </div>
-                        {isSuspendedStatus && (
+                      </div>
+
+                      {/* ── ALERTE SUSPENSION ── */}
+                      {isSuspendedStatus && (
+                        <div className="space-y-3">
                           <label className="grid gap-2">
                             <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#98A2B3]">
                               Motif de suspension <span className="text-red-500">*</span>
@@ -757,185 +767,347 @@ export function DossierJuridiquePanel({
                             <textarea
                               value={dossier.motif}
                               onChange={(e) => {
-                                setDossier({
-                                  ...dossier,
-                                  motif: e.target.value,
-                                });
-                                if (motifError) {
-                                  setMotifError("");
-                                }
+                                setDossier({ ...dossier, motif: e.target.value });
+                                if (motifError) setMotifError("");
                               }}
-                              className={`min-h-[96px] rounded-3xl border bg-white px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 ${motifError ? "border-red-300 focus:border-red-500 focus:ring-red-100" : "border-[#E4E7EC] focus:border-brand-500 focus:ring-brand-100"}`}
+                              className={`min-h-[80px] rounded-2xl border bg-white px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 ${motifError ? "border-red-300 focus:border-red-500 focus:ring-red-100" : "border-[#E4E7EC] focus:border-brand-500 focus:ring-brand-100"}`}
                               placeholder="Ex : Paiement non effectué, changement de situation..."
                             />
                             {motifError ? (
-                              <p className="text-xs font-semibold text-red-600">
-                                {motifError}
-                              </p>
+                              <p className="text-xs font-semibold text-red-600">{motifError}</p>
                             ) : (
-                              <p className="text-xs text-[#667085]">
-                                Le motif est obligatoire pour un dossier suspendu.
-                              </p>
+                              <p className="text-xs text-[#667085]">Le motif est obligatoire pour un dossier suspendu.</p>
                             )}
                           </label>
-                        )}
-                        {isSuspendedStatus && (
                           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
                             Aucune démarche ne peut être attribuée lorsque le dossier est suspendu.
                           </div>
-                        )}
-                        <div className="grid grid-cols-1 gap-3">
-                          {[
-                            {
-                              key: "has_mise_en_demeure",
-                              label: "Dernière mise en demeure avant les poursuites judiciaires",
-                              color: "amber",
-                            },
-                            {
-                              key: "has_echeancier",
-                              label: "Échéancier accordé",
-                              color: "emerald",
-                            },
-                            {
-                              key: "reglement_conciliation",
-                              label: "Règlement / Conciliation",
-                              color: "blue",
-                            },
-                            {
-                              key: "transmis_huissier",
-                              label: "Transmis au huissier",
-                              color: "violet",
-                            },
-                            {
-                              key: "transmis_cours",
-                              label: "Enregistrement du dossier au tribunal",
-                              color: "rose",
-                            },
-                            {
-                              key: "dossier_en_delibere",
-                              label: "Dossier en délibéré",
-                              color: "amber",
-                            },
-                            {
-                              key: "prononce_jugement",
-                              label: "Prononcé d'un jugement de première instance",
-                              color: "rose",
-                            },
-                            {
-                              key: "dossier_en_delibere_appel",
-                              label: "Dossier en délibéré (Appel)",
-                              color: "violet",
-                            },
-                            {
-                              key: "appel",
-                              label: "Appel du jugement",
-                              color: "violet",
-                            },
-                            {
-                              key: "rendu_arret",
-                              label: "Rendu de l'arrêt",
-                              color: "sky",
-                            },
-                            {
-                              key: "notification_jugement",
-                              label: "Notification du jugement",
-                              color: "slate",
-                            },
-                            {
-                              key: "notification_arret",
-                              label: "Notification de l'arrêt",
-                              color: "slate",
-                            },
-                            {
-                              key: "execution_jugement",
-                                              label: "Procédures d'exécution de l'arrêt",
-                              color: "amber",
-                            },
-                          ].map(({ key, label }) => {
-                            const value = dossier[
-                              key as keyof typeof dossier
-                            ] as boolean;
-                            // compute prerequisite-based disabling to enforce sequence
-                            let disabled = isSuspendedStatus;
-                            if (!disabled) {
-                              switch (key) {
-                                case "reglement_conciliation":
-                                  disabled = !dossier.has_mise_en_demeure;
-                                  break;
-                                case "transmis_huissier":
-                                  disabled = !dossier.has_mise_en_demeure;
-                                  break;
-                                case "transmis_cours":
-                                  disabled = !dossier.has_mise_en_demeure;
-                                  break;
-                                case "dossier_en_delibere":
-                                  disabled = !dossier.transmis_cours;
-                                  break;
-                                case "prononce_jugement":
-                                  disabled = !dossier.dossier_en_delibere;
-                                  break;
-                                case "notification_jugement":
-                                  disabled = !dossier.prononce_jugement;
-                                  break;
-                                case "appel":
-                                  disabled = !dossier.notification_jugement;
-                                  break;
-                                case "dossier_en_delibere_appel":
-                                  disabled = !dossier.appel;
-                                  break;
-                                case "rendu_arret":
-                                  disabled = !dossier.dossier_en_delibere_appel;
-                                  break;
-                                case "notification_arret":
-                                  disabled = !dossier.rendu_arret;
-                                  break;
-                                case "execution_jugement":
-                                  disabled = !dossier.notification_arret;
-                                  break;
-                                default:
-                                  disabled = isSuspendedStatus;
-                              }
-                            }
+                        </div>
+                      )}
 
-                            return (
-                              <label
-                                key={key}
-                                className={`flex items-center gap-3 rounded-2xl border border-[#E4E7EC] bg-[#F8FAFC] px-4 py-3 cursor-pointer transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-brand-300'}`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={value}
-                                  disabled={disabled}
-                                  onChange={(e) =>
-                                    updateDossierState({ [key]: e.target.checked })
-                                  }
-                                  className="h-4 w-4 rounded-md border-gray-300 text-brand-600 focus:ring-brand-500"
-                                />
-                                <span className="text-sm font-bold text-[#334155]">
-                                  {label}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        
-                          <div className="mt-3">
-                            <label className="block text-xs font-black uppercase tracking-wider text-[#94A3B8] mb-2">Jugement définitif (type)</label>
-                            <div className="flex gap-3">
-                              <label className="inline-flex items-center gap-2">
-                                <input type="radio" name="jugement_definitif" value="par_defaut" checked={dossier.jugement_definitif === 'par_defaut'} disabled={!dossier.notification_jugement} onChange={() => updateDossierState({ jugement_definitif: 'par_defaut' })} />
-                                <span className="text-sm font-bold">Par défaut</span>
-                              </label>
-                              <label className="inline-flex items-center gap-2">
-                                <input type="radio" name="jugement_definitif" value="contradictoire" checked={dossier.jugement_definitif === 'contradictoire'} disabled={!dossier.notification_jugement} onChange={() => updateDossierState({ jugement_definitif: 'contradictoire' })} />
-                                <span className="text-sm font-bold">Contradictoire</span>
-                              </label>
-                              <label className="inline-flex items-center gap-2">
-                                <input type="radio" name="jugement_definitif" value="none" checked={!dossier.jugement_definitif} disabled={!dossier.notification_jugement} onChange={() => updateDossierState({ jugement_definitif: null })} />
-                                <span className="text-sm font-bold">Aucun</span>
-                              </label>
-                            </div>
+                      {/* ── PHASES JUDICIAIRES ── */}
+                      {/* Groupe 1 : Phase amiable */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[9px] font-black uppercase tracking-wider border border-slate-200">
+                            Phase amiable
+                          </span>
+                          <div className="flex-1 h-px bg-slate-100" />
+                        </div>
+                        {[
+                          {
+                            key: "has_mise_en_demeure",
+                            label: "Mise en demeure",
+                            description: "Dernière mise en demeure avant les poursuites judiciaires",
+                            actor: "Régie",
+                            actorColor: "bg-slate-100 text-slate-600 border-slate-200",
+                            prereq: null,
+                          },
+                          {
+                            key: "has_echeancier",
+                            label: "Échéancier accordé",
+                            description: "Plan de paiement échelonné convenu avec l'abonné",
+                            actor: "Régie",
+                            actorColor: "bg-slate-100 text-slate-600 border-slate-200",
+                            prereq: null,
+                          },
+                          {
+                            key: "reglement_conciliation",
+                            label: "Règlement / Conciliation",
+                            description: "Accord amiable mettant fin au litige",
+                            actor: "Régie",
+                            actorColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                            prereq: "has_mise_en_demeure" as keyof typeof dossier,
+                          },
+                        ].map(({ key, label, description, actor, actorColor, prereq }) => {
+                          const value = dossier[key as keyof typeof dossier] as boolean;
+                          const disabled = isSuspendedStatus || (prereq !== null && !dossier[prereq!]);
+                          return (
+                            <label
+                              key={key}
+                              className={`flex items-center gap-4 rounded-2xl border px-4 py-3 transition-all duration-200 ${
+                                disabled
+                                  ? "opacity-40 cursor-not-allowed border-[#E4E7EC] bg-[#F8FAFC]"
+                                  : value
+                                  ? "border-emerald-400 bg-emerald-50 cursor-pointer hover:border-emerald-500"
+                                  : "border-[#E4E7EC] bg-[#F8FAFC] cursor-pointer hover:border-brand-300 hover:bg-white"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={value}
+                                disabled={disabled}
+                                onChange={(e) => updateDossierState({ [key]: e.target.checked })}
+                                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`text-sm font-bold ${value ? "text-emerald-800" : "text-[#334155]"}`}>
+                                    {label}
+                                  </span>
+                                  <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${actorColor}`}>
+                                    {actor}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{description}</p>
+                              </div>
+                              {value && <Check size={14} className="text-emerald-500 shrink-0" />}
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      {/* Groupe 2 : Phase judiciaire — Tribunal */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[9px] font-black uppercase tracking-wider border border-blue-200">
+                            Tribunal — 1ère instance
+                          </span>
+                          <div className="flex-1 h-px bg-blue-100" />
+                        </div>
+                         {[
+                          {
+                            key: "transmis_cours",
+                            label: "Enregistrement au tribunal",
+                            description: "Dossier déposé et enregistré auprès du tribunal",
+                            actor: "Avocat",
+                            actorColor: "bg-blue-50 text-blue-700 border-blue-200",
+                            prereq: "has_mise_en_demeure" as keyof typeof dossier,
+                          },
+                          {
+                            key: "dossier_en_delibere",
+                            label: "Dossier en délibéré",
+                            description: "Affaire mise en délibéré par le tribunal",
+                            actor: "Tribunal",
+                            actorColor: "bg-blue-50 text-blue-700 border-blue-200",
+                            prereq: "transmis_cours" as keyof typeof dossier,
+                          },
+                          {
+                            key: "prononce_jugement",
+                            label: "Prononcé du jugement",
+                            description: "Jugement de première instance prononcé par le tribunal",
+                            actor: "Tribunal",
+                            actorColor: "bg-blue-50 text-blue-700 border-blue-200",
+                            prereq: "dossier_en_delibere" as keyof typeof dossier,
+                          },
+                          {
+                            key: "notification_jugement",
+                            label: "Notification du jugement",
+                            description: "Jugement signifié à l'abonné par l'huissier (étape critique)",
+                            actor: "Huissier",
+                            actorColor: "bg-amber-50 text-amber-700 border-amber-200",
+                            prereq: "prononce_jugement" as keyof typeof dossier,
+                          },
+                        ].map(({ key, label, description, actor, actorColor, prereq }) => {
+                          const value = dossier[key as keyof typeof dossier] as boolean;
+                          const isHuissier = actor === "Huissier";
+                          const disabled = isSuspendedStatus || !dossier[prereq];
+                          return (
+                            <label
+                              key={key}
+                              className={`flex items-center gap-4 rounded-2xl border px-4 py-3 transition-all duration-200 ${
+                                disabled
+                                  ? "opacity-40 cursor-not-allowed border-[#E4E7EC] bg-[#F8FAFC]"
+                                  : value
+                                  ? isHuissier
+                                    ? "border-amber-400 bg-amber-50 cursor-pointer hover:border-amber-500 ring-2 ring-amber-100"
+                                    : "border-blue-400 bg-blue-50 cursor-pointer hover:border-blue-500"
+                                  : "border-[#E4E7EC] bg-[#F8FAFC] cursor-pointer hover:border-brand-300 hover:bg-white"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={value}
+                                disabled={disabled}
+                                onChange={(e) => updateDossierState({ [key]: e.target.checked })}
+                                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`text-sm font-bold ${value ? (isHuissier ? "text-amber-800" : "text-blue-800") : "text-[#334155]"}`}>
+                                    {label}
+                                  </span>
+                                  <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${actorColor}`}>
+                                    {actor}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{description}</p>
+                              </div>
+                              {value && <Check size={14} className={isHuissier ? "text-amber-500 shrink-0" : "text-blue-500 shrink-0"} />}
+                            </label>
+                          );
+                        })}
+
+                        {/* Jugement définitif */}
+                        <div className={`rounded-2xl border px-4 py-4 transition-all ${!dossier.notification_jugement ? "opacity-40 border-[#E4E7EC] bg-[#F8FAFC]" : "border-emerald-300 bg-emerald-50/60"}`}>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8] mb-3">
+                            Jugement définitif — type
+                          </p>
+                          <div className="flex flex-wrap gap-3">
+                            {[
+                              { value: "par_defaut", label: "Par défaut" },
+                              { value: "contradictoire", label: "Contradictoire" },
+                              { value: "none", label: "Aucun" },
+                            ].map((opt) => {
+                              const checked = opt.value === "none" ? !dossier.jugement_definitif : dossier.jugement_definitif === opt.value;
+                              const isActive = checked && dossier.notification_jugement;
+                              return (
+                                <label
+                                  key={opt.value}
+                                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-all text-xs font-bold ${
+                                    !dossier.notification_jugement
+                                      ? "cursor-not-allowed text-slate-400 border-slate-200 bg-white"
+                                      : isActive
+                                      ? "border-emerald-500 bg-emerald-100 text-emerald-800"
+                                      : "border-[#E4E7EC] bg-white text-[#334155] hover:border-emerald-300"
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="jugement_definitif"
+                                    value={opt.value}
+                                    checked={checked}
+                                    disabled={!dossier.notification_jugement}
+                                    onChange={() => updateDossierState({ jugement_definitif: opt.value === "none" ? null : opt.value as "par_defaut" | "contradictoire" })}
+                                    className="h-3.5 w-3.5 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                                  />
+                                  {opt.label}
+                                </label>
+                              );
+                            })}
                           </div>
                         </div>
+                      </div>
+
+                      {/* Groupe 3 : Phase d'Appel */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 text-[9px] font-black uppercase tracking-wider border border-violet-200">
+                            Cour d'appel
+                          </span>
+                          <div className="flex-1 h-px bg-violet-100" />
+                        </div>
+                        {[
+                          {
+                            key: "appel",
+                            label: "Appel du jugement",
+                            description: "Pourvoi en appel déposé par l'une des parties",
+                            actor: "Avocat",
+                            actorColor: "bg-violet-50 text-violet-700 border-violet-200",
+                            prereq: "notification_jugement" as keyof typeof dossier,
+                          },
+                          {
+                            key: "dossier_en_delibere_appel",
+                            label: "Dossier en délibéré (Appel)",
+                            description: "Affaire mise en délibéré devant la Cour d'appel",
+                            actor: "Tribunal",
+                            actorColor: "bg-violet-50 text-violet-700 border-violet-200",
+                            prereq: "appel" as keyof typeof dossier,
+                          },
+                          {
+                            key: "rendu_arret",
+                            label: "Rendu de l'arrêt",
+                            description: "Arrêt de la Cour d'appel prononcé",
+                            actor: "Tribunal",
+                            actorColor: "bg-violet-50 text-violet-700 border-violet-200",
+                            prereq: "dossier_en_delibere_appel" as keyof typeof dossier,
+                          },
+                          {
+                            key: "notification_arret",
+                            label: "Notification de l'arrêt",
+                            description: "Arrêt signifié à l'abonné par l'huissier de justice",
+                            actor: "Huissier",
+                            actorColor: "bg-amber-50 text-amber-700 border-amber-200",
+                            prereq: "rendu_arret" as keyof typeof dossier,
+                          },
+                        ].map(({ key, label, description, actor, actorColor, prereq }) => {
+                          const value = dossier[key as keyof typeof dossier] as boolean;
+                          const isHuissier = actor === "Huissier";
+                          const disabled = isSuspendedStatus || !dossier[prereq];
+                          return (
+                            <label
+                              key={key}
+                              className={`flex items-center gap-4 rounded-2xl border px-4 py-3 transition-all duration-200 ${
+                                disabled
+                                  ? "opacity-40 cursor-not-allowed border-[#E4E7EC] bg-[#F8FAFC]"
+                                  : value
+                                  ? isHuissier
+                                    ? "border-amber-400 bg-amber-50 cursor-pointer hover:border-amber-500 ring-2 ring-amber-100"
+                                    : "border-violet-400 bg-violet-50 cursor-pointer hover:border-violet-500"
+                                  : "border-[#E4E7EC] bg-[#F8FAFC] cursor-pointer hover:border-brand-300 hover:bg-white"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={value}
+                                disabled={disabled}
+                                onChange={(e) => updateDossierState({ [key]: e.target.checked })}
+                                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`text-sm font-bold ${value ? (isHuissier ? "text-amber-800" : "text-violet-800") : "text-[#334155]"}`}>
+                                    {label}
+                                  </span>
+                                  <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${actorColor}`}>
+                                    {actor}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{description}</p>
+                              </div>
+                              {value && <Check size={14} className={isHuissier ? "text-amber-500 shrink-0" : "text-violet-500 shrink-0"} />}
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      {/* Groupe 4 : Exécution forcée */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[9px] font-black uppercase tracking-wider border border-rose-200">
+                            Exécution forcée
+                          </span>
+                          <div className="flex-1 h-px bg-rose-100" />
+                        </div>
+                        {(() => {
+                          const key = "execution_jugement";
+                          const value = dossier.execution_jugement;
+                          const prereqMet = dossier.notification_arret || !!dossier.jugement_definitif;
+                          const disabled = isSuspendedStatus || !prereqMet;
+                          return (
+                            <label
+                              className={`flex items-center gap-4 rounded-2xl border px-4 py-3 transition-all duration-200 ${
+                                disabled
+                                  ? "opacity-40 cursor-not-allowed border-[#E4E7EC] bg-[#F8FAFC]"
+                                  : value
+                                  ? "border-rose-400 bg-rose-50 cursor-pointer ring-2 ring-rose-100 hover:border-rose-500"
+                                  : "border-[#E4E7EC] bg-[#F8FAFC] cursor-pointer hover:border-rose-300 hover:bg-white"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={value}
+                                disabled={disabled}
+                                onChange={(e) => updateDossierState({ [key]: e.target.checked })}
+                                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`text-sm font-bold ${value ? "text-rose-800" : "text-[#334155]"}`}>
+                                    Procédures d'exécution forcée
+                                  </span>
+                                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200">
+                                    Huissier
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                                  Saisie, coupure réglementaire, recouvrement forcé de l'arrêt
+                                </p>
+                              </div>
+                              {value && <Check size={14} className="text-rose-500 shrink-0" />}
+                            </label>
+                          );
+                        })()}
                       </div>
                     </div>
 

@@ -360,7 +360,7 @@ export default function SuiviRecouvrementAbonne({
                       }`}
                     >
                       <Handshake size={12} />
-                      {reglement_conciliation ? "Règlement Actif" : "Option: Conciliation"}
+                      {reglement_conciliation ? "Échéancier Actif" : "Option: Échéancier"}
                     </button>
                   </div>
                 )}

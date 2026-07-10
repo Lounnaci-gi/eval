@@ -55,24 +55,82 @@ const getDossierDemarches = (d: any) => {
   }
 
   if (d.has_mise_en_demeure) {
-    items.push({ label: "Dernière mise en demeure avant les poursuites judiciaires", className: "text-amber-700" });
+    items.push({
+      label: "Mise en demeure",
+      className: "text-slate-700 bg-slate-50 border-slate-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
   }
-  if (d.has_echeancier) {
-    items.push({ label: "Échéancier", className: "text-emerald-700" });
+  if (d.reglement_conciliation || d.has_echeancier) {
+    items.push({
+      label: "Échéancier accordé",
+      className: "text-emerald-700 bg-emerald-50 border-emerald-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
   }
   if (d.transmis_huissier) {
     items.push({
-      label: "Transmis au huissier",
-      className: "text-violet-700",
+      label: "Transmis à l'huissier",
+      className: "text-amber-700 bg-amber-50 border-amber-200 px-1.5 py-0.5 rounded border text-[9px]",
     });
   }
   if (d.transmis_cours) {
-    items.push({ label: "Enregistrement du dossier au tribunal", className: "text-rose-700" });
+    items.push({
+      label: "Enregistrement au tribunal",
+      className: "text-blue-700 bg-blue-50 border-blue-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
+  }
+  if (d.dossier_en_delibere) {
+    items.push({
+      label: "Dossier en délibéré",
+      className: "text-blue-700 bg-blue-50 border-blue-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
+  }
+  if (d.prononce_jugement) {
+    items.push({
+      label: "Prononcé du jugement",
+      className: "text-blue-700 bg-blue-50 border-blue-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
+  }
+  if (d.notification_jugement) {
+    items.push({
+      label: "Notification du jugement",
+      className: "text-amber-700 bg-amber-50 border-amber-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
+  }
+  if (d.jugement_definitif) {
+    const typeLabel = d.jugement_definitif === "par_defaut" ? "Par défaut" : "Contradictoire";
+    items.push({
+      label: `Jugement définitif (${typeLabel})`,
+      className: "text-emerald-700 bg-emerald-50 border-emerald-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
+  }
+  if (d.appel) {
+    items.push({
+      label: "Appel du jugement",
+      className: "text-violet-700 bg-violet-50 border-violet-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
+  }
+  if (d.dossier_en_delibere_appel) {
+    items.push({
+      label: "Dossier en délibéré (Appel)",
+      className: "text-violet-700 bg-violet-50 border-violet-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
+  }
+  if (d.rendu_arret) {
+    items.push({
+      label: "Rendu de l'arrêt",
+      className: "text-violet-700 bg-violet-50 border-violet-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
+  }
+  if (d.notification_arret) {
+    items.push({
+      label: "Notification de l'arrêt",
+      className: "text-amber-700 bg-amber-50 border-amber-200 px-1.5 py-0.5 rounded border text-[9px]",
+    });
   }
   if (d.execution_jugement) {
     items.push({
-      label: "Procédures d'exécution de l'arrêt",
-      className: "text-sky-700",
+      label: "Procédures d'exécution forcée",
+      className: "text-rose-700 bg-rose-50 border-rose-200 px-1.5 py-0.5 rounded border text-[9px]",
     });
   }
 
@@ -832,7 +890,17 @@ export function ServiceContentieuxView({
               "Notification de l'arrêt": "bg-slate-50 text-slate-700 border-slate-200",
               "Procédures d'exécution de l'arrêt": "bg-teal-50 text-teal-700 border-teal-200",
             };
-            const filtered = dossiers.filter((d) => {
+            const enriched = dossiers.map((d) => {
+              const ab = rows.find(
+                (r) => r.numab.trim().toUpperCase() === d.numab.trim().toUpperCase()
+              );
+              return {
+                ...d,
+                montant_creance: ab ? ab.montant_creance : 0,
+                nombre_creance: ab ? ab.nombre_creance : 0,
+              };
+            });
+            const filtered = enriched.filter((d) => {
               if (!d.has_dossier) return false;
               if (selectedSecteur && selectedSecteur.trim() && selectedSecteur.toLowerCase() !== "all" && selectedSecteur.toLowerCase() !== "tout") {
                 const selSec = selectedSecteur.trim().replace(/^0+/, "").padStart(2, "0");

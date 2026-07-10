@@ -714,7 +714,7 @@ export function DossierJuridiquePanel({
                         abonne={{
                           id_abonnement: abonne.numab,
                           nom_abonne: abonne.name || abonne.nom_prenom || "Abonné Inconnu",
-                          montant_creance: abonne.solde || 0,
+                          montant_creance: abonne.montant_creance || 0,
                           ref_dossier_justice: abonne.ref_dossier || "",
                           current_step: currentStepNumber,
                           step_status: currentStepStatus,

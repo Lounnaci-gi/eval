@@ -388,51 +388,104 @@ export function ServiceContentieuxView({
         return true;
       });
 
-      const dossiersAmiable = filteredDossiers.filter((d) => {
-        const etape = (d.etape_recouvrement || "Amiable").toString().trim().toLowerCase();
-        return etape === "amiable";
-      }).length;
-      const dossiersSuspendus = filteredDossiers.filter((d) => {
-        const statut = (d.statut_abonne || "Actif").toString().trim().toLowerCase();
-        return statut === "suspendu";
-      }).length;
-      const dossiersHuissier = filteredDossiers.filter((d) => Boolean(d.transmis_huissier)).length;
-      const dossiersTribunal = filteredDossiers.filter((d) => {
-        const etape = (d.etape_recouvrement || "").toString().trim().toLowerCase();
-        return Boolean(d.transmis_cours) || etape === "tribunal" || etape === "enregistrement du dossier au tribunal";
-      }).length;
-      const dossiersExecutionJugement = filteredDossiers.filter((d) => Boolean(d.execution_jugement) || (d.etape_recouvrement || "").toString().toLowerCase().includes("exécution")).length;
+      const misesEnDemeure = filteredDossiers.filter((d) => Boolean(d.has_mise_en_demeure)).length;
+      const echeanciers = filteredDossiers.filter((d) => Boolean(d.reglement_conciliation || d.has_echeancier)).length;
+      const huissier = filteredDossiers.filter((d) => Boolean(d.transmis_huissier)).length;
+      const tribunal = filteredDossiers.filter((d) => Boolean(d.transmis_cours)).length;
+      const delibere = filteredDossiers.filter((d) => Boolean(d.dossier_en_delibere)).length;
+      const jugements = filteredDossiers.filter((d) => Boolean(d.prononce_jugement)).length;
+      const notificationsJugement = filteredDossiers.filter((d) => Boolean(d.notification_jugement)).length;
+      const jugementsDefinitifs = filteredDossiers.filter((d) => Boolean(d.jugement_definitif)).length;
+      const appels = filteredDossiers.filter((d) => Boolean(d.appel)).length;
+      const delibereAppel = filteredDossiers.filter((d) => Boolean(d.dossier_en_delibere_appel)).length;
+      const arrets = filteredDossiers.filter((d) => Boolean(d.rendu_arret)).length;
+      const notificationsArret = filteredDossiers.filter((d) => Boolean(d.notification_arret)).length;
+      const executions = filteredDossiers.filter((d) => Boolean(d.execution_jugement)).length;
 
       return [
         {
           label: "Dossiers affichés",
           value: filteredDossiers.length.toLocaleString("fr-DZ"),
           tone: "blue",
+          filterValue: "",
         },
         {
-          label: "dossiers Amiable",
-          value: dossiersAmiable.toLocaleString("fr-DZ"),
-          tone: "sky",
+          label: "Mises en demeure",
+          value: misesEnDemeure.toLocaleString("fr-DZ"),
+          tone: "slate",
+          filterValue: "Dernière mise en demeure avant les poursuites judiciaires",
         },
         {
-          label: "Suspendu",
-          value: dossiersSuspendus.toLocaleString("fr-DZ"),
+          label: "Échéanciers accordés",
+          value: echeanciers.toLocaleString("fr-DZ"),
+          tone: "emerald",
+          filterValue: "Échéancier accordé",
+        },
+        {
+          label: "Transmis huissier",
+          value: huissier.toLocaleString("fr-DZ"),
           tone: "amber",
+          filterValue: "Transmis Huissier",
         },
         {
-          label: "dossiers Huissier",
-          value: dossiersHuissier.toLocaleString("fr-DZ"),
-          tone: "violet",
-        },
-        {
-          label: "dossiers Enregistrement du dossier au tribunal",
-          value: dossiersTribunal.toLocaleString("fr-DZ"),
+          label: "Enregistrements tribunal",
+          value: tribunal.toLocaleString("fr-DZ"),
           tone: "rose",
+          filterValue: "Enregistrement du dossier au tribunal",
         },
         {
-          label: "Procédures d'exécution de l'arrêt",
-          value: dossiersExecutionJugement.toLocaleString("fr-DZ"),
-          tone: "teal",
+          label: "Délibérés (1ère instance)",
+          value: delibere.toLocaleString("fr-DZ"),
+          tone: "blue",
+          filterValue: "Dossier en délibéré",
+        },
+        {
+          label: "Jugements prononcés",
+          value: jugements.toLocaleString("fr-DZ"),
+          tone: "sky",
+          filterValue: "Prononcé d'un jugement de première instance",
+        },
+        {
+          label: "Notifications jugement",
+          value: notificationsJugement.toLocaleString("fr-DZ"),
+          tone: "orange",
+          filterValue: "Notification du jugement",
+        },
+        {
+          label: "Jugements définitifs",
+          value: jugementsDefinitifs.toLocaleString("fr-DZ"),
+          tone: "emerald",
+          filterValue: "Jugement définitif",
+        },
+        {
+          label: "Dossiers en Appel",
+          value: appels.toLocaleString("fr-DZ"),
+          tone: "violet",
+          filterValue: "Appel du jugement",
+        },
+        {
+          label: "Délibérés (Appel)",
+          value: delibereAppel.toLocaleString("fr-DZ"),
+          tone: "violet",
+          filterValue: "Dossier en délibéré (Appel)",
+        },
+        {
+          label: "Arrêts rendus",
+          value: arrets.toLocaleString("fr-DZ"),
+          tone: "indigo",
+          filterValue: "Rendu de l'arrêt",
+        },
+        {
+          label: "Notifications arrêt",
+          value: notificationsArret.toLocaleString("fr-DZ"),
+          tone: "amber",
+          filterValue: "Notification de l'arrêt",
+        },
+        {
+          label: "Exécutions forcées",
+          value: executions.toLocaleString("fr-DZ"),
+          tone: "rose",
+          filterValue: "Procédures d'exécution de l'arrêt",
         },
       ];
     }
@@ -443,13 +496,20 @@ export function ServiceContentieuxView({
           label: "Abonnés concernés",
           value: totals.abonnes.toLocaleString("fr-DZ"),
           tone: "indigo",
+          filterValue: undefined,
         },
         {
           label: "Factures impayées",
           value: totals.factures.toLocaleString("fr-DZ"),
           tone: "orange",
+          filterValue: undefined,
         },
-        { label: "Montant total", value: fmt(totals.montant), tone: "emerald" },
+        {
+          label: "Montant total",
+          value: fmt(totals.montant),
+          tone: "emerald",
+          filterValue: undefined,
+        },
       ];
     }
 
@@ -735,8 +795,8 @@ export function ServiceContentieuxView({
 
         {/* ── KPI totals ── */}
         {!loading && summaryCards.length > 0 && (
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {summaryCards.map(({ label, value, tone = "slate" }) => {
+          <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {summaryCards.map(({ label, value, tone = "slate", filterValue }) => {
               const toneStyles: Record<string, { container: string; label: string; value: string }> = {
                 slate: {
                   container: "bg-slate-50 border-slate-200",
@@ -790,9 +850,27 @@ export function ServiceContentieuxView({
                 },
               };
               const styles = toneStyles[tone] ?? toneStyles.slate;
+              const isInteractive = activeTab === "dossiers" && typeof filterValue === "string";
+              const isActive = isInteractive && dossierEtapeFilter === filterValue;
 
               return (
-                <div key={label} className={`rounded-2xl px-4 py-3 border ${styles.container}`}>
+                <div
+                  key={label}
+                  onClick={() => {
+                    if (isInteractive) {
+                      setDossierEtapeFilter(isActive ? "" : filterValue);
+                    }
+                  }}
+                  className={`rounded-2xl px-4 py-3 border select-none transition-all duration-200 ${styles.container} ${
+                    isInteractive
+                      ? `cursor-pointer hover:scale-[1.03] hover:shadow-md ${
+                          isActive
+                            ? "ring-2 ring-indigo-500 ring-offset-1 scale-[1.03] shadow-md border-indigo-400"
+                            : ""
+                        }`
+                      : ""
+                  }`}
+                >
                   <p className={`text-[10px] font-black uppercase tracking-wider ${styles.label}`}>
                     {label}
                   </p>

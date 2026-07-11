@@ -361,7 +361,8 @@ export function ServiceContentieuxView({
 
   const summaryCards = useMemo(() => {
     if (activeTab === "dossiers") {
-      const filteredDossiers = dossiers.filter((d) => {
+      // Filtrer uniquement par recherche et secteur pour les cartes (sans filtres d'étape/statut)
+      const filteredDossiersForCards = dossiers.filter((d) => {
         if (!d.has_dossier) return false;
         if (selectedSecteur && selectedSecteur.trim() && selectedSecteur.toLowerCase() !== "all" && selectedSecteur.toLowerCase() !== "tout") {
           const selSec = selectedSecteur.trim().replace(/^0+/, "").padStart(2, "0");
@@ -379,33 +380,28 @@ export function ServiceContentieuxView({
         ) {
           return false;
         }
-        if (dossierEtapeFilter && d.etape_recouvrement !== dossierEtapeFilter) {
-          return false;
-        }
-        if (dossierStatutFilter && d.statut_abonne !== dossierStatutFilter) {
-          return false;
-        }
+        // NE PAS filtrer par dossierEtapeFilter et dossierStatutFilter pour les cartes
         return true;
       });
 
-      const misesEnDemeure = filteredDossiers.filter((d) => Boolean(d.has_mise_en_demeure)).length;
-      const echeanciers = filteredDossiers.filter((d) => Boolean(d.reglement_conciliation || d.has_echeancier)).length;
-      const huissier = filteredDossiers.filter((d) => Boolean(d.transmis_huissier)).length;
-      const tribunal = filteredDossiers.filter((d) => Boolean(d.transmis_cours)).length;
-      const delibere = filteredDossiers.filter((d) => Boolean(d.dossier_en_delibere)).length;
-      const jugements = filteredDossiers.filter((d) => Boolean(d.prononce_jugement)).length;
-      const notificationsJugement = filteredDossiers.filter((d) => Boolean(d.notification_jugement)).length;
-      const jugementsDefinitifs = filteredDossiers.filter((d) => Boolean(d.jugement_definitif)).length;
-      const appels = filteredDossiers.filter((d) => Boolean(d.appel)).length;
-      const delibereAppel = filteredDossiers.filter((d) => Boolean(d.dossier_en_delibere_appel)).length;
-      const arrets = filteredDossiers.filter((d) => Boolean(d.rendu_arret)).length;
-      const notificationsArret = filteredDossiers.filter((d) => Boolean(d.notification_arret)).length;
-      const executions = filteredDossiers.filter((d) => Boolean(d.execution_jugement)).length;
+      const misesEnDemeure = filteredDossiersForCards.filter((d) => Boolean(d.has_mise_en_demeure)).length;
+      const echeanciers = filteredDossiersForCards.filter((d) => Boolean(d.reglement_conciliation || d.has_echeancier)).length;
+      const huissier = filteredDossiersForCards.filter((d) => Boolean(d.transmis_huissier)).length;
+      const tribunal = filteredDossiersForCards.filter((d) => Boolean(d.transmis_cours)).length;
+      const delibere = filteredDossiersForCards.filter((d) => Boolean(d.dossier_en_delibere)).length;
+      const jugements = filteredDossiersForCards.filter((d) => Boolean(d.prononce_jugement)).length;
+      const notificationsJugement = filteredDossiersForCards.filter((d) => Boolean(d.notification_jugement)).length;
+      const jugementsDefinitifs = filteredDossiersForCards.filter((d) => Boolean(d.jugement_definitif)).length;
+      const appels = filteredDossiersForCards.filter((d) => Boolean(d.appel)).length;
+      const delibereAppel = filteredDossiersForCards.filter((d) => Boolean(d.dossier_en_delibere_appel)).length;
+      const arrets = filteredDossiersForCards.filter((d) => Boolean(d.rendu_arret)).length;
+      const notificationsArret = filteredDossiersForCards.filter((d) => Boolean(d.notification_arret)).length;
+      const executions = filteredDossiersForCards.filter((d) => Boolean(d.execution_jugement)).length;
 
       return [
         {
           label: "Dossiers affichés",
-          value: filteredDossiers.length.toLocaleString("fr-DZ"),
+          value: filteredDossiersForCards.length.toLocaleString("fr-DZ"),
           tone: "blue",
           filterValue: "",
         },
@@ -517,9 +513,7 @@ export function ServiceContentieuxView({
   }, [
     activeTab,
     dossiers,
-    dossierEtapeFilter,
     dossierSearch,
-    dossierStatutFilter,
     totals,
     selectedSecteur,
   ]);
@@ -995,11 +989,56 @@ export function ServiceContentieuxView({
                 )
               )
                 return false;
-              if (
-                dossierEtapeFilter &&
-                d.etape_recouvrement !== dossierEtapeFilter
-              )
-                return false;
+              
+              // Filtre par étape/démarche
+              if (dossierEtapeFilter) {
+                let matchesFilter = false;
+                switch (dossierEtapeFilter) {
+                  case "Dernière mise en demeure avant les poursuites judiciaires":
+                    matchesFilter = Boolean(d.has_mise_en_demeure);
+                    break;
+                  case "Échéancier accordé":
+                    matchesFilter = Boolean(d.reglement_conciliation || d.has_echeancier);
+                    break;
+                  case "Transmis Huissier":
+                    matchesFilter = Boolean(d.transmis_huissier);
+                    break;
+                  case "Enregistrement du dossier au tribunal":
+                    matchesFilter = Boolean(d.transmis_cours);
+                    break;
+                  case "Dossier en délibéré":
+                    matchesFilter = Boolean(d.dossier_en_delibere);
+                    break;
+                  case "Prononcé d'un jugement de première instance":
+                    matchesFilter = Boolean(d.prononce_jugement);
+                    break;
+                  case "Notification du jugement":
+                    matchesFilter = Boolean(d.notification_jugement);
+                    break;
+                  case "Jugement définitif":
+                    matchesFilter = Boolean(d.jugement_definitif);
+                    break;
+                  case "Appel du jugement":
+                    matchesFilter = Boolean(d.appel);
+                    break;
+                  case "Dossier en délibéré (Appel)":
+                    matchesFilter = Boolean(d.dossier_en_delibere_appel);
+                    break;
+                  case "Rendu de l'arrêt":
+                    matchesFilter = Boolean(d.rendu_arret);
+                    break;
+                  case "Notification de l'arrêt":
+                    matchesFilter = Boolean(d.notification_arret);
+                    break;
+                  case "Procédures d'exécution de l'arrêt":
+                    matchesFilter = Boolean(d.execution_jugement);
+                    break;
+                  default:
+                    matchesFilter = true;
+                }
+                if (!matchesFilter) return false;
+              }
+              
               if (
                 dossierStatutFilter &&
                 d.statut_abonne !== dossierStatutFilter

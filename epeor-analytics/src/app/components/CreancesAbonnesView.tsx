@@ -28,6 +28,7 @@ export function CreancesAbonnesView({
   const [allSubscribers, setAllSubscribers] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [includesSansCreance, setIncludesSansCreance] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ─── Filter UI state ──────────────────────────────────────────────
@@ -73,7 +74,7 @@ export function CreancesAbonnesView({
     return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
   }, []);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (includeSansCreance = false): Promise<any[] | null> => {
     setDataLoading(true);
     setError(null);
     setDataLoaded(false);
@@ -83,23 +84,32 @@ export function CreancesAbonnesView({
     try {
       const url = apiUrlObject('/creances_abonnes');
       appendSecteurParam(url, selectedSecteur);
+      if (includeSansCreance) {
+        url.searchParams.set('include_sans_creance', 'true');
+      }
       const res = await fetch(url.toString());
       const data = await res.json();
       if (data.error) {
         setError(data.error);
-      } else {
-        setAllSubscribers(data.subscribers || []);
-        setAllQuartiers(data.quartiers || []);
-        setDataLoaded(true);
+        setIncludesSansCreance(false);
+        return null;
       }
+      const subscribers = data.subscribers || [];
+      setAllSubscribers(subscribers);
+      setAllQuartiers(data.quartiers || []);
+      setIncludesSansCreance(includeSansCreance);
+      setDataLoaded(true);
+      return subscribers;
     } catch {
       setError("Impossible de contacter le serveur backend.");
+      setIncludesSansCreance(false);
+      return null;
     } finally {
       setDataLoading(false);
     }
   }, [selectedSecteur]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadData(false); }, [loadData]);
 
   // ─── Day helper ──────────────────────────────────────────────────
   const daysSince = useCallback((raw: string | null): number | null => {
@@ -166,10 +176,27 @@ export function CreancesAbonnesView({
   };
 
   // ─── Apply filters ───────────────────────────────────────────────
-  const applyFilters = () => {
+  const applyFilters = async () => {
     setPage(1);
     setSearch('');
-    let filtered = [...allSubscribers];
+
+    const wantsZeroCreance = montantVal.trim() === '0' && montantOp === '=';
+    let source = allSubscribers;
+    if (wantsZeroCreance !== includesSansCreance) {
+      const loaded = await loadData(wantsZeroCreance);
+      if (loaded === null) return;
+      source = loaded;
+    }
+
+    let filtered = [...source];
+
+    if (!wantsZeroCreance) {
+      filtered = filtered.filter(s => {
+        const nb = Number(s.nombre_creance ?? 0);
+        const montant = Number(s.montant_creance ?? 0);
+        return nb > 0 || montant >= 0.01;
+      });
+    }
     // 0+1. Quartier / Tournées / Codes abonnés — filtre inclusif (OR)
     // Un abonné est retenu s'il correspond à au moins un critère parmi les trois listes.
     const hasQuartierFilter = customQuartiers.length > 0;
@@ -195,9 +222,16 @@ export function CreancesAbonnesView({
       const threshold = parseFloat(montantVal);
       if (!isNaN(threshold)) {
         filtered = filtered.filter(s => {
-          if (montantOp === '>=') return s.montant_creance >= threshold;
-          if (montantOp === '=')  return Math.abs(s.montant_creance - threshold) < 0.01;
-          if (montantOp === '<=') return s.montant_creance <= threshold;
+          const montant = Number(s.montant_creance ?? 0);
+          const facturesImpayees = Number(s.nombre_creance ?? s.factures_count ?? s.nb_factures ?? 0);
+
+          if (threshold === 0 && montantOp === '=') {
+            return montant === 0 && facturesImpayees === 0;
+          }
+
+          if (montantOp === '>=') return montant >= threshold;
+          if (montantOp === '=') return Math.abs(montant - threshold) < 0.01;
+          if (montantOp === '<=') return montant <= threshold;
           return true;
         });
       }
@@ -258,6 +292,9 @@ export function CreancesAbonnesView({
     setResults(null);
     setSearch('');
     setPage(1);
+    if (includesSansCreance) {
+      void loadData(false);
+    }
   };
 
   const handleSort = (key: string) => {
@@ -1546,7 +1583,11 @@ export function CreancesAbonnesView({
                           min="0"
                         />
                       </div>
-                      <p className="mt-1.5 text-[10px] text-[#98A2B3] font-medium">Laissez vide pour ignorer</p>
+                      <p className="mt-1.5 text-[10px] text-[#98A2B3] font-medium">
+                        {montantOp === '=' && montantVal.trim() === '0'
+                          ? '= 0 affiche les abonnés sans facture impayée'
+                          : 'Laissez vide pour ignorer'}
+                      </p>
                     </div>
 
                     <div className="rounded-2xl border border-[#E4E7EC] bg-white/90 p-3">

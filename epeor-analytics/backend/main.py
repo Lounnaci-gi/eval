@@ -4566,21 +4566,72 @@ def get_abonne_api(numab: str, _user: dict = Depends(get_current_user)):
         "factures": factures_formatted
     }
 
-def _cache_key_for_creances_abonnes(user: dict, secteur: str | None) -> tuple:
+def _cache_key_for_creances_abonnes(user: dict, secteur: str | None, include_sans_creance: bool = False) -> tuple:
     sector_value = str(secteur or "").strip()
     if not _AUTH_ENABLED or user.get("is_admin"):
-        return ("admin", sector_value)
+        return ("admin", sector_value, include_sans_creance)
     allowed_secs = _normalize_allowed_sectors(user.get("allowed_sectors"))
     if allowed_secs is None:
-        return (user.get("username") or user.get("id") or "anon", sector_value)
+        return (user.get("username") or user.get("id") or "anon", sector_value, include_sans_creance)
     return (
         user.get("username") or user.get("id") or "anon",
         sector_value,
         tuple(sorted(allowed_secs)),
+        include_sans_creance,
     )
 
 
-def _compute_creances_abonnes_payload(user: dict, secteur: str | None) -> dict:
+def _finalize_creance_abonne_entry(d: dict, contentieux_map: dict) -> dict:
+    ld = d["raw_last_payment"]
+    if ld and len(ld) == 8:
+        d["derniere_date_paiement"] = f"{ld[6:8]}/{ld[4:6]}/{ld[:4]}"
+    else:
+        d["derniere_date_paiement"] = "Aucun"
+        d["raw_last_payment"] = None
+    d["is_contentieux"] = (d["numab"].upper() in contentieux_map)
+    d["date_transmission"] = contentieux_map.get(d["numab"].upper())
+    return d
+
+
+def _build_creance_abonne_from_record(numab: str, abonne_rec, abonments_by_numab, quartier_names) -> dict:
+    numab_key = numab.strip().upper()
+    name = abonne_rec.get('RAISOC', '') or abonne_rec.get('NOM', '') if abonne_rec else 'Nom inconnu'
+    if not name:
+        name = 'Nom inconnu'
+    tournee = str(abonne_rec.get('TOURNEE', '') if abonne_rec else '').strip()
+    raw_typabon = str(abonne_rec.get('TYPABON', '') if abonne_rec else '').strip()
+    bloc = str(abonne_rec.get('BLOC', '') if abonne_rec else '').strip() or '—'
+    ndom = str(abonne_rec.get('NDOM', '') if abonne_rec else '').strip() or '—'
+
+    abonment_rec = abonments_by_numab.get(numab_key)
+    numser = str(abonment_rec.get('NUMSER', '') if abonment_rec else '').strip() or '—'
+    raw_etat = str(abonment_rec.get('ETATCPT', '') if abonment_rec else '').strip()
+
+    prefix = numab[:2]
+    quart_name = quartier_names.get(prefix, f"Quartier {prefix}")
+    return {
+        "numab": numab,
+        "name": name,
+        "tournee": tournee if tournee else "—",
+        "quartier_code": prefix,
+        "quartier_name": quart_name,
+        "type_abon": resolve_typabon_label(raw_typabon),
+        "type_abon_code": raw_typabon or '—',
+        "etat_cpt": resolve_etatcpt_label(raw_etat),
+        "etat_cpt_code": raw_etat or '—',
+        "adresse": resolve_rue_adresse(abonne_rec),
+        "bloc": bloc,
+        "ndom": ndom,
+        "numser": numser,
+        "raw_last_payment": None,
+        "derniere_date_paiement": "Aucun",
+        "nombre_creance": 0,
+        "montant_creance": 0.0,
+        "factures": [],
+    }
+
+
+def _compute_creances_abonnes_payload(user: dict, secteur: str | None, include_sans_creance: bool = False) -> dict:
     secteur = _enforce_sector(user, secteur)
     try:
         secteur_numabs = _secteur_numabs_set_for_user(user, secteur)
@@ -4610,43 +4661,12 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None) -> dict:
             if numab not in debtors:
                 numab_key = numab.strip().upper()
                 abonne_rec = abonnes_by_numab.get(numab_key)
-                name = abonne_rec.get('RAISOC', '') or abonne_rec.get('NOM', '') if abonne_rec else 'Nom inconnu'
-                if not name:
-                    name = 'Nom inconnu'
-                tournee = str(abonne_rec.get('TOURNEE', '') if abonne_rec else '').strip()
-                if tournee:
+                debtors[numab] = _build_creance_abonne_from_record(
+                    numab, abonne_rec, abonments_by_numab, quartier_names
+                )
+                tournee = debtors[numab]["tournee"]
+                if tournee and tournee != "—":
                     tournees_set.add(tournee)
-
-                raw_typabon = str(abonne_rec.get('TYPABON', '') if abonne_rec else '').strip()
-                bloc = str(abonne_rec.get('BLOC', '') if abonne_rec else '').strip() or '—'
-                ndom = str(abonne_rec.get('NDOM', '') if abonne_rec else '').strip() or '—'
-
-                abonment_rec = abonments_by_numab.get(numab_key)
-                numser = str(abonment_rec.get('NUMSER', '') if abonment_rec else '').strip() or '—'
-                raw_etat = str(abonment_rec.get('ETATCPT', '') if abonment_rec else '').strip()
-
-                prefix = numab[:2]
-                quart_name = quartier_names.get(prefix, f"Quartier {prefix}")
-                debtors[numab] = {
-                    "numab": numab,
-                    "name": name,
-                    "tournee": tournee if tournee else "—",
-                    "quartier_code": prefix,
-                    "quartier_name": quart_name,
-                    "type_abon": resolve_typabon_label(raw_typabon),
-                    "type_abon_code": raw_typabon or '—',
-                    "etat_cpt": resolve_etatcpt_label(raw_etat),
-                    "etat_cpt_code": raw_etat or '—',
-                    "adresse": resolve_rue_adresse(abonne_rec),
-                    "bloc": bloc,
-                    "ndom": ndom,
-                    "numser": numser,
-                    "raw_last_payment": None,   # YYYYMMDD string for day arithmetic
-                    "derniere_date_paiement": "Aucun",
-                    "nombre_creance": 0,
-                    "montant_creance": 0.0,
-                    "factures": []
-                }
 
             if datreg and datreg not in EMPTY_DATE_VALUES:
                 cur_last = debtors[numab]["raw_last_payment"]
@@ -4668,18 +4688,33 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None) -> dict:
                 })
 
         debtor_list = []
+        seen_numabs = set()
         for d in debtors.values():
             d["montant_creance"] = round(d["montant_creance"], 2)
-            if d["montant_creance"] >= 0.01:
-                ld = d["raw_last_payment"]
-                if ld and len(ld) == 8:
-                    d["derniere_date_paiement"] = f"{ld[6:8]}/{ld[4:6]}/{ld[:4]}"
-                else:
-                    d["derniere_date_paiement"] = "Aucun"
-                    d["raw_last_payment"] = None
-                d["is_contentieux"] = (d["numab"].upper() in contentieux_map)
-                d["date_transmission"] = contentieux_map.get(d["numab"].upper())
-                debtor_list.append(d)
+            has_creance = d["montant_creance"] >= 0.01
+            sans_creance = d["nombre_creance"] == 0 and d["montant_creance"] < 0.01
+            if has_creance or (include_sans_creance and sans_creance):
+                debtor_list.append(_finalize_creance_abonne_entry(d, contentieux_map))
+                seen_numabs.add(d["numab"].strip().upper())
+
+        if include_sans_creance:
+            for abonne_rec in MEM_ABONNES:
+                numab = str(abonne_rec.get('NUMAB', '') or '').strip()
+                if not numab:
+                    continue
+                numab_key = numab.upper()
+                if secteur_numabs is not None and numab_key not in secteur_numabs:
+                    continue
+                if numab_key in seen_numabs:
+                    continue
+                entry = _build_creance_abonne_from_record(
+                    numab, abonne_rec, abonments_by_numab, quartier_names
+                )
+                tournee = entry["tournee"]
+                if tournee and tournee != "—":
+                    tournees_set.add(tournee)
+                debtor_list.append(_finalize_creance_abonne_entry(entry, contentieux_map))
+                seen_numabs.add(numab_key)
 
         debtor_list.sort(key=lambda x: x["montant_creance"], reverse=True)
 
@@ -4703,13 +4738,17 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None) -> dict:
 
 
 @app.get("/creances_abonnes")
-def get_creances_abonnes(_user: dict = Depends(get_current_user), secteur: str = None):
-    cache_key = _cache_key_for_creances_abonnes(_user, secteur)
+def get_creances_abonnes(
+    _user: dict = Depends(get_current_user),
+    secteur: str = None,
+    include_sans_creance: bool = False,
+):
+    cache_key = _cache_key_for_creances_abonnes(_user, secteur, include_sans_creance)
     cached = _creances_abonnes_cache.get(cache_key)
     if cached is not None:
         return cached
 
-    payload = _compute_creances_abonnes_payload(_user, secteur)
+    payload = _compute_creances_abonnes_payload(_user, secteur, include_sans_creance)
     _creances_abonnes_cache[cache_key] = payload
     return payload
 

@@ -29,6 +29,10 @@ export interface SuiviAbonneData {
   reglement_conciliation?: boolean;
   jugement_definitif?: "par_defaut" | "contradictoire" | null;
   appel?: boolean;
+  // Propriétés d'adresse
+  adresse?: string;
+  bloc?: string;
+  ndom?: string;
 }
 
 interface SuiviRecouvrementAbonneProps {
@@ -60,6 +64,9 @@ export default function SuiviRecouvrementAbonne({
     reglement_conciliation = false,
     jugement_definitif = null,
     appel = false,
+    adresse,
+    bloc,
+    ndom,
   } = abonne;
 
   // Définition des 8 étapes du recouvrement
@@ -246,13 +253,25 @@ export default function SuiviRecouvrementAbonne({
     <div className="w-full flex flex-col gap-6">
       {/* ── BANDEAU INFOS ABONNÉ ── */}
       <div className="rounded-[24px] border border-[#E4E7EC] bg-white p-5 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
-          <div className="space-y-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-start">
+          <div className="space-y-1 sm:col-span-2 lg:col-span-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">Abonné</span>
             <div className="text-sm font-black text-[#0F172A] truncate">
               {nom_abonne}
             </div>
             <div className="text-xs text-[#667085] font-medium">Réf: {id_abonnement}</div>
+            {adresse && (
+              <div className="text-xs text-[#667085] font-medium mt-1">
+                <div className="truncate" title={adresse}>{adresse}</div>
+                {(bloc || ndom) && (
+                  <div className="text-[10px] text-[#98A2B3] mt-0.5">
+                    {bloc && <span>Bloc: {bloc}</span>}
+                    {bloc && ndom && <span> • </span>}
+                    {ndom && <span>NDom: {ndom}</span>}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">Créance Due</span>

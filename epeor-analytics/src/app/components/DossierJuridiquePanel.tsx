@@ -672,9 +672,6 @@ export function DossierJuridiquePanel({
               >
                 Dossier Contentieux
               </h2>
-              <p className="text-sm text-[#667085] mt-1 font-medium">
-                Abonné {abonne.numab} — {abonne.name}
-              </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-end">
               <button
@@ -721,11 +718,85 @@ export function DossierJuridiquePanel({
                           reglement_conciliation: dossier.reglement_conciliation,
                           jugement_definitif: dossier.jugement_definitif as "par_defaut" | "contradictoire" | null,
                           appel: dossier.appel,
+                          adresse: abonne.adresse || "",
+                          bloc: abonne.bloc || "",
+                          ndom: abonne.ndom || "",
                         }}
                         onStepClick={(stepId, fieldName, value) => {
                           updateDossierState({ [fieldName]: value });
                         }}
                       />
+                    </div>
+
+                    {/* ── PARCOURS LÉGAL ET BRANCHEMENTS JUDICIAIRES (CHEVRON) ── */}
+                    <div className="rounded-[30px] border border-[#E4E7EC] bg-white p-6 space-y-4">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-[#667085]">
+                        Parcours Légal et Branchements Judiciaires
+                      </h3>
+                      
+                      <div className="overflow-x-auto pb-4">
+                        <div className="flex gap-1 min-w-max">
+                          {(() => {
+                            // Définir toutes les démarches possibles dans l'ordre chronologique
+                            const allSteps = [
+                              { key: "has_mise_en_demeure", label: "Mise en demeure", color: "slate", phase: "Amiable" },
+                              { key: "reglement_conciliation", label: "Échéancier accordé", color: "emerald", phase: "Amiable" },
+                              { key: "transmis_cours", label: "Tribunal", color: "blue", phase: "1ère instance" },
+                              { key: "dossier_en_delibere", label: "Délibéré", color: "blue", phase: "1ère instance" },
+                              { key: "prononce_jugement", label: "Jugement", color: "blue", phase: "1ère instance" },
+                              { key: "notification_jugement", label: "Notification", color: "amber", phase: "1ère instance" },
+                              { key: "appel", label: "Appel", color: "violet", phase: "Appel" },
+                              { key: "dossier_en_delibere_appel", label: "Délibéré (Appel)", color: "violet", phase: "Appel" },
+                              { key: "rendu_arret", label: "Arrêt", color: "violet", phase: "Appel" },
+                              { key: "notification_arret", label: "Notification Arrêt", color: "amber", phase: "Appel" },
+                              { key: "execution_jugement", label: "Exécution", color: "rose", phase: "Exécution" },
+                            ];
+                            
+                            // Filtrer uniquement les démarches actives
+                            const activeSteps = allSteps.filter(step => dossier[step.key as keyof typeof dossier]);
+                            
+                            if (activeSteps.length === 0) {
+                              return (
+                                <div className="text-xs text-[#667085] italic py-2">
+                                  Aucune démarche enregistrée pour ce dossier.
+                                </div>
+                              );
+                            }
+                            
+                            const colorMap: Record<string, { bg: string; text: string; gradient: string }> = {
+                              slate: { bg: "bg-slate-100", text: "text-slate-700", gradient: "from-slate-400 to-slate-500" },
+                              amber: { bg: "bg-amber-100", text: "text-amber-700", gradient: "from-amber-400 to-amber-500" },
+                              blue: { bg: "bg-blue-100", text: "text-blue-700", gradient: "from-blue-400 to-blue-500" },
+                              emerald: { bg: "bg-emerald-100", text: "text-emerald-700", gradient: "from-emerald-400 to-emerald-500" },
+                              violet: { bg: "bg-violet-100", text: "text-violet-700", gradient: "from-violet-400 to-violet-500" },
+                              rose: { bg: "bg-rose-100", text: "text-rose-700", gradient: "from-rose-400 to-rose-500" },
+                            };
+                            
+                            return activeSteps.map((step, idx) => (
+                              <div key={step.key} className="flex items-center">
+                                <div
+                                  className={`relative px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap min-w-fit bg-gradient-to-r ${colorMap[step.color].gradient} text-white shadow-md`}
+                                >
+                                  <div>{step.label}</div>
+                                  <div className="absolute -top-2 -right-2">
+                                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white border-2 border-green-500">
+                                      <Check size={12} className="text-green-500" />
+                                    </div>
+                                  </div>
+                                </div>
+                                {idx < activeSteps.length - 1 && (
+                                  <div
+                                    className={`w-5 h-7 -mx-0.5 bg-gradient-to-r ${colorMap[step.color].gradient} shadow-sm`}
+                                    style={{
+                                      clipPath: "polygon(0 0, 100% 50%, 0 100%)",
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="rounded-[30px] border border-[#E4E7EC] bg-white p-6 space-y-6">

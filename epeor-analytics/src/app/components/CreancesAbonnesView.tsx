@@ -1419,191 +1419,189 @@ export function CreancesAbonnesView({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
+              <div className="flex flex-col gap-4">
 
-                {/* 1. Tournées */}
-                <div>
-                  <label className={labelCls}>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-blue-100 rounded-md flex items-center justify-center text-blue-600 text-[9px] font-black">1</span>
-                      Tournée(s)
-                    </span>
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="ex: 1, 15, 2"
-                      value={newTourneeInput}
-                      onChange={e => setNewTourneeInput(e.target.value)}
-                      onKeyPress={e => e.key === 'Enter' && addTournee()}
-                      className={inputCls}
-                    />
-                    <button
-                      onClick={addTournee}
-                      disabled={!newTourneeInput.trim()}
-                      className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                    >
-                      Ajouter
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Vide = toutes les tournées</p>
-                </div>
-
-                {/* 2. Quartier */}
-                <div>
-                  <label className={labelCls}>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-indigo-100 rounded-md flex items-center justify-center text-indigo-600 text-[9px] font-black">2</span>
-                      Quartier
-                    </span>
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={newQuartierInput}
-                      onChange={e => setNewQuartierInput(e.target.value)}
-                      className={selectCls}
-                    >
-                      <option value="">-- Sélectionner --</option>
-                      {allQuartiers
-                        .filter(q => !customQuartiers.includes(q.code))
-                        .map(q => (
-                          <option key={q.code} value={q.code}>
-                            {q.code} - {q.name}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      onClick={() => addQuartier(newQuartierInput)}
-                      disabled={!newQuartierInput}
-                      className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                    >
-                      Ajouter
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Vide = tous les quartiers</p>
-                </div>
-
-                {/* 3. Montant de créance */}
-                <div>
-                  <label className={labelCls}>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-rose-100 rounded-md flex items-center justify-center text-rose-600 text-[9px] font-black">3</span>
-                      Montant de Créance (DA)
-                    </span>
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative w-20 flex-shrink-0">
-                      <select
-                        value={montantOp}
-                        onChange={e => setMontantOp(e.target.value as any)}
-                        className={selectCls}
-                      >
-                        {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label.split(' ')[0]}</option>)}
-                      </select>
+                {/* 1. Identification / Localisation */}
+                <div className="group relative overflow-hidden rounded-[1.5rem] border border-[#E4E7EC] bg-gradient-to-br from-white via-white to-[#F9FAFB] p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-100 text-[11px] font-black text-brand-600">1</span>
+                      <div>
+                        <p className="text-[11px] font-black text-[#101828]">
+                          <span className="mb-0.5 block text-[10px] font-black uppercase tracking-[0.25em] text-[#667085]">Identification</span>
+                          Tournées, quartiers et codes abonnés
+                        </p>
+                      </div>
                     </div>
-                    <input
-                      type="number"
-                      placeholder="ex: 2000"
-                      value={montantVal}
-                      onChange={e => setMontantVal(e.target.value)}
-                      className={inputCls}
-                      min="0"
-                    />
+                    <span className="rounded-full border border-brand-100 bg-brand-50 px-2.5 py-1 text-[10px] font-bold text-brand-700">Localisation</span>
                   </div>
-                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer</p>
-                </div>
-
-                {/* 4. Factures Impayées */}
-                <div>
-                  <label className={labelCls}>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-amber-100 rounded-md flex items-center justify-center text-amber-600 text-[9px] font-black">4</span>
-                      Factures Impayées
-                    </span>
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative w-20 flex-shrink-0">
-                      <select
-                        value={nbCreanceOp}
-                        onChange={e => setNbCreanceOp(e.target.value as any)}
-                        className={selectCls}
-                      >
-                        {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label.split(' ')[0]}</option>)}
-                      </select>
+                  <div className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-[#E4E7EC] bg-white/90 p-3">
+                      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.2em] text-[#667085]">Tournée(s)</label>
+                      <div className="flex w-full flex-row items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="ex: 1, 15, 2"
+                          value={newTourneeInput}
+                          onChange={e => setNewTourneeInput(e.target.value)}
+                          onKeyPress={e => e.key === 'Enter' && addTournee()}
+                          className="w-full min-w-0 flex-1 px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100/60 transition-all"
+                        />
+                        <button
+                          onClick={addTournee}
+                          disabled={!newTourneeInput.trim()}
+                          className="shrink-0 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Ajouter
+                        </button>
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-[#98A2B3] font-medium">Vide = toutes les tournées</p>
                     </div>
-                    <input
-                      type="number"
-                      placeholder="ex: 5"
-                      value={nbCreanceVal}
-                      onChange={e => setNbCreanceVal(e.target.value)}
-                      className={inputCls}
-                      min="0"
-                      step="1"
-                    />
-                  </div>
-                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Laissez vide pour ignorer</p>
-                </div>
 
-                {/* 5. Ancienneté Paiement */}
-                <div>
-                  <label className={labelCls}>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-teal-100 rounded-md flex items-center justify-center text-teal-600 text-[9px] font-black">5</span>
-                      Ancienneté Paiement
-                    </span>
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative w-20 flex-shrink-0">
-                      <select
-                        value={dernierPaiementOp}
-                        onChange={e => setDernierPaiementOp(e.target.value as any)}
-                        className={selectCls}
-                      >
-                        {DAY_OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label.split(' ')[0]}</option>)}
-                      </select>
+                    <div className="rounded-2xl border border-[#E4E7EC] bg-white/90 p-3">
+                      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.2em] text-[#667085]">Quartier</label>
+                      <div className="flex w-full flex-row items-center gap-2">
+                        <select
+                          value={newQuartierInput}
+                          onChange={e => setNewQuartierInput(e.target.value)}
+                          className="w-full min-w-0 flex-1 px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100/60 transition-all appearance-none cursor-pointer"
+                        >
+                          <option value="">-- Sélectionner --</option>
+                          {allQuartiers
+                            .filter(q => !customQuartiers.includes(q.code))
+                            .map(q => (
+                              <option key={q.code} value={q.code}>
+                                {q.code} - {q.name}
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          onClick={() => addQuartier(newQuartierInput)}
+                          disabled={!newQuartierInput}
+                          className="shrink-0 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Ajouter
+                        </button>
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-[#98A2B3] font-medium">Vide = tous les quartiers</p>
                     </div>
-                    <div className="relative flex-1">
-                      <input
-                        type="number"
-                        placeholder="ex: 30"
-                        value={dernierPaiementDays}
-                        onChange={e => setDernierPaiementDays(e.target.value)}
-                        className={inputCls}
-                        min="0"
-                        step="1"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#98A2B3]">j</span>
+
+                    <div className="rounded-2xl border border-[#E4E7EC] bg-white/90 p-3">
+                      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.2em] text-[#667085]">Code Abonné(s)</label>
+                      <div className="flex w-full flex-row items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="ex: 00123"
+                          value={newCodeAbonneInput}
+                          onChange={e => setNewCodeAbonneInput(e.target.value.toUpperCase().slice(0, 6))}
+                          onKeyPress={e => e.key === 'Enter' && addCodeAbonne()}
+                          className="w-full min-w-0 flex-1 px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100/60 transition-all"
+                        />
+                        <button
+                          onClick={addCodeAbonne}
+                          disabled={!newCodeAbonneInput.trim()}
+                          className="shrink-0 px-4 py-2.5 bg-violet-600 text-white rounded-xl text-xs font-black hover:bg-violet-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Ajouter
+                        </button>
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-[#98A2B3] font-medium">Ajoutez un code à la fois puis validez</p>
                     </div>
                   </div>
-                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Sans paiement = inclus</p>
                 </div>
 
-                {/* 6. Codes abonnés */}
-                <div>
-                  <label className={labelCls}>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-4 h-4 bg-violet-100 rounded-md flex items-center justify-center text-violet-600 text-[9px] font-black">6</span>
-                      Code Abonné(s)
-                    </span>
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="ex: 00123"
-                      value={newCodeAbonneInput}
-                      onChange={e => setNewCodeAbonneInput(e.target.value.toUpperCase().slice(0, 6))}
-                      onKeyPress={e => e.key === 'Enter' && addCodeAbonne()}
-                      className={inputCls}
-                    />
-                    <button
-                      onClick={addCodeAbonne}
-                      disabled={!newCodeAbonneInput.trim()}
-                      className="px-4 py-2.5 bg-violet-600 text-white rounded-xl text-xs font-black hover:bg-violet-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                    >
-                      Ajouter
-                    </button>
+                {/* 2. Critères financiers */}
+                <div className="group relative overflow-hidden rounded-[1.5rem] border border-[#E4E7EC] bg-gradient-to-br from-white via-white to-[#F9FAFB] p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-[11px] font-black text-amber-600">2</span>
+                      <div>
+                        <p className="text-[11px] font-black text-[#101828]">
+                          <span className="mb-0.5 block text-[10px] font-black uppercase tracking-[0.25em] text-[#667085]">Critères financiers</span>
+                          Montant, factures impayées et ancienneté
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">Finance</span>
                   </div>
-                  <p className="text-[10px] text-[#98A2B3] font-medium mt-1.5">Ajoutez un code à la fois puis validez</p>
+                  <div className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-[#E4E7EC] bg-white/90 p-3">
+                      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.2em] text-[#667085]">Montant de Créance</label>
+                      <div className="flex gap-2">
+                        <div className="relative w-20 flex-shrink-0">
+                          <select
+                            value={montantOp}
+                            onChange={e => setMontantOp(e.target.value as any)}
+                            className={selectCls}
+                          >
+                            {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label.split(' ')[0]}</option>)}
+                          </select>
+                        </div>
+                        <input
+                          type="number"
+                          placeholder="ex: 2000"
+                          value={montantVal}
+                          onChange={e => setMontantVal(e.target.value)}
+                          className={inputCls}
+                          min="0"
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-[#98A2B3] font-medium">Laissez vide pour ignorer</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#E4E7EC] bg-white/90 p-3">
+                      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.2em] text-[#667085]">Factures Impayées</label>
+                      <div className="flex gap-2">
+                        <div className="relative w-20 flex-shrink-0">
+                          <select
+                            value={nbCreanceOp}
+                            onChange={e => setNbCreanceOp(e.target.value as any)}
+                            className={selectCls}
+                          >
+                            {OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label.split(' ')[0]}</option>)}
+                          </select>
+                        </div>
+                        <input
+                          type="number"
+                          placeholder="ex: 5"
+                          value={nbCreanceVal}
+                          onChange={e => setNbCreanceVal(e.target.value)}
+                          className={inputCls}
+                          min="0"
+                          step="1"
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-[#98A2B3] font-medium">Laissez vide pour ignorer</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#E4E7EC] bg-white/90 p-3">
+                      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.2em] text-[#667085]">Ancienneté Paiement</label>
+                      <div className="flex gap-2">
+                        <div className="relative w-20 flex-shrink-0">
+                          <select
+                            value={dernierPaiementOp}
+                            onChange={e => setDernierPaiementOp(e.target.value as any)}
+                            className={selectCls}
+                          >
+                            {DAY_OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label.split(' ')[0]}</option>)}
+                          </select>
+                        </div>
+                        <div className="relative flex-1">
+                          <input
+                            type="number"
+                            placeholder="ex: 30"
+                            value={dernierPaiementDays}
+                            onChange={e => setDernierPaiementDays(e.target.value)}
+                            className={inputCls}
+                            min="0"
+                            step="1"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#98A2B3]">j</span>
+                        </div>
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-[#98A2B3] font-medium">Sans paiement = inclus</p>
+                    </div>
+                  </div>
                 </div>
 
               </div>

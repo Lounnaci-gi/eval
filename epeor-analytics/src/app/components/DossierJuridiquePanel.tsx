@@ -752,17 +752,6 @@ export function DossierJuridiquePanel({
                               { key: "execution_jugement", label: "Exécution", color: "rose", phase: "Exécution" },
                             ];
                             
-                            // Filtrer uniquement les démarches actives
-                            const activeSteps = allSteps.filter(step => dossier[step.key as keyof typeof dossier]);
-                            
-                            if (activeSteps.length === 0) {
-                              return (
-                                <div className="text-xs text-[#667085] italic py-2">
-                                  Aucune démarche enregistrée pour ce dossier.
-                                </div>
-                              );
-                            }
-                            
                             const colorMap: Record<string, { bg: string; text: string; gradient: string }> = {
                               slate: { bg: "bg-slate-100", text: "text-slate-700", gradient: "from-slate-400 to-slate-500" },
                               amber: { bg: "bg-amber-100", text: "text-amber-700", gradient: "from-amber-400 to-amber-500" },
@@ -772,28 +761,41 @@ export function DossierJuridiquePanel({
                               rose: { bg: "bg-rose-100", text: "text-rose-700", gradient: "from-rose-400 to-rose-500" },
                             };
                             
-                            return activeSteps.map((step, idx) => (
-                              <div key={step.key} className="flex items-center">
-                                <div
-                                  className={`relative px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap min-w-fit bg-gradient-to-r ${colorMap[step.color].gradient} text-white shadow-md`}
-                                >
-                                  <div>{step.label}</div>
-                                  <div className="absolute -top-2 -right-2">
-                                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white border-2 border-green-500">
-                                      <Check size={12} className="text-green-500" />
-                                    </div>
-                                  </div>
-                                </div>
-                                {idx < activeSteps.length - 1 && (
+                            return allSteps.map((step, idx) => {
+                              const isActive = dossier[step.key as keyof typeof dossier];
+                              return (
+                                <div key={step.key} className="flex items-center">
                                   <div
-                                    className={`w-5 h-7 -mx-0.5 bg-gradient-to-r ${colorMap[step.color].gradient} shadow-sm`}
-                                    style={{
-                                      clipPath: "polygon(0 0, 100% 50%, 0 100%)",
-                                    }}
-                                  />
-                                )}
-                              </div>
-                            ));
+                                    className={`relative px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap min-w-fit ${
+                                      isActive
+                                        ? `bg-gradient-to-r ${colorMap[step.color].gradient} text-white shadow-md`
+                                        : "bg-gray-200 text-gray-500"
+                                    }`}
+                                  >
+                                    <div>{step.label}</div>
+                                    {isActive && (
+                                      <div className="absolute -top-2 -right-2">
+                                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white border-2 border-green-500">
+                                          <Check size={12} className="text-green-500" />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {idx < allSteps.length - 1 && (
+                                    <div
+                                      className={`w-5 h-7 -mx-0.5 ${
+                                        isActive
+                                          ? `bg-gradient-to-r ${colorMap[step.color].gradient} shadow-sm`
+                                          : "bg-gray-200"
+                                      }`}
+                                      style={{
+                                        clipPath: "polygon(0 0, 100% 50%, 0 100%)",
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            });
                           })()}
                         </div>
                       </div>

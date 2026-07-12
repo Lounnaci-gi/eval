@@ -1450,7 +1450,7 @@ export function CreancesAbonnesView({
           ) : error ? (
             <div className="flex flex-col items-center gap-3 py-10">
               <p className="text-sm font-bold text-rose-600">{error}</p>
-              <button onClick={loadData} className="px-4 py-2 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition-all">
+              <button onClick={() => void loadData()} className="px-4 py-2 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition-all">
                 Réessayer le chargement
               </button>
             </div>

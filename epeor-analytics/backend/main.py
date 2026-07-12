@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Cookie, Response, Request, status
+from starlette.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -4674,8 +4675,9 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None, include_s
                     debtors[numab]["raw_last_payment"] = datreg
 
             if is_creance:
+                delta = creance_monttc_delta(r, is_avoir)  # calculé une seule fois
                 debtors[numab]["nombre_creance"] += 1
-                debtors[numab]["montant_creance"] += creance_monttc_delta(r, is_avoir)
+                debtors[numab]["montant_creance"] += delta
                 periode_val = r.get('PERIODE')
                 try:
                     periode = int(periode_val) if periode_val else 3
@@ -4683,7 +4685,7 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None, include_s
                     periode = 3
                 debtors[numab]["factures"].append({
                     "date_fact": str(r.get('DATFACT', '') or '').strip(),
-                    "montant": creance_monttc_delta(r, is_avoir),
+                    "montant": delta,
                     "periode": periode,
                 })
 
@@ -4738,7 +4740,7 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None, include_s
 
 
 @app.get("/creances_abonnes")
-def get_creances_abonnes(
+async def get_creances_abonnes(
     _user: dict = Depends(get_current_user),
     secteur: str = None,
     include_sans_creance: bool = False,
@@ -4748,7 +4750,10 @@ def get_creances_abonnes(
     if cached is not None:
         return cached
 
-    payload = _compute_creances_abonnes_payload(_user, secteur, include_sans_creance)
+    # Exécution dans un thread pour ne pas bloquer la boucle d'événements
+    payload = await run_in_threadpool(
+        _compute_creances_abonnes_payload, _user, secteur, include_sans_creance
+    )
     _creances_abonnes_cache[cache_key] = payload
     return payload
 

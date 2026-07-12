@@ -2882,8 +2882,8 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
                 res['TYPE_LABEL'] = t_rec.get('LIBELLE', '') if t_rec else (f"Autre ({t_code})" if t_code else "Inconnu")
                 
                 results.append(res)
-                if len(results) >= 200: break
                 
+
         return results
     except Exception as e:
         return {"error": str(e)}

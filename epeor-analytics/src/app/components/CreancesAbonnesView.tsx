@@ -1399,8 +1399,12 @@ export function CreancesAbonnesView({
               </span>
             )}
             {dataLoading && (
-              <span className="text-xs font-bold text-[#667085] bg-[#F9FAFB] px-3 py-2 rounded-full border border-[#E4E7EC]">
-                Chargement…
+              <span className="inline-flex items-center gap-2 text-xs font-bold text-[#667085] bg-[#F9FAFB] px-3 py-2 rounded-full border border-[#E4E7EC]">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-500" />
+                </span>
+                Chargement en cours…
               </span>
             )}
           </div>
@@ -1443,9 +1447,17 @@ export function CreancesAbonnesView({
           <>
         <div className="p-8">
           {dataLoading ? (
-            <div className="flex items-center justify-center gap-3 py-10">
-              <div className="spinner-premium" />
-              <p className="text-sm font-bold text-[#667085]">Chargement des données...</p>
+            <div className="flex flex-col items-center justify-center gap-4 py-14">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-full border-4 border-brand-100 border-t-brand-500 animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-full border-2 border-brand-200 border-t-brand-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.6s' }} />
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-black text-[#344054]">Chargement des données…</p>
+                <p className="text-xs text-[#98A2B3] mt-1 font-medium">Analyse des créances en cours, veuillez patienter</p>
+              </div>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center gap-3 py-10">
@@ -1733,9 +1745,9 @@ export function CreancesAbonnesView({
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black border ${results.length === 0 ? 'bg-slate-50 text-slate-600 border-slate-200' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
                 {results.length} abonné{results.length !== 1 ? 's' : ''} créancier{results.length !== 1 ? 's' : ''}
               </span>
-              {results.length > 0 && (
+              {tableTotals.count > 0 && (
                 <span className="text-xs text-[#667085] font-bold">
-                  Total créances : <span className="text-rose-600">{fmt(results.reduce((a, s) => a + s.montant_creance, 0))}</span>
+                  Total créances : <span className="text-rose-600">{fmt(tableTotals.montant)}</span>
                 </span>
               )}
             </div>

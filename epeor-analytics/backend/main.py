@@ -686,11 +686,13 @@ _commune_codcoms_cache: dict[str | None, set[str] | None] = {}
 _creances_abonnes_cache: dict[tuple, dict] = {}
 _abonment_dates_by_numab: dict[str, str] = {}
 _abonment_state_by_numab: dict[str, str] = {}
+search_index_list: list = []
 
 
 def _invalidate_runtime_caches() -> None:
     global _secteur_stats_cache, _subscribers_evolution_cache, _invoice_state_history_cache
     global _commune_codcoms_cache, _creances_abonnes_cache, _abonment_dates_by_numab, _abonment_state_by_numab
+    global search_index_list
     _secteur_stats_cache = {}
     _subscribers_evolution_cache = {}
     _invoice_state_history_cache = {}
@@ -698,6 +700,7 @@ def _invalidate_runtime_caches() -> None:
     _creances_abonnes_cache = {}
     _abonment_dates_by_numab = {}
     _abonment_state_by_numab = {}
+    search_index_list = []
 
 
 def _build_abonment_lookup_maps() -> None:
@@ -1492,7 +1495,7 @@ def load_all_data_to_memory():
     global instit_by_codinstit, instit_by_unite_cod
     global factures_by_numab, avoirs_by_numab, unites_by_code, caisses_by_code
     global communes_by_code, quartier_to_commune, quartier_names, classe_map
-    global is_db_ready, indexes_ready, db_loading_status, cached_dashboard_stats
+    global is_db_ready, indexes_ready, db_loading_status, cached_dashboard_stats, search_index_list
     global _load_retry_count
     _invalidate_runtime_caches()
 
@@ -1641,6 +1644,29 @@ def load_all_data_to_memory():
 
         print(f"[INFO] Building invoice indexes...")
         build_invoice_indexes()
+
+        print(f"[INFO] Building search index list...")
+        temp_search_list = []
+        for record in MEM_ABONNES:
+            numab = str(record.get('NUMAB', '')).strip()
+            nom = str(record.get('NOM', '')).strip()
+            raisoc = str(record.get('RAISOC', '')).strip()
+            rec_secteur = str(record.get('SECTEUR', '')).strip().zfill(2)
+            
+            # Fetch numser from abonments_by_numab
+            abonment_info = abonments_by_numab.get(numab.upper(), {})
+            numser = str(abonment_info.get('NUMSER', '')).strip()
+            
+            temp_search_list.append({
+                'record': record,
+                'numab_lower': numab.lower(),
+                'nom_lower': nom.lower(),
+                'raisoc_lower': raisoc.lower(),
+                'numser_lower': numser.lower(),
+                'secteur': rec_secteur
+            })
+        search_index_list = temp_search_list
+        print(f"[INFO] Search index list ready with {len(search_index_list)} entries.")
 
         print(f"[INFO] Computing dashboard statistics...")
         cached_dashboard_stats = compute_dashboard_stats()
@@ -2819,8 +2845,30 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
     try:
         search_term_lower = search_term.lower()
         results = []
-        for record in MEM_ABONNES:
-            rec_secteur = str(record.get('SECTEUR', '')).strip().zfill(2)
+        
+        # Fallback to loop on MEM_ABONNES if search_index_list is not yet initialized
+        if not search_index_list and MEM_ABONNES:
+            search_source = []
+            for record in MEM_ABONNES:
+                numab = str(record.get('NUMAB', '')).strip()
+                nom = str(record.get('NOM', '')).strip()
+                raisoc = str(record.get('RAISOC', '')).strip()
+                rec_secteur = str(record.get('SECTEUR', '')).strip().zfill(2)
+                abonment_info = abonments_by_numab.get(numab.upper(), {})
+                numser = str(abonment_info.get('NUMSER', '')).strip()
+                search_source.append({
+                    'record': record,
+                    'numab_lower': numab.lower(),
+                    'nom_lower': nom.lower(),
+                    'raisoc_lower': raisoc.lower(),
+                    'numser_lower': numser.lower(),
+                    'secteur': rec_secteur
+                })
+        else:
+            search_source = search_index_list
+
+        for item in search_source:
+            rec_secteur = item['secteur']
             
             # Check user sector restrictions
             if allowed_sectors is not None:
@@ -2832,13 +2880,15 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
                 if rec_secteur != str(secteur).strip().zfill(2):
                     continue
 
-            numab = str(record.get('NUMAB', ''))
-            raisoc = str(record.get('RAISOC', ''))
-            nom = str(record.get('NOM', ''))
-            
-            if (search_term_lower in numab.lower() or 
-                search_term_lower in raisoc.lower() or 
-                search_term_lower in nom.lower()):
+            if (search_term_lower in item['numab_lower'] or 
+                search_term_lower in item['raisoc_lower'] or 
+                search_term_lower in item['nom_lower'] or
+                search_term_lower in item['numser_lower']):
+                
+                record = item['record']
+                numab = str(record.get('NUMAB', '')).strip()
+                raisoc = str(record.get('RAISOC', '')).strip()
+                nom = str(record.get('NOM', '')).strip()
                 
                 res = dict(record)
                 res['NOM'] = raisoc or nom
@@ -2858,7 +2908,7 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
                 res['TOURNEE'] = str(record.get('TOURNEE', '')).strip()
                 res['NUMORDRE'] = str(record.get('NUMORDRE', '')).strip()
                 
-                abonment_info = abonments_by_numab.get(numab, {})
+                abonment_info = abonments_by_numab.get(numab.upper(), {})
                 res['NUMSER'] = abonment_info.get('NUMSER', '---')
                 
                 # Resolve ETATCPT label
@@ -2869,7 +2919,7 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
                 res['ETAT_LABEL'] = etat_rec.get('LIBELLE', '') if etat_rec else (etatcpt if etatcpt else '---')
                 
                 # Resolve Nouvel index (nouveau_index / nouvelx)
-                sub_invoices = factures_by_numab.get(numab, [])
+                sub_invoices = factures_by_numab.get(numab.upper(), [])
                 raw_nouvelx = sub_invoices[0].get('NOUVELX') if sub_invoices else 0
                 try:
                     nouvelx = float(raw_nouvelx) if raw_nouvelx is not None else 0
@@ -2883,6 +2933,8 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
                 
                 results.append(res)
                 
+                if len(results) >= 500:
+                    break
 
         return results
     except Exception as e:

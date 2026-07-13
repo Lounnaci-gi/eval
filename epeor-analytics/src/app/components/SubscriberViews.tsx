@@ -52,39 +52,54 @@ export function GestionAbonnesShell({
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedSearchNumabs, setSelectedSearchNumabs] = useState<string[]>([]);
 
-  const handleSearch = useCallback((qStr: string) => {
-    setSearchQuery(qStr);
-    setSelectedSearchNumabs([]);
-    if (!qStr.trim()) {
+  useEffect(() => {
+    if (!searchQuery.trim()) {
       setSearchResults([]);
+      setSearchLoading(false);
       return;
     }
-    setSearchLoading(true);
-    const url = apiUrlObject('/search');
-    url.searchParams.append('query', qStr);
-    if (selectedSecteur) {
-      url.searchParams.append('secteur', selectedSecteur);
-    }
-    fetch(url.toString())
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setSearchResults(data);
-        } else {
-          setSearchResults([]);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        setSearchLoading(false);
-      });
-  }, [selectedSecteur]);
 
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      handleSearch(searchQuery);
-    }
-  }, [selectedSecteur, handleSearch, searchQuery]);
+    setSearchLoading(true);
+    const controller = new AbortController();
+
+    const timeoutId = setTimeout(() => {
+      const url = apiUrlObject('/search');
+      url.searchParams.append('query', searchQuery);
+      if (selectedSecteur) {
+        url.searchParams.append('secteur', selectedSecteur);
+      }
+
+      fetch(url.toString(), { signal: controller.signal })
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setSearchResults(data);
+          } else {
+            setSearchResults([]);
+          }
+        })
+        .catch(err => {
+          if (err.name !== 'AbortError') {
+            console.error('Search error:', err);
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setSearchLoading(false);
+          }
+        });
+    }, 250); // 250ms debounce time
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [searchQuery, selectedSecteur]);
+
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    setSelectedSearchNumabs([]);
+  };
 
   const secteurLabel = selectedSecteur
     ? (sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
@@ -183,13 +198,13 @@ export function GestionAbonnesShell({
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Chercher abonnés..."
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Chercher par nom, NUMAB, N° compteur..."
                 className="w-full text-[11px] font-black pl-8 pr-7 py-1.5 rounded-xl border border-[#E4E7EC]/80 bg-white text-[#101828] placeholder-[#98A2B3] focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all"
               />
               {searchQuery && (
                 <button
-                  onClick={() => handleSearch('')}
+                  onClick={() => handleSearchChange('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-[#98A2B3] hover:text-[#101828] text-[10px] font-black"
                 >
                   ✕

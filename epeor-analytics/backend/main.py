@@ -2835,7 +2835,7 @@ def get_unites_settings(_user: dict = Depends(get_current_user)):
 @app.get("/search")
 def search_subscribers(_user: dict = Depends(get_current_user), query: str = None, q: str = None, secteur: str = None):
     search_term = query or q
-    if not search_term: return []
+    if not search_term or len(search_term.strip()) < 2: return []
     
     # Get allowed sectors list if restricted
     allowed_sectors = None

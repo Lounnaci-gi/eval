@@ -4030,6 +4030,12 @@ function etatBadge(etatcpt: string, etatLabel?: string) {
 function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef, onInvoiceViewChange }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string }; selectedNumabs?: string[]; onSelectedNumabsChange?: (numabs: string[]) => void; printedSubscribersRef?: any; onInvoiceViewChange?: (viewing: boolean) => void }) {
   const [hoveredSub, setHoveredSub] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isViewingInvoices, setIsViewingInvoices] = useState(false);
+
+  const handleInvoiceViewChange = (viewing: boolean) => {
+    setIsViewingInvoices(viewing);
+    if (onInvoiceViewChange) onInvoiceViewChange(viewing);
+  };
 
   const accentMap: any = {
     blue: { spinner: "border-[#0D83DE]", badge: "bg-blue-50 text-[#0D83DE] border-blue-200", dot: "bg-[#0D83DE]" },
@@ -4041,15 +4047,14 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
   void style;
 
   return (
-        <div className="overflow-x-auto table-scroll relative">
-      {/* Hover Tooltip Card */}
-      {hoveredSub && (
+    <div className="overflow-x-auto table-scroll relative">
+      {/* Hover Tooltip Card — hidden while the invoice panel is open */}
+      {hoveredSub && !isViewingInvoices && (
         <div
           className="fixed z-[9999] pointer-events-none transition-opacity duration-150"
           style={{ top: mousePos.y + 18, left: Math.min(mousePos.x + 18, window.innerWidth - 340) }}
         >
           <div className="bg-white rounded-2xl shadow-2xl border border-[#E4E7EC] p-5 w-80">
-            {/* Header */}
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[#F2F4F7]">
               <div className={`p-2.5 rounded-xl border ${style.badge}`}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -4063,7 +4068,6 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
               </div>
               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot}`}></div>
             </div>
-            {/* Info rows */}
             <div className="space-y-2.5">
               <div className="flex justify-between items-start gap-3">
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider whitespace-nowrap">Adresse</span>
@@ -4113,11 +4117,12 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
           <div className="spinner-premium" style={{ width: 32, height: 32 }}></div>
         </div>
       ) : (
-        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} printedSubscribersRef={printedSubscribersRef} onInvoiceViewChange={onInvoiceViewChange} />
+        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} printedSubscribersRef={printedSubscribersRef} onInvoiceViewChange={handleInvoiceViewChange} />
       )}
     </div>
   );
 }
+
 
 function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef, onInvoiceViewChange }: any) {
   void style;
@@ -4135,9 +4140,9 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
 
   const handleRowClick = async (sub: any) => {
     setSelectedSubForInvoices(sub);
+    if (onInvoiceViewChange) onInvoiceViewChange(true);
     setLoadingInvoices(true);
     setInvoicePage(1);
-    if (onInvoiceViewChange) onInvoiceViewChange(true);
     try {
       const res = await fetch(apiUrl(`/abonne_factures?numab=${sub.numab}`));
       const data = await res.json();

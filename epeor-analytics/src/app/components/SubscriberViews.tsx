@@ -53,7 +53,7 @@ export function GestionAbonnesShell({
   const [selectedSearchNumabs, setSelectedSearchNumabs] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (searchQuery.trim().length < 2) {
       setSearchResults([]);
       setSearchLoading(false);
       return;

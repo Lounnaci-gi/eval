@@ -301,6 +301,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
+  const [viewingInvoices, setViewingInvoices] = useState(false);
   const printedSubscribersRef = useRef<any[]>([]);
 
   const handleQuartierClick = async (q: any) => {
@@ -1020,33 +1021,35 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
   if (selectedQuartier) {
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-          <div>
+        {!viewingInvoices && (
+          <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+            <div>
+              <button
+                onClick={() => setSelectedQuartier(null)}
+                className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+              >
+                <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
+              </button>
+              <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+                {selectedType ? `${selectedType.name} — ` : ''}Tous les Abonnés - {selectedQuartier.name}
+              </h3>
+              <p className="text-sm text-[#667085] mt-1">
+                {selectedType
+                  ? `Liste nominative des abonnés de type « ${selectedType.name} » dans ce quartier`
+                  : 'Liste nominative de tous les abonnés du quartier'}
+              </p>
+            </div>
             <button
-              onClick={() => setSelectedQuartier(null)}
-              className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#0D83DE] hover:bg-[#0B74C9] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10 self-start md:self-auto"
+              title="Imprimer la liste des abonnés du quartier"
             >
-              <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
+              <Printer size={13} />
+              <span>Imprimer</span>
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">
-              {selectedType ? `${selectedType.name} — ` : ''}Tous les Abonnés - {selectedQuartier.name}
-            </h3>
-            <p className="text-sm text-[#667085] mt-1">
-              {selectedType
-                ? `Liste nominative des abonnés de type « ${selectedType.name} » dans ce quartier`
-                : 'Liste nominative de tous les abonnés du quartier'}
-            </p>
           </div>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#0D83DE] hover:bg-[#0B74C9] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10 self-start md:self-auto"
-            title="Imprimer la liste des abonnés du quartier"
-          >
-            <Printer size={13} />
-            <span>Imprimer</span>
-          </button>
-        </div>
-        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="blue" selectedNumabs={selectedNumabs} onSelectedNumabsChange={setSelectedNumabs} printedSubscribersRef={printedSubscribersRef} />
+        )}
+        <NominativeTable subscribers={quartierSubscribers} loading={loadingSubscribers} accentColor="blue" selectedNumabs={selectedNumabs} onSelectedNumabsChange={setSelectedNumabs} printedSubscribersRef={printedSubscribersRef} onInvoiceViewChange={setViewingInvoices} />
       </div>
     );
   }
@@ -4024,7 +4027,7 @@ function etatBadge(etatcpt: string, etatLabel?: string) {
   }
 }
 
-function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string }; selectedNumabs?: string[]; onSelectedNumabsChange?: (numabs: string[]) => void; printedSubscribersRef?: any }) {
+function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef, onInvoiceViewChange }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string }; selectedNumabs?: string[]; onSelectedNumabsChange?: (numabs: string[]) => void; printedSubscribersRef?: any; onInvoiceViewChange?: (viewing: boolean) => void }) {
   const [hoveredSub, setHoveredSub] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -4110,13 +4113,13 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
           <div className="spinner-premium" style={{ width: 32, height: 32 }}></div>
         </div>
       ) : (
-        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} printedSubscribersRef={printedSubscribersRef} />
+        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} printedSubscribersRef={printedSubscribersRef} onInvoiceViewChange={onInvoiceViewChange} />
       )}
     </div>
   );
 }
 
-function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef }: any) {
+function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef, onInvoiceViewChange }: any) {
   void style;
   const ITEMS_PER_PAGE = 20;
   const [page, setPage] = useState(1);
@@ -4134,6 +4137,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
     setSelectedSubForInvoices(sub);
     setLoadingInvoices(true);
     setInvoicePage(1);
+    if (onInvoiceViewChange) onInvoiceViewChange(true);
     try {
       const res = await fetch(apiUrl(`/abonne_factures?numab=${sub.numab}`));
       const data = await res.json();
@@ -4390,7 +4394,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
     return (
       <div className="bg-white flex flex-col animate-in fade-in duration-300">
         <div className="p-6 border-b border-[#F2F4F7] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#F9FAFB]">
-          <button onClick={() => setSelectedSubForInvoices(null)} className="self-start flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] transition-colors">
+          <button onClick={() => { setSelectedSubForInvoices(null); if (onInvoiceViewChange) onInvoiceViewChange(false); }} className="self-start flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="rotate-180"><path d="m9 18 6-6-6-6" /></svg> Retour à la liste
           </button>
 

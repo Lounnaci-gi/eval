@@ -4631,15 +4631,17 @@ def _cache_key_for_creances_abonnes(user: dict, secteur: str | None, include_san
     )
 
 
-def _finalize_creance_abonne_entry(d: dict, contentieux_map: dict) -> dict:
+def _finalize_creance_abonne_entry(d: dict, contentieux_map: dict, tribunal_set: set = None) -> dict:
     ld = d["raw_last_payment"]
     if ld and len(ld) == 8:
         d["derniere_date_paiement"] = f"{ld[6:8]}/{ld[4:6]}/{ld[:4]}"
     else:
         d["derniere_date_paiement"] = "Aucun"
         d["raw_last_payment"] = None
-    d["is_contentieux"] = (d["numab"].upper() in contentieux_map)
-    d["date_transmission"] = contentieux_map.get(d["numab"].upper())
+    numab_key = d["numab"].upper()
+    d["is_contentieux"] = (numab_key in contentieux_map)
+    d["date_transmission"] = contentieux_map.get(numab_key)
+    d["transmis_cours"] = (numab_key in tribunal_set) if tribunal_set is not None else False
     return d
 
 
@@ -4691,7 +4693,9 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None, include_s
 
         with _get_auth_conn() as conn:
             rows = conn.execute("SELECT numab, date_transmission FROM legal_status WHERE is_contentieux = 1").fetchall()
-            contentieux_map = {r["numab"]: r["date_transmission"] for r in rows}
+            contentieux_map = {r["numab"].upper(): r["date_transmission"] for r in rows}
+            rows_tribunal = conn.execute("SELECT numab FROM dossiers_juridiques WHERE transmis_cours = 1").fetchall()
+            tribunal_set = {r["numab"].upper() for r in rows_tribunal}
 
         records = itertools.chain(
             ((r, False) for r in MEM_FACTURES),
@@ -4745,7 +4749,7 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None, include_s
             has_creance = d["montant_creance"] >= 0.01
             sans_creance = d["nombre_creance"] == 0 and d["montant_creance"] < 0.01
             if has_creance or (include_sans_creance and sans_creance):
-                debtor_list.append(_finalize_creance_abonne_entry(d, contentieux_map))
+                debtor_list.append(_finalize_creance_abonne_entry(d, contentieux_map, tribunal_set))
                 seen_numabs.add(d["numab"].strip().upper())
 
         if include_sans_creance:
@@ -4764,7 +4768,7 @@ def _compute_creances_abonnes_payload(user: dict, secteur: str | None, include_s
                 tournee = entry["tournee"]
                 if tournee and tournee != "—":
                     tournees_set.add(tournee)
-                debtor_list.append(_finalize_creance_abonne_entry(entry, contentieux_map))
+                debtor_list.append(_finalize_creance_abonne_entry(entry, contentieux_map, tribunal_set))
                 seen_numabs.add(numab_key)
 
         debtor_list.sort(key=lambda x: x["montant_creance"], reverse=True)
@@ -4813,6 +4817,17 @@ class LegalStatusUpdate(BaseModel):
 @app.post("/api/abonne/{numab}/legal_status")
 def update_legal_status(numab: str, payload: LegalStatusUpdate, _user: dict = Depends(get_current_user)):
     numab_key = numab.strip().upper()
+    if not payload.is_contentieux:
+        with _get_auth_conn() as conn:
+            row = conn.execute(
+                "SELECT transmis_cours FROM dossiers_juridiques WHERE UPPER(numab) = ?",
+                (numab_key,)
+            ).fetchone()
+            if row and row["transmis_cours"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Impossible de retirer la transmission : le dossier a la démarche 'Enregistrement au tribunal'."
+                )
     date_trans = datetime.utcnow().isoformat() if payload.is_contentieux else None
     try:
         with _get_auth_conn() as conn:

@@ -125,6 +125,13 @@ export function CreancesAbonnesView({
 
   const toggleContentieux = async (s: any) => {
     const newVal = !s.is_contentieux;
+    if (!newVal && s.transmis_cours) {
+      void showAlert("Impossible de retirer la transmission", {
+        text: "Le dossier a la démarche 'Enregistrement au tribunal'.",
+        icon: "error",
+      });
+      return;
+    }
     const confirmationTitle = newVal
       ? "Transmettre au service juridique"
       : "Retirer la transmission";
@@ -165,13 +172,20 @@ export function CreancesAbonnesView({
         body: JSON.stringify({ is_contentieux: newVal })
       });
       if (!res.ok) {
-        throw new Error('Server error');
+        let errMsg = "Erreur lors de la mise à jour du statut juridique.";
+        try {
+          const errData = await res.json();
+          if (errData && errData.detail) {
+            errMsg = errData.detail;
+          }
+        } catch {}
+        throw new Error(errMsg);
       }
-    } catch {
+    } catch (e: any) {
       // Revert on error
       setAllSubscribers(prev => prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: !newVal } : x));
       setResults(prev => prev ? prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: !newVal } : x) : null);
-      void showAlert("Erreur lors de la mise à jour du statut juridique.", { icon: "error" });
+      void showAlert(e.message || "Erreur lors de la mise à jour du statut juridique.", { icon: "error" });
     }
   };
 
@@ -2069,7 +2083,9 @@ export function CreancesAbonnesView({
                             onClick={() => toggleContentieux(s)}
                             className={`inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-500 ${
                               s.is_contentieux
-                                ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                ? s.transmis_cours
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200 cursor-not-allowed opacity-80'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                                 : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
                             }`}
                           >

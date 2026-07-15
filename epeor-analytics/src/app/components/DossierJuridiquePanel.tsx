@@ -592,26 +592,9 @@ export function DossierJuridiquePanel({
     });
   };
 
-  const steps = [
-    "Suspendu",
-    "Amiable",
-    "Dernière mise en demeure avant les poursuites judiciaires",
-    "Échéancier accordé",
-    "Transmis Huissier",
-    "Enregistrement du dossier au tribunal",
-    "Dossier en délibéré",
-    "Prononcé d'un jugement de première instance",
-    "Notification du jugement",
-    "Jugement définitif",
-    "Appel du jugement",
-    "Dossier en délibéré (Appel)",
-    "Rendu de l'arrêt",
-    "Notification de l'arrêt",
-    "Procédures d'exécution de l'arrêt",
-  ];
   const isSuspendedStatus = dossier.statut_abonne === "Suspendu";
   const effectiveEtapeRecouvrement = deriveEtapeRecouvrement(dossier);
-  const currentStepIndex = steps.indexOf(effectiveEtapeRecouvrement);
+
 
   // Calcul du pas de recouvrement actuel (1 à 8) et de son état pour le SuiviRecouvrementAbonne
   let currentStepNumber = 1;

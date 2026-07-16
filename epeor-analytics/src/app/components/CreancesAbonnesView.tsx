@@ -127,7 +127,7 @@ export function CreancesAbonnesView({
     const newVal = !s.is_contentieux;
     if (!newVal && s.transmis_cours) {
       void showAlert("Impossible de retirer la transmission", {
-        text: "Le dossier a la démarche 'Enregistrement au tribunal'.",
+        text: `Le dossier a la démarche '${s.active_demarche || "Enregistrement au tribunal"}'.`,
         icon: "error",
       });
       return;

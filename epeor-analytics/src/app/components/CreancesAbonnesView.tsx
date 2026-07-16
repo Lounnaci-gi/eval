@@ -24,6 +24,46 @@ export function CreancesAbonnesView({
     ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
     : null;
 
+  // ─── Hover card state ────────────────────────────────────────────
+  const [hoveredAbonne, setHoveredAbonne] = useState<any | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const x = e.clientX;
+    const y = e.clientY;
+    const width = 320;
+    const height = 280;
+    const padding = 15;
+    
+    let targetX = x + padding;
+    let targetY = y + padding;
+    
+    if (x + width + padding > window.innerWidth) {
+      targetX = x - width - padding;
+    }
+    if (y + height + padding > window.innerHeight) {
+      targetY = y - height - padding;
+    }
+    
+    setHoverPosition({ x: targetX, y: targetY });
+  };
+
+  const formatTransmissionDate = (dateStr: string) => {
+    if (!dateStr) return "Inconnue";
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   // ─── Raw data from API ───────────────────────────────────────────
   const [allSubscribers, setAllSubscribers] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
@@ -2019,7 +2059,24 @@ export function CreancesAbonnesView({
                     const days = daysSince(s.raw_last_payment);
                     const isAlarmant = days === null || days > 90;
                     return (
-                      <tr key={s.numab} className="hover:bg-brand-50/10 transition-colors group">
+                      <tr
+                        key={s.numab}
+                        onMouseEnter={(e) => {
+                          if (s.is_contentieux) {
+                            setHoveredAbonne(s);
+                            handleMouseMove(e);
+                          }
+                        }}
+                        onMouseMove={(e) => {
+                          if (s.is_contentieux) {
+                            handleMouseMove(e);
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredAbonne(null);
+                        }}
+                        className="hover:bg-brand-50/10 transition-colors group"
+                      >
                         <td className="px-4 py-4 text-center">
                           <input
                             type="checkbox"
@@ -2148,6 +2205,78 @@ export function CreancesAbonnesView({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {hoveredAbonne && (
+        <div
+          className="fixed z-50 pointer-events-none bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 w-80 text-left space-y-3 transition-opacity duration-200"
+          style={{
+            top: hoverPosition.y,
+            left: hoverPosition.x,
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-100">
+              Dossier Transmis
+            </span>
+            <span className="font-mono text-xs font-bold text-slate-400">
+              #{hoveredAbonne.numab}
+            </span>
+          </div>
+
+          <div className="space-y-1">
+            <h4 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+              {hoveredAbonne.name}
+            </h4>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+              {hoveredAbonne.adresse}
+            </p>
+          </div>
+
+          <div className="h-px bg-slate-100 dark:bg-slate-800" />
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]">
+            <div>
+              <span className="text-slate-400 block">Type d'abonné</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200 truncate block" title={hoveredAbonne.type_abon}>{hoveredAbonne.type_abon}</span>
+            </div>
+            <div>
+              <span className="text-slate-400 block">État Compte</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">{hoveredAbonne.etat_cpt}</span>
+            </div>
+            <div>
+              <span className="text-slate-400 block">Quartier</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200 truncate block" title={hoveredAbonne.quartier_name}>{hoveredAbonne.quartier_name}</span>
+            </div>
+            <div>
+              <span className="text-slate-400 block">Tournée</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">{hoveredAbonne.tournee}</span>
+            </div>
+          </div>
+
+          <div className="h-px bg-slate-100 dark:bg-slate-800" />
+
+          <div className="space-y-2 text-[11px]">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400">Date Transmission :</span>
+              <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                {formatTransmissionDate(hoveredAbonne.date_transmission)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400">Démarche Actuelle :</span>
+              <span className="font-bold text-rose-600 dark:text-rose-400">
+                {hoveredAbonne.active_demarche || "Aucune"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2 mt-1">
+              <span className="text-slate-400 font-extrabold">Montant Créance :</span>
+              <span className="font-mono font-black text-rose-600 dark:text-rose-400 text-xs">
+                {fmt(hoveredAbonne.montant_creance || 0)}
+              </span>
+            </div>
+          </div>
         </div>
       )}
     </div>

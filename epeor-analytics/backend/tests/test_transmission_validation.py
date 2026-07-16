@@ -42,6 +42,54 @@ class TransmissionValidationTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertIn("Enregistrement au tribunal", ctx.exception.detail)
 
+    def test_cannot_remove_transmission_if_dossier_has_superior_step(self):
+        # Test for other superior steps like execution_jugement = 1
+        dossier_payload = main_module.DossierJuridiqueUpdate(
+            statut_abonne="Actif",
+            etape_recouvrement="Exécution",
+            execution_jugement=True,
+        )
+        main_module.update_dossier_juridique(
+            "AB_SUPERIOR",
+            dossier_payload,
+            _user={"username": "test"},
+        )
+
+        status_payload = main_module.LegalStatusUpdate(is_contentieux=False)
+        with self.assertRaises(HTTPException) as ctx:
+            main_module.update_legal_status(
+                "AB_SUPERIOR",
+                status_payload,
+                _user={"username": "test"},
+            )
+        
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("Procédures d'exécution de l'arrêt", ctx.exception.detail)
+
+    def test_cannot_remove_transmission_if_dossier_has_first_step_active(self):
+        # Test that having the first step (has_mise_en_demeure = True) blocks transmission removal
+        dossier_payload = main_module.DossierJuridiqueUpdate(
+            statut_abonne="Actif",
+            etape_recouvrement="Amiable",
+            has_mise_en_demeure=True,
+        )
+        main_module.update_dossier_juridique(
+            "AB_FIRST_STEP",
+            dossier_payload,
+            _user={"username": "test"},
+        )
+
+        status_payload = main_module.LegalStatusUpdate(is_contentieux=False)
+        with self.assertRaises(HTTPException) as ctx:
+            main_module.update_legal_status(
+                "AB_FIRST_STEP",
+                status_payload,
+                _user={"username": "test"},
+            )
+        
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("Mise en demeure", ctx.exception.detail)
+
     def test_can_remove_transmission_if_dossier_is_not_at_tribunal(self):
         # 1. Initialize a dossier with transmis_cours = 0
         dossier_payload = main_module.DossierJuridiqueUpdate(

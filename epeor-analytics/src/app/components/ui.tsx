@@ -1,8 +1,7 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, MapPin, Calendar } from "lucide-react";
+import { ChevronDown, Calendar, MapPin } from "lucide-react";
 
 // ─── MultiSelectDropdown ──────────────────────────────────────────────────────
 
@@ -130,6 +129,7 @@ export function FrenchDateInput({
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const defaultClass = 'block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500 w-36';
   const formatDisplay = (raw: string) => {
     if (!raw) return '—';
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
@@ -138,25 +138,42 @@ export function FrenchDateInput({
     return raw;
   };
 
+  // Convert focus classes to peer-focus classes to style the custom container when the actual input is focused
+  const cleanedClass = (className ?? defaultClass)
+    .replace(/\bfocus:ring-2\b/g, 'peer-focus:ring-2')
+    .replace(/\bfocus:ring-brand-500\b/g, 'peer-focus:ring-brand-500');
+
   return (
     <div>
       {label && <div className="text-[11px] font-black text-[#475467] mb-1">{label}</div>}
       <div className="relative">
-        <div
-          onClick={() => inputRef.current?.showPicker && inputRef.current.showPicker()}
-          className={`${className ?? ''} cursor-pointer`}
-        >
-          {formatDisplay(value)}
-        </div>
         <input
           type="date"
           ref={inputRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 opacity-0 pointer-events-auto"
-          tabIndex={-1}
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10 peer"
+          aria-label={label ? `Sélectionner la date ${label}` : 'Sélectionner une date'}
+          onClick={(e) => {
+            try {
+              (e.target as HTMLInputElement).showPicker();
+            } catch {}
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              try {
+                (e.target as HTMLInputElement).showPicker();
+              } catch {}
+            }
+          }}
         />
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#98A2B3]">
+        <div
+          className={`${cleanedClass} cursor-pointer flex items-center gap-2`}
+        >
+          <span className="flex-1 text-left">{formatDisplay(value)}</span>
+        </div>
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#98A2B3] z-20">
           <Calendar size={14} />
         </div>
       </div>

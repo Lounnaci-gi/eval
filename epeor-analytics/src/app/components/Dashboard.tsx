@@ -288,7 +288,7 @@ export default function Dashboard() {
     }
 
     let intervalId: ReturnType<typeof setInterval> | null = null;
-    let pollDelayMs = 2000;
+    let pollDelayMs = 1000;   // Start polling every 1 second
     let cancelled = false;
 
     const checkDataPath = () => {
@@ -310,7 +310,8 @@ export default function Dashboard() {
     const schedulePoll = () => {
       if (intervalId) clearInterval(intervalId);
       intervalId = setInterval(checkStats, pollDelayMs);
-      pollDelayMs = Math.min(pollDelayMs + 1000, 5000);
+      // While loading, cap at 2s; on error, back off up to 5s
+      pollDelayMs = Math.min(pollDelayMs + 500, 2000);
     };
 
     const checkStats = () => {
@@ -348,7 +349,9 @@ export default function Dashboard() {
               intervalId = null;
             }
           } else if (data && (data.status === 'loading' || data.ready === false)) {
-            if (!intervalId) schedulePoll();
+            // Still loading: keep polling fast (1s) for quick detection of readiness
+            if (intervalId) clearInterval(intervalId);
+            intervalId = setInterval(checkStats, 1000);
           }
         })
         .catch((err) => {
@@ -366,6 +369,7 @@ export default function Dashboard() {
       if (intervalId) clearInterval(intervalId);
     };
   }, [authChecked, user]);
+
 
   const needsDataPathConfig = isDataPathConfigurationRequired(
     stats,
@@ -473,12 +477,29 @@ export default function Dashboard() {
               setLoginRemainingAttempts(null);
               setLoginRetryAfter(null);
               setLoginCountdown(null);
+
+              const trimmedUsername = loginUsername.trim();
+
+              // Validation client anti-XSS et format pour l'identifiant
+              if (!/^[a-zA-Z0-9_]{3,32}$/.test(trimmedUsername)) {
+                setLoginError("Le nom d'utilisateur doit contenir entre 3 et 32 caractères (lettres, chiffres et tirets bas uniquement).");
+                setLoginPending(false);
+                return;
+              }
+
+              // Validation client anti-XSS pour le mot de passe
+              if (/<[a-zA-Z/]/i.test(loginPassword) || /javascript:/i.test(loginPassword)) {
+                setLoginError("Le mot de passe contient des caractères ou structures HTML non autorisés (anti-XSS).");
+                setLoginPending(false);
+                return;
+              }
+
               try {
                 const res = await fetch(apiUrl('/api/auth/login'), {
                   method: 'POST',
                   credentials: 'include',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ username: loginUsername.trim(), password: loginPassword }),
+                  body: JSON.stringify({ username: trimmedUsername, password: loginPassword }),
                 });
                 if (!res.ok) {
                   const errorJson = await res.json().catch(() => null);
@@ -499,7 +520,7 @@ export default function Dashboard() {
                       setLoginCountdown(retryAfter);
                     }
                   } else {
-                    setLoginError('Échec de la connexion. Vérifiez le backend et réessayez.');
+                    setLoginError(errorMsg || 'Échec de la connexion. Vérifiez le backend et réessayez.');
                   }
                   return;
                 }

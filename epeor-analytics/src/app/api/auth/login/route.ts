@@ -8,8 +8,16 @@ import { generateCsrfToken } from '../../../../lib/csrf';
 import { apiUrl } from '../../../lib/api';
 
 const loginSchema = z.object({
-  username: z.string().min(3).max(64),
-  password: z.string().min(8).max(128),
+  username: z.string()
+    .min(3)
+    .max(32)
+    .regex(/^[a-zA-Z0-9_]+$/, "Le nom d'utilisateur ne doit contenir que des lettres, chiffres et tirets bas (_)"),
+  password: z.string()
+    .min(8)
+    .max(128)
+    .refine(val => !/<[a-zA-Z/]/i.test(val) && !/javascript:/i.test(val), {
+      message: "Le mot de passe contient des caractères ou structures non autorisés (anti-XSS)",
+    }),
 });
 
 const BACKEND_INTERNAL_TIMEOUT_MS = 5000;
@@ -27,7 +35,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) {
-    return new Response(JSON.stringify({ error: 'Invalid input' }), { status: 400 });
+    const detail = parsed.error.issues[0]?.message || 'Saisie invalide';
+    return new Response(JSON.stringify({ detail }), { status: 400 });
   }
 
   const { username, password } = parsed.data;

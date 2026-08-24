@@ -1928,6 +1928,10 @@ export function BilanActiviteView({ data, startDate = '', endDate = '', selected
             recouvre: 0,
             creance: 0,
             creance_resilie: 0,
+            sub_count: 0,
+            forfait_count: 0,
+            sc_count: 0,
+            resigned_count: 0,
             children: []
           };
         }
@@ -1938,6 +1942,10 @@ export function BilanActiviteView({ data, startDate = '', endDate = '', selected
         grouped[groupKey].recouvre += Number(row.recouvre || row.encaissement || row.encaisse || row.encaissement_total || 0);
         grouped[groupKey].creance += Number(row.creance || 0);
         grouped[groupKey].creance_resilie += Number(row.creance_resilie || 0);
+        grouped[groupKey].sub_count += Number(row.sub_count || 0);
+        grouped[groupKey].forfait_count += Number(row.forfait_count || 0);
+        grouped[groupKey].sc_count += Number(row.sc_count || 0);
+        grouped[groupKey].resigned_count += Number(row.resigned_count || 0);
         grouped[groupKey].children.push({ ...row });
       } else {
         result.push({ ...row });

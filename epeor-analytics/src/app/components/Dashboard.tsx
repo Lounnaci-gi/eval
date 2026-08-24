@@ -837,7 +837,7 @@ export default function Dashboard() {
               />
               <StatsCard
                 title={t('kpi.revenue')}
-                value={`${stats?.total_revenue?.toLocaleString() || "..."} DA`}
+                value={`${stats?.total_revenue !== undefined ? Number(stats.total_revenue).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "..."} DA`}
                 icon={<CreditCard className="text-brand-500" size={24} />}
                 trend={stats?.revenue_period || t('kpi.currentPeriod')}
                 color="brand"

@@ -1513,30 +1513,36 @@ def compute_dashboard_stats(
         return _abonne_sector_allowed(numab_r, abonne_sec_set)
 
     # Single pass: latest period, invoice count, recovery rate, and revenue by period
+    current_ym = datetime.now().strftime("%Y%m")
     _all_billing = [(r, False) for r in MEM_FACTURES] + [(r, True) for r in MEM_AVOIRS]
-    for r, _is_avoir in _all_billing:
+    for r, is_avoir in _all_billing:
         if not _facture_in_scope(r):
             continue
-        df = str(r.get('DATFACT') or '').strip()
-        count += 1
-        if r.get('DATREG'):
-            paid_count += 1
-        if len(df) >= 6:
-            p = df[:6]
-            if p > latest_period:
-                latest_period = p
+        if not is_avoir:
+            count += 1
+            if r.get('DATREG'):
+                paid_count += 1
+        # Primary date for CA is DATSAISIE (saisie date YYYYMMDD), fallback to DATFACT
+        ds = str(r.get('DATSAISIE') or r.get('DATFACT') or '').strip()
+        if len(ds) >= 6:
+            p = ds[:6]
             tp = str(r.get('TYPE') or '').strip()
             if tp in ('E', 'C', '6'):
-                try:
-                    monttc = float(r.get('MONTTC') or 0)
-                except (TypeError, ValueError):
-                    monttc = 0.0
-                period_revenue[p] = period_revenue.get(p, 0.0) + monttc
+                if not is_avoir:
+                    if p > latest_period:
+                        latest_period = p
+                    try:
+                        monttc = float(r.get('MONTTC') or 0)
+                    except (TypeError, ValueError):
+                        monttc = 0.0
+                    period_revenue[p] = period_revenue.get(p, 0.0) + monttc
 
-    total_rev = period_revenue.get(latest_period, 0.0) if latest_period else 0.0
+    target_period = current_ym if current_ym in period_revenue else (latest_period or current_ym)
+    total_rev = period_revenue.get(target_period, 0.0)
 
     stats["total_revenue"] = round(total_rev, 2)
-    stats["revenue_period"] = format_period(latest_period) if latest_period else "Période en cours"
+    stats["ca_eau"] = round(total_rev, 2)
+    stats["revenue_period"] = format_period(target_period) if target_period else "Juillet 2026"
     stats["recent_invoices_count"] = count
     stats["recovery_rate"] = round((paid_count / count) * 100, 2) if count > 0 else 0
     return stats
@@ -3309,7 +3315,10 @@ def get_creance(_user: dict = Depends(get_current_user),
             return (section, ordre, type_code, categorie)
 
         for (centre, numab, typabon), min_datfact in min_datfact_map.items():
-            if secteur_zfill is not None and centre != secteur_zfill:
+            # Use secteur_numabs (ABONNES.SECTEUR) for filtering, consistent with the
+            # main financial loop. FACTURES.CENTRE can be blank ('00'), which would
+            # cause sub_count to be 0 for any selected secteur.
+            if secteur_numabs is not None and numab not in secteur_numabs:
                 continue
             if min_datfact > target_date:
                 continue
@@ -3415,9 +3424,8 @@ def get_creance(_user: dict = Depends(get_current_user),
         for r in winning_sc_records:
             numab = str(r.get('NUMAB') or '').strip().upper()
             typabon = str(r.get('TYPABON') or '').strip()
-            centre = str(r.get('CENTRE') or '').strip().zfill(2)
             
-            if secteur_zfill is not None and centre != secteur_zfill:
+            if secteur_numabs is not None and numab not in secteur_numabs:
                 continue
 
             codcom = _abonne_codcom(numab)
@@ -3442,9 +3450,8 @@ def get_creance(_user: dict = Depends(get_current_user),
         for r in winning_resigned_records:
             numab = str(r.get('NUMAB') or '').strip().upper()
             typabon = str(r.get('TYPABON') or '').strip()
-            centre = str(r.get('CENTRE') or '').strip().zfill(2)
             
-            if secteur_zfill is not None and centre != secteur_zfill:
+            if secteur_numabs is not None and numab not in secteur_numabs:
                 continue
 
             codcom = _abonne_codcom(numab)
@@ -3469,9 +3476,8 @@ def get_creance(_user: dict = Depends(get_current_user),
         for r in winning_forfait_records:
             numab = str(r.get('NUMAB') or '').strip().upper()
             typabon = str(r.get('TYPABON') or '').strip()
-            centre = str(r.get('CENTRE') or '').strip().zfill(2)
             
-            if secteur_zfill is not None and centre != secteur_zfill:
+            if secteur_numabs is not None and numab not in secteur_numabs:
                 continue
 
             codcom = _abonne_codcom(numab)
@@ -3746,9 +3752,11 @@ def get_creance(_user: dict = Depends(get_current_user),
                         })
                 commune_types.sort(key=lambda x: (0 if x["section"] == 'EAU' else 1, x["ordre"], x["name"]))
 
+            commune_secteur = str(communes_by_code.get(codcom, {}).get("SECTEUR", "")).strip().zfill(2) if communes_by_code.get(codcom) else (secteur_zfill or "")
             communes_list.append({
                 "id": codcom,
                 "name": label,
+                "secteur": commune_secteur,
                 "ca_eau": round(d["ca_eau"], 2),
                 "ca_prestation": round(d["ca_prestation"], 2),
                 "ca": round(tot_ca, 2),
@@ -5552,4 +5560,5 @@ if __name__ == "__main__":
     host = os.environ.get("EPEOR_HOST", "0.0.0.0")
     port = int(os.environ.get("EPEOR_PORT", "8000"))
     print(f"[INFO] EPEOR API listening on http://{host}:{port}")
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run("main:app", host=host, port=port, reload=False)
+

@@ -3,12 +3,540 @@
 import { useEffect, useState, Fragment } from "react";
 import { saveAs } from "file-saver";
 import {
-  ChevronRight, Search, Printer, FileText, FileSpreadsheet,
+  ChevronRight, ChevronLeft, Search, Printer, FileText, FileSpreadsheet,
   MapPin, BarChart3, Users, UserX,
 } from "lucide-react";
 import { apiUrlObject } from "../lib/api";
 import { formatPeriodLabel, appendSecteurParam, showAlert } from "./utils";
 import { escapeHtml } from "../../lib/escape";
+
+export function CommuneDrillDownView({
+  data,
+  targetName,
+  section,
+  startDate,
+  endDate,
+  onClose,
+  selectedSecteur = '',
+}: any) {
+  const [communes, setCommunes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [selectedCommune, setSelectedCommune] = useState<any>(null);
+  const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
+  const [quartierBreakdown, setQuartierBreakdown] = useState<any[]>([]);
+  const [quartierLoading, setQuartierLoading] = useState(false);
+  const [quartierError, setQuartierError] = useState<string | null>(null);
+  const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
+  const [quartierSubscribersLoading, setQuartierSubscribersLoading] = useState(false);
+  const [quartierSubscribersError, setQuartierSubscribersError] = useState<string | null>(null);
+  const [quartierPage, setQuartierPage] = useState(1);
+  const QUARTIER_PAGE_SIZE = 20;
+
+  const handleCommuneClick = async (commune: any) => {
+    setSelectedCommune(commune);
+    setSelectedQuartier(null);
+    setQuartierLoading(true);
+    setQuartierError(null);
+    setQuartierBreakdown([]);
+
+    try {
+      const normalize = (value: any) =>
+        String(value ?? '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/['’]/g, '')
+          .replace(/[^a-zA-Z0-9]/g, '')
+          .toLowerCase();
+
+      const targetNameNormalized = normalize(targetName);
+      const matchingCommune = Array.isArray(data?.by_commune)
+        ? data.by_commune.find((row: any) => {
+            const sameId = String(row?.id ?? '').trim() && String(row.id).trim() === String(commune?.id ?? '').trim();
+            const sameName = normalize(row?.name) === normalize(commune?.name);
+            return sameId || sameName;
+          })
+        : null;
+
+      if (matchingCommune) {
+        const typeRows = Array.isArray(matchingCommune.by_type) ? matchingCommune.by_type : [];
+        const matchingType = typeRows.find((typeRow: any) => {
+          const allowedNames = [typeRow?.name, typeRow?.label, typeRow?.type_code, targetName];
+          return allowedNames.some((name: any) => {
+            const current = normalize(name);
+            return !current || current === targetNameNormalized || current.includes(targetNameNormalized) || targetNameNormalized.includes(current);
+          });
+        });
+
+        const rows = Array.isArray(matchingType?.quartiers)
+          ? matchingType.quartiers.map((zone: any) => ({
+              code: zone?.name || zone?.id || 'N/A',
+              amount: Number(zone?.value ?? zone?.amount ?? 0) || 0,
+              count: Number(zone?.count ?? zone?.sub_count ?? 0) || 0,
+            }))
+          : [];
+
+        setQuartierBreakdown(rows.sort((a: any, b: any) => b.amount - a.amount));
+        setQuartierLoading(false);
+        return;
+      }
+
+      const url = apiUrlObject('/creance_subscribers');
+      if (startDate) url.searchParams.append('start_date', startDate.replace(/-/g, ''));
+      if (endDate) url.searchParams.append('end_date', endDate.replace(/-/g, ''));
+      if (targetName) url.searchParams.append('target_name', targetName);
+      url.searchParams.append('column', 'creance');
+      appendSecteurParam(url, selectedSecteur);
+
+      const res = await fetch(url.toString());
+      const json = await res.json();
+      const subscribers = Array.isArray(json?.subscribers) ? json.subscribers : [];
+      const targetCommuneId = String(commune?.id ?? '').trim();
+      const targetCommuneName = String(commune?.name ?? '').trim();
+      const targetCommuneVariants = new Set<string>([
+        targetCommuneId,
+        targetCommuneName,
+        targetCommuneId.padStart(2, '0'),
+      ].filter(Boolean).map(v => normalize(v)));
+
+      const byQuartier = new Map<string, { code: string; amount: number; count: number }>();
+      for (const sub of subscribers) {
+        const communeCandidates = [sub?.commune, sub?.libcom, sub?.commune_name, sub?.communeName, sub?.codcom, sub?.commune_code, sub?.communeCode];
+        const matchesCommune = communeCandidates.some((candidate) => {
+          const value = String(candidate ?? '').trim();
+          if (!value) return false;
+          const current = normalize(value);
+          return targetCommuneVariants.has(current)
+            || (targetCommuneName && (current.includes(normalize(targetCommuneName)) || normalize(targetCommuneName).includes(current)))
+            || (targetCommuneId && value === targetCommuneId)
+            || (targetCommuneId && value === targetCommuneId.padStart(2, '0'));
+        });
+
+        if (!matchesCommune) continue;
+
+        const quartierCode = String(sub?.quartier_code || sub?.quartier || sub?.numab || '').trim();
+        const code = quartierCode.slice(0, 2) || 'N/A';
+        const amount = Number(sub?.amount ?? 0) || 0;
+        const current = byQuartier.get(code) ?? { code, amount: 0, count: 0 };
+        current.amount += amount;
+        current.count += 1;
+        byQuartier.set(code, current);
+      }
+
+      const rows = [...byQuartier.values()].sort((a, b) => b.amount - a.amount);
+      setQuartierBreakdown(rows);
+    } catch {
+      setQuartierError('Impossible de charger les zones concernées.');
+    } finally {
+      setQuartierLoading(false);
+    }
+  };
+
+  const handleQuartierClick = async (zone: any) => {
+    if (!selectedCommune) return;
+    setSelectedQuartier(zone);
+    setQuartierPage(1);
+    setQuartierSubscribersLoading(true);
+    setQuartierSubscribersError(null);
+    setQuartierSubscribers([]);
+
+    try {
+      const normalize = (value: any) =>
+        String(value ?? '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/['’]/g, '')
+          .replace(/[^a-zA-Z0-9]/g, '')
+          .toLowerCase();
+
+      const url = apiUrlObject('/creance_subscribers');
+      if (startDate) url.searchParams.append('start_date', startDate.replace(/-/g, ''));
+      if (endDate) url.searchParams.append('end_date', endDate.replace(/-/g, ''));
+      if (targetName) url.searchParams.append('target_name', targetName);
+      url.searchParams.append('column', 'creance');
+      appendSecteurParam(url, selectedSecteur);
+
+      const res = await fetch(url.toString());
+      const json = await res.json();
+      const subscribers = Array.isArray(json?.subscribers) ? json.subscribers : [];
+
+      const targetCommuneName = String(selectedCommune?.name ?? '').trim();
+      const targetCommuneId = String(selectedCommune?.id ?? '').trim();
+      const zoneCandidates = [zone?.code, zone?.name, zone?.id, zone?.quartier, zone?.quartier_code];
+      const zoneSet = new Set(zoneCandidates.filter(Boolean).map(item => normalize(item)));
+
+      const filtered = subscribers.filter((sub: any) => {
+        const communeValues = [sub?.commune, sub?.libcom, sub?.commune_name, sub?.communeName, sub?.codcom, sub?.commune_code, sub?.communeCode];
+        const communeMatches = communeValues.some((candidate) => {
+          const value = String(candidate ?? '').trim();
+          if (!value) return false;
+          const current = normalize(value);
+          return current === normalize(targetCommuneName)
+            || current === normalize(targetCommuneId)
+            || current === normalize(targetCommuneId.padStart(2, '0'))
+            || (targetCommuneName && (current.includes(normalize(targetCommuneName)) || normalize(targetCommuneName).includes(current)))
+            || (targetCommuneId && (current === normalize(targetCommuneId) || current === normalize(targetCommuneId.padStart(2, '0'))));
+        });
+
+        if (!communeMatches) return false;
+
+        const quartierValues = [sub?.quartier_code, sub?.quartier, sub?.numab, sub?.zone, sub?.quartier_name, sub?.libquart];
+        return quartierValues.some((candidate) => {
+          const value = String(candidate ?? '').trim();
+          if (!value) return false;
+          const current = normalize(value);
+          return zoneSet.has(current)
+            || [...zoneSet].some(zoneValue => current.includes(zoneValue) || zoneValue.includes(current));
+        });
+      });
+
+      setQuartierSubscribers(filtered.sort((a: any, b: any) => Number(b.amount || 0) - Number(a.amount || 0)));
+    } catch {
+      setQuartierSubscribersError('Impossible de charger les abonnés du quartier.');
+    } finally {
+      setQuartierSubscribersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const normalizeString = (value: any) =>
+      String(value ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+    const canonicalize = (value: any) => {
+      const raw = normalizeString(value);
+      const withoutPrefix = raw.replace(/^\d{1,2}:/, '');
+      return withoutPrefix
+        .replace(/[\/&]+/g, ' ')
+        .replace(/[^a-z0-9 ]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    const normalize = (list: any[]) => {
+      const filtered = list.filter((row: any) => {
+        const matches = Array.isArray(row.by_type) ? row.by_type : [];
+        return matches.some((type: any) => {
+          const sectionMatch = !section || normalizeString(type.section) === normalizeString(section);
+          if (!sectionMatch) return false;
+          const target = canonicalize(targetName);
+          const candidates = [type.name, type.label, type.type_code];
+          return candidates.some(candidate => canonicalize(candidate) === target);
+        });
+      });
+
+      if (filtered.length > 0) return filtered;
+
+      return list.filter((row: any) => {
+        const matches = Array.isArray(row.by_type) ? row.by_type : [];
+        return matches.some((type: any) => !section || normalizeString(type.section) === normalizeString(section));
+      });
+    };
+
+    if (data?.by_commune) {
+      setCommunes(normalize(data.by_commune));
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    const url = apiUrlObject('/creance');
+    if (startDate) url.searchParams.append('start_date', startDate.replace(/-/g, ''));
+    if (endDate) url.searchParams.append('end_date', endDate.replace(/-/g, ''));
+    appendSecteurParam(url, selectedSecteur);
+
+    fetch(url.toString())
+      .then(r => r.json())
+      .then(json => {
+        const rows = Array.isArray(json?.by_commune) ? json.by_commune : [];
+        setCommunes(normalize(rows));
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Erreur de connexion au serveur.');
+        setLoading(false);
+      });
+  }, [data, targetName, section, startDate, endDate, selectedSecteur]);
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(n)
+      .replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+
+  const filtered = communes.filter(c =>
+    !search ||
+    c.name?.toLowerCase().includes(search.toLowerCase()) ||
+    c.id?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (selectedQuartier) {
+    const quartierTotalPages = Math.max(1, Math.ceil(quartierSubscribers.length / QUARTIER_PAGE_SIZE));
+    const quartierPagedSubscribers = quartierSubscribers.slice(
+      (quartierPage - 1) * QUARTIER_PAGE_SIZE,
+      quartierPage * QUARTIER_PAGE_SIZE
+    );
+
+    return (
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
+        <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
+          <div>
+            <button
+              onClick={() => setSelectedQuartier(null)}
+              className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
+            >
+              <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
+            </button>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-brand-50 text-brand-600 border-brand-100">
+                {selectedQuartier.code}
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-blue-50 text-blue-600 border-blue-100">
+                {selectedCommune?.name}
+              </span>
+            </div>
+            <h2 className="text-xl font-black text-[#101828] tracking-tight">Abonnés concernés</h2>
+            <p className="text-sm text-[#667085] mt-1 font-medium">
+              {quartierSubscribersLoading ? 'Chargement des abonnés...' : `${quartierSubscribers.length} abonné${quartierSubscribers.length !== 1 ? 's' : ''} trouvé${quartierSubscribers.length !== 1 ? 's' : ''}`}
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-auto">
+          {quartierSubscribersLoading ? (
+            <div className="flex flex-col items-center justify-center h-56 gap-4">
+              <div className="spinner-premium" style={{ width: 40, height: 40 }} />
+              <p className="text-sm font-medium text-[#667085]">Chargement des abonnés...</p>
+            </div>
+          ) : quartierSubscribersError ? (
+            <div className="flex flex-col items-center justify-center h-56 gap-3">
+              <p className="text-sm font-bold text-rose-600">{quartierSubscribersError}</p>
+            </div>
+          ) : quartierSubscribers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-56 gap-3">
+              <p className="text-sm font-medium text-[#667085]">Aucun abonné trouvé pour ce quartier.</p>
+            </div>
+          ) : (
+            <>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                    <th className="px-6 py-4">Code Abonné</th>
+                    <th className="px-4 py-4">Nom / Raison sociale</th>
+                    <th className="px-4 py-4">Type</th>
+                    <th className="px-4 py-4 text-right">Créance</th>
+                    <th className="px-4 py-4 text-right">Opérations</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F2F4F7]">
+                  {quartierPagedSubscribers.map((subscriber: any) => (
+                    <tr key={subscriber.numab || subscriber.name} className="hover:bg-brand-50/20 transition-colors">
+                      <td className="px-6 py-3.5 text-sm font-semibold text-[#101828]">{subscriber.numab}</td>
+                      <td className="px-4 py-3.5 text-sm font-medium text-[#101828]">{subscriber.name}</td>
+                      <td className="px-4 py-3.5 text-xs font-bold text-[#475467]">{subscriber.type_abonne || '—'}</td>
+                      <td className="px-4 py-3.5 text-right text-sm font-black text-rose-600 whitespace-nowrap">{fmt(subscriber.amount || 0)}</td>
+                      <td className="px-4 py-3.5 text-right text-xs font-bold text-[#475467]">{subscriber.count || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="flex items-center justify-between gap-4 px-6 py-4 border-t border-[#F2F4F7] bg-[#F9FAFB]">
+                <div className="text-[11px] font-semibold text-[#475467]">
+                  Affichage {Math.min((quartierPage - 1) * QUARTIER_PAGE_SIZE + 1, quartierSubscribers.length)}-{Math.min(quartierPage * QUARTIER_PAGE_SIZE, quartierSubscribers.length)} sur {quartierSubscribers.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuartierPage(p => Math.max(1, p - 1))}
+                    disabled={quartierPage === 1}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-[#D0D5DD] bg-white text-[#475467] disabled:opacity-40 disabled:cursor-not-allowed hover:border-brand-300 hover:text-brand-600 transition-colors"
+                    aria-label="Page précédente"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  <span className="min-w-[72px] text-center text-xs font-black text-[#101828] border border-[#E4E7EC] bg-white rounded-lg px-3 py-2">
+                    {String(quartierPage).padStart(2, '0')}/{String(quartierTotalPages).padStart(2, '0')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQuartierPage(p => Math.min(quartierTotalPages, p + 1))}
+                    disabled={quartierPage >= quartierTotalPages}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-[#D0D5DD] bg-white text-[#475467] disabled:opacity-40 disabled:cursor-not-allowed hover:border-brand-300 hover:text-brand-600 transition-colors"
+                    aria-label="Page suivante"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedCommune) {
+    return (
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
+        <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
+          <div>
+            <button
+              onClick={() => setSelectedCommune(null)}
+              className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
+            >
+              <ChevronRight className="rotate-180" size={16} /> Retour aux communes
+            </button>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-brand-50 text-brand-600 border-brand-100">
+                {targetName ? `${targetName} par quartier` : 'Zones concernées'}
+              </span>
+              {section && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-blue-50 text-blue-600 border-blue-100">
+                  {section}
+                </span>
+              )}
+            </div>
+            <h2 className="text-xl font-black text-[#101828] tracking-tight">{selectedCommune.name}</h2>
+            <p className="text-sm text-[#667085] mt-1 font-medium">
+              {quartierLoading ? 'Chargement des zones...' : `${quartierBreakdown.length} zone${quartierBreakdown.length !== 1 ? 's' : ''} concernée${quartierBreakdown.length !== 1 ? 's' : ''}`}
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-auto">
+          {quartierLoading ? (
+            <div className="flex flex-col items-center justify-center h-56 gap-4">
+              <div className="spinner-premium" style={{ width: 40, height: 40 }} />
+              <p className="text-sm font-medium text-[#667085]">Chargement des quartiers...</p>
+            </div>
+          ) : quartierError ? (
+            <div className="flex flex-col items-center justify-center h-56 gap-3">
+              <p className="text-sm font-bold text-rose-600">{quartierError}</p>
+            </div>
+          ) : quartierBreakdown.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-56 gap-3">
+              <p className="text-sm font-medium text-[#667085]">Aucune zone trouvée pour cette commune.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                  <th className="px-6 py-4">Zone / Quartier</th>
+                  <th className="px-4 py-4 text-right">Créance</th>
+                  <th className="px-4 py-4 text-right">Abonnés</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {quartierBreakdown.map((zone: any) => (
+                  <tr key={zone.code} className="hover:bg-brand-50/20 transition-colors cursor-pointer" onClick={() => handleQuartierClick(zone)}>
+                    <td className="px-6 py-3.5 text-sm font-semibold text-[#101828]">{zone.code}</td>
+                    <td className="px-4 py-3.5 text-right text-sm font-black text-rose-600 whitespace-nowrap">{fmt(zone.amount || 0)}</td>
+                    <td className="px-4 py-3.5 text-right text-xs font-bold text-[#475467]">{zone.count || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
+      <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
+        <div>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
+          >
+            <ChevronRight className="rotate-180" size={16} /> Retour à la ventilation
+          </button>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-brand-50 text-brand-600 border-brand-100">
+              {targetName ? `${targetName} par commune` : 'Détail par commune'}
+            </span>
+            {section && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-blue-50 text-blue-600 border-blue-100">
+                {section}
+              </span>
+            )}
+          </div>
+          <h2 className="text-xl font-black text-[#101828] tracking-tight">{targetName ? `${targetName} par commune` : 'Détail par commune'}</h2>
+          <p className="text-sm text-[#667085] mt-1 font-medium">
+            {loading ? 'Chargement...' : `${filtered.length} commune${filtered.length !== 1 ? 's' : ''} trouvée${filtered.length !== 1 ? 's' : ''}`}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 px-8 py-4 border-b border-[#F2F4F7] flex-shrink-0">
+        <div className="relative flex-1">
+          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3] pointer-events-none">
+            <Search size={14} />
+          </div>
+          <input
+            type="text"
+            placeholder="Rechercher une commune..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-medium text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100/50 transition-all"
+          />
+        </div>
+      </div>
+
+      <div className="overflow-auto">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-56 gap-4">
+            <div className="spinner-premium" style={{ width: 40, height: 40 }} />
+            <p className="text-sm font-medium text-[#667085]">Chargement des communes...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-56 gap-3">
+            <p className="text-sm font-bold text-rose-600">{error}</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-56 gap-3">
+            <p className="text-sm font-medium text-[#667085]">Aucune commune trouvée pour cette catégorie.</p>
+          </div>
+        ) : (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                <th className="px-6 py-4">Commune</th>
+                <th className="px-4 py-4 text-right">CA</th>
+                <th className="px-4 py-4 text-right">Recouvrement</th>
+                <th className="px-4 py-4 text-right">Créance</th>
+                <th className="px-4 py-4 text-right">Abonnés</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F2F4F7]">
+              {filtered.map((commune: any) => (
+                <tr
+                  key={commune.id || commune.name}
+                  className="hover:bg-brand-50/20 transition-colors cursor-pointer"
+                  onClick={() => handleCommuneClick(commune)}
+                >
+                  <td className="px-6 py-3.5 text-sm font-semibold text-[#101828]">{commune.name}</td>
+                  <td className="px-4 py-3.5 text-right text-sm font-black text-brand-600 whitespace-nowrap">{fmt(commune.ca || 0)}</td>
+                  <td className="px-4 py-3.5 text-right text-sm font-medium text-emerald-600 whitespace-nowrap">{fmt(commune.recouvre || 0)}</td>
+                  <td className="px-4 py-3.5 text-right text-sm font-black text-rose-600 whitespace-nowrap">{fmt(commune.creance || 0)}</td>
+                  <td className="px-4 py-3.5 text-right text-xs font-bold text-[#475467]">{commune.sub_count || 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function SubscriberDrillDownView({ targetName, column, startDate, endDate, onClose, selectedSecteur = '' }: any) {
   const [subscribers, setSubscribers] = useState<any[]>([]);
@@ -230,6 +758,7 @@ export function CreanceVentilationView({
     endDate || (lastVentDate ? lastVentDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '')
   );
   const [expandedSections, setExpandedSections] = useState<string[]>(['EAU', 'PRESTATIONS']);
+  const [communeDrillDown, setCommuneDrillDown] = useState<{targetName: string, section: string} | null>(null);
 
   const secteurLabel = selectedSecteur
     ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
@@ -713,6 +1242,19 @@ export function CreanceVentilationView({
     printWindow.document.close();
   };
 
+  if (communeDrillDown) {
+    return (
+      <CommuneDrillDownView
+        targetName={communeDrillDown.targetName}
+        section={communeDrillDown.section}
+        startDate={lastVentDate || ''}
+        endDate={lastVentDate || ''}
+        selectedSecteur={selectedSecteur}
+        onClose={() => setCommuneDrillDown(null)}
+      />
+    );
+  }
+
   if (!ventilationData.length && !loading && !lastVentDate) {
     return (
       <div className="bg-[#F9FAFB] border-2 border-dashed border-[#E4E7EC] rounded-[2rem] p-16 flex flex-col items-center text-center gap-6">
@@ -902,7 +1444,13 @@ export function CreanceVentilationView({
                               <div className="font-bold text-[13px] text-[#475467] font-mono tabular-nums">{fmtNum(row.NBR_FACTURES)}</div>
                             </td>
                             <td className="px-8 py-4 text-right">
-                              <div className="font-black text-[13px] text-[#101828] font-mono tracking-tighter">{fmt(row.CREANCE)}</div>
+                              <button
+                                type="button"
+                                onClick={() => setCommuneDrillDown({ targetName: row.CATEGORIE, section: row.SECTION })}
+                                className="font-black text-[13px] text-[#101828] font-mono tracking-tighter hover:text-brand-600 hover:underline decoration-dotted underline-offset-2 transition-all"
+                              >
+                                {fmt(row.CREANCE)}
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -959,7 +1507,7 @@ export function CreanceVentilationView({
 
 export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter, onGoToCalculation, startDate, endDate, selectedSecteur = '', sectors = [] }: any) {
   const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
-  const [drillDown, setDrillDown] = useState<{targetName: string, column: string} | null>(null);
+  const [communeDrillDown, setCommuneDrillDown] = useState<{targetName: string, section: string} | null>(null);
   const secteurLabel = selectedSecteur
     ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
     : null;
@@ -1335,15 +1883,16 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
     );
   }
 
-  if (drillDown) {
+  if (communeDrillDown) {
     return (
-      <SubscriberDrillDownView
-        targetName={drillDown.targetName}
-        column={drillDown.column}
+      <CommuneDrillDownView
+        data={data}
+        targetName={communeDrillDown.targetName}
+        section={communeDrillDown.section}
         startDate={startDate}
         endDate={endDate}
         selectedSecteur={selectedSecteur}
-        onClose={() => setDrillDown(null)}
+        onClose={() => setCommuneDrillDown(null)}
       />
     );
   }
@@ -1473,22 +2022,22 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
                           {(t.sub_count > 0 ? (t.forfait_count / t.sub_count * 100) : 0).toFixed(2)}%
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-blue-50/60 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_eau' })} title="Voir les abonnés concernés">{fmt(t.ca_eau)}</span>
+                          <span className="cursor-pointer hover:bg-blue-50/60 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.ca_eau)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-cyan-50/60 hover:text-cyan-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_prestation' })} title="Voir les abonnés concernés">{fmt(t.ca_prestation)}</span>
+                          <span className="cursor-pointer hover:bg-cyan-50/60 hover:text-cyan-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.ca_prestation)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-brand-50/60 hover:text-brand-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca' })} title="Voir les abonnés concernés">{fmt(t.ca)}</span>
+                          <span className="cursor-pointer hover:bg-brand-50/60 hover:text-brand-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.ca)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/5 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-teal-50/60 hover:text-teal-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'ca_recouvre' })} title="Voir les abonnés concernés">{fmt(t.ca_recouvre || 0)}</span>
+                          <span className="cursor-pointer hover:bg-teal-50/60 hover:text-teal-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.ca_recouvre || 0)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/5 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-emerald-50/60 hover:text-emerald-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'recouvre' })} title="Voir les abonnés concernés">{fmt(t.recouvre)}</span>
+                          <span className="cursor-pointer hover:bg-emerald-50/60 hover:text-emerald-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.recouvre)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/10 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-rose-50/60 hover:text-rose-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setDrillDown({ targetName: t.name, column: 'creance' })} title="Voir les abonnés concernés">{fmt(t.creance)}</span>
+                          <span className="cursor-pointer hover:bg-rose-50/60 hover:text-rose-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.creance)}</span>
                         </td>
                         <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] whitespace-nowrap">{t.taux.toFixed(2)}%</td>
                       </tr>

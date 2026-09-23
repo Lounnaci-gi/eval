@@ -5400,6 +5400,16 @@ def get_creance_subscribers(_user: dict = Depends(get_current_user), start_date:
             ((r, True) for r in MEM_AVOIRS)
         )
 
+        def normalize_category_name(value):
+            if value is None:
+                return ''
+            text = str(value)
+            text = text.replace('–', '-').replace('—', '-')
+            text = ''.join(ch for ch in text.lower() if ch.isalnum() or ch in ('-', ' '))
+            text = text.replace('-', ' ')
+            text = ' '.join(text.split())
+            return text
+
         subscribers_data = {} # numab -> {numab, name, type_abonne, commune, amount, count}
 
         for r, is_avoir in records:
@@ -5484,9 +5494,15 @@ def get_creance_subscribers(_user: dict = Depends(get_current_user), start_date:
             if not section:
                 continue
 
-            # Filter by category name
-            if target_name and categorie != target_name:
-                continue
+            # Filter by category name (normalize exact display strings vs backend identifiers)
+            if target_name:
+                target_norm = normalize_category_name(target_name)
+                category_norm = normalize_category_name(categorie)
+                if target_norm and category_norm != target_norm:
+                    target_baseless = target_norm.replace('0', '').replace('1', '').replace('2', '').replace('3', '').replace('4', '').replace('5', '').replace('6', '').replace('7', '').replace('8', '').replace('9', '').strip()
+                    category_baseless = category_norm.replace('0', '').replace('1', '').replace('2', '').replace('3', '').replace('4', '').replace('5', '').replace('6', '').replace('7', '').replace('8', '').replace('9', '').strip()
+                    if category_norm != target_norm and category_baseless != target_baseless:
+                        continue
 
             # Determine matching amount based on selected column
             amount = 0.0

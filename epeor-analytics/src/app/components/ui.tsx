@@ -129,7 +129,7 @@ export function FrenchDateInput({
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const defaultClass = 'block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500 w-36';
+  const defaultClass = 'block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500 w-32 shadow-sm';
   const formatDisplay = (raw: string) => {
     if (!raw) return '—';
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
@@ -138,10 +138,50 @@ export function FrenchDateInput({
     return raw;
   };
 
+  const toIsoDate = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 8);
+    if (digits.length !== 8) return null;
+
+    const day = Number(digits.slice(0, 2));
+    const month = Number(digits.slice(2, 4));
+    const year = Number(digits.slice(4, 8));
+
+    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900) return null;
+
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+
+    return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+  };
+
+  const [manualValue, setManualValue] = useState(() => formatDisplay(value));
+
+  useEffect(() => {
+    setManualValue(formatDisplay(value));
+  }, [value]);
+
   // Convert focus classes to peer-focus classes to style the custom container when the actual input is focused
   const cleanedClass = (className ?? defaultClass)
     .replace(/\bfocus:ring-2\b/g, 'peer-focus:ring-2')
     .replace(/\bfocus:ring-brand-500\b/g, 'peer-focus:ring-brand-500');
+
+  const handleTextChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 8);
+    const formatted = digits.length <= 2
+      ? digits
+      : digits.length <= 4
+        ? `${digits.slice(0, 2)}/${digits.slice(2)}`
+        : `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+
+    setManualValue(formatted);
+
+    const iso = toIsoDate(formatted);
+    if (iso) {
+      onChange(iso);
+    } else if (!formatted.trim()) {
+      onChange('');
+    }
+  };
 
   return (
     <div>
@@ -152,30 +192,31 @@ export function FrenchDateInput({
           ref={inputRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10 peer"
+          className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0 z-0"
           aria-label={label ? `Sélectionner la date ${label}` : 'Sélectionner une date'}
-          onClick={(e) => {
+          tabIndex={-1}
+        />
+        <input
+          type="text"
+          value={manualValue}
+          onChange={(e) => handleTextChange(e.target.value)}
+          placeholder="dd/mm/yyyy"
+          inputMode="numeric"
+          className={`${cleanedClass} relative z-20 cursor-text pr-8`}
+          aria-label={label ? `Saisir la date ${label}` : 'Saisir une date'}
+        />
+        <button
+          type="button"
+          onClick={() => {
             try {
-              (e.target as HTMLInputElement).showPicker();
+              inputRef.current?.showPicker();
             } catch {}
           }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              try {
-                (e.target as HTMLInputElement).showPicker();
-              } catch {}
-            }
-          }}
-        />
-        <div
-          className={`${cleanedClass} cursor-pointer flex items-center gap-2`}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#98A2B3] z-30 hover:text-[#475467] transition-colors"
+          aria-label={label ? `Choisir la date ${label}` : 'Choisir une date'}
         >
-          <span className="flex-1 text-left">{formatDisplay(value)}</span>
-        </div>
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#98A2B3] z-20">
           <Calendar size={14} />
-        </div>
+        </button>
       </div>
     </div>
   );

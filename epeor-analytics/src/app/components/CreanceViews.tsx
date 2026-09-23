@@ -700,26 +700,30 @@ export function CreanceDetailView({
 
           </div>
 
-          <div className="flex items-end gap-3 p-4 bg-[#F9FAFB] rounded-2xl border border-[#F2F4F7] border-dashed">
-            <FrenchDateInput
-              label="Du"
-              value={dateRange.start}
-              onChange={(val: string) => setDateRange({ ...dateRange, start: val })}
-              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-32"
-            />
-            <FrenchDateInput
-              label="Au"
-              value={dateRange.end}
-              onChange={(val: string) => setDateRange({ ...dateRange, end: val })}
-              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-32"
-            />
-            <div className="pb-1">
-              <button
-                onClick={handleCustomFilter}
-                className="p-3 bg-white border border-[#E4E7EC] rounded-xl text-brand-600 hover:bg-brand-50 transition-colors shadow-sm"
-              >
-                <Search size={14} />
-              </button>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Période</label>
+            <div className="flex items-end gap-3 p-4 bg-[#F9FAFB] rounded-2xl border border-[#F2F4F7] border-dashed shadow-sm">
+              <FrenchDateInput
+                label="Du"
+                value={dateRange.start}
+                onChange={(val: string) => setDateRange({ ...dateRange, start: val })}
+                className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-32 shadow-sm"
+              />
+              <FrenchDateInput
+                label="Au"
+                value={dateRange.end}
+                onChange={(val: string) => setDateRange({ ...dateRange, end: val })}
+                className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-32 shadow-sm"
+              />
+              <div className="pb-1">
+                <button
+                  onClick={handleCustomFilter}
+                  className="p-3 bg-white border border-[#E4E7EC] rounded-xl text-brand-600 hover:bg-brand-50 transition-colors shadow-sm hover:shadow-md transition-all"
+                  aria-label="Appliquer la période sélectionnée"
+                >
+                  <Search size={14} />
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -27,6 +27,7 @@ export type AppView =
   | "resigned"
   | "stopped"
   | "no_meter"
+  | "unconnected"
   | "creance"
   | "repartition"
   | "commune"
@@ -46,7 +47,7 @@ type NavItem = {
 
 const BOTTOM_NAV: NavItem[] = [
   { id: "dashboard",         labelKey: "nav.dashboard",        icon: LayoutDashboard },
-  { id: "details",           labelKey: "nav.subscribers",      icon: Users,     match: ["details", "evolution", "resigned", "stopped", "no_meter"] },
+  { id: "details",           labelKey: "nav.subscribers",      icon: Users,     match: ["details", "evolution", "resigned", "stopped", "no_meter", "unconnected"] },
   { id: "creance",           labelKey: "nav.financials",       icon: BarChart3, match: ["creance", "repartition", "commune", "ventilation", "bilan_activite"] },
   { id: "creances_abonnes",  labelKey: "nav.subscriberDebts",  icon: CreditCard },
 ];

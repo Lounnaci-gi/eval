@@ -76,7 +76,7 @@ export function FloatingExpandableSidebar({
       icon: <Users size={24} />,
       label: t('nav.subscribers'),
       description: 'Gestion abonnés',
-      views: ['details', 'evolution', 'resigned', 'stopped', 'no_meter'],
+      views: ['details', 'evolution', 'resigned', 'stopped', 'no_meter', 'unconnected'],
     },
     {
       id: 'financials',

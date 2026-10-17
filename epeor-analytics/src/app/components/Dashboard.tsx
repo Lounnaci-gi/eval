@@ -89,7 +89,7 @@ const BilanActiviteView = dynamic(
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'service_contentieux' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'unconnected' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'service_contentieux' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [creanceData, setCreanceData] = useState<any>(null);
@@ -1018,9 +1018,9 @@ export default function Dashboard() {
 
 
           </div>
-        ) : ['details', 'evolution', 'resigned', 'stopped', 'no_meter'].includes(currentView) ? (
+        ) : ['details', 'evolution', 'resigned', 'stopped', 'no_meter', 'unconnected'].includes(currentView) ? (
           <GestionAbonnesShell
-            currentView={currentView as 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter'}
+            currentView={currentView as 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'unconnected'}
             setCurrentView={setCurrentView}
             baseStats={stats}
             selectedSecteur={selectedSecteur}

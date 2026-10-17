@@ -164,7 +164,7 @@ export function SettingsView({
     setClearingCache(true);
     setCacheMessage("Vidage du cache et rechargement en cours. Veuillez patienter...");
     try {
-      const res = await fetch(apiUrl("/api/clear_cache"));
+      const res = await fetch(apiUrl("/api/clear_cache"), { method: "POST" });
       const data = await res.json();
       setCacheMessage(data.message || "Rechargement lancé avec succès !");
       setTimeout(() => {

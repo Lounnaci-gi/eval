@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
   },
 
   // Proxy API en dev/prod : fetch('/backend-api/stats') → FastAPI
-  // Le header ngrok-skip-browser-warning est injecté via src/middleware.ts
+  // Le header ngrok-skip-browser-warning est injecté via src/proxy.ts
   async rewrites() {
     return [
       {

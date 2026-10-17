@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 const API_ALLOWLIST = ['/api/auth/login', '/api/auth/refresh'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   if (pathname.startsWith('/api')) {

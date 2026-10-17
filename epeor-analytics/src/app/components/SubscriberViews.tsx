@@ -34,7 +34,7 @@ export function GestionAbonnesShell({
   onBack,
   allowAll = true,
 }: {
-  currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter';
+  currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'unconnected';
   setCurrentView: (v: any) => void;
   baseStats: any;
   selectedSecteur: string;
@@ -50,21 +50,36 @@ export function GestionAbonnesShell({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchStarted, setSearchStarted] = useState(false);
   const [selectedSearchNumabs, setSelectedSearchNumabs] = useState<string[]>([]);
 
   useEffect(() => {
-    if (searchQuery.trim().length < 2) {
+    const searchTerm = searchQuery.trim().length > 0
+      ? searchQuery
+      : currentView === 'unconnected'
+        ? '41'
+        : '';
+
+    if (searchTerm.trim().length < 2) {
       setSearchResults([]);
       setSearchLoading(false);
+      setSearchStarted(false);
       return;
     }
 
-    setSearchLoading(true);
+    setSearchResults([]);
+    setSearchLoading(false);
+    setSearchStarted(false);
     const controller = new AbortController();
 
     const timeoutId = setTimeout(() => {
+      setSearchStarted(true);
+      setSearchLoading(true);
       const url = apiUrlObject('/search');
-      url.searchParams.append('query', searchQuery);
+      url.searchParams.append('query', searchTerm);
+      if (currentView === 'unconnected') {
+        url.searchParams.append('etatcpt', '41');
+      }
       if (selectedSecteur) {
         url.searchParams.append('secteur', selectedSecteur);
       }
@@ -88,13 +103,13 @@ export function GestionAbonnesShell({
             setSearchLoading(false);
           }
         });
-    }, 250); // 250ms debounce time
+    }, 400); // Wait for typing to pause before searching
 
     return () => {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [searchQuery, selectedSecteur]);
+  }, [searchQuery, selectedSecteur, currentView]);
 
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
@@ -133,6 +148,7 @@ export function GestionAbonnesShell({
     { id: 'resigned' as const, label: 'Résiliés' },
     { id: 'stopped' as const, label: "À l'arrêt" },
     { id: 'no_meter' as const, label: 'Sans compteur' },
+    { id: 'unconnected' as const, label: 'Non branchés' },
   ];
 
   const viewProps = { stats, onBack, selectedSecteur, secteurLabel };
@@ -199,7 +215,7 @@ export function GestionAbonnesShell({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Chercher par nom, NUMAB, N° compteur..."
+                placeholder="Nom, NUMAB, compteur ou état (ex. 41)..."
                 className="w-full text-[11px] font-black pl-8 pr-7 py-1.5 rounded-xl border border-[#E4E7EC]/80 bg-white text-[#101828] placeholder-[#98A2B3] focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all"
               />
               {searchQuery && (
@@ -226,7 +242,7 @@ export function GestionAbonnesShell({
       )}
 
       <div className="relative">
-        {statsLoading && (
+        {statsLoading && !searchQuery.trim() && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[2px] rounded-[2rem] min-h-[120px]">
             <div className="flex flex-col items-center gap-2">
               <div className="spinner-premium" style={{ width: 32, height: 32 }} />
@@ -234,40 +250,52 @@ export function GestionAbonnesShell({
             </div>
           </div>
         )}
-        {searchQuery.trim().length > 0 ? (
+        {searchQuery.trim().length > 0 || currentView === 'unconnected' ? (
           <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-[11px] sm:text-xs font-black text-[#101828] uppercase tracking-wider flex items-center gap-2">
-                🔍 Résultats de recherche ({searchResults.length})
+                {searchStarted
+                  ? currentView === 'unconnected'
+                    ? `Abonnés non branchés (${searchResults.length})`
+                    : `🔍 Résultats de recherche (${searchResults.length})`
+                  : currentView === 'unconnected' && !searchQuery.trim()
+                    ? 'Chargement des abonnés non branchés…'
+                    : searchQuery.trim().length < 2
+                    ? 'Saisissez au moins 2 caractères'
+                    : 'Recherche après une courte pause'}
               </h3>
-              {searchLoading && (
-                <div className="flex items-center gap-1.5 text-xs text-brand-600 font-bold">
-                  <div className="spinner-premium animate-spin w-3 h-3 border-2 border-brand-600 border-t-transparent rounded-full" />
-                  Recherche en cours...
-                </div>
-              )}
             </div>
 
-            <NominativeTable
-              subscribers={searchResults.map((sub: any) => ({
-                numab: sub.NUMAB || '—',
-                name: sub.NOM || '—',
-                adresse: sub.ADRESSE || '—',
-                tournee: sub.TOURNEE || '—',
-                bloc: sub.BLOC || '—',
-                ndom: sub.NDOM || '—',
-                numser: sub.NUMSER || '---',
-                nouvelx: sub.NOUVELX !== undefined ? sub.NOUVELX : 0,
-                type: sub.TYPE_LABEL || '—',
-                etatcpt: sub.ETATCPT || '—',
-                etat_label: sub.ETAT_LABEL || '—',
-                numordre: sub.NUMORDRE || '—'
-              }))}
-              loading={searchLoading}
-              accentColor="blue"
-              selectedNumabs={selectedSearchNumabs}
-              onSelectedNumabsChange={setSelectedSearchNumabs}
-            />
+            {searchStarted ? (
+              <NominativeTable
+                subscribers={searchResults.map((sub: any) => ({
+                  numab: sub.NUMAB || '—',
+                  name: sub.NOM || '—',
+                  adresse: sub.ADRESSE || '—',
+                  tournee: sub.TOURNEE || '—',
+                  bloc: sub.BLOC || '—',
+                  ndom: sub.NDOM || '—',
+                  numser: sub.NUMSER || '---',
+                  nouvelx: sub.NOUVELX !== undefined ? sub.NOUVELX : 0,
+                  type: sub.TYPE_LABEL || '—',
+                  etatcpt: sub.ETATCPT || '—',
+                  etat_label: sub.ETAT_LABEL || '—',
+                  numordre: sub.NUMORDRE || '—'
+                }))}
+                loading={searchLoading}
+                accentColor="blue"
+                selectedNumabs={selectedSearchNumabs}
+                onSelectedNumabsChange={setSelectedSearchNumabs}
+              />
+            ) : (
+              <p className="py-8 text-center text-sm font-medium text-[#667085]">
+                {currentView === 'unconnected' && !searchQuery.trim()
+                  ? 'Chargement de la liste ETATCPT = 41.'
+                  : searchQuery.trim().length < 2
+                    ? 'Entrez au moins deux caractères pour rechercher.'
+                    : 'La recherche démarre après une courte pause de saisie.'}
+              </p>
+            )}
           </div>
         ) : (
           <>

@@ -14,6 +14,7 @@ import os
 import itertools
 import json
 import math
+import unicodedata
 from datetime import datetime, timedelta, timezone
 import pickle  # nosec B403 - Utilisé uniquement pour le cache interne contrôlé
 import time
@@ -21,13 +22,17 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
-    from .security import build_safe_user_update_assignments
+    from .security import (
+        build_safe_user_update_assignments,
+        validate_password,
+        validate_username,
+    )
 except ImportError:  # pragma: no cover - support when running the file directly
     from security import (
-    build_safe_user_update_assignments,
-    validate_password,
-    validate_username,
-)
+        build_safe_user_update_assignments,
+        validate_password,
+        validate_username,
+    )
 
 from contextlib import asynccontextmanager
 
@@ -718,6 +723,35 @@ _creances_abonnes_cache: dict[tuple, dict] = {}
 _abonment_dates_by_numab: dict[str, str] = {}
 _abonment_state_by_numab: dict[str, str] = {}
 search_index_list: list = []
+
+
+def _normalize_search_text(value: object) -> str:
+    decomposed = unicodedata.normalize("NFD", str(value or "")).casefold()
+    return "".join(char for char in decomposed if not unicodedata.combining(char)).strip()
+
+
+def _build_search_index_entry(record: dict) -> dict:
+    numab = str(record.get('NUMAB', '') or '').strip()
+    raisoc = str(record.get('RAISOC', '') or '').strip()
+    nom = str(record.get('NOM', '') or '').strip()
+    secteur = str(record.get('SECTEUR', '') or '').strip().zfill(2)
+    abonment_info = abonments_by_numab.get(numab.upper(), {})
+    etatcpt = str(abonment_info.get('ETATCPT') or '').strip()
+    etat_record = tabcodes_by_code.get('E' + etatcpt, {})
+    etat_label = str(etat_record.get('LIBELLE', '') or '').strip()
+    if etatcpt == '41':
+        etat_label = f'{etat_label} NON BRANCHÉ'
+
+    return {
+        'record': record,
+        'numab_lower': _normalize_search_text(numab),
+        'nom_lower': _normalize_search_text(nom),
+        'raisoc_lower': _normalize_search_text(raisoc),
+        'numser_lower': _normalize_search_text(abonment_info.get('NUMSER', '')),
+        'etatcpt_lower': _normalize_search_text(etatcpt),
+        'etat_label_lower': _normalize_search_text(etat_label),
+        'secteur': secteur,
+    }
 
 
 def _invalidate_runtime_caches() -> None:
@@ -1708,26 +1742,7 @@ def load_all_data_to_memory():
         build_invoice_indexes()
 
         print(f"[INFO] Building search index list...")
-        temp_search_list = []
-        for record in MEM_ABONNES:
-            numab = str(record.get('NUMAB', '')).strip()
-            nom = str(record.get('NOM', '')).strip()
-            raisoc = str(record.get('RAISOC', '')).strip()
-            rec_secteur = str(record.get('SECTEUR', '')).strip().zfill(2)
-            
-            # Fetch numser from abonments_by_numab
-            abonment_info = abonments_by_numab.get(numab.upper(), {})
-            numser = str(abonment_info.get('NUMSER', '')).strip()
-            
-            temp_search_list.append({
-                'record': record,
-                'numab_lower': numab.lower(),
-                'nom_lower': nom.lower(),
-                'raisoc_lower': raisoc.lower(),
-                'numser_lower': numser.lower(),
-                'secteur': rec_secteur
-            })
-        search_index_list = temp_search_list
+        search_index_list = [_build_search_index_entry(record) for record in MEM_ABONNES]
         print(f"[INFO] Search index list ready with {len(search_index_list)} entries.")
 
         print(f"[INFO] Computing dashboard statistics...")
@@ -2098,7 +2113,7 @@ def delete_user(user_id: int, current_user: dict = Depends(get_current_user)):
     return {"status": "success", "message": "Utilisateur supprimé avec succès"}
 
 
-@app.get("/api/clear_cache")
+@app.post("/api/clear_cache")
 def clear_cache_endpoint(current_user: dict = Depends(get_current_user)):
     if _AUTH_ENABLED and not current_user.get("is_admin"):
         raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
@@ -2886,7 +2901,7 @@ def get_unites_settings(_user: dict = Depends(get_current_user)):
         return {"error": str(e)}
 
 @app.get("/search")
-def search_subscribers(_user: dict = Depends(get_current_user), query: str = None, q: str = None, secteur: str = None):
+def search_subscribers(_user: dict = Depends(get_current_user), query: str = None, q: str = None, secteur: str = None, etatcpt: str = None):
     search_term = query or q
     if not search_term or len(search_term.strip()) < 2: return []
     
@@ -2896,27 +2911,13 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
         allowed_sectors = _normalize_allowed_sectors(_user.get("allowed_sectors"))
 
     try:
-        search_term_lower = search_term.lower()
+        search_term_lower = _normalize_search_text(search_term)
+        etatcpt_filter = _normalize_search_text(etatcpt)
         results = []
         
         # Fallback to loop on MEM_ABONNES if search_index_list is not yet initialized
         if not search_index_list and MEM_ABONNES:
-            search_source = []
-            for record in MEM_ABONNES:
-                numab = str(record.get('NUMAB', '')).strip()
-                nom = str(record.get('NOM', '')).strip()
-                raisoc = str(record.get('RAISOC', '')).strip()
-                rec_secteur = str(record.get('SECTEUR', '')).strip().zfill(2)
-                abonment_info = abonments_by_numab.get(numab.upper(), {})
-                numser = str(abonment_info.get('NUMSER', '')).strip()
-                search_source.append({
-                    'record': record,
-                    'numab_lower': numab.lower(),
-                    'nom_lower': nom.lower(),
-                    'raisoc_lower': raisoc.lower(),
-                    'numser_lower': numser.lower(),
-                    'secteur': rec_secteur
-                })
+            search_source = [_build_search_index_entry(record) for record in MEM_ABONNES]
         else:
             search_source = search_index_list
 
@@ -2933,10 +2934,15 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
                 if rec_secteur != str(secteur).strip().zfill(2):
                     continue
 
+            if etatcpt_filter and item['etatcpt_lower'] != etatcpt_filter:
+                continue
+
             if (search_term_lower in item['numab_lower'] or 
                 search_term_lower in item['raisoc_lower'] or 
                 search_term_lower in item['nom_lower'] or
-                search_term_lower in item['numser_lower']):
+                search_term_lower in item['numser_lower'] or
+                search_term_lower in item['etatcpt_lower'] or
+                search_term_lower in item['etat_label_lower']):
                 
                 record = item['record']
                 numab = str(record.get('NUMAB', '')).strip()
@@ -5166,7 +5172,7 @@ def generate_pdf_mise_en_demeure(numab: str, _user: dict = Depends(get_current_u
     numab_key = numab.strip().upper()
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    height = A4[1]
     
     c.setFont("Helvetica-Bold", 16)
     c.drawString(50, height - 80, "MISE EN DEMEURE AVANT POURSUITES")
@@ -5201,7 +5207,7 @@ def generate_pdf_declaration_creance(numab: str, _user: dict = Depends(get_curre
     
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    height = A4[1]
     
     c.setFont("Helvetica-Bold", 16)
     c.drawString(50, height - 80, "DÉCLARATION DE CRÉANCE - SUCCESSION")

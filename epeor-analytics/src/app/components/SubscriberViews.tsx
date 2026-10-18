@@ -4632,7 +4632,8 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             </div>
             <div class="title-section">
               <h1>Liste des abonnés sélectionnés</h1>
-              <p>${selectedSubscribers.length} abonné${selectedSubscribers.length === 1 ? "" : "s"} · Édité le ${new Date().toLocaleDateString("fr-FR")}</p>
+              <p>${selectedSubscribers.length} abonné${selectedSubscribers.length === 1 ? "" : "s"}</p>
+              <p>Date d'édition : ${new Date().toLocaleDateString("fr-FR")}</p>
             </div>
           </div>
           <table>

@@ -4573,6 +4573,83 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   const safePage = Math.min(page, totalPages);
   const start = (safePage - 1) * ITEMS_PER_PAGE;
   const pageItems = sorted.slice(start, start + ITEMS_PER_PAGE);
+  const selectedSubscribers = sorted.filter((sub: any) => selectedNumabs.includes(sub.numab));
+
+  const handlePrintSelected = () => {
+    if (selectedSubscribers.length === 0) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.");
+      return;
+    }
+
+    const cell = (value: unknown) => escapeHtml(String(value ?? "—"));
+    const rowsHtml = selectedSubscribers.map((sub: any) => `
+      <tr>
+        <td>${cell(sub.numab)}</td>
+        <td>${cell(sub.name)}</td>
+        <td>${cell([sub.adresse, sub.bloc ? `Bl. ${sub.bloc}` : "", sub.ndom ? `N°${sub.ndom}` : ""].filter(Boolean).join(" · ") || "—")}</td>
+        <td>${cell(sub.tournee ? `T-${sub.tournee}` : "—")}</td>
+        <td>${cell(sub.numser)}</td>
+        <td>${cell(sub.nouvelx !== undefined ? Number(sub.nouvelx).toLocaleString("fr-FR") : "—")}</td>
+        <td>${cell(sub.type)}</td>
+        <td>${cell(sub.etat_label || sub.etatcpt)}</td>
+      </tr>
+    `).join("");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8" />
+          <title>Abonnés sélectionnés</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #101828; margin: 24px; font-size: 11px; }
+            .print-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 2px solid #F2F4F7; padding-bottom: 16px; margin-bottom: 18px; }
+            .logo-section { display: flex; align-items: center; gap: 12px; }
+            .logo-section img { height: 40px; width: auto; object-fit: contain; }
+            .brand-name { color: #0D83DE; font-size: 14px; font-weight: 900; }
+            .company-name { color: #667085; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+            .title-section { text-align: right; }
+            h1 { font-size: 18px; margin: 0 0 6px; }
+            p { color: #667085; margin: 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #D0D5DD; padding: 7px; text-align: left; }
+            th { background: #F2F4F7; }
+            tr { page-break-inside: avoid; }
+            @media print { body { margin: 12mm; } }
+          </style>
+        </head>
+        <body>
+          <div class="print-header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="Logo ADE" />
+              <div>
+                <div class="brand-name">EPEOR Analytics</div>
+                <div class="company-name">Algérienne Des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1>Liste des abonnés sélectionnés</h1>
+              <p>${selectedSubscribers.length} abonné${selectedSubscribers.length === 1 ? "" : "s"} · Édité le ${new Date().toLocaleDateString("fr-FR")}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>N° Abonné</th><th>Nom / Raison sociale</th><th>Adresse</th><th>Tournée</th>
+                <th>N° Série</th><th>Nouvel index</th><th>Type</th><th>État</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   // Sortable header cell
   const Th = ({ label, field, align = 'left', px = 'px-6' }: { label: string; field: string; align?: string; px?: string }) => {
@@ -4601,7 +4678,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
 
   return (
     <>
-      <div className="p-4 border-b border-[#F2F4F7] bg-white">
+      <div className="p-4 border-b border-[#F2F4F7] bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="relative max-w-sm">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -4620,6 +4697,16 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             }}
           />
         </div>
+        <button
+          type="button"
+          onClick={handlePrintSelected}
+          disabled={selectedSubscribers.length === 0}
+          className="no-print inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#0D83DE] hover:bg-[#0B74C9] active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:bg-[#D0D5DD] disabled:text-[#667085] disabled:shadow-none disabled:cursor-not-allowed"
+          title={selectedSubscribers.length > 0 ? "Imprimer uniquement les abonnés sélectionnés" : "Cochez au moins un abonné pour l'imprimer"}
+        >
+          <Printer size={14} />
+          Imprimer la sélection ({selectedSubscribers.length})
+        </button>
       </div>
       <table className="w-full text-left">
         <thead>
@@ -4746,4 +4833,3 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
     </>
   );
 }
-

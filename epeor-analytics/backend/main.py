@@ -2999,7 +2999,7 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
 @app.get("/subscribers")
 def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = None, etat: str = None, secteur: str = None, typabon: str = None):
     secteur = _enforce_sector(_user, secteur)
-    if not quartier:
+    if not quartier and not typabon:
         return {"error": "Missing parameters"}
     
     try:
@@ -3022,8 +3022,9 @@ def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = Non
             numab = str(record.get('NUMAB', '')).strip()
             prefix = numab[:2]
             
-            # Filter by Quartier
-            if prefix != quartier:
+            # Filter by Quartier when requested; omitting it allows filtered
+            # nominative lists across the selected sector.
+            if quartier and prefix != quartier:
                 continue
 
             # Filtre centre : commune géographique (COMMUNE.SECTEUR)
@@ -5583,4 +5584,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("EPEOR_PORT", "8000"))
     print(f"[INFO] EPEOR API listening on http://{host}:{port}")
     uvicorn.run("main:app", host=host, port=port, reload=False)
-

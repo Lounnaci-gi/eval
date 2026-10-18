@@ -1034,6 +1034,60 @@ def _abonne_sector_allowed(numab: str, allowed_abonne_sectors: set[str] | None) 
     return rec_sec in allowed_abonne_sectors
 
 
+def _build_unconnected_breakdowns(
+    subscribers: list[dict],
+    abonment_state_map: dict[str, str],
+    commune_map: dict[str, str],
+    type_labels: dict[str, str],
+    allowed_abonne_sectors: set[str] | None = None,
+) -> tuple[int, list[dict], list[dict]]:
+    commune_counts: dict[str, int] = {codcom: 0 for codcom in commune_map}
+    type_counts: dict[str, int] = {}
+
+    for record in subscribers:
+        numab = str(record.get("NUMAB", "")).strip()
+        if allowed_abonne_sectors is not None:
+            rec_sec = str(record.get("SECTEUR", "")).strip().zfill(2)
+            if rec_sec not in allowed_abonne_sectors:
+                continue
+
+        codcom = _abonne_codcom(numab)
+        if codcom not in commune_map:
+            continue
+
+        type_code = str(record.get("TYPABON", "")).strip()
+        type_counts.setdefault(type_code, 0)
+        if abonment_state_map.get(numab) == "41":
+            commune_counts[codcom] += 1
+            type_counts[type_code] += 1
+
+    total = sum(commune_counts.values())
+    communes = [
+        {
+            "id": codcom,
+            "name": commune_map[codcom] or f"Commune {codcom}",
+            "value": count,
+            "percentage": round((count / total) * 100, 2) if total else 0,
+        }
+        for codcom, count in commune_counts.items()
+    ]
+    types = [
+        {
+            "code": type_code,
+            "name": type_labels.get(
+                type_code,
+                f"Autre ({type_code})" if type_code else "Inconnu",
+            ),
+            "value": count,
+            "percentage": round((count / total) * 100, 2) if total else 0,
+        }
+        for type_code, count in type_counts.items()
+    ]
+    communes.sort(key=lambda item: (-item["value"], item["name"]))
+    types.sort(key=lambda item: (-item["value"], item["name"]))
+    return total, communes, types
+
+
 def compute_dashboard_stats(
     secteur: str | None = None,
     allowed_abonne_sectors: list[str] | None = None,
@@ -1060,7 +1114,10 @@ def compute_dashboard_stats(
         "total_revenue": 0,
         "recovery_rate": 0,
         "recent_invoices_count": 0,
-        "subscriber_types": []
+        "subscriber_types": [],
+        "unconnected_subscribers": 0,
+        "unconnected_communes": [],
+        "unconnected_types": [],
     }
 
     abonment_state_map = {}
@@ -1102,6 +1159,17 @@ def compute_dashboard_stats(
     type_counts = {}
     commune_counts = {}
     commune_map = _commune_map_for_centre(secteur)
+    (
+        stats["unconnected_subscribers"],
+        stats["unconnected_communes"],
+        stats["unconnected_types"],
+    ) = _build_unconnected_breakdowns(
+        MEM_ABONNES,
+        abonment_state_map,
+        commune_map,
+        mapping,
+        abonne_sec_set,
+    )
 
     for record in MEM_ABONNES:
         numab = str(record.get('NUMAB', '')).strip()
@@ -2997,9 +3065,9 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
         return {"error": str(e)}
 
 @app.get("/subscribers")
-def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = None, etat: str = None, secteur: str = None, typabon: str = None):
+def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = None, etat: str = None, secteur: str = None, typabon: str = None, commune: str = None):
     secteur = _enforce_sector(_user, secteur)
-    if not quartier and not typabon:
+    if not quartier and typabon is None and not commune:
         return {"error": "Missing parameters"}
     
     try:
@@ -3027,6 +3095,10 @@ def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = Non
             if quartier and prefix != quartier:
                 continue
 
+            codcom = _abonne_codcom(numab)
+            if commune and codcom != str(commune).strip():
+                continue
+
             # Filtre centre : commune géographique (COMMUNE.SECTEUR)
             if not _abonne_in_centre(numab, allowed_communes):
                 continue
@@ -3038,7 +3110,7 @@ def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = Non
                 continue
 
             t_code = str(record.get('TYPABON', '')).strip()
-            if typabon and t_code != str(typabon).strip():
+            if typabon is not None and t_code != ("" if typabon == "__EMPTY__" else str(typabon).strip()):
                 continue
             type_label = type_map.get(t_code, f"Autre ({t_code})" if t_code else "Inconnu")
             

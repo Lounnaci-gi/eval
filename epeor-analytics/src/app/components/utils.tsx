@@ -99,11 +99,12 @@ export function appendSecteurParam(url: URL, secteur: string) {
   if (code) url.searchParams.set("secteur", code);
 }
 
-export function buildSubscribersUrl(quartier: string | undefined, options?: { etat?: string; secteur?: string; typabon?: string }) {
+export function buildSubscribersUrl(quartier: string | undefined, options?: { etat?: string; secteur?: string; typabon?: string; commune?: string }) {
   const url = apiUrlObject("/subscribers");
   if (quartier) url.searchParams.set("quartier", quartier);
   if (options?.etat) url.searchParams.set("etat", options.etat);
-  if (options?.typabon) url.searchParams.set("typabon", options.typabon);
+  if (options?.typabon !== undefined) url.searchParams.set("typabon", options.typabon);
+  if (options?.commune) url.searchParams.set("commune", options.commune);
   appendSecteurParam(url, options?.secteur || "");
   return url.toString();
 }

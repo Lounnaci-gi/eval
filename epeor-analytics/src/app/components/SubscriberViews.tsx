@@ -760,6 +760,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
         <body>
           <div class="header">
             <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
                 <h1 class="logo-text">EPEOR ANALYTICS</h1>
                 <div class="company-name">Algérienne des Eaux</div>
@@ -989,6 +990,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
         <body>
           <div class="header">
             <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
                 <h1 class="logo-text">EPEOR ANALYTICS</h1>
                 <div class="company-name">Algérienne des Eaux</div>
@@ -1815,6 +1817,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
         <body>
           <div class="header">
             <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
                 <h1 class="logo-text">EPEOR ANALYTICS</h1>
                 <div class="company-name">Algérienne des Eaux</div>
@@ -2034,6 +2037,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
         <body>
           <div class="header">
             <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
                 <h1 class="logo-text">EPEOR ANALYTICS</h1>
                 <div class="company-name">Algérienne des Eaux</div>
@@ -2784,6 +2788,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         <body>
           <div class="header">
             <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
                 <h1 class="logo-text">EPEOR ANALYTICS</h1>
                 <div class="company-name">Algérienne des Eaux</div>
@@ -3752,6 +3757,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         <body>
           <div class="header">
             <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
                 <h1 class="logo-text">EPEOR ANALYTICS</h1>
                 <div class="company-name">Algérienne des Eaux</div>
@@ -3971,6 +3977,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         <body>
           <div class="header">
             <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
                 <h1 class="logo-text">EPEOR ANALYTICS</h1>
                 <div class="company-name">Algérienne des Eaux</div>

@@ -52,6 +52,10 @@ export function GestionAbonnesShell({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchStarted, setSearchStarted] = useState(false);
   const [selectedSearchNumabs, setSelectedSearchNumabs] = useState<string[]>([]);
+  const [selectedUnconnectedRow, setSelectedUnconnectedRow] = useState<{ kind: 'commune' | 'type'; row: any } | null>(null);
+  const [unconnectedSubscribers, setUnconnectedSubscribers] = useState<any[]>([]);
+  const [unconnectedSubscribersLoading, setUnconnectedSubscribersLoading] = useState(false);
+  const [unconnectedSubscribersError, setUnconnectedSubscribersError] = useState<string | null>(null);
 
   useEffect(() => {
     const searchTerm = searchQuery.trim().length > 0
@@ -116,6 +120,35 @@ export function GestionAbonnesShell({
     setSelectedSearchNumabs([]);
   };
 
+  const handleUnconnectedRowClick = async (kind: 'commune' | 'type', row: any) => {
+    setSelectedUnconnectedRow({ kind, row });
+    setUnconnectedSubscribers([]);
+    setUnconnectedSubscribersError(null);
+    setUnconnectedSubscribersLoading(true);
+    try {
+      const response = await fetch(buildSubscribersUrl(undefined, {
+        etat: '41',
+        secteur: selectedSecteur,
+        ...(kind === 'commune'
+          ? { commune: row.id }
+          : { typabon: row.code || '__EMPTY__' }),
+      }));
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error(data?.error || 'Réponse invalide du serveur');
+      }
+      setUnconnectedSubscribers(data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des abonnés non branchés :', error);
+      setUnconnectedSubscribersError('Impossible de charger la liste des abonnés non branchés. Réessayez.');
+    } finally {
+      setUnconnectedSubscribersLoading(false);
+    }
+  };
+
   const secteurLabel = selectedSecteur
     ? (sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
     : null;
@@ -141,7 +174,6 @@ export function GestionAbonnesShell({
   }, [selectedSecteur, baseStats?.ready]);
 
   const stats = selectedSecteur && gestionStats ? gestionStats : baseStats;
-
   const tabs = [
     { id: 'details' as const, label: 'Vue globale' },
     { id: 'evolution' as const, label: 'Évolution des abonnés' },
@@ -252,21 +284,128 @@ export function GestionAbonnesShell({
         )}
         {searchQuery.trim().length > 0 || currentView === 'unconnected' ? (
           <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h3 className="text-[11px] sm:text-xs font-black text-[#101828] uppercase tracking-wider flex items-center gap-2">
-                {searchStarted
-                  ? currentView === 'unconnected'
-                    ? `Abonnés non branchés (${searchResults.length})`
-                    : `🔍 Résultats de recherche (${searchResults.length})`
-                  : currentView === 'unconnected' && !searchQuery.trim()
-                    ? 'Chargement des abonnés non branchés…'
-                    : searchQuery.trim().length < 2
-                    ? 'Saisissez au moins 2 caractères'
-                    : 'Recherche après une courte pause'}
-              </h3>
-            </div>
+            {currentView === 'unconnected' && !searchQuery.trim() && (
+              <div className="space-y-5">
+                {selectedUnconnectedRow ? (
+                  <section className="overflow-hidden rounded-2xl border border-[#E4E7EC] bg-white">
+                    <div className="border-b border-[#F2F4F7] px-5 py-4">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUnconnectedRow(null)}
+                        className="mb-3 flex items-center gap-2 text-sm font-bold text-[#667085] transition-colors hover:text-[#101828]"
+                      >
+                        <ChevronRight className="rotate-180" size={16} /> Retour aux répartitions
+                      </button>
+                      <h3 className="text-sm font-black text-[#101828]">
+                        Abonnés non branchés — {selectedUnconnectedRow.row.name}
+                      </h3>
+                      <p className="mt-1 text-xs font-medium text-[#667085]">
+                        {selectedUnconnectedRow.kind === 'commune' ? 'Commune' : "Type d'abonné"}
+                        {secteurLabel ? ` · Centre ${secteurLabel}` : ''}
+                      </p>
+                    </div>
+                    {unconnectedSubscribersError ? (
+                      <p role="alert" className="p-6 text-sm font-medium text-rose-700">{unconnectedSubscribersError}</p>
+                    ) : !unconnectedSubscribersLoading && unconnectedSubscribers.length === 0 ? (
+                      <p className="p-6 text-sm font-medium text-[#667085]">Aucun abonné non branché trouvé pour cette ligne.</p>
+                    ) : (
+                      <NominativeTable
+                        subscribers={unconnectedSubscribers}
+                        loading={unconnectedSubscribersLoading}
+                        accentColor="blue"
+                      />
+                    )}
+                  </section>
+                ) : [
+                  {
+                    title: 'Répartition Détaillée des Abonnés non branchés par Commune',
+                    label: 'Commune',
+                    rows: stats?.unconnected_communes ?? [],
+                    kind: 'commune' as const,
+                  },
+                  {
+                    title: "Répartition Détaillée des Abonnés non branchés par Type d'Abonné",
+                    label: "Type d'Abonné",
+                    rows: stats?.unconnected_types ?? [],
+                    kind: 'type' as const,
+                  },
+                ].map(({ title, label, rows, kind }) => (
+                  <section key={title} className="overflow-hidden rounded-2xl border border-[#E4E7EC] bg-white">
+                    <h3 className="border-b border-[#F2F4F7] px-5 py-4 text-sm font-black text-[#101828]">
+                      {title}
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-[#F9FAFB] text-[10px] font-bold uppercase tracking-wider text-[#475467]">
+                            <th className="px-5 py-3">{label}</th>
+                            <th className="px-5 py-3 text-right">Abonnés non branchés</th>
+                            <th className="px-5 py-3 text-right">Part des non branchés (%)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F2F4F7]">
+                          {rows.length > 0 ? rows.map((row: any) => (
+                            <tr
+                              key={row.id ?? row.code ?? row.name}
+                              onClick={() => handleUnconnectedRowClick(kind, row)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  handleUnconnectedRowClick(kind, row);
+                                }
+                              }}
+                              role="button"
+                              tabIndex={0}
+                              className="cursor-pointer hover:bg-[#F9FAFB] transition-colors"
+                            >
+                              <td className="px-5 py-3 text-sm font-bold text-[#101828]">{row.name}</td>
+                              <td className="px-5 py-3 text-right text-sm font-bold text-blue-700">
+                                {Number(row.value ?? 0).toLocaleString('fr-FR')}
+                              </td>
+                              <td className="px-5 py-3 text-right text-sm font-medium text-[#475467]">
+                                {Number(row.percentage ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                              </td>
+                            </tr>
+                          )) : (
+                            <tr>
+                              <td colSpan={3} className="px-5 py-6 text-center text-sm font-medium text-[#667085]">
+                                Aucun abonné non branché trouvé.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t border-[#E4E7EC] bg-[#F9FAFB] text-sm font-black text-[#101828]">
+                            <td className="px-5 py-3">Total</td>
+                            <td className="px-5 py-3 text-right">
+                              {Number(stats?.unconnected_subscribers ?? 0).toLocaleString('fr-FR')}
+                            </td>
+                            <td className="px-5 py-3 text-right">
+                              {stats?.unconnected_subscribers ? '100,00%' : '0,00%'}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+            {!(currentView === 'unconnected' && !searchQuery.trim() && searchStarted) && (
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 className="text-[11px] sm:text-xs font-black text-[#101828] uppercase tracking-wider flex items-center gap-2">
+                  {searchStarted
+                    ? `🔍 Résultats de recherche (${searchResults.length})`
+                    : currentView === 'unconnected' && !searchQuery.trim()
+                      ? 'Chargement des abonnés non branchés…'
+                      : searchQuery.trim().length < 2
+                        ? 'Saisissez au moins 2 caractères'
+                        : 'Recherche après une courte pause'}
+                </h3>
+              </div>
+            )}
 
-            {searchStarted ? (
+            {searchStarted && (currentView !== 'unconnected' || searchQuery.trim().length > 0) ? (
               <NominativeTable
                 subscribers={searchResults.map((sub: any) => ({
                   numab: sub.NUMAB || '—',
@@ -287,15 +426,15 @@ export function GestionAbonnesShell({
                 selectedNumabs={selectedSearchNumabs}
                 onSelectedNumabsChange={setSelectedSearchNumabs}
               />
-            ) : (
+            ) : !searchStarted ? (
               <p className="py-8 text-center text-sm font-medium text-[#667085]">
                 {currentView === 'unconnected' && !searchQuery.trim()
-                  ? 'Chargement de la liste ETATCPT = 41.'
+                  ? 'Chargement des répartitions des abonnés non branchés…'
                   : searchQuery.trim().length < 2
                     ? 'Entrez au moins deux caractères pour rechercher.'
                     : 'La recherche démarre après une courte pause de saisie.'}
               </p>
-            )}
+            ) : null}
           </div>
         ) : (
           <>

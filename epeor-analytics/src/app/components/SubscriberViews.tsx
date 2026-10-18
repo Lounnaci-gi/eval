@@ -1365,10 +1365,41 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
 function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
+  const [selectedType, setSelectedType] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
+  const [typeSubscribers, setTypeSubscribers] = useState<any[]>([]);
+  const [typeSubscribersError, setTypeSubscribersError] = useState<string | null>(null);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
   const printedSubscribersRef = useRef<any[]>([]);
+
+  const handleTypeClick = async (type: any) => {
+    setSelectedType(type);
+    setTypeSubscribers([]);
+    setTypeSubscribersError(null);
+    setSelectedNumabs([]);
+    setLoadingSubscribers(true);
+    try {
+      const response = await fetch(buildSubscribersUrl(undefined, {
+        etat: '40',
+        secteur: selectedSecteur,
+        typabon: type.code,
+      }));
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error(data?.error || 'Réponse invalide du serveur');
+      }
+      setTypeSubscribers(data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des abonnés résiliés par type :', error);
+      setTypeSubscribersError('Impossible de charger la liste des abonnés pour ce type. Réessayez.');
+    } finally {
+      setLoadingSubscribers(false);
+    }
+  };
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
@@ -2059,6 +2090,47 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
     printWindow.document.close();
   };
 
+  if (selectedType) {
+    return (
+      <div className="obat-card overflow-hidden">
+        <div className="p-6 sm:p-8 border-b border-[#F2F4F7]">
+          <button
+            type="button"
+            onClick={() => setSelectedType(null)}
+            className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+          >
+            <ChevronRight className="rotate-180" size={16} /> Retour à la répartition par type
+          </button>
+          <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+            Abonnés résiliés — {selectedType.name}
+          </h3>
+          <p className="text-sm text-[#667085] mt-1">
+            Liste nominative des abonnés de ce type résiliés (Code 40)
+            {secteurLabel ? ` · Centre ${secteurLabel}` : ''}
+          </p>
+        </div>
+        {typeSubscribersError ? (
+          <p role="alert" className="p-6 text-sm font-medium text-rose-700">
+            {typeSubscribersError}
+          </p>
+        ) : !loadingSubscribers && typeSubscribers.length === 0 ? (
+          <p className="p-6 text-sm font-medium text-[#667085]">
+            Aucun abonné résilié trouvé pour ce type.
+          </p>
+        ) : (
+          <NominativeTable
+            subscribers={typeSubscribers}
+            loading={loadingSubscribers}
+            accentColor="rose"
+            selectedNumabs={selectedNumabs}
+            onSelectedNumabsChange={setSelectedNumabs}
+            printedSubscribersRef={printedSubscribersRef}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (selectedQuartier) {
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
@@ -2223,7 +2295,19 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
               {types.map((t: any, i: number) => {
                 const taux = t.value > 0 ? ((t.resigned || 0) / t.value) * 100 : 0;
                 return (
-                  <tr key={i} className="hover:bg-[#F9FAFB] transition-colors group">
+                  <tr
+                    key={i}
+                    onClick={() => handleTypeClick(t)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void handleTypeClick(t);
+                      }
+                    }}
+                    tabIndex={0}
+                    className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+                    aria-label={`Afficher les abonnés résiliés de type ${t.name}`}
+                  >
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-rose-600">{t.resigned?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{t.value.toLocaleString()}</td>
@@ -2242,7 +2326,10 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
 function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
+  const [selectedType, setSelectedType] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
+  const [typeSubscribers, setTypeSubscribers] = useState<any[]>([]);
+  const [typeSubscribersError, setTypeSubscribersError] = useState<string | null>(null);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
   // NEW: sorting and filtering state for the table
@@ -2250,6 +2337,34 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const [, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [, setFilterText] = useState<string>('');
   const printedSubscribersRef = useRef<any[]>([]);
+
+  const handleTypeClick = async (type: any) => {
+    setSelectedType(type);
+    setTypeSubscribers([]);
+    setTypeSubscribersError(null);
+    setSelectedNumabs([]);
+    setLoadingSubscribers(true);
+    try {
+      const response = await fetch(buildSubscribersUrl(undefined, {
+        etat: '20',
+        secteur: selectedSecteur,
+        typabon: type.code,
+      }));
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error(data?.error || 'Réponse invalide du serveur');
+      }
+      setTypeSubscribers(data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des abonnés à l’arrêt par type :', error);
+      setTypeSubscribersError('Impossible de charger la liste des abonnés pour ce type. Réessayez.');
+    } finally {
+      setLoadingSubscribers(false);
+    }
+  };
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
@@ -2944,6 +3059,48 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
     printWindow.document.close();
   };
 
+  if (selectedType) {
+    return (
+      <div className="obat-card overflow-hidden">
+        <div className="p-6 sm:p-8 border-b border-[#F2F4F7]">
+          <button
+            type="button"
+            onClick={() => setSelectedType(null)}
+            className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+          >
+            <ChevronRight className="rotate-180" size={16} /> Retour à la répartition par type
+          </button>
+          <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+            Abonnés à l’arrêt — {selectedType.name}
+          </h3>
+          <p className="text-sm text-[#667085] mt-1">
+            Liste nominative des abonnés de ce type dont le compteur est à l’arrêt (Code 20)
+            {secteurLabel ? ` · Centre ${secteurLabel}` : ''}
+          </p>
+        </div>
+        {typeSubscribersError ? (
+          <p role="alert" className="p-6 text-sm font-medium text-rose-700">
+            {typeSubscribersError}
+          </p>
+        ) : !loadingSubscribers && typeSubscribers.length === 0 ? (
+          <p className="p-6 text-sm font-medium text-[#667085]">
+            Aucun abonné à l’arrêt trouvé pour ce type.
+          </p>
+        ) : (
+          <NominativeTable
+            subscribers={typeSubscribers}
+            loading={loadingSubscribers}
+            accentColor="amber"
+            consecutiveEtatColumn={{ field: 'consecutive_etat20', label: "Factures à l'arrêt", activeClass: 'bg-amber-50 text-amber-700 border-amber-100', hoverClass: 'text-amber-700' }}
+            selectedNumabs={selectedNumabs}
+            onSelectedNumabsChange={setSelectedNumabs}
+            printedSubscribersRef={printedSubscribersRef}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (selectedQuartier) {
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
@@ -3117,7 +3274,19 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
               {types.map((t: any, i: number) => {
                 const taux = t.value > 0 ? ((t.stopped || 0) / t.value) * 100 : 0;
                 return (
-                  <tr key={i} className="hover:bg-[#F9FAFB] transition-colors group">
+                  <tr
+                    key={i}
+                    onClick={() => handleTypeClick(t)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void handleTypeClick(t);
+                      }
+                    }}
+                    tabIndex={0}
+                    className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+                    aria-label={`Afficher les abonnés à l'arrêt de type ${t.name}`}
+                  >
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-amber-600">{t.stopped?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{t.value.toLocaleString()}</td>
@@ -3136,10 +3305,41 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
 function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }: any) {
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
   const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
+  const [selectedType, setSelectedType] = useState<any>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
+  const [typeSubscribers, setTypeSubscribers] = useState<any[]>([]);
+  const [typeSubscribersError, setTypeSubscribersError] = useState<string | null>(null);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
   const printedSubscribersRef = useRef<any[]>([]);
+
+  const handleTypeClick = async (type: any) => {
+    setSelectedType(type);
+    setTypeSubscribers([]);
+    setTypeSubscribersError(null);
+    setSelectedNumabs([]);
+    setLoadingSubscribers(true);
+    try {
+      const response = await fetch(buildSubscribersUrl(undefined, {
+        etat: '30',
+        secteur: selectedSecteur,
+        typabon: type.code,
+      }));
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error(data?.error || 'Réponse invalide du serveur');
+      }
+      setTypeSubscribers(data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des abonnés sans compteur par type :', error);
+      setTypeSubscribersError('Impossible de charger la liste des abonnés pour ce type. Réessayez.');
+    } finally {
+      setLoadingSubscribers(false);
+    }
+  };
 
   const handleQuartierClick = async (q: any) => {
     setSelectedQuartier(q);
@@ -3831,6 +4031,48 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   const communes = [...(stats?.subscriber_communes || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
   const types = [...(stats?.subscriber_types || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
 
+  if (selectedType) {
+    return (
+      <div className="obat-card overflow-hidden">
+        <div className="p-6 sm:p-8 border-b border-[#F2F4F7]">
+          <button
+            type="button"
+            onClick={() => setSelectedType(null)}
+            className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
+          >
+            <ChevronRight className="rotate-180" size={16} /> Retour à la répartition par type
+          </button>
+          <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+            Abonnés sans compteur — {selectedType.name}
+          </h3>
+          <p className="text-sm text-[#667085] mt-1">
+            Liste nominative des abonnés de ce type sans compteur (Code 30)
+            {secteurLabel ? ` · Centre ${secteurLabel}` : ''}
+          </p>
+        </div>
+        {typeSubscribersError ? (
+          <p role="alert" className="p-6 text-sm font-medium text-rose-700">
+            {typeSubscribersError}
+          </p>
+        ) : !loadingSubscribers && typeSubscribers.length === 0 ? (
+          <p className="p-6 text-sm font-medium text-[#667085]">
+            Aucun abonné sans compteur trouvé pour ce type.
+          </p>
+        ) : (
+          <NominativeTable
+            subscribers={typeSubscribers}
+            loading={loadingSubscribers}
+            accentColor="cyan"
+            consecutiveEtatColumn={{ field: 'consecutive_etat30', label: 'Factures sans compteur', activeClass: 'bg-cyan-50 text-cyan-700 border-cyan-100', hoverClass: 'text-cyan-700' }}
+            selectedNumabs={selectedNumabs}
+            onSelectedNumabsChange={setSelectedNumabs}
+            printedSubscribersRef={printedSubscribersRef}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (selectedQuartier) {
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
@@ -4004,7 +4246,19 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
               {types.map((t: any, i: number) => {
                 const taux = t.value > 0 ? ((t.no_meter || 0) / t.value) * 100 : 0;
                 return (
-                  <tr key={i} className="hover:bg-[#F9FAFB] transition-colors group">
+                  <tr
+                    key={i}
+                    onClick={() => handleTypeClick(t)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void handleTypeClick(t);
+                      }
+                    }}
+                    tabIndex={0}
+                    className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+                    aria-label={`Afficher les abonnés sans compteur de type ${t.name}`}
+                  >
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-cyan-600">{t.no_meter?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{t.value.toLocaleString()}</td>

@@ -5,7 +5,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import {
   LayoutDashboard, Users, CreditCard, Building2, Calendar,
   Bell, HelpCircle, Settings, LogOut, X, Menu,
-  TrendingUp, User
+  TrendingUp, User, ShieldCheck
 } from 'lucide-react';
 
 interface NavItem {
@@ -170,7 +170,14 @@ export function FloatingExpandableSidebar({
             : 'opacity-0 translate-y-4 pointer-events-none'
         }`}
       >
-        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-4 flex flex-col gap-3 max-h-[calc(100vh-200px)] overflow-hidden">
+        <div
+          className="rounded-[1.25rem] border p-3 shadow-xl flex flex-col gap-3 max-h-[calc(100vh-200px)] overflow-hidden"
+          style={{
+            background: "var(--glass-bg)",
+            borderColor: "var(--glass-border)",
+            boxShadow: "var(--glass-shadow-hover)",
+          }}
+        >
           {/* Header with User Profile */}
           <div className="px-4 py-3 border-b border-[#E4E7EC]">
             <div className="flex items-center gap-3 mb-3">
@@ -190,8 +197,9 @@ export function FloatingExpandableSidebar({
                     return dn;
                   })()}
                 </p>
-                <p className="text-xs text-[#667085]">
-                  {localUser?.is_admin ? '👑 Admin' : '👤 User'}
+                <p className="flex items-center gap-1.5 text-xs text-[#667085]">
+                  {localUser?.is_admin && <ShieldCheck size={13} aria-hidden="true" />}
+                  {localUser?.is_admin ? 'Admin' : 'User'}
                 </p>
               </div>
             </div>

@@ -30,35 +30,28 @@ export function StatsCard({ title, value, icon, trend, color, onClick }: any) {
   return (
     <div
       onClick={onClick}
+      onKeyDown={onClick ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      } : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `${title}: ${value}` : undefined}
       className={`
         stats-card-animate
+        obat-card
         relative overflow-hidden
         bg-white border border-[#E4E7EC]
         p-4 sm:p-6
-        rounded-[1.25rem] sm:rounded-[2rem]
+        rounded-[1.25rem]
         shadow-sm
-        transition-all duration-300 ease-out
+        transition-all duration-200 ease-in-out
         group
         min-w-0
-        ${onClick ? "cursor-pointer" : ""}
+        ${onClick ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]" : ""}
       `}
-      style={{
-        background: "var(--glass-bg, #fff)",
-        borderColor: "var(--glass-border, #E4E7EC)",
-        boxShadow: "var(--glass-shadow)",
-      }}
-      onMouseEnter={e => {
-        const el = e.currentTarget;
-        el.style.boxShadow = `var(--glass-shadow-hover), 0 0 0 1px rgba(13,131,222,0.10)`;
-        el.style.transform = "translateY(-3px)";
-        el.style.borderColor = "rgba(13,131,222,0.20)";
-      }}
-      onMouseLeave={e => {
-        const el = e.currentTarget;
-        el.style.boxShadow = "var(--glass-shadow)";
-        el.style.transform = "translateY(0)";
-        el.style.borderColor = "var(--glass-border, #E4E7EC)";
-      }}
     >
       {/* Subtle top-left gradient blob */}
       <div

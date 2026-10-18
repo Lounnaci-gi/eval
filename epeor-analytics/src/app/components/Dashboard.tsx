@@ -769,7 +769,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen min-h-[100dvh] bg-[#F9FAFB] text-[#101828] relative">
+    <div className="flex min-h-screen min-h-[100dvh] bg-slate-50 text-[#101828] relative">
       {/* Floating Expandable Sidebar */}
       <FloatingExpandableSidebar
         currentView={currentView}
@@ -783,24 +783,24 @@ export default function Dashboard() {
         <MobileTopBar />
 
       {/* Main Content */}
-      <main className="flex-1 app-main overflow-y-auto overflow-x-hidden print:p-0">
-        <header className="flex justify-between items-start mb-6 sm:mb-8 lg:mb-12 no-print no-print-charts-only">
+      <main className="flex-1 app-main mx-auto w-full max-w-[1800px] overflow-y-auto overflow-x-hidden print:p-0">
+        <header className="flex justify-between items-start mb-6 sm:mb-8 lg:mb-10 no-print no-print-charts-only">
           <div className="min-w-0">
             <h1 className="page-title text-[#101828]">{t('dashboard.greeting', { name: user?.username || 'Admin' })}</h1>
-            <p className="text-[#475467] mt-1 text-sm sm:text-base lg:text-lg">{t('dashboard.subtitle')}</p>
+            <p className="text-[#475467] mt-2 text-sm sm:text-base">{t('dashboard.subtitle')}</p>
           </div>
         </header>
 
         {/* Main Content */}
         {currentView === 'dashboard' ? (
-          <div className="space-y-10">
+          <div className="space-y-8">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
               <StatsCard
                 title={t('kpi.totalSubscribers')}
                 value={stats?.total_subscribers?.toLocaleString() || "..."}
                 icon={<Users className="text-[#0D83DE]" size={24} />}
-                trend="+2.5%📈"
+                trend="+2.5%"
                 color="blue"
                 onClick={() => setCurrentView('details')}
               />
@@ -854,8 +854,8 @@ export default function Dashboard() {
 
             {/* Charts & Analytics — rendus seulement quand les stats sont prêtes (évite width/height -1 Recharts) */}
             {stats?.ready && (stats?.total_subscribers ?? 0) > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 sm:gap-8">
-              <div className="lg:col-span-4 bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 min-w-0">
+            <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 sm:gap-5">
+              <div className="obat-card lg:col-span-4 p-4 sm:p-6 lg:p-7 min-w-0">
                 <div className="flex justify-between items-center mb-8">
                   <div
                     className="flex items-center gap-2 cursor-help"
@@ -958,7 +958,16 @@ export default function Dashboard() {
 
               <div
                 onClick={() => setCurrentView('details')}
-                className="lg:col-span-3 bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 text-obat-gray cursor-pointer hover:shadow-md hover:border-[#D0D5DD] transition-all group min-w-0"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setCurrentView('details');
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={t('charts.sectors')}
+                className="obat-card lg:col-span-3 p-4 sm:p-6 lg:p-7 text-obat-gray cursor-pointer hover:-translate-y-0.5 group min-w-0"
               >
                 <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">{t('charts.sectors')}</h3>
                 <ChartContainer className="h-[260px] sm:h-[320px] lg:h-[350px] w-full min-w-0">
@@ -1010,7 +1019,7 @@ export default function Dashboard() {
               </div>
             </div>
             ) : (
-            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-8 page-card flex flex-col items-center justify-center gap-3 min-h-[200px]">
+            <div className="obat-card p-8 page-card flex flex-col items-center justify-center gap-3 min-h-[200px]">
                 <div className="spinner-premium" style={{ width: 40, height: 40 }} />
                 <p className="text-sm font-bold text-[#667085]">{t('dashboard.loadingCharts')}</p>
               </div>
@@ -1066,7 +1075,7 @@ export default function Dashboard() {
         ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
-            <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] page-card no-print no-print-charts-only">
+            <div className="obat-card page-card no-print no-print-charts-only">
               <button
                 onClick={() => setCurrentView('dashboard')}
                 className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors animate-in fade-in duration-200"
@@ -1189,5 +1198,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-

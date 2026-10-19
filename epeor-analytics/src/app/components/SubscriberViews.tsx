@@ -5,6 +5,9 @@ import dynamic from "next/dynamic";
 import {
   ChevronRight, MapPin, Printer, Search,
 } from "lucide-react";
+import {
+  Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
 import { apiUrl, apiUrlObject } from "../lib/api";
 import { buildSubscribersUrl, appendSecteurParam } from "./utils";
 import { SecteurDropdown } from "./ui";
@@ -54,6 +57,7 @@ export function GestionAbonnesShell({
   const [selectedSearchNumabs, setSelectedSearchNumabs] = useState<string[]>([]);
   const [selectedUnconnectedRow, setSelectedUnconnectedRow] = useState<{ kind: 'commune' | 'type'; row: any } | null>(null);
   const [unconnectedSubscribers, setUnconnectedSubscribers] = useState<any[]>([]);
+  const [selectedUnconnectedNumabs, setSelectedUnconnectedNumabs] = useState<string[]>([]);
   const [unconnectedSubscribersLoading, setUnconnectedSubscribersLoading] = useState(false);
   const [unconnectedSubscribersError, setUnconnectedSubscribersError] = useState<string | null>(null);
 
@@ -123,6 +127,7 @@ export function GestionAbonnesShell({
   const handleUnconnectedRowClick = async (kind: 'commune' | 'type', row: any) => {
     setSelectedUnconnectedRow({ kind, row });
     setUnconnectedSubscribers([]);
+    setSelectedUnconnectedNumabs([]);
     setUnconnectedSubscribersError(null);
     setUnconnectedSubscribersLoading(true);
     try {
@@ -291,7 +296,10 @@ export function GestionAbonnesShell({
                     <div className="border-b border-[#F2F4F7] px-5 py-4">
                       <button
                         type="button"
-                        onClick={() => setSelectedUnconnectedRow(null)}
+                        onClick={() => {
+                          setSelectedUnconnectedRow(null);
+                          setSelectedUnconnectedNumabs([]);
+                        }}
                         className="mb-3 flex items-center gap-2 text-sm font-bold text-[#667085] transition-colors hover:text-[#101828]"
                       >
                         <ChevronRight className="rotate-180" size={16} /> Retour aux répartitions
@@ -313,6 +321,8 @@ export function GestionAbonnesShell({
                         subscribers={unconnectedSubscribers}
                         loading={unconnectedSubscribersLoading}
                         accentColor="blue"
+                        selectedNumabs={selectedUnconnectedNumabs}
+                        onSelectedNumabsChange={setSelectedUnconnectedNumabs}
                       />
                     )}
                   </section>
@@ -723,6 +733,40 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
 
   const communes = stats?.subscriber_communes || [];
   const types = stats?.subscriber_types || [];
+  const communeChartData = communes.map((commune: any) => ({
+    name: commune.name,
+    total: Number(commune.value) || 0,
+    active: (Number(commune.value) || 0) - (Number(commune.resigned) || 0),
+    forfait: Number(commune.forfait_count) || 0,
+    resigned: Number(commune.resigned) || 0,
+  }));
+  const categoryLabels = [
+    { key: "menages", name: "Ménages" },
+    { key: "administrations", name: "Administrations" },
+    { key: "commerce", name: "Commerce" },
+    { key: "industriel", name: "Industrie & tourisme" },
+    { key: "vente_en_gros", name: "Vente en gros" },
+  ];
+  const categoryChartData = categoryLabels.map(({ key, name }) => ({
+    name,
+    total: communes.reduce(
+      (sum: number, commune: any) => sum + (Number(commune.categories?.[key]) || 0),
+      0,
+    ),
+  }));
+  const categoryColors = ["#0D83DE", "#10B981", "#F97316", "#F43F5E", "#8B5CF6", "#94A3B8"];
+  const categorizedSubscribers = categoryChartData.reduce((sum, category) => sum + category.total, 0);
+  const totalCommuneSubscribers = communes.reduce(
+    (sum: number, commune: any) => sum + (Number(commune.value) || 0),
+    0,
+  );
+  if (totalCommuneSubscribers > categorizedSubscribers) {
+    categoryChartData.push({
+      name: "Autres / non classés",
+      total: totalCommuneSubscribers - categorizedSubscribers,
+    });
+  }
+  categoryChartData.sort((a, b) => b.total - a.total);
 
   const handlePrintCommunes = () => {
     const printWindow = window.open("", "_blank");
@@ -1499,6 +1543,82 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
           </table>
         </div>
       </div>
+
+      <section className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="p-8 border-b border-[#F2F4F7]">
+          <h3 className="text-xl font-black tracking-tight text-[#101828]">
+            Abonnés par commune
+          </h3>
+          <p className="text-sm text-[#667085] mt-1 font-medium">
+            Comparaison du total, des abonnés actifs, des forfaits et des résiliés
+          </p>
+        </div>
+        {communeChartData.length > 0 ? (
+          <div className="p-6 overflow-x-auto">
+            <div style={{ minWidth: Math.max(700, communeChartData.length * 80) }}>
+              <ResponsiveContainer width="100%" height={380} minWidth={0}>
+                <BarChart data={communeChartData} margin={{ top: 8, right: 24, left: 8, bottom: 48 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" />
+                  <XAxis
+                    dataKey="name"
+                    interval={0}
+                    angle={-35}
+                    textAnchor="end"
+                    height={72}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <YAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value) => Number(value ?? 0).toLocaleString("fr-FR")} />
+                  <Legend />
+                  <Bar dataKey="total" name="Total Abonnés" fill="#0D83DE" />
+                  <Bar dataKey="active" name="Abonnés Actifs" fill="#10B981" />
+                  <Bar dataKey="forfait" name="Forfait" fill="#F97316" />
+                  <Bar dataKey="resigned" name="Abonnés Résiliés" fill="#F43F5E" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        ) : (
+          <p className="p-8 text-center text-sm font-medium text-[#667085]">Aucune donnée disponible par commune.</p>
+        )}
+      </section>
+
+      <section className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="p-8 border-b border-[#F2F4F7]">
+          <h3 className="text-xl font-black tracking-tight text-[#101828]">
+            Abonnés par catégorie
+          </h3>
+          <p className="text-sm text-[#667085] mt-1 font-medium">
+            Répartition selon la catégorie des abonnés
+          </p>
+        </div>
+        {categoryChartData.some((category) => category.total > 0) ? (
+          <div className="p-6">
+            <ResponsiveContainer width="100%" height={320} minWidth={0}>
+              <BarChart data={categoryChartData} margin={{ top: 8, right: 24, left: 8, bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" />
+                <XAxis
+                  dataKey="name"
+                  interval={0}
+                  angle={-25}
+                  textAnchor="end"
+                  height={64}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value) => Number(value ?? 0).toLocaleString("fr-FR")} />
+                <Bar dataKey="total" name="Abonnés" radius={[4, 4, 0, 0]}>
+                  {categoryChartData.map((category, index) => (
+                    <Cell key={category.name} fill={categoryColors[index % categoryColors.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="p-8 text-center text-sm font-medium text-[#667085]">Aucune donnée disponible par catégorie.</p>
+        )}
+      </section>
     </div>
   );
 }
@@ -2351,6 +2471,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             </tbody>
           </table>
         </div>
+
       </div>
     );
   }

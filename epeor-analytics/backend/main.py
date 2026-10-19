@@ -3146,6 +3146,7 @@ def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = Non
                 "numab":      numab,
                 "name":       display_name,
                 "type":       type_label,
+                "typabon":    t_code,
                 "numser":     numser,
                 "etatcpt":    etatcpt,
                 "etat_label": etat_label,
@@ -3160,6 +3161,78 @@ def get_subscribers(_user: dict = Depends(get_current_user), quartier: str = Non
             })
             
         return results
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/institution_subscribers")
+def get_institution_subscribers(_user: dict = Depends(get_current_user), secteur: str = None):
+    secteur = _enforce_sector(_user, secteur)
+    if not is_db_ready:
+        return {"status": "loading", "message": db_loading_status, "ready": False}
+
+    try:
+        allowed_communes = (
+            _commune_codcoms_for_centre(secteur)
+            if secteur
+            else _commune_codcoms_for_user_sectors(_user)
+        )
+        commune_map = _commune_map_for_user_sectors(_user)
+        if secteur:
+            commune_map = _commune_map_for_centre(secteur)
+
+        rows = []
+        for link in MEM_ABINSTIT:
+            numab = str(link.get('NUMAB', '') or '').strip()
+            numab_key = numab.upper()
+            if not numab_key:
+                continue
+
+            codcom = _abonne_codcom(numab)
+            if allowed_communes is not None and codcom not in allowed_communes:
+                continue
+
+            abonne = abonnes_by_numab.get(numab_key)
+            if not abonne:
+                continue
+
+            codinstit = str(link.get('CODINSTIT', '') or '').strip()
+            inst_rec = resolve_instit_record(codinstit, str(link.get('UNITE', '') or '').strip())
+            if not inst_rec:
+                continue
+
+            abonment = abonments_by_numab.get(numab_key, {})
+            typabon = str(abonne.get('TYPABON', '') or '').strip()
+            etatcpt = str(abonment.get('ETATCPT', '') or '').strip()
+            name = str(link.get('RAISOC', '') or abonne.get('RAISOC', '') or abonne.get('NOM', '') or '').strip()
+            if not name:
+                name = 'Nom inconnu'
+            raw_nouvelx = (factures_by_numab.get(numab_key) or [{}])[0].get('NOUVELX')
+            try:
+                nouvelx = float(raw_nouvelx) if raw_nouvelx is not None else 0
+            except (TypeError, ValueError):
+                nouvelx = 0
+
+            rows.append({
+                "numab": numab,
+                "name": name,
+                "type": resolve_typabon_label(typabon),
+                "typabon": typabon,
+                "numser": str(abonment.get('NUMSER', '') or '').strip() or '—',
+                "etatcpt": etatcpt,
+                "etat_label": resolve_etatcpt_label(etatcpt),
+                "adresse": resolve_rue_adresse(abonne),
+                "bloc": str(abonne.get('BLOC', '') or '').strip() or '—',
+                "ndom": str(abonne.get('NDOM', '') or '').strip() or '—',
+                "tournee": str(abonne.get('TOURNEE', '') or '').strip() or '—',
+                "numordre": str(abonne.get('NUMORDRE', '') or '').strip() or '—',
+                "nouvelx": nouvelx,
+                "codcom": codcom,
+                "commune_name": commune_map.get(codcom) or str(communes_by_code.get(codcom, {}).get('LIBCOM', '')).strip() or f"Commune {codcom}",
+                "codinstit": codinstit,
+                "lib_instit": str(inst_rec.get('LIBINSTIT', '') or '').strip() or '—',
+            })
+
+        return rows
     except Exception as e:
         return {"error": str(e)}
 

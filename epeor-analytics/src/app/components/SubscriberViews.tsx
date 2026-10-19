@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
   ChevronRight, MapPin, Printer, Search,
@@ -37,7 +37,7 @@ export function GestionAbonnesShell({
   onBack,
   allowAll = true,
 }: {
-  currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'unconnected';
+  currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'institutions' | 'unconnected';
   setCurrentView: (v: any) => void;
   baseStats: any;
   selectedSecteur: string;
@@ -60,6 +60,11 @@ export function GestionAbonnesShell({
   const [selectedUnconnectedNumabs, setSelectedUnconnectedNumabs] = useState<string[]>([]);
   const [unconnectedSubscribersLoading, setUnconnectedSubscribersLoading] = useState(false);
   const [unconnectedSubscribersError, setUnconnectedSubscribersError] = useState<string | null>(null);
+  const [selectedInstitutionRow, setSelectedInstitutionRow] = useState<{ kind: 'commune' | 'type' | 'institution'; row: any } | null>(null);
+  const [institutionRecords, setInstitutionRecords] = useState<any[]>([]);
+  const [institutionRecordsLoading, setInstitutionRecordsLoading] = useState(false);
+  const [institutionRecordsError, setInstitutionRecordsError] = useState<string | null>(null);
+  const [selectedInstitutionNumabs, setSelectedInstitutionNumabs] = useState<string[]>([]);
 
   useEffect(() => {
     const searchTerm = searchQuery.trim().length > 0
@@ -154,6 +159,39 @@ export function GestionAbonnesShell({
     }
   };
 
+  const handleInstitutionRowClick = (kind: 'commune' | 'type' | 'institution', row: any) => {
+    setSelectedInstitutionRow({ kind, row });
+    setSelectedInstitutionNumabs([]);
+  };
+
+  useEffect(() => {
+    if (currentView !== 'institutions') return;
+    const controller = new AbortController();
+    setInstitutionRecordsLoading(true);
+    setInstitutionRecordsError(null);
+    const url = apiUrlObject('/institution_subscribers');
+    appendSecteurParam(url, selectedSecteur);
+    fetch(url.toString(), { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((data) => {
+        if (!Array.isArray(data)) throw new Error(data?.error || 'Réponse invalide du serveur');
+        setInstitutionRecords(data);
+      })
+      .catch((error) => {
+        if (error.name !== 'AbortError') {
+          console.error('Erreur lors du chargement des abonnés institutionnels :', error);
+          setInstitutionRecordsError('Impossible de charger les abonnés liés aux institutions. Réessayez.');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setInstitutionRecordsLoading(false);
+      });
+    return () => controller.abort();
+  }, [currentView, selectedSecteur]);
+
   const secteurLabel = selectedSecteur
     ? (sectors.find(s => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
     : null;
@@ -185,8 +223,151 @@ export function GestionAbonnesShell({
     { id: 'resigned' as const, label: 'Résiliés' },
     { id: 'stopped' as const, label: "À l'arrêt" },
     { id: 'no_meter' as const, label: 'Sans compteur' },
+    { id: 'institutions' as const, label: 'Institutions' },
     { id: 'unconnected' as const, label: 'Non branchés' },
   ];
+  const institutionSubscribers = useMemo(() => {
+    const byNumab = new Map<string, any>();
+    for (const record of institutionRecords) {
+      const key = String(record.numab ?? '').trim();
+      if (!key) continue;
+      let subscriber = byNumab.get(key);
+      if (!subscriber) {
+        subscriber = { ...record, institutions: new Set<string>(), institutionCodes: new Set<string>() };
+        byNumab.set(key, subscriber);
+      }
+      subscriber.institutions.add(`${record.codinstit || ''} ${record.lib_instit || ''}`.trim());
+      subscriber.institutionCodes.add(String(record.codinstit ?? ''));
+    }
+    return [...byNumab.values()].map((subscriber: any) => ({
+      ...subscriber,
+      institution: [...subscriber.institutions].filter(Boolean).join(' · '),
+      institutionCodes: [...subscriber.institutionCodes].filter(Boolean),
+    }));
+  }, [institutionRecords]);
+  const institutionCommunes = useMemo(() => {
+    const groups = new Map<string, any>();
+    for (const subscriber of institutionSubscribers) {
+      const key = String(subscriber.codcom ?? '');
+      const row = groups.get(key) ?? { id: key, name: subscriber.commune_name, value: 0 };
+      row.value += 1;
+      groups.set(key, row);
+    }
+    return [...groups.values()].sort((a, b) => b.value - a.value);
+  }, [institutionSubscribers]);
+  const institutionTypes = useMemo(() => {
+    const groups = new Map<string, any>();
+    for (const subscriber of institutionSubscribers) {
+      const key = String(subscriber.typabon ?? '');
+      const row = groups.get(key) ?? { code: key, name: subscriber.type || 'Inconnu', value: 0 };
+      row.value += 1;
+      groups.set(key, row);
+    }
+    return [...groups.values()].sort((a, b) => b.value - a.value);
+  }, [institutionSubscribers]);
+  const institutionGroups = useMemo(() => {
+    const groups = new Map<string, any>();
+    for (const record of institutionRecords) {
+      const code = String(record.codinstit ?? '').trim();
+      if (!code) continue;
+      const row = groups.get(code) ?? { code, name: record.lib_instit || code, numabs: new Set<string>() };
+      row.numabs.add(String(record.numab ?? '').trim());
+      groups.set(code, row);
+    }
+    return [...groups.values()]
+      .map(({ numabs, ...row }) => ({ ...row, value: numabs.size }))
+      .sort((a, b) => b.value - a.value);
+  }, [institutionRecords]);
+  const selectedInstitutionSubscribers = useMemo(() => {
+    if (!selectedInstitutionRow) return [];
+    return institutionSubscribers.filter((subscriber: any) => (
+      selectedInstitutionRow.kind === 'commune'
+        ? String(subscriber.codcom) === String(selectedInstitutionRow.row.id)
+        : selectedInstitutionRow.kind === 'type'
+          ? String(subscriber.typabon) === String(selectedInstitutionRow.row.code)
+          : subscriber.institutionCodes.includes(String(selectedInstitutionRow.row.code))
+    ));
+  }, [institutionSubscribers, selectedInstitutionRow]);
+  const institutionTables = [
+    { title: 'Répartition des institutions par commune', label: 'Commune', rows: institutionCommunes, kind: 'commune' as const },
+    { title: "Répartition des institutions par type d'abonné", label: "Type d'abonné", rows: institutionTypes, kind: 'type' as const },
+    { title: 'Répartition des abonnés par institutions', label: 'Institution', rows: institutionGroups, kind: 'institution' as const },
+  ];
+  const handlePrintInstitutionTable = (title: string, label: string, rows: any[]) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.');
+      return;
+    }
+
+    const total = rows.reduce((sum: number, row: any) => sum + Number(row.value || 0), 0);
+    const printDate = new Date().toLocaleDateString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const perimeter = secteurLabel ? `Centre : ${secteurLabel}` : uniteLabel || "Toute l'unité";
+    const tableRows = rows.map((row: any) => {
+      const value = Number(row.value) || 0;
+      const percentage = total ? ((value / total) * 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00';
+      return `<tr><td>${escapeHtml(row.name)}</td><td class="number">${value.toLocaleString('fr-FR')}</td><td class="number">${percentage}%</td></tr>`;
+    }).join('');
+
+    printWindow.document.write(`<!doctype html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8">
+          <title>${escapeHtml(title)}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @page { size: landscape; margin: 10mm 12mm; }
+            body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #101828; margin: 0; font-size: 9px; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #F2F4F7; padding-bottom: 10px; margin-bottom: 12px; }
+            .logo-section { display: flex; align-items: center; gap: 12px; }
+            .logo-text { font-size: 14px; font-weight: 900; color: #0D83DE; margin: 0; }
+            .company-name { font-size: 8.5px; font-weight: 700; color: #667085; text-transform: uppercase; margin-top: 1px; }
+            .title-section { text-align: right; }
+            .title { font-size: 16px; font-weight: 900; color: #101828; margin: 0; }
+            .subtitle { font-size: 9.5px; color: #667085; margin: 3px 0 0; font-weight: 500; }
+            .meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; background: #F9FAFB; border: 1px solid #E4E7EC; border-radius: 8px; padding: 8px 12px; }
+            .meta-item { display: flex; flex-direction: column; }
+            .meta-label { font-size: 8px; text-transform: uppercase; color: #667085; font-weight: 700; margin-bottom: 2px; }
+            .meta-value { font-size: 10px; font-weight: 700; color: #101828; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; text-align: left; }
+            th { background: #F9FAFB; color: #475467; font-size: 8px; font-weight: 700; text-transform: uppercase; padding: 7px 12px; border-bottom: 1px solid #F2F4F7; }
+            td { border-bottom: 1px solid #F2F4F7; padding: 5px 12px; font-size: 9px; }
+            .number { text-align: right; }
+            .footer-info { display: flex; justify-content: space-between; align-items: center; color: #667085; font-size: 8px; border-top: 1px solid #F2F4F7; padding-top: 10px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
+              <div>
+                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <div class="company-name">Algérienne des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <h2 class="title">${escapeHtml(title)}</h2>
+              <p class="subtitle">Gestion Abonnés</p>
+            </div>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-item"><span class="meta-label">Périmètre</span><span class="meta-value">${escapeHtml(perimeter)}</span></div>
+            <div class="meta-item"><span class="meta-label">Date d'édition</span><span class="meta-value">${printDate}</span></div>
+          </div>
+          <table>
+            <thead><tr><th>${escapeHtml(label)}</th><th class="number">Abonnés institutionnels</th><th class="number">Part (%)</th></tr></thead>
+            <tbody>${tableRows || `<tr><td colspan="3">Aucune donnée disponible.</td></tr>`}</tbody>
+            <tfoot><tr><td>Total</td><td class="number">${total.toLocaleString('fr-FR')}</td><td class="number">${total ? '100,00%' : '0,00%'}</td></tr></tfoot>
+          </table>
+          <div class="footer-info"><span>EPEOR Analytics - Gestion Abonnés</span><span>Page 1 sur 1</span></div>
+          <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
+        </body>
+      </html>`);
+    printWindow.document.close();
+  };
 
   const viewProps = { stats, onBack, selectedSecteur, secteurLabel };
 
@@ -287,8 +468,126 @@ export function GestionAbonnesShell({
             </div>
           </div>
         )}
-        {searchQuery.trim().length > 0 || currentView === 'unconnected' ? (
+        {searchQuery.trim().length > 0 || currentView === 'unconnected' || currentView === 'institutions' ? (
           <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 space-y-4 animate-in fade-in duration-200">
+            {currentView === 'institutions' && !searchQuery.trim() && (
+              institutionRecordsError ? (
+                <p role="alert" className="p-6 text-sm font-medium text-rose-700">{institutionRecordsError}</p>
+              ) : institutionRecordsLoading ? (
+                <div className="flex justify-center p-12"><div className="spinner-premium" style={{ width: 32, height: 32 }} /></div>
+              ) : selectedInstitutionRow ? (
+                <section className="overflow-hidden rounded-2xl border border-[#E4E7EC] bg-white">
+                  <div className="border-b border-[#F2F4F7] px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedInstitutionRow(null);
+                        setSelectedInstitutionNumabs([]);
+                      }}
+                      className="mb-3 flex items-center gap-2 text-sm font-bold text-[#667085] transition-colors hover:text-[#101828]"
+                    >
+                      <ChevronRight className="rotate-180" size={16} /> Retour aux répartitions
+                    </button>
+                    <h3 className="text-sm font-black text-[#101828]">
+                      Abonnés institutionnels — {selectedInstitutionRow.row.name}
+                    </h3>
+                    <p className="mt-1 text-xs font-medium text-[#667085]">
+                      {selectedInstitutionRow.kind === 'commune'
+                        ? 'Commune'
+                        : selectedInstitutionRow.kind === 'type'
+                          ? "Type d'abonné"
+                          : 'Institution'}
+                      {secteurLabel ? ` · Centre ${secteurLabel}` : ''}
+                    </p>
+                  </div>
+                  {selectedInstitutionSubscribers.length === 0 ? (
+                    <p className="p-6 text-sm font-medium text-[#667085]">Aucun abonné institutionnel trouvé pour cette ligne.</p>
+                  ) : (
+                    <NominativeTable
+                      subscribers={selectedInstitutionSubscribers}
+                      loading={false}
+                      accentColor="blue"
+                      showInstitution
+                      selectedNumabs={selectedInstitutionNumabs}
+                      onSelectedNumabsChange={setSelectedInstitutionNumabs}
+                    />
+                  )}
+                </section>
+              ) : (
+              <div className="space-y-5">
+                {institutionTables.map(({ title, label, rows, kind }) => {
+                  const total = rows.reduce((sum: number, row: any) => sum + row.value, 0);
+                  return (
+                    <section key={title} className="overflow-hidden rounded-2xl border border-[#E4E7EC] bg-white">
+                      <div className="flex items-center justify-between gap-3 border-b border-[#F2F4F7] px-5 py-4">
+                        <h3 className="text-sm font-black text-[#101828]">{title}</h3>
+                        <button
+                          type="button"
+                          onClick={() => handlePrintInstitutionTable(title, label, rows)}
+                          aria-label={`Imprimer ${title}`}
+                          title={`Imprimer ${title}`}
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#E4E7EC] text-[#475467] transition-colors hover:bg-[#F9FAFB] hover:text-[#101828]"
+                        >
+                          <Printer size={16} />
+                        </button>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="bg-[#F9FAFB] text-[10px] font-bold uppercase tracking-wider text-[#475467]">
+                              <th className="px-5 py-3">{label}</th>
+                              <th className="px-5 py-3 text-right">Abonnés institutionnels</th>
+                              <th className="px-5 py-3 text-right">Part des institutions (%)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#F2F4F7]">
+                            {rows.length > 0 ? rows.map((row: any) => (
+                              <tr
+                                key={row.id ?? row.code ?? row.name}
+                                onClick={() => handleInstitutionRowClick(kind, row)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    handleInstitutionRowClick(kind, row);
+                                  }
+                                }}
+                                role="button"
+                                tabIndex={0}
+                                className="cursor-pointer transition-colors hover:bg-[#F9FAFB]"
+                              >
+                                <td className="px-5 py-3 text-sm font-bold text-[#101828]">{row.name}</td>
+                                <td className="px-5 py-3 text-right text-sm font-bold text-blue-700">
+                                  {row.value.toLocaleString('fr-FR')}
+                                </td>
+                                <td className="px-5 py-3 text-right text-sm font-medium text-[#475467]">
+                                  {total
+                                    ? ((row.value / total) * 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                    : '0,00'}%
+                                </td>
+                              </tr>
+                            )) : (
+                              <tr>
+                                <td colSpan={3} className="px-5 py-6 text-center text-sm font-medium text-[#667085]">
+                                  Aucun abonné institutionnel trouvé.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t border-[#E4E7EC] bg-[#F9FAFB] text-sm font-black text-[#101828]">
+                              <td className="px-5 py-3">Total</td>
+                              <td className="px-5 py-3 text-right">{total.toLocaleString('fr-FR')}</td>
+                              <td className="px-5 py-3 text-right">{total ? '100,00%' : '0,00%'}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+              )
+            )}
             {currentView === 'unconnected' && !searchQuery.trim() && (
               <div className="space-y-5">
                 {selectedUnconnectedRow ? (
@@ -401,7 +700,8 @@ export function GestionAbonnesShell({
                 ))}
               </div>
             )}
-            {!(currentView === 'unconnected' && !searchQuery.trim() && searchStarted) && (
+            {!(currentView === 'unconnected' && !searchQuery.trim() && searchStarted)
+              && !(currentView === 'institutions' && !searchQuery.trim()) && (
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="text-[11px] sm:text-xs font-black text-[#101828] uppercase tracking-wider flex items-center gap-2">
                   {searchStarted
@@ -436,7 +736,7 @@ export function GestionAbonnesShell({
                 selectedNumabs={selectedSearchNumabs}
                 onSelectedNumabsChange={setSelectedSearchNumabs}
               />
-            ) : !searchStarted ? (
+            ) : !searchStarted && (currentView !== 'institutions' || searchQuery.trim().length > 0) ? (
               <p className="py-8 text-center text-sm font-medium text-[#667085]">
                 {currentView === 'unconnected' && !searchQuery.trim()
                   ? 'Chargement des répartitions des abonnés non branchés…'
@@ -4576,7 +4876,7 @@ function etatBadge(etatcpt: string, etatLabel?: string) {
   }
 }
 
-function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef, onInvoiceViewChange }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string }; selectedNumabs?: string[]; onSelectedNumabsChange?: (numabs: string[]) => void; printedSubscribersRef?: any; onInvoiceViewChange?: (viewing: boolean) => void }) {
+function NominativeTable({ subscribers, loading, accentColor = "blue", consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef, onInvoiceViewChange, showInstitution = false }: { subscribers: any[]; loading: boolean; accentColor?: string; consecutiveEtatColumn?: { field: string; label: string; activeClass: string; hoverClass: string }; selectedNumabs?: string[]; onSelectedNumabsChange?: (numabs: string[]) => void; printedSubscribersRef?: any; onInvoiceViewChange?: (viewing: boolean) => void; showInstitution?: boolean }) {
   const [hoveredSub, setHoveredSub] = useState<any>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isViewingInvoices, setIsViewingInvoices] = useState(false);
@@ -4632,7 +4932,7 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">N° Série</span>
                 <span className="text-[12px] font-medium text-[#475467]">{hoveredSub.numser || '—'}</span>
               </div>
-              {hoveredSub.nouvelx !== undefined && (
+              {hoveredSub.nouvelx != null && (
                 <div className="flex justify-between items-center gap-3">
                   <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Nouvel Index</span>
                   <span className="text-[12px] font-bold text-[#101828]">{hoveredSub.nouvelx.toLocaleString()}</span>
@@ -4666,14 +4966,14 @@ function NominativeTable({ subscribers, loading, accentColor = "blue", consecuti
           <div className="spinner-premium" style={{ width: 32, height: 32 }}></div>
         </div>
       ) : (
-        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} printedSubscribersRef={printedSubscribersRef} onInvoiceViewChange={handleInvoiceViewChange} />
+        <PaginatedNominativeTable subscribers={subscribers} style={style} setHoveredSub={setHoveredSub} setMousePos={setMousePos} consecutiveEtatColumn={consecutiveEtatColumn} selectedNumabs={selectedNumabs} onSelectedNumabsChange={onSelectedNumabsChange} printedSubscribersRef={printedSubscribersRef} onInvoiceViewChange={handleInvoiceViewChange} showInstitution={showInstitution} />
       )}
     </div>
   );
 }
 
 
-function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef, onInvoiceViewChange }: any) {
+function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMousePos, consecutiveEtatColumn, selectedNumabs = [], onSelectedNumabsChange, printedSubscribersRef, onInvoiceViewChange, showInstitution = false }: any) {
   void style;
   const ITEMS_PER_PAGE = 20;
   const [page, setPage] = useState(1);
@@ -4722,6 +5022,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       (sub.adresse || '').toLowerCase().includes(q) ||
       (sub.numser || '').toLowerCase().includes(q) ||
       (sub.type || '').toLowerCase().includes(q) ||
+      (sub.institution || '').toLowerCase().includes(q) ||
       (sub.etat_label || '').toLowerCase().includes(q) ||
       (sub.tournee || '').toLowerCase().includes(q)
     );
@@ -5258,6 +5559,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             <Th label="N° Série" field="numser" />
             <Th label="Nouvel Index" field="nouvelx" align="right" />
             <Th label="Type d'Abonnement" field="type" />
+            {showInstitution && <Th label="Institution" field="institution" />}
             <Th label="État" field="etat_label" />
             {consecutiveEtatColumn && (
               <Th label={consecutiveEtatColumn.label} field={consecutiveEtatColumn.field} align="right" />
@@ -5298,8 +5600,9 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
               <td className="px-4 py-4 font-medium text-[13px] text-[#667085] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.bloc}</td>
               <td className="px-4 py-4 font-medium text-[13px] text-[#667085] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.ndom}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.numser}</td>
-              <td className="px-6 py-4 font-bold text-[13px] text-[#101828] text-right cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.nouvelx !== undefined ? sub.nouvelx.toLocaleString() : '—'}</td>
+              <td className="px-6 py-4 font-bold text-[13px] text-[#101828] text-right cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.nouvelx != null ? Number(sub.nouvelx).toLocaleString('fr-FR') : '—'}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#667085] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.type}</td>
+              {showInstitution && <td className="px-6 py-4 font-medium text-[13px] text-[#475467] min-w-[200px] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.institution || '—'}</td>}
               <td className="px-6 py-4 cursor-pointer" onClick={() => handleRowClick(sub)}>{etatBadge(sub.etatcpt, sub.etat_label)}</td>
               {consecutiveEtatColumn && (
                 <td className="px-6 py-4 text-right cursor-pointer" onClick={() => handleRowClick(sub)}>

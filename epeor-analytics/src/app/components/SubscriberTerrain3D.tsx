@@ -1,29 +1,98 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { Crosshair, Pause, Play, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, Crosshair, Pause, Play, ZoomIn, ZoomOut } from "lucide-react";
+import { apiUrlObject } from "../lib/api";
 
 type SubscriberTerrainPoint = {
+  id?: string;
   name: string;
   total: number;
   active: number;
-  forfait: number;
+  forfait?: number | null;
   resigned: number;
 };
 
-export function SubscriberTerrain3D({ data }: { data: SubscriberTerrainPoint[] }) {
+export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTerrainPoint[]; secteur?: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hoveredPoint, setHoveredPoint] = useState<SubscriberTerrainPoint | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
   const [webglUnavailable, setWebglUnavailable] = useState(false);
-  const points = useMemo(() => data.filter((point) => point.total > 0), [data]);
+  const [drilldown, setDrilldown] = useState<{ commune: SubscriberTerrainPoint; points: SubscriberTerrainPoint[] } | null>(null);
+  const [selectedCommune, setSelectedCommune] = useState<SubscriberTerrainPoint | null>(null);
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
+  const [drilldownError, setDrilldownError] = useState<string | null>(null);
+  const sourcePoints = drilldown?.points ?? data;
+  const points = useMemo(() => sourcePoints.filter((point) => point.total > 0), [sourcePoints]);
   const pointsKey = points.map((point) => `${point.name}:${point.total}`).join("|");
   const isPlayingRef = useRef(isPlaying);
   const resetViewRef = useRef<() => void>(() => {});
   const adjustZoomRef = useRef<(zoomIn: boolean) => void>(() => {});
+  const selectedCommuneRef = useRef<SubscriberTerrainPoint | null>(null);
+  const drillTriggeredRef = useRef(false);
+  const loadTourneesRef = useRef<(commune: SubscriberTerrainPoint) => void>(() => {});
+
+  const loadTournees = useCallback(async (commune: SubscriberTerrainPoint) => {
+    if (!commune.id) {
+      setDrilldownError("Le code de cette commune est indisponible.");
+      drillTriggeredRef.current = false;
+      return;
+    }
+
+    setDrilldownLoading(true);
+    setDrilldownError(null);
+    try {
+      const url = apiUrlObject("/subscribers");
+      url.searchParams.set("commune", commune.id);
+      if (secteur) url.searchParams.set("secteur", secteur);
+      const response = await fetch(url.toString(), { credentials: "include" });
+      if (!response.ok) throw new Error("Impossible de charger les abonnés de cette commune.");
+      const subscribers = await response.json();
+      if (!Array.isArray(subscribers)) throw new Error("La réponse des abonnés est invalide.");
+
+      const counts = new Map<string, SubscriberTerrainPoint>();
+      for (const subscriber of subscribers) {
+        const tournee = String(subscriber.tournee ?? "").trim() || "Sans tournée";
+        const point = counts.get(tournee) ?? {
+          id: tournee,
+          name: tournee,
+          total: 0,
+          active: 0,
+          forfait: null,
+          resigned: 0,
+        };
+        point.total += 1;
+        if (String(subscriber.etatcpt ?? "") === "40") point.resigned += 1;
+        counts.set(tournee, point);
+      }
+      const tourneePoints = Array.from(counts.values())
+        .map((point) => ({ ...point, active: point.total - point.resigned }))
+        .sort((left, right) => right.total - left.total);
+      setDrilldown({ commune, points: tourneePoints });
+      selectedCommuneRef.current = null;
+      setSelectedCommune(null);
+    } catch (error) {
+      setDrilldownError(error instanceof Error ? error.message : "Erreur lors du chargement des tournées.");
+      drillTriggeredRef.current = false;
+    } finally {
+      setDrilldownLoading(false);
+    }
+  }, [secteur]);
+
+  useEffect(() => {
+    loadTourneesRef.current = (commune) => { void loadTournees(commune); };
+  }, [loadTournees]);
+
+  const returnToCommunes = () => {
+    setDrilldown(null);
+    setDrilldownError(null);
+    setSelectedCommune(null);
+    selectedCommuneRef.current = null;
+    drillTriggeredRef.current = false;
+  };
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -153,8 +222,28 @@ export function SubscriberTerrain3D({ data }: { data: SubscriberTerrainPoint[] }
       camera.position.copy(controls.target).add(offset);
       controls.update();
     };
+    const drillDistance = Math.max(controls.minDistance * 1.8, spacing * 2.4);
+    const handleControlsChange = () => {
+      if (drilldown || drillTriggeredRef.current || camera.position.distanceTo(controls.target) > drillDistance) return;
+      const nearestLocation = locations.reduce((nearest, location) => {
+        const nearestDistance = (nearest.x - controls.target.x) ** 2 + (nearest.z - controls.target.z) ** 2;
+        const locationDistance = (location.x - controls.target.x) ** 2 + (location.z - controls.target.z) ** 2;
+        return locationDistance < nearestDistance ? location : nearest;
+      });
+      const commune = selectedCommuneRef.current ?? nearestLocation.point;
+      drillTriggeredRef.current = true;
+      selectedCommuneRef.current = commune;
+      setSelectedCommune(commune);
+      loadTourneesRef.current(commune);
+    };
+    controls.addEventListener("change", handleControlsChange);
 
     const handlePointerMove = (event: PointerEvent) => {
+      if (pointerDownPosition) {
+        const deltaX = event.clientX - pointerDownPosition.x;
+        const deltaY = event.clientY - pointerDownPosition.y;
+        if (deltaX * deltaX + deltaY * deltaY > 36) draggedDuringPointer = true;
+      }
       const bounds = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
       pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
@@ -165,8 +254,42 @@ export function SubscriberTerrain3D({ data }: { data: SubscriberTerrainPoint[] }
     const handlePointerLeave = () => {
       setHoveredPoint(null);
     };
+    let pointerDownPosition: { x: number; y: number } | null = null;
+    let draggedDuringPointer = false;
+    const handlePointerDown = (event: PointerEvent) => {
+      pointerDownPosition = { x: event.clientX, y: event.clientY };
+      draggedDuringPointer = false;
+    };
+    const handlePointerUp = () => {
+      pointerDownPosition = null;
+    };
+    const handleCanvasClick = (event: MouseEvent) => {
+      if (draggedDuringPointer) {
+        draggedDuringPointer = false;
+        return;
+      }
+      if (drilldown) return;
+      const bounds = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+      pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const marker = raycaster.intersectObjects(markers, false)[0]?.object as THREE.Mesh | undefined;
+      const commune = marker?.userData.point as SubscriberTerrainPoint | undefined;
+      if (!marker || !commune) return;
+
+      selectedCommuneRef.current = commune;
+      drillTriggeredRef.current = false;
+      setDrilldownError(null);
+      const offset = camera.position.clone().sub(controls.target);
+      controls.target.copy(marker.position);
+      camera.position.copy(marker.position).add(offset);
+      controls.update();
+    };
     renderer.domElement.addEventListener("pointermove", handlePointerMove);
     renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
+    renderer.domElement.addEventListener("pointerdown", handlePointerDown);
+    renderer.domElement.addEventListener("pointerup", handlePointerUp);
+    renderer.domElement.addEventListener("click", handleCanvasClick);
 
     const resizeObserver = new ResizeObserver(() => {
       const { width: hostWidth, height: hostHeight } = host.getBoundingClientRect();
@@ -190,8 +313,12 @@ export function SubscriberTerrain3D({ data }: { data: SubscriberTerrainPoint[] }
     return () => {
       window.cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
+      controls.removeEventListener("change", handleControlsChange);
       renderer.domElement.removeEventListener("pointermove", handlePointerMove);
       renderer.domElement.removeEventListener("pointerleave", handlePointerLeave);
+      renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
+      renderer.domElement.removeEventListener("pointerup", handlePointerUp);
+      renderer.domElement.removeEventListener("click", handleCanvasClick);
       controls.dispose();
       terrainGeometry.dispose();
       terrain.material.dispose();
@@ -208,16 +335,33 @@ export function SubscriberTerrain3D({ data }: { data: SubscriberTerrainPoint[] }
       renderer.domElement.remove();
       setSceneReady(false);
     };
-  }, [points, pointsKey]);
+  }, [drilldown, points, pointsKey]);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#d7e4df] bg-white shadow-sm">
       <div className="flex flex-col gap-4 border-b border-[#e8efec] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
         <div>
           <h3 className="mt-1 text-xl font-black text-[#163b32]">Relief des abonnés</h3>
-          <p className="mt-1 text-sm text-[#60766e]">Chaque sommet représente une commune · hauteur proportionnelle au nombre d’abonnés</p>
+          <p className="mt-1 text-sm text-[#60766e]">
+            {drilldown
+              ? `Tournées de ${drilldown.commune.name} · ${points.length} tournée${points.length === 1 ? "" : "s"}`
+              : selectedCommune
+                ? `Commune ciblée : ${selectedCommune.name}`
+                : "Chaque sommet représente une commune · hauteur proportionnelle au nombre d’abonnés"}
+          </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {drilldown && (
+            <button
+              type="button"
+              onClick={returnToCommunes}
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d7e4df] px-3 text-sm font-bold text-[#244d42] transition-colors hover:bg-[#eff6f2]"
+              title="Retour aux communes"
+              aria-label="Retour aux communes"
+            >
+              <ArrowLeft size={15} /> Communes
+            </button>
+          )}
           <button
             type="button"
             onClick={() => adjustZoomRef.current(false)}
@@ -258,8 +402,21 @@ export function SubscriberTerrain3D({ data }: { data: SubscriberTerrainPoint[] }
         </div>
       </div>
 
-      {points.length === 0 ? (
-        <p className="p-8 text-center text-sm font-medium text-[#667085]">Aucune donnée disponible par commune.</p>
+      {drilldownLoading ? (
+        <div className="flex h-[360px] items-center justify-center text-sm font-medium text-[#60766e] sm:h-[460px]">
+          Chargement des tournées…
+        </div>
+      ) : drilldownError ? (
+        <div className="flex min-h-40 flex-col items-center justify-center gap-3 p-8 text-center">
+          <p role="alert" className="text-sm font-medium text-rose-700">{drilldownError}</p>
+          <button type="button" onClick={returnToCommunes} className="text-sm font-bold text-[#176b58] hover:underline">
+            Retour aux communes
+          </button>
+        </div>
+      ) : points.length === 0 ? (
+        <p className="p-8 text-center text-sm font-medium text-[#667085]">
+          {drilldown ? "Aucune tournée trouvée pour cette commune." : "Aucune donnée disponible par commune."}
+        </p>
       ) : webglUnavailable ? (
         <p role="alert" className="p-8 text-center text-sm font-medium text-[#667085]">La visualisation 3D nécessite un navigateur compatible WebGL.</p>
       ) : (
@@ -267,11 +424,13 @@ export function SubscriberTerrain3D({ data }: { data: SubscriberTerrainPoint[] }
           <div ref={hostRef} className="absolute inset-0" />
           {!sceneReady && <div className="absolute inset-0 animate-pulse bg-[#b9d7cf]" />}
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-white/50 bg-[#173a32]/80 px-3 py-2 text-white shadow-lg backdrop-blur-sm sm:left-6 sm:top-6">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#b8d7c9]">Cap · survol</p>
-            <p className="mt-0.5 text-sm font-bold">{hoveredPoint?.name ?? "Vue d’ensemble"}</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#b8d7c9]">
+              {drilldown ? "Tournée survolée" : "Commune survolée"}
+            </p>
+            <p className="mt-0.5 text-sm font-bold">{hoveredPoint?.name ?? (drilldown ? drilldown.commune.name : "Vue d’ensemble")}</p>
           </div>
           <div className="pointer-events-none absolute right-4 top-4 rounded-lg border border-white/50 bg-[#173a32]/80 px-3 py-2 text-right text-white shadow-lg backdrop-blur-sm sm:right-6 sm:top-6">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#b8d7c9]">Communes</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#b8d7c9]">{drilldown ? "Tournées" : "Communes"}</p>
             <p className="mt-0.5 text-sm font-bold">{points.length.toLocaleString("fr-FR")}</p>
           </div>
           {hoveredPoint && (
@@ -280,7 +439,7 @@ export function SubscriberTerrain3D({ data }: { data: SubscriberTerrainPoint[] }
               <p className="mt-1 text-xs font-medium text-[#60766e]">
                 <strong className="text-[#176b58]">{hoveredPoint.total.toLocaleString("fr-FR")}</strong> abonnés
                 <span className="mx-1.5">·</span>{hoveredPoint.active.toLocaleString("fr-FR")} actifs
-                <span className="mx-1.5">·</span>{hoveredPoint.forfait.toLocaleString("fr-FR")} forfaits
+                {hoveredPoint.forfait != null && <><span className="mx-1.5">·</span>{hoveredPoint.forfait.toLocaleString("fr-FR")} forfaits</>}
                 <span className="mx-1.5">·</span>{hoveredPoint.resigned.toLocaleString("fr-FR")} résiliés
               </p>
             </div>

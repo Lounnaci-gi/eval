@@ -32,6 +32,7 @@ const SubscriberTerrain3D = dynamic(
 
 function mapCommuneChartData(communes: any[]) {
   return communes.map((commune: any) => ({
+    id: String(commune.id ?? ""),
     name: commune.name,
     total: Number(commune.value) || 0,
     active: (Number(commune.value) || 0) - (Number(commune.resigned) || 0),
@@ -770,6 +771,7 @@ export function GestionAbonnesShell({
             {currentView === 'terrain' && (
               <SubscriberTerrain3D
                 data={mapCommuneChartData(stats?.subscriber_communes || [])}
+                secteur={selectedSecteur}
               />
             )}
             {currentView === 'evolution' && (

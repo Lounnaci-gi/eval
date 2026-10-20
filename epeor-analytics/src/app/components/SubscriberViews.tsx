@@ -25,6 +25,21 @@ const SubscribersEvolutionView = dynamic(
   }
 );
 
+const SubscriberTerrain3D = dynamic(
+  () => import("./SubscriberTerrain3D").then((mod) => ({ default: mod.SubscriberTerrain3D })),
+  { ssr: false, loading: () => <div className="h-[360px] animate-pulse rounded-2xl bg-[#dce9e2] sm:h-[460px]" /> },
+);
+
+function mapCommuneChartData(communes: any[]) {
+  return communes.map((commune: any) => ({
+    name: commune.name,
+    total: Number(commune.value) || 0,
+    active: (Number(commune.value) || 0) - (Number(commune.resigned) || 0),
+    forfait: Number(commune.forfait_count) || 0,
+    resigned: Number(commune.resigned) || 0,
+  }));
+}
+
 export function GestionAbonnesShell({
   currentView,
   setCurrentView,
@@ -37,7 +52,7 @@ export function GestionAbonnesShell({
   onBack,
   allowAll = true,
 }: {
-  currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'institutions' | 'unconnected';
+  currentView: 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'institutions' | 'unconnected' | 'terrain';
   setCurrentView: (v: any) => void;
   baseStats: any;
   selectedSecteur: string;
@@ -219,6 +234,7 @@ export function GestionAbonnesShell({
   const stats = selectedSecteur && gestionStats ? gestionStats : baseStats;
   const tabs = [
     { id: 'details' as const, label: 'Vue globale' },
+    { id: 'terrain' as const, label: 'Relief des abonnés' },
     { id: 'evolution' as const, label: 'Évolution des abonnés' },
     { id: 'resigned' as const, label: 'Résiliés' },
     { id: 'stopped' as const, label: "À l'arrêt" },
@@ -751,6 +767,11 @@ export function GestionAbonnesShell({
             {currentView === 'details' && (
               <DetailedStatsView key={`details-${selectedSecteur}`} {...viewProps} />
             )}
+            {currentView === 'terrain' && (
+              <SubscriberTerrain3D
+                data={mapCommuneChartData(stats?.subscriber_communes || [])}
+              />
+            )}
             {currentView === 'evolution' && (
               <SubscribersEvolutionView key={`evolution-${selectedSecteur}`} {...viewProps} />
             )}
@@ -1031,15 +1052,9 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
     printWindow.document.close();
   };
 
-  const communes = stats?.subscriber_communes || [];
+  const communes = useMemo(() => stats?.subscriber_communes || [], [stats?.subscriber_communes]);
   const types = stats?.subscriber_types || [];
-  const communeChartData = communes.map((commune: any) => ({
-    name: commune.name,
-    total: Number(commune.value) || 0,
-    active: (Number(commune.value) || 0) - (Number(commune.resigned) || 0),
-    forfait: Number(commune.forfait_count) || 0,
-    resigned: Number(commune.resigned) || 0,
-  }));
+  const communeChartData = useMemo(() => mapCommuneChartData(communes), [communes]);
   const categoryLabels = [
     { key: "menages", name: "Ménages" },
     { key: "administrations", name: "Administrations" },

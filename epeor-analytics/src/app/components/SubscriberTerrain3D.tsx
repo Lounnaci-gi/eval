@@ -182,20 +182,49 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       emissive: "#a55c18",
       emissiveIntensity: 0.65,
       roughness: 0.32,
+      transparent: true,
+      opacity: 0,
+      colorWrite: false,
+      depthWrite: false,
     });
+    const labels: THREE.Sprite[] = [];
     for (const location of locations) {
-      const stem = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.035, 0.035, 0.9, 8),
-        new THREE.MeshStandardMaterial({ color: "#fff0b5", emissive: "#b88734", emissiveIntensity: 0.35 }),
-      );
-      stem.position.set(location.x, terrainHeight(location.x, location.z) + 0.45, location.z);
-      scene.add(stem);
-
       const marker = new THREE.Mesh(markerGeometry, markerMaterial.clone());
       marker.position.set(location.x, terrainHeight(location.x, location.z) + 1, location.z);
       marker.userData.point = location.point;
       markers.push(marker);
       scene.add(marker);
+
+      const labelCanvas = document.createElement("canvas");
+      const labelContext = labelCanvas.getContext("2d");
+      if (!labelContext) throw new Error("Impossible de créer les étiquettes du relief.");
+      labelContext.font = "700 32px sans-serif";
+      const labelWidth = Math.ceil(labelContext.measureText(location.point.name).width + 32);
+      labelCanvas.width = labelWidth;
+      labelCanvas.height = 64;
+      const context = labelCanvas.getContext("2d");
+      if (!context) throw new Error("Impossible de créer les étiquettes du relief.");
+      context.font = "700 32px sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillStyle = "rgba(23, 58, 50, 0.92)";
+      context.fillRect(0, 0, labelCanvas.width, labelCanvas.height);
+      context.fillStyle = "#ffffff";
+      context.fillText(location.point.name, labelCanvas.width / 2, labelCanvas.height / 2);
+
+      const labelTexture = new THREE.CanvasTexture(labelCanvas);
+      labelTexture.colorSpace = THREE.SRGBColorSpace;
+      const label = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: labelTexture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      }));
+      label.position.set(location.x, marker.position.y + 1.05, location.z);
+      label.scale.set(Math.min((labelWidth / labelCanvas.height) * 0.58, spacing * 1.6), 0.58, 1);
+      label.renderOrder = 1;
+      labels.push(label);
+      scene.add(label);
     }
 
     const raycaster = new THREE.Raycaster();
@@ -248,7 +277,18 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
       pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      const match = raycaster.intersectObjects(markers, false)[0]?.object.userData.point as SubscriberTerrainPoint | undefined;
+      const terrainHit = raycaster.intersectObject(terrain, false)[0];
+      const match = terrainHit && terrainHit.point.y > 0.25
+        ? locations.reduce((nearest, location) => {
+          const nearestDistance =
+            ((nearest.x - terrainHit.point.x) / Math.max(spacing * 0.78, 2.2)) ** 2
+            + ((nearest.z - terrainHit.point.z) / 3.1) ** 2;
+          const locationDistance =
+            ((location.x - terrainHit.point.x) / Math.max(spacing * 0.78, 2.2)) ** 2
+            + ((location.z - terrainHit.point.z) / 3.1) ** 2;
+          return locationDistance < nearestDistance ? location : nearest;
+        }).point
+        : undefined;
       setHoveredPoint((current) => current?.name === match?.name ? current : match ?? null);
     };
     const handlePointerLeave = () => {
@@ -324,6 +364,10 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       terrain.material.dispose();
       markerGeometry.dispose();
       markerMaterial.dispose();
+      labels.forEach((label) => {
+        label.material.map?.dispose();
+        label.material.dispose();
+      });
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh && object !== terrain) {
           object.geometry.dispose();

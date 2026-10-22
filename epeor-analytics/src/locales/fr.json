@@ -113,7 +113,8 @@
       "debtBreakdown": "Ventilation Créances",
       "typeBreakdown": "Répartition par Type",
       "communeBreakdown": "Répartition par Commune",
-      "activityReport": "Bilan d'activité"
+      "activityReport": "Bilan d'activité",
+      "payerClassification": "Classement des payeurs"
     }
   },
   "auth": {

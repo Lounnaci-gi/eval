@@ -113,7 +113,8 @@
       "debtBreakdown": "تفصيل الديون",
       "typeBreakdown": "التوزيع حسب النوع",
       "communeBreakdown": "التوزيع حسب البلدية",
-      "activityReport": "تقرير النشاط"
+      "activityReport": "تقرير النشاط",
+      "payerClassification": "تصنيف المشتركين حسب الدفع"
     }
   },
   "auth": {

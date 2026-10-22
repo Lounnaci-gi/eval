@@ -142,7 +142,7 @@ export function FloatingExpandableSidebar({
   };
 
   return (
-    <>
+    <div className="hidden lg:block">
       {/* Floating Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -278,6 +278,6 @@ export function FloatingExpandableSidebar({
           scrollbar-width: none;
         }
       `}</style>
-    </>
+    </div>
   );
 }

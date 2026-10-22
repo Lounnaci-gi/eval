@@ -32,6 +32,7 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
   const resetViewRef = useRef<() => void>(() => {});
   const adjustZoomRef = useRef<(zoomIn: boolean) => void>(() => {});
   const selectedCommuneRef = useRef<SubscriberTerrainPoint | null>(null);
+  const hoveredPointRef = useRef<SubscriberTerrainPoint | null>(null);
   const drillTriggeredRef = useRef(false);
   const loadTourneesRef = useRef<(commune: SubscriberTerrainPoint) => void>(() => {});
 
@@ -71,8 +72,10 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       const tourneePoints = Array.from(counts.values())
         .map((point) => ({ ...point, active: point.total - point.resigned }))
         .sort((left, right) => right.total - left.total);
+      setSceneReady(false);
       setDrilldown({ commune, points: tourneePoints });
       selectedCommuneRef.current = null;
+      hoveredPointRef.current = null;
       setSelectedCommune(null);
     } catch (error) {
       setDrilldownError(error instanceof Error ? error.message : "Erreur lors du chargement des tournées.");
@@ -87,10 +90,12 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
   }, [loadTournees]);
 
   const returnToCommunes = () => {
+    setSceneReady(false);
     setDrilldown(null);
     setDrilldownError(null);
     setSelectedCommune(null);
     selectedCommuneRef.current = null;
+    hoveredPointRef.current = null;
     drillTriggeredRef.current = false;
   };
 
@@ -101,6 +106,7 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
   useEffect(() => {
     const host = hostRef.current;
     if (!host || points.length === 0) return;
+    setSceneReady(false);
 
     let renderer: THREE.WebGLRenderer;
     try {
@@ -119,19 +125,19 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
     renderer.domElement.setAttribute("aria-label", "Relief 3D des abonnés par commune");
     host.appendChild(renderer.domElement);
 
+    const length = Math.max(38, points.length * 4.5);
+    const width = 24;
+    const spacing = Math.min(4.5, length / (points.length + 2));
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#b9d7cf");
-    scene.fog = new THREE.Fog("#b9d7cf", 28, 86);
-    const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 120);
+    scene.fog = new THREE.Fog("#b9d7cf", Math.max(28, length * 0.35), Math.max(86, length * 1.25));
+    const camera = new THREE.PerspectiveCamera(48, 1, 0.1, Math.max(120, length * 2.5));
 
     scene.add(new THREE.HemisphereLight("#f3fff8", "#214b45", 2.2));
     const sun = new THREE.DirectionalLight("#fff2ca", 3.1);
     sun.position.set(-8, 18, 7);
     scene.add(sun);
 
-    const length = Math.max(38, points.length * 4.5);
-    const width = 24;
-    const spacing = Math.min(4.5, length / (points.length + 2));
     const maxTotal = Math.max(...points.map((point) => point.total), 1);
     const locations = points.map((point, index) => ({
       point,
@@ -149,8 +155,17 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       }
       return height;
     };
+    const nearestLocationAt = (x: number, z: number) => locations.reduce((nearest, location) => {
+      const nearestDistance =
+        ((nearest.x - x) / Math.max(spacing * 0.78, 2.2)) ** 2
+        + ((nearest.z - z) / 3.1) ** 2;
+      const locationDistance =
+        ((location.x - x) / Math.max(spacing * 0.78, 2.2)) ** 2
+        + ((location.z - z) / 3.1) ** 2;
+      return locationDistance < nearestDistance ? location : nearest;
+    });
 
-    const terrainGeometry = new THREE.PlaneGeometry(length, width, 160, 72);
+    const terrainGeometry = new THREE.PlaneGeometry(length, width, Math.max(160, points.length * 8), 72);
     const positions = terrainGeometry.attributes.position as THREE.BufferAttribute;
     const colors: number[] = [];
     const low = new THREE.Color("#27695a");
@@ -244,6 +259,7 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
     controls.autoRotateSpeed = 0.5;
     controls.update();
     controls.saveState();
+    const drillReturnDistance = initialDistance * 1.8;
     resetViewRef.current = () => controls.reset();
     adjustZoomRef.current = (zoomIn) => {
       const offset = camera.position.clone().sub(controls.target);
@@ -253,13 +269,17 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
     };
     const drillDistance = Math.max(controls.minDistance * 1.8, spacing * 2.4);
     const handleControlsChange = () => {
-      if (drilldown || drillTriggeredRef.current || camera.position.distanceTo(controls.target) > drillDistance) return;
+      if (drilldown) {
+        if (camera.position.distanceTo(controls.target) > drillReturnDistance) returnToCommunes();
+        return;
+      }
+      if (drillTriggeredRef.current || camera.position.distanceTo(controls.target) > drillDistance) return;
       const nearestLocation = locations.reduce((nearest, location) => {
         const nearestDistance = (nearest.x - controls.target.x) ** 2 + (nearest.z - controls.target.z) ** 2;
         const locationDistance = (location.x - controls.target.x) ** 2 + (location.z - controls.target.z) ** 2;
         return locationDistance < nearestDistance ? location : nearest;
       });
-      const commune = selectedCommuneRef.current ?? nearestLocation.point;
+      const commune = selectedCommuneRef.current ?? hoveredPointRef.current ?? nearestLocation.point;
       drillTriggeredRef.current = true;
       selectedCommuneRef.current = commune;
       setSelectedCommune(commune);
@@ -279,19 +299,13 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       raycaster.setFromCamera(pointer, camera);
       const terrainHit = raycaster.intersectObject(terrain, false)[0];
       const match = terrainHit && terrainHit.point.y > 0.25
-        ? locations.reduce((nearest, location) => {
-          const nearestDistance =
-            ((nearest.x - terrainHit.point.x) / Math.max(spacing * 0.78, 2.2)) ** 2
-            + ((nearest.z - terrainHit.point.z) / 3.1) ** 2;
-          const locationDistance =
-            ((location.x - terrainHit.point.x) / Math.max(spacing * 0.78, 2.2)) ** 2
-            + ((location.z - terrainHit.point.z) / 3.1) ** 2;
-          return locationDistance < nearestDistance ? location : nearest;
-        }).point
+        ? nearestLocationAt(terrainHit.point.x, terrainHit.point.z).point
         : undefined;
+      hoveredPointRef.current = match ?? null;
       setHoveredPoint((current) => current?.name === match?.name ? current : match ?? null);
     };
     const handlePointerLeave = () => {
+      hoveredPointRef.current = null;
       setHoveredPoint(null);
     };
     let pointerDownPosition: { x: number; y: number } | null = null;
@@ -314,15 +328,24 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
       const marker = raycaster.intersectObjects(markers, false)[0]?.object as THREE.Mesh | undefined;
-      const commune = marker?.userData.point as SubscriberTerrainPoint | undefined;
-      if (!marker || !commune) return;
+      const terrainHit = raycaster.intersectObject(terrain, false)[0];
+      const commune = (marker?.userData.point as SubscriberTerrainPoint | undefined)
+        ?? (terrainHit && terrainHit.point.y > 0.25
+          ? nearestLocationAt(terrainHit.point.x, terrainHit.point.z).point
+          : undefined);
+      if (!commune) return;
 
       selectedCommuneRef.current = commune;
+      hoveredPointRef.current = commune;
       drillTriggeredRef.current = false;
       setDrilldownError(null);
       const offset = camera.position.clone().sub(controls.target);
-      controls.target.copy(marker.position);
-      camera.position.copy(marker.position).add(offset);
+      const location = locations.find((entry) => entry.point.id === commune.id && entry.point.name === commune.name);
+      const communePosition = location
+        ? new THREE.Vector3(location.x, terrainHeight(location.x, location.z) + 1, location.z)
+        : controls.target.clone();
+      controls.target.copy(communePosition);
+      camera.position.copy(communePosition).add(offset);
       controls.update();
     };
     renderer.domElement.addEventListener("pointermove", handlePointerMove);
@@ -330,7 +353,6 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
     renderer.domElement.addEventListener("pointerdown", handlePointerDown);
     renderer.domElement.addEventListener("pointerup", handlePointerUp);
     renderer.domElement.addEventListener("click", handleCanvasClick);
-
     const resizeObserver = new ResizeObserver(() => {
       const { width: hostWidth, height: hostHeight } = host.getBoundingClientRect();
       if (!hostWidth || !hostHeight) return;
@@ -341,6 +363,7 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
     resizeObserver.observe(host);
 
     let animationFrame = 0;
+    let sceneReadyTimeout = 0;
     const animate = () => {
       animationFrame = window.requestAnimationFrame(animate);
       controls.autoRotate = isPlayingRef.current;
@@ -348,10 +371,11 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       renderer.render(scene, camera);
     };
     animationFrame = window.requestAnimationFrame(animate);
-    setSceneReady(true);
+    sceneReadyTimeout = window.setTimeout(() => setSceneReady(true), 120);
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(sceneReadyTimeout);
       resizeObserver.disconnect();
       controls.removeEventListener("change", handleControlsChange);
       renderer.domElement.removeEventListener("pointermove", handlePointerMove);
@@ -446,27 +470,39 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
         </div>
       </div>
 
-      {drilldownLoading ? (
-        <div className="flex h-[360px] items-center justify-center text-sm font-medium text-[#60766e] sm:h-[460px]">
-          Chargement des tournées…
-        </div>
-      ) : drilldownError ? (
-        <div className="flex min-h-40 flex-col items-center justify-center gap-3 p-8 text-center">
-          <p role="alert" className="text-sm font-medium text-rose-700">{drilldownError}</p>
-          <button type="button" onClick={returnToCommunes} className="text-sm font-bold text-[#176b58] hover:underline">
-            Retour aux communes
-          </button>
-        </div>
-      ) : points.length === 0 ? (
+      {points.length === 0 ? (
         <p className="p-8 text-center text-sm font-medium text-[#667085]">
-          {drilldown ? "Aucune tournée trouvée pour cette commune." : "Aucune donnée disponible par commune."}
+          {drilldownLoading
+            ? "Chargement des tournées…"
+            : drilldownError
+              ? drilldownError
+              : drilldown
+                ? "Aucune tournée trouvée pour cette commune."
+                : "Aucune donnée disponible par commune."}
         </p>
       ) : webglUnavailable ? (
         <p role="alert" className="p-8 text-center text-sm font-medium text-[#667085]">La visualisation 3D nécessite un navigateur compatible WebGL.</p>
       ) : (
         <div className="relative h-[360px] overflow-hidden bg-[#b9d7cf] sm:h-[460px]">
           <div ref={hostRef} className="absolute inset-0" />
-          {!sceneReady && <div className="absolute inset-0 animate-pulse bg-[#b9d7cf]" />}
+          <div
+            aria-hidden="true"
+            className={`absolute inset-0 z-10 bg-[#b9d7cf] transition-opacity duration-500 ${sceneReady ? "pointer-events-none opacity-0" : "opacity-100"}`}
+          />
+          {(drilldownLoading || drilldownError) && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#173a32]/20 p-4 backdrop-blur-[2px] transition-opacity duration-300">
+              <div className="rounded-xl border border-white/70 bg-white/95 px-5 py-3 text-center text-sm font-semibold text-[#244d42] shadow-xl">
+                {drilldownLoading ? "Chargement des tournées…" : (
+                  <>
+                    <p role="alert" className="text-rose-700">{drilldownError}</p>
+                    <button type="button" onClick={returnToCommunes} className="mt-2 text-sm font-bold text-[#176b58] hover:underline">
+                      Retour aux communes
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-white/50 bg-[#173a32]/80 px-3 py-2 text-white shadow-lg backdrop-blur-sm sm:left-6 sm:top-6">
             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#b8d7c9]">
               {drilldown ? "Tournée survolée" : "Commune survolée"}

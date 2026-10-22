@@ -15,7 +15,7 @@ import itertools
 import json
 import math
 import unicodedata
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import pickle  # nosec B403 - Utilisé uniquement pour le cache interne contrôlé
 import time
 import threading
@@ -2335,9 +2335,102 @@ def count_consecutive_etatcpt(invoices: list, target_etat: str = '20') -> int:
 EMPTY_DATE_VALUES = frozenset({'', '        ', '19000101', '00000000', None})
 
 
+def _parse_payment_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+
+    raw = str(value or '').strip()
+    if raw in EMPTY_DATE_VALUES:
+        return None
+    for date_format in ('%Y%m%d', '%Y-%m-%d'):
+        try:
+            return datetime.strptime(raw, date_format).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _classify_payment_history(payment_dates, as_of_date=None):
+    unique_dates = sorted(set(payment_dates))
+    if not unique_dates:
+        return {
+            "level": 5,
+            "classification": "Non payeur",
+            "last_payment": None,
+            "days_since_last_payment": None,
+            "average_gap_days": None,
+            "maximum_gap_days": None,
+            "payment_count": 0,
+        }
+
+    as_of_date = as_of_date or date.today()
+    gaps = [(later - earlier).days for earlier, later in zip(unique_dates, unique_dates[1:])]
+    average_gap = sum(gaps) / len(gaps) if gaps else 0
+    days_since_last = max(0, (as_of_date - unique_dates[-1]).days)
+    worst_gap = max(average_gap, days_since_last)
+
+    if worst_gap <= 45:
+        level, classification = 1, "Bon payeur"
+    elif worst_gap <= 75:
+        level, classification = 2, "Payeur régulier"
+    elif worst_gap <= 120:
+        level, classification = 3, "Retardataire"
+    elif worst_gap <= 240:
+        level, classification = 4, "Mauvais payeur"
+    else:
+        level, classification = 5, "Non payeur"
+
+    return {
+        "level": level,
+        "classification": classification,
+        "last_payment": unique_dates[-1].isoformat(),
+        "days_since_last_payment": days_since_last,
+        "average_gap_days": round(average_gap, 1),
+        "maximum_gap_days": max(gaps) if gaps else 0,
+        "payment_count": len(unique_dates),
+    }
+
+
 def _creance_date_arrete() -> str:
     """Date d'arrêté pour le calcul des créances en cours (aujourd'hui)."""
     return datetime.now().strftime('%Y%m%d')
+
+
+@app.get("/payer_classification")
+def get_payer_classification(secteur: str = None, _user: dict = Depends(get_current_user)):
+    secteur = _enforce_sector(_user, secteur)
+    if not is_db_ready or not indexes_ready:
+        raise HTTPException(status_code=503, detail="Les données de facturation ne sont pas encore prêtes.")
+
+    allowed_numabs = _secteur_numabs_set_for_user(_user, secteur)
+    records = []
+    seen_numabs = set()
+    # load_table_cached iterates DBF records with dbfread, which skips deleted rows.
+    for subscriber in MEM_ABONNES:
+        numab = str(subscriber.get('NUMAB') or '').strip().upper()
+        if not numab or numab in seen_numabs or (allowed_numabs is not None and numab not in allowed_numabs):
+            continue
+        seen_numabs.add(numab)
+
+        payment_dates = {
+            payment_date
+            for invoice in factures_by_numab.get(numab, [])
+            if (payment_date := _parse_payment_date(invoice.get('DATREG'))) is not None
+        }
+        payment_history = _classify_payment_history(payment_dates)
+        codcom = _abonne_codcom(numab)
+        commune_name = str(communes_by_code.get(codcom, {}).get('LIBCOM') or '').strip()
+        records.append({
+            "numab": numab,
+            "name": str(subscriber.get('RAISOC') or subscriber.get('NOM') or '').strip() or "Nom inconnu",
+            "commune": commune_name or f"Commune {codcom}",
+            **payment_history,
+        })
+
+    records.sort(key=lambda record: (record["level"], record["name"].casefold(), record["numab"]))
+    return {"ready": True, "records": records}
 
 
 def is_unpaid_creance(r, is_avoir: bool, date_arrete: str | None = None) -> bool:

@@ -251,11 +251,17 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.enablePan = true;
-    controls.screenSpacePanning = false;
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN,
+    };
+    controls.screenSpacePanning = true;
+    controls.zoomToCursor = true;
     controls.minDistance = Math.max(5, spacing * 1.2);
     controls.maxDistance = Math.max(100, length * 2);
-    controls.minPolarAngle = 0.12;
-    controls.maxPolarAngle = Math.PI / 2.02;
+    controls.minPolarAngle = 0.04;
+    controls.maxPolarAngle = Math.PI / 2 - 0.04;
     controls.autoRotateSpeed = 0.5;
     controls.update();
     controls.saveState();
@@ -317,6 +323,7 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
     const handlePointerUp = () => {
       pointerDownPosition = null;
     };
+    const handleContextMenu = (event: MouseEvent) => event.preventDefault();
     const handleCanvasClick = (event: MouseEvent) => {
       if (draggedDuringPointer) {
         draggedDuringPointer = false;
@@ -352,6 +359,7 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
     renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
     renderer.domElement.addEventListener("pointerdown", handlePointerDown);
     renderer.domElement.addEventListener("pointerup", handlePointerUp);
+    renderer.domElement.addEventListener("contextmenu", handleContextMenu);
     renderer.domElement.addEventListener("click", handleCanvasClick);
     const resizeObserver = new ResizeObserver(() => {
       const { width: hostWidth, height: hostHeight } = host.getBoundingClientRect();
@@ -382,6 +390,7 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       renderer.domElement.removeEventListener("pointerleave", handlePointerLeave);
       renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
       renderer.domElement.removeEventListener("pointerup", handlePointerUp);
+      renderer.domElement.removeEventListener("contextmenu", handleContextMenu);
       renderer.domElement.removeEventListener("click", handleCanvasClick);
       controls.dispose();
       terrainGeometry.dispose();
@@ -513,6 +522,10 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#b8d7c9]">{drilldown ? "Tournées" : "Communes"}</p>
             <p className="mt-0.5 text-sm font-bold">{points.length.toLocaleString("fr-FR")}</p>
           </div>
+          <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/50 bg-[#173a32]/80 px-3 py-2 text-xs font-medium text-white shadow-lg backdrop-blur-sm sm:bottom-6">
+            <span className="sm:hidden">1 doigt : pivoter et incliner · 2 doigts : déplacer et zoomer</span>
+            <span className="hidden sm:inline">Glisser : pivoter et incliner · clic droit + glisser : déplacer · molette : zoomer vers le curseur</span>
+          </p>
           {hoveredPoint && (
             <div className="pointer-events-none absolute bottom-4 left-4 max-w-[calc(100%-2rem)] rounded-lg border border-white/60 bg-white/95 px-4 py-3 text-[#163b32] shadow-xl sm:bottom-6 sm:left-6">
               <p className="truncate text-sm font-black">{hoveredPoint.name}</p>

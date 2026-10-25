@@ -12,6 +12,7 @@ import { apiUrl, apiUrlObject } from "../lib/api";
 import { buildSubscribersUrl, appendSecteurParam } from "./utils";
 import { SecteurDropdown } from "./ui";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
+import { SubscriberNetworkGraph } from "./SubscriberNetworkGraph";
 import { escapeHtml } from "../../lib/escape";
 
 const SubscribersEvolutionView = dynamic(
@@ -81,6 +82,7 @@ export function GestionAbonnesShell({
   const [institutionRecordsLoading, setInstitutionRecordsLoading] = useState(false);
   const [institutionRecordsError, setInstitutionRecordsError] = useState<string | null>(null);
   const [selectedInstitutionNumabs, setSelectedInstitutionNumabs] = useState<string[]>([]);
+  const [showSubscriberNetwork, setShowSubscriberNetwork] = useState(false);
 
   useEffect(() => {
     const searchTerm = searchQuery.trim().length > 0
@@ -769,10 +771,42 @@ export function GestionAbonnesShell({
               <DetailedStatsView key={`details-${selectedSecteur}`} {...viewProps} />
             )}
             {currentView === 'terrain' && (
-              <SubscriberTerrain3D
-                data={mapCommuneChartData(stats?.subscriber_communes || [])}
-                secteur={selectedSecteur}
-              />
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Mode de visualisation des abonnés">
+                  <button
+                    type="button"
+                    aria-pressed={!showSubscriberNetwork}
+                    onClick={() => setShowSubscriberNetwork(false)}
+                    className={`rounded-xl border px-4 py-2 text-sm font-bold transition-colors ${
+                      !showSubscriberNetwork
+                        ? 'border-[#176b58] bg-[#176b58] text-white'
+                        : 'border-[#d7e4df] bg-white text-[#244d42] hover:bg-[#eff6f2]'
+                    }`}
+                  >
+                    Relief 3D
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={showSubscriberNetwork}
+                    onClick={() => setShowSubscriberNetwork(true)}
+                    className={`rounded-xl border px-4 py-2 text-sm font-bold transition-colors ${
+                      showSubscriberNetwork
+                        ? 'border-[#176b58] bg-[#176b58] text-white'
+                        : 'border-[#d7e4df] bg-white text-[#244d42] hover:bg-[#eff6f2]'
+                    }`}
+                  >
+                    Réseau des liens
+                  </button>
+                </div>
+                {showSubscriberNetwork ? (
+                  <SubscriberNetworkGraph secteur={selectedSecteur} />
+                ) : (
+                  <SubscriberTerrain3D
+                    data={mapCommuneChartData(stats?.subscriber_communes || [])}
+                    secteur={selectedSecteur}
+                  />
+                )}
+              </div>
             )}
             {currentView === 'evolution' && (
               <SubscribersEvolutionView key={`evolution-${selectedSecteur}`} {...viewProps} />

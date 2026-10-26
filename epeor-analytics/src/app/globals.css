@@ -472,6 +472,16 @@ a[href],
   display: none;
 }
 
+.subscriber-network-viewport {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.subscriber-network-viewport::-webkit-scrollbar {
+  display: none;
+}
+
 /* Tableaux : défilement horizontal fluide */
 .table-scroll {
   overflow-x: auto;

@@ -3329,6 +3329,44 @@ def get_institution_subscribers(_user: dict = Depends(get_current_user), secteur
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/subscriber_network")
+def get_subscriber_network(_user: dict = Depends(get_current_user), secteur: str = None):
+    secteur = _enforce_sector(_user, secteur)
+    if not is_db_ready:
+        return {"status": "loading", "message": db_loading_status, "ready": False}
+
+    try:
+        allowed_numabs = _secteur_numabs_set_for_user(_user, secteur)
+        commune_map = _commune_map_for_centre(secteur) if secteur else _commune_map_for_user_sectors(_user)
+
+        rows = []
+        for record in MEM_ABONNES:
+            numab = str(record.get("NUMAB", "") or "").strip()
+            numab_key = numab.upper()
+            if not numab_key or (allowed_numabs is not None and numab_key not in allowed_numabs):
+                continue
+
+            codcom = _abonne_codcom(numab)
+            raison_sociale = str(record.get("RAISOC", "") or "").strip()
+            name = raison_sociale or str(record.get("NOM", "") or "").strip() or "Nom inconnu"
+            typabon = str(record.get("TYPABON", "") or "").strip()
+            rows.append({
+                "numab": numab,
+                "name": name,
+                "raison_sociale": raison_sociale,
+                "codcom": codcom,
+                "commune": commune_map.get(codcom) or str(communes_by_code.get(codcom, {}).get("LIBCOM", "")).strip() or f"Commune {codcom}",
+                "typabon": typabon,
+                "type_abonne": resolve_typabon_label(typabon),
+                "adresse": resolve_rue_adresse(record),
+                "bloc": str(record.get("BLOC", "") or "").strip(),
+                "ndom": str(record.get("NDOM", "") or "").strip(),
+                "tournee": str(record.get("TOURNEE", "") or "").strip(),
+            })
+        return rows
+    except Exception as e:
+        return {"error": str(e)}
+
 def get_official_ca(period_name: str):
     """Scans PROV*.DBF files to find official CA for a given period"""
     try:

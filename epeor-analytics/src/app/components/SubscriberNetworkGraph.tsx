@@ -32,6 +32,7 @@ type NetworkLayout = {
   positions: Record<string, Position>;
   groups: RelationGroup[];
   edges: NetworkEdge[];
+  featuredSubscribersByCommune: Record<string, string[]>;
   width: number;
   height: number;
 };
@@ -44,14 +45,15 @@ const HIT_BUCKET_SIZE = 96;
 const TOURNEE_ZOOM_THRESHOLD = 2;
 const TYPE_ZOOM_THRESHOLD = 4;
 const SUBSCRIBER_ZOOM_THRESHOLD = 7;
+const MAX_FEATURED_SUBSCRIBERS_PER_COMMUNE = 100;
 const RELATION_ORDER: Relation[] = ["commune", "tournee", "type_abonne", "raison_sociale"];
 const STYLES: Record<Relation, { label: string; color: string }> = {
-  commune: { label: "Commune", color: "#1d4ed8" },
-  type_abonne: { label: "Type abonné", color: "#4f46e5" },
-  tournee: { label: "Tournée", color: "#0891b2" },
+  commune: { label: "Commune", color: "#1e40af" },
+  type_abonne: { label: "Type abonné", color: "#4338ca" },
+  tournee: { label: "Tournée", color: "#0f766e" },
   raison_sociale: { label: "Raison sociale", color: "#c2410c" },
 };
-const TYPE_COLORS = ["#4f46e5", "#7c3aed", "#0891b2", "#0f766e", "#c2410c", "#1d4ed8"];
+const TYPE_COLORS = ["#4338ca", "#6d28d9", "#0e7490", "#0f766e", "#c2410c", "#1d4ed8"];
 
 function semanticOpacity(zoom: number, threshold: number) {
   return Math.max(0, Math.min(1, (zoom - threshold + 0.25) / 0.5));
@@ -235,6 +237,7 @@ function createNetworkLayout(subscribers: Subscriber[]): NetworkLayout {
     });
   }
 
+  const groupsById = new Map(groups.map((group) => [group.id, group]));
   const edges: NetworkEdge[] = [];
   for (const group of groups) {
     if (group.parentId) edges.push({ source: group.parentId, target: group.id, relation: group.relation });
@@ -243,7 +246,29 @@ function createNetworkLayout(subscribers: Subscriber[]): NetworkLayout {
     edges.push({ source: typeId, target: `subscriber:${numab}`, relation: "raison_sociale" });
   }
 
-  return { positions, groups, edges, width, height };
+  const communesById = new Map(groups.filter((group) => group.relation === "commune").map((group) => [group.id, group]));
+  const featuredSubscribersByCommune: Record<string, string[]> = {};
+  const scoresByCommune = new Map<string, Array<{ numab: string; score: number }>>();
+  for (const [numab, typeId] of subscriberType) {
+    const type = groupsById.get(typeId);
+    const tournee = type?.parentId ? groupsById.get(type.parentId) : undefined;
+    const commune = tournee?.parentId ? communesById.get(tournee.parentId) : undefined;
+    if (!type || !tournee || !commune) continue;
+    const candidates = scoresByCommune.get(commune.id) ?? [];
+    candidates.push({
+      numab,
+      score: commune.members.length + tournee.members.length * 2 + type.members.length * 3,
+    });
+    scoresByCommune.set(commune.id, candidates);
+  }
+  for (const [communeId, candidates] of scoresByCommune) {
+    featuredSubscribersByCommune[communeId] = candidates
+      .sort((a, b) => b.score - a.score || a.numab.localeCompare(b.numab, "fr"))
+      .slice(0, MAX_FEATURED_SUBSCRIBERS_PER_COMMUNE)
+      .map(({ numab }) => numab);
+  }
+
+  return { positions, groups, edges, featuredSubscribersByCommune, width, height };
 }
 
 function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout: NetworkLayout }) {
@@ -307,6 +332,16 @@ function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout
     const observer = new ResizeObserver(updateSize);
     observer.observe(viewport);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const preventPageScroll = (event: WheelEvent) => {
+      event.preventDefault();
+    };
+    viewport.addEventListener("wheel", preventPageScroll, { passive: false });
+    return () => viewport.removeEventListener("wheel", preventPageScroll);
   }, []);
 
   useEffect(() => {
@@ -494,8 +529,11 @@ function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout
         return false;
       };
       const isInFocus = (id: string) => id.startsWith("subscriber:")
-        ? !focusedCommuneId || focusedSubscriberIdsRef.current.has(id.slice("subscriber:".length))
+        ? focusedSubscriberIdsRef.current.has(id.slice("subscriber:".length))
         : belongsToFocusedCommune(id);
+      const visibleSubscribers = [...focusedSubscriberIdsRef.current]
+        .map((numab) => subscribersById.get(numab))
+        .filter((subscriber): subscriber is Subscriber => Boolean(subscriber));
 
       const canvasWidth = canvas.clientWidth;
       const canvasHeight = canvas.clientHeight;
@@ -532,8 +570,8 @@ function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout
           || Math.min(sourceScreen.y, targetScreen.y) > canvasHeight
         ) continue;
         context.strokeStyle = STYLES[edge.relation].color;
-        context.globalAlpha = 0.38 * opacity;
-        context.lineWidth = Math.max(0.6, 1.4 * camera.scale);
+        context.globalAlpha = 0.45 * opacity;
+        context.lineWidth = 0.7;
         context.beginPath();
         context.moveTo(sourceScreen.x, sourceScreen.y);
         context.lineTo(targetScreen.x, targetScreen.y);
@@ -583,8 +621,7 @@ function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout
       }
 
       const subscriberOpacity = semanticOpacity(zoomLevel, SUBSCRIBER_ZOOM_THRESHOLD);
-      if (subscriberOpacity > 0) for (const subscriber of subscribers) {
-        if (focusedCommuneId && !focusedSubscriberIdsRef.current.has(subscriber.numab)) continue;
+      if (subscriberOpacity > 0) for (const subscriber of visibleSubscribers) {
         const position = positions[subscriber.numab];
         if (!position) continue;
         const screen = project(position);
@@ -614,7 +651,7 @@ function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout
         context.globalAlpha = 1;
       }
       const hitBuckets = new Map<string, string[]>();
-      for (const subscriber of subscribers) {
+      for (const subscriber of visibleSubscribers) {
         const position = positions[subscriber.numab];
         if (!position) continue;
         const key = `${Math.floor(position.x / HIT_BUCKET_SIZE)},${Math.floor(position.y / HIT_BUCKET_SIZE)}`;
@@ -629,7 +666,7 @@ function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout
       if (pointer) {
         context.strokeStyle = "rgba(29, 78, 216, 0.22)";
         context.lineWidth = 1;
-        for (const subscriber of subscribers) {
+        for (const subscriber of visibleSubscribers) {
           const node = positions[subscriber.numab];
           if (!node) continue;
           const nodeScreen = project(node);
@@ -650,7 +687,7 @@ function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout
 
     frameId = window.requestAnimationFrame(animate);
     return () => window.cancelAnimationFrame(frameId);
-  }, [groupsById, layout, subscribers]);
+  }, [groupsById, layout, subscribers, subscribersById]);
 
   const toWorldPosition = (event: PointerEvent<HTMLCanvasElement>): Position => {
     const canvas = canvasRef.current;
@@ -699,7 +736,9 @@ function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout
       .sort((a, b) => a.distance - b.distance)[0]?.group;
     if (hoveredCommune && nextZoomLevel >= TOURNEE_ZOOM_THRESHOLD) {
       focusedCommuneRef.current = hoveredCommune.id;
-      focusedSubscriberIdsRef.current = new Set(hoveredCommune.members);
+      focusedSubscriberIdsRef.current = new Set(
+        layout.featuredSubscribersByCommune[hoveredCommune.id] ?? [],
+      );
     } else if (nextZoomLevel < TOURNEE_ZOOM_THRESHOLD) {
       focusedCommuneRef.current = null;
       focusedSubscriberIdsRef.current = new Set();
@@ -772,7 +811,7 @@ function NetworkMap({ subscribers, layout }: { subscribers: Subscriber[]; layout
       }
     }
     for (const numab of zoomLevel >= SUBSCRIBER_ZOOM_THRESHOLD ? candidates : []) {
-      if (focusedCommuneRef.current && !focusedSubscriberIdsRef.current.has(numab)) continue;
+      if (!focusedSubscriberIdsRef.current.has(numab)) continue;
       const position = positionsRef.current[numab];
       if (!position) continue;
       const nodeScreen = {
@@ -1078,6 +1117,9 @@ export function SubscriberNetworkGraph({ secteur = "" }: { secteur?: string }) {
                 ))}
               </div>
             </div>
+            <p className="text-xs text-[#667085]">
+              À fort zoom, seuls les {MAX_FEATURED_SUBSCRIBERS_PER_COMMUNE} abonnés les plus reliés de la commune sont affichés.
+            </p>
             <NetworkMap key={secteur || "all-authorized"} subscribers={subscribers} layout={layout} />
             <p className="text-xs text-[#667085]">
               Utilisez la molette pour révéler les niveaux, faites glisser les nœuds pour les déplacer et le fond pour vous déplacer dans le graphe. Les liens restent attachés.

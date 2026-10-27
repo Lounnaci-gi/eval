@@ -3350,6 +3350,22 @@ def get_subscriber_network(_user: dict = Depends(get_current_user), secteur: str
             raison_sociale = str(record.get("RAISOC", "") or "").strip()
             name = raison_sociale or str(record.get("NOM", "") or "").strip() or "Nom inconnu"
             typabon = str(record.get("TYPABON", "") or "").strip()
+            abonment_info = abonments_by_numab.get(numab_key, {})
+            etatcpt = str(abonment_info.get("ETATCPT") or "").strip()
+            etat_record = tabcodes_by_code.get("E" + etatcpt, {})
+            latest_invoices = factures_by_numab.get(numab_key, [])
+            latest_invoice = latest_invoices[0] if latest_invoices else None
+            latest_payment_date = _parse_payment_date(latest_invoice.get("DATREG")) if latest_invoice else None
+            invoice_status = (
+                "inconnue" if latest_invoice is None
+                else "payee" if latest_payment_date is not None and latest_payment_date <= date.today()
+                else "impayee"
+            )
+            meter_status = {
+                "20": "en_marche",
+                "40": "resilie",
+                "41": "non_branche",
+            }.get(etatcpt, "a_arret" if etatcpt else "inconnu")
             rows.append({
                 "numab": numab,
                 "name": name,
@@ -3362,6 +3378,12 @@ def get_subscriber_network(_user: dict = Depends(get_current_user), secteur: str
                 "bloc": str(record.get("BLOC", "") or "").strip(),
                 "ndom": str(record.get("NDOM", "") or "").strip(),
                 "tournee": str(record.get("TOURNEE", "") or "").strip(),
+                "etatcpt": etatcpt,
+                "etat_label": str(etat_record.get("LIBELLE") or "").strip() or etatcpt or "Inconnu",
+                "statut_compteur": meter_status,
+                "statut_facture": invoice_status,
+                "date_derniere_facture": str(latest_invoice.get("DATFACT") or "").strip() if latest_invoice else "",
+                "date_dernier_paiement": latest_payment_date.isoformat() if latest_payment_date else "",
             })
         return rows
     except Exception as e:

@@ -6,7 +6,7 @@ import {
   ChevronRight, MapPin, Printer, Search,
 } from "lucide-react";
 import {
-  Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, Brush, CartesianGrid, Cell, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { apiUrl, apiUrlObject } from "../lib/api";
 import { buildSubscribersUrl, appendSecteurParam } from "./utils";
@@ -5036,6 +5036,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoicePage, setInvoicePage] = useState(1);
   const [invoiceFilter, setInvoiceFilter] = useState<'ALL' | 'PAID' | 'UNPAID'>('ALL');
+  const [invoiceChartTab, setInvoiceChartTab] = useState<'amount' | 'volume'>('amount');
   const INVOICES_PER_PAGE = 20;
 
   const handleRowClick = async (sub: any) => {
@@ -5169,6 +5170,78 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       return acc;
     }, { paidAmount: 0, paidCount: 0, unpaidAmount: 0, unpaidCount: 0 });
 
+    const invoiceChartData = filteredInvoices.map((inv: any) => ({
+      period: formatDatFact(inv.DATFACT, inv.PERIODE),
+      type: inv.TYPE || 'Facture',
+      amount: Number(inv.MONTTC) || 0,
+      volume: Number(inv.QTE) || 0,
+    }));
+    const isAmountChart = invoiceChartTab === 'amount';
+    const chartDataKey = isAmountChart ? 'amount' : 'volume';
+    const chartName = isAmountChart ? 'Montant TTC' : "Volume d'eau";
+    const chartUnit = isAmountChart ? 'DA' : 'm³';
+    const chartColor = isAmountChart ? '#0D83DE' : '#0F766E';
+
+    const parseInvoiceDate = (value: unknown) => {
+      const rawDate = String(value ?? '').trim();
+      const match = rawDate.match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
+      if (!match || rawDate === '00000000' || rawDate === '19000101') return null;
+      const [, year, month, day] = match;
+      const timestamp = Date.UTC(Number(year), Number(month) - 1, Number(day));
+      const dateValue = new Date(timestamp);
+      if (dateValue.getUTCFullYear() !== Number(year) || dateValue.getUTCMonth() !== Number(month) - 1 || dateValue.getUTCDate() !== Number(day)) return null;
+      return timestamp;
+    };
+    const now = new Date();
+    const todayTimestamp = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const paymentDelayByInvoice = new Map<any, number | null>();
+    for (const invoice of invoices) {
+      const issuedAt = parseInvoiceDate(invoice.DATSAISIE);
+      const registeredAt = parseInvoiceDate(invoice.DATREG);
+      const isPaid = registeredAt !== null;
+      const endDate = isPaid ? registeredAt : todayTimestamp;
+      paymentDelayByInvoice.set(
+        invoice,
+        issuedAt === null ? null : Math.max(0, Math.floor((endDate - issuedAt) / 86_400_000))
+      );
+    }
+    const analyzedPaymentDelays = Array.from(paymentDelayByInvoice.values())
+      .filter((delay): delay is number => delay !== null);
+    const averageInvoiceDelay = analyzedPaymentDelays.length
+      ? analyzedPaymentDelays.reduce((sum, delay) => sum + delay, 0) / analyzedPaymentDelays.length
+      : null;
+    const maximumInvoiceDelay = analyzedPaymentDelays.length
+      ? Math.max(...analyzedPaymentDelays)
+      : null;
+    const paymentRhythm = averageInvoiceDelay === null
+      ? 0
+      : averageInvoiceDelay <= 30
+        ? 1
+        : averageInvoiceDelay <= 40
+          ? 2
+          : averageInvoiceDelay <= 50
+            ? 3
+            : averageInvoiceDelay <= 60
+              ? 4
+              : 5;
+    const paymentRhythmLabel = paymentRhythm === 0
+      ? 'Données insuffisantes'
+      : paymentRhythm === 5 && averageInvoiceDelay! > 90
+        ? 'Récalcitrant (>90 j)'
+        : ['Bon payeur', 'Payeur modéré', 'Retardataire', 'Mauvais payeur', 'Récalcitrant'][paymentRhythm - 1];
+    const paymentRhythmClass = paymentRhythm === 0
+      ? 'border-slate-200 bg-slate-100 text-slate-700'
+      : [
+      'border-emerald-200 bg-emerald-50 text-emerald-700',
+      'border-sky-200 bg-sky-50 text-sky-700',
+      'border-amber-200 bg-amber-50 text-amber-700',
+      'border-rose-200 bg-rose-50 text-rose-700',
+        'border-red-300 bg-red-100 text-red-800',
+      ][paymentRhythm - 1];
+    const historyPaidCount = invoices.filter((inv: any) => {
+      const rawDate = String(inv.DATREG ?? '').trim();
+      return rawDate !== '' && rawDate !== '00000000' && rawDate !== '19000101';
+    }).length;
     const handlePrintInvoices = async () => {
       const jsPDF = (await import('jspdf')).default;
       const { default: autoTable } = await import('jspdf-autotable');
@@ -5335,6 +5408,41 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           </div>
         </div>
 
+        {!loadingInvoices && (
+          <section aria-label="Régularité des paiements" className="border-b border-[#F2F4F7] bg-[#FCFCFD] px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 className="text-sm font-black text-[#101828]">Régularité des paiements</h3>
+                <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-black ${paymentRhythmClass}`}>
+                  {paymentRhythmLabel}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4">
+                <div>
+                  <span className="block text-[#667085]">Factures réglées</span>
+                  <strong className="text-[#101828]">{historyPaidCount} / {invoices.length}</strong>
+                </div>
+                <div>
+                  <span className="block text-[#667085]">Factures analysées</span>
+                  <strong className="text-[#101828]">{analyzedPaymentDelays.length} / {invoices.length}</strong>
+                </div>
+                <div>
+                  <span className="block text-[#667085]">Délai moyen</span>
+                  <strong className="text-[#101828]">{averageInvoiceDelay === null ? '—' : `${Math.round(averageInvoiceDelay)} jours`}</strong>
+                </div>
+                <div>
+                  <span className="block text-[#667085]">Délai maximum</span>
+                  <strong className="text-[#101828]">{maximumInvoiceDelay === null ? '—' : `${maximumInvoiceDelay} jours`}</strong>
+                </div>
+              </div>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-[#667085]">
+              Classement basé sur le délai moyen entre DATSAISIE et DATREG sur tout l’historique. Pour une facture impayée, le délai court jusqu’à aujourd’hui. Factures analysées : {analyzedPaymentDelays.length} sur {invoices.length} (DATSAISIE disponible).
+              {' '}Seuils : bon payeur ≤30 j, modéré ≤40 j, retardataire ≤50 j, mauvais payeur ≤60 j, récalcitrant ≤90 j; au-delà, seuil dépassé.
+            </p>
+          </section>
+        )}
+
         <div className="flex-1 overflow-x-auto p-0">
           {loadingInvoices ? (
             <div className="flex justify-center items-center py-20">
@@ -5348,6 +5456,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                   <th className="px-6 py-5 border-b border-[#F2F4F7]">Référence</th>
                   <th className="px-6 py-5 border-b border-[#F2F4F7]">Type</th>
                   <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">Montant TTC</th>
+                  <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">Délai depuis saisie</th>
                   <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">Date Règlement</th>
                   <th className="px-6 py-5 border-b border-[#F2F4F7] text-right">Modalité</th>
                   <th className="px-6 py-5 border-b border-[#F2F4F7] text-center">Statut</th>
@@ -5358,12 +5467,18 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
               <tbody className="divide-y divide-[#F2F4F7]">
                 {filteredInvoices.length > 0 ? filteredInvoices.slice((invoicePage - 1) * INVOICES_PER_PAGE, invoicePage * INVOICES_PER_PAGE).map((inv: any, i: number) => {
                   const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
+                  const paymentDelay = paymentDelayByInvoice.get(inv);
                   return (
                     <tr key={i} className="hover:bg-[#F9FAFB] transition-colors">
                       <td className="px-6 py-4 font-bold text-[13px] text-[#101828]">{formatDatFact(inv.DATFACT, inv.PERIODE)}</td>
                       <td className="px-6 py-4 font-medium text-[13px] text-[#0D83DE] font-mono">{formatInvoiceRef(inv.DATFACT, inv.TYPE)}</td>
                       <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{inv.TYPE || '---'}</td>
                       <td className="px-6 py-4 font-black text-[13px] text-[#101828] text-right">{inv.MONTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA</td>
+                      <td className="px-6 py-4 font-bold text-[12px] text-right text-[#475467]">
+                        {paymentDelay === null || paymentDelay === undefined
+                          ? '—'
+                          : `${paymentDelay} j${isPaid ? '' : ' · en cours'}`}
+                      </td>
                       <td className="px-6 py-4 font-medium text-[13px] text-[#475467] text-right">{isPaid ? formatYMD(inv.DATREG) : '---'}</td>
                       <td className="px-6 py-4 font-medium text-[13px] text-[#667085] text-right">{formatModalite(inv.MODALITE)}</td>
                       <td className="px-6 py-4 text-center">
@@ -5374,12 +5489,12 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                         )}
                       </td>
                       <td className="px-6 py-4 font-mono text-[12px] text-[#667085] text-right">{inv.NUMREC || '---'}</td>
-                      <td className="px-6 py-4 font-mono text-[12px] text-[#667085] text-right">{inv.CHEQUE || '---'}</td>
+                      <td className="px-6 py-4 font-mono text-[12px] text-[#667085] text-right">{String(inv.CHEQUE ?? '').trim() || '---'}</td>
                     </tr>
                   )
                 }) : (
                   <tr>
-                    <td colSpan={9} className="px-6 py-12 text-center text-[#667085] font-medium">Aucune facture trouvée avec ce filtre.</td>
+                    <td colSpan={10} className="px-6 py-12 text-center text-[#667085] font-medium">Aucune facture trouvée avec ce filtre.</td>
                   </tr>
                 )}
               </tbody>
@@ -5390,7 +5505,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                     <td className="px-6 py-4 text-right text-[13px] font-black text-emerald-700 font-mono">
                       {totals.paidAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA
                     </td>
-                    <td colSpan={5} className="px-6 py-4 text-left text-xs text-emerald-600 font-medium">
+                    <td colSpan={6} className="px-6 py-4 text-left text-xs text-emerald-600 font-medium">
                       ({totals.paidCount} facture{totals.paidCount > 1 ? 's' : ''})
                     </td>
                   </tr>
@@ -5399,7 +5514,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                     <td className="px-6 py-4 text-right text-[13px] font-black text-rose-700 font-mono">
                       {totals.unpaidAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA
                     </td>
-                    <td colSpan={5} className="px-6 py-4 text-left text-xs text-rose-600 font-medium">
+                    <td colSpan={6} className="px-6 py-4 text-left text-xs text-rose-600 font-medium">
                       ({totals.unpaidCount} facture{totals.unpaidCount > 1 ? 's' : ''})
                     </td>
                   </tr>
@@ -5436,6 +5551,87 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
               </button>
             </div>
           </div>
+        )}
+
+        {filteredInvoices.length > 0 && !loadingInvoices && (
+          <section className="border-t border-[#F2F4F7] p-4 sm:p-6">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-[#101828]">
+                  Évolution {isAmountChart ? 'du montant' : "du volume d'eau"}
+                </h3>
+                <p className="mt-1 text-xs font-medium text-[#667085]">
+                  Par facture · {filteredInvoices.length} points
+                </p>
+              </div>
+              <div role="tablist" aria-label="Indicateur à afficher" className="inline-flex w-fit rounded-lg border border-[#E4E7EC] bg-[#F9FAFB] p-1">
+                <button
+                  id="invoice-chart-amount-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected={isAmountChart}
+                  aria-controls="invoice-chart-panel"
+                  onClick={() => setInvoiceChartTab('amount')}
+                  className={`rounded-md px-3 py-2 text-xs font-bold transition-colors ${isAmountChart ? 'bg-white text-[#0D83DE] shadow-sm' : 'text-[#667085] hover:text-[#101828]'}`}
+                >
+                  Montant (DA)
+                </button>
+                <button
+                  id="invoice-chart-volume-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected={!isAmountChart}
+                  aria-controls="invoice-chart-panel"
+                  onClick={() => setInvoiceChartTab('volume')}
+                  className={`rounded-md px-3 py-2 text-xs font-bold transition-colors ${!isAmountChart ? 'bg-white text-[#0F766E] shadow-sm' : 'text-[#667085] hover:text-[#101828]'}`}
+                >
+                  Volume (m³)
+                </button>
+              </div>
+            </div>
+            <div id="invoice-chart-panel" role="tabpanel" aria-labelledby={isAmountChart ? 'invoice-chart-amount-tab' : 'invoice-chart-volume-tab'} className="overflow-x-auto">
+              <div style={{ minWidth: Math.max(680, invoiceChartData.length * 52) }}>
+                <ResponsiveContainer width="100%" height={320} minWidth={0}>
+                  <ComposedChart data={invoiceChartData} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2F4F7" />
+                    <XAxis
+                      dataKey="period"
+                      interval={Math.max(0, Math.ceil(invoiceChartData.length / 12) - 1)}
+                      tick={{ fontSize: 10, fill: '#667085' }}
+                      tickMargin={10}
+                    />
+                    <YAxis
+                      yAxisId={chartDataKey}
+                      tickFormatter={(value) => Number(value).toLocaleString('fr-FR')}
+                      tick={{ fontSize: 10, fill: '#667085' }}
+                      width={72}
+                    />
+                    <Tooltip
+                      labelFormatter={(label, payload) => {
+                        const invoiceType = payload?.[0]?.payload?.type;
+                        return invoiceType ? `${label} · ${invoiceType}` : label;
+                      }}
+                      formatter={(value) => [
+                        `${Number(value ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${chartUnit}`,
+                        chartName,
+                      ]}
+                    />
+                    <Brush dataKey="period" height={22} stroke="#98A2B3" travellerWidth={10} />
+                    <Line
+                      yAxisId={chartDataKey}
+                      type="monotone"
+                      dataKey={chartDataKey}
+                      name={chartName}
+                      stroke={chartColor}
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: chartColor }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </section>
         )}
       </div>
     );

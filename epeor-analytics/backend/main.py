@@ -586,15 +586,15 @@ _load_retry_count = 0
 _MAX_LOAD_RETRIES = 3
 
 # Bump this when the set of kept columns changes, to force cache rebuild.
-_CACHE_VERSION = "v2"
+_CACHE_VERSION = "v3"
 
-# Columns actually used in code for FACTURES and AVOIR (excludes CHEQUE, GUICHET,
+# Columns actually used in code for FACTURES and AVOIR (excludes GUICHET,
 # CAISSIER, SAISI_PAR, RELEVEUR, NORME_CONS, TAUX_EVOL, TIMBPOS, MODECALCUL,
 # CODE, PENALITE, ECHEANCE, DIAMETRE, CAISSE, CENTRE, TOURNEE, UNITE).
 _FACTURE_KEEP_COLUMNS: frozenset[str] = frozenset({
     'NUMAB', 'DATFACT', 'MONTTC', 'PAIEMENT', 'PERIODE',
     'ANCIENX', 'NOUVELX', 'QTE', 'TIMBRE', 'MODALITE', 'NUMREC',
-    'TYPE', 'TYPABON', 'ETATCPT', 'DATREG', 'DATERELEVE', 'DATSAISIE',
+    'TYPE', 'TYPABON', 'ETATCPT', 'DATREG', 'DATERELEVE', 'DATSAISIE', 'CHEQUE',
     'QE11', 'PE11', 'QE12', 'PE12', 'QE13', 'PE13', 'QE14', 'PE14', 'QEUN', 'PEUN',
     'PA11', 'PA12', 'PA13', 'PA14', 'PAUN',
     'RFA', 'TVRFA', 'RFASS', 'TVEAU', 'TVASS', 'ASS', 'RQE', 'REE', 'RDG',

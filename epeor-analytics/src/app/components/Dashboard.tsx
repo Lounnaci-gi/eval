@@ -86,14 +86,9 @@ const BilanActiviteView = dynamic(
   () => import("./ReportsViews").then((m) => ({ default: m.BilanActiviteView })),
   { loading: () => viewLoader }
 );
-const PayerClassificationView = dynamic(
-  () => import("./PayerClassificationView").then((m) => ({ default: m.PayerClassificationView })),
-  { loading: () => viewLoader }
-);
-
 export default function Dashboard() {
   const { t } = useTranslation();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'institutions' | 'unconnected' | 'terrain' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'classement_payeurs' | 'creances_abonnes' | 'creances_institutions' | 'service_contentieux' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'institutions' | 'unconnected' | 'terrain' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'service_contentieux' | 'settings'>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [creanceData, setCreanceData] = useState<any>(null);
@@ -1076,7 +1071,7 @@ export default function Dashboard() {
             sectorsLoading={sectorsLoading || !stats?.ready}
             allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
           />
-        ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite', 'classement_payeurs'].includes(currentView) ? (
+        ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
             <div className="obat-card page-card no-print no-print-charts-only">
@@ -1115,8 +1110,7 @@ export default function Dashboard() {
                       { id: 'ventilation', label: t('financials.tabs.debtBreakdown') },
                       { id: 'repartition', label: t('financials.tabs.typeBreakdown') },
                       { id: 'commune', label: t('financials.tabs.communeBreakdown') },
-                      { id: 'bilan_activite', label: t('financials.tabs.activityReport') },
-                      { id: 'classement_payeurs', label: t('financials.tabs.payerClassification') }
+                      { id: 'bilan_activite', label: t('financials.tabs.activityReport') }
                     ].map(tab => (
                       <ScrollableTab
                         key={tab.id}
@@ -1194,8 +1188,6 @@ export default function Dashboard() {
                 selectedSecteur={selectedSecteur}
                 sectors={sectors}
               />
-            ) : currentView === 'classement_payeurs' ? (
-              <PayerClassificationView selectedSecteur={selectedSecteur} />
             ) : null}
           </div>
         ) : null}

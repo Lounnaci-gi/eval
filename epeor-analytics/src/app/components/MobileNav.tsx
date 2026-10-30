@@ -33,7 +33,6 @@ export type AppView =
   | "commune"
   | "ventilation"
   | "bilan_activite"
-  | "classement_payeurs"
   | "creances_abonnes"
   | "creances_institutions"
   | "service_contentieux"
@@ -49,7 +48,7 @@ type NavItem = {
 const BOTTOM_NAV: NavItem[] = [
   { id: "dashboard",         labelKey: "nav.dashboard",        icon: LayoutDashboard },
   { id: "details",           labelKey: "nav.subscribers",      icon: Users,     match: ["details", "evolution", "resigned", "stopped", "no_meter", "unconnected"] },
-  { id: "creance",           labelKey: "nav.financials",       icon: BarChart3, match: ["creance", "repartition", "commune", "ventilation", "bilan_activite", "classement_payeurs"] },
+  { id: "creance",           labelKey: "nav.financials",       icon: BarChart3, match: ["creance", "repartition", "commune", "ventilation", "bilan_activite"] },
   { id: "creances_abonnes",  labelKey: "nav.subscriberDebts",  icon: CreditCard },
 ];
 

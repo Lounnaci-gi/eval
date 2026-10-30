@@ -735,7 +735,20 @@ def _build_search_index_entry(record: dict) -> dict:
     raisoc = str(record.get('RAISOC', '') or '').strip()
     nom = str(record.get('NOM', '') or '').strip()
     secteur = str(record.get('SECTEUR', '') or '').strip().zfill(2)
+    codrue = str(record.get('CODRUE', '') or '').strip()
+    street_record = rues_by_codrue.get(codrue) or rues_by_codrue.get(codrue.lstrip('0'))
+    street = str(street_record.get('NOUVNOM', '') or '').strip() if street_record else ''
+    address = ' '.join(filter(None, (
+        street,
+        str(record.get('BLOC', '') or '').strip(),
+        str(record.get('NDOM', '') or '').strip(),
+    )))
     abonment_info = abonments_by_numab.get(numab.upper(), {})
+    invoices = factures_by_numab.get(numab.upper(), [])
+    payment_references = ' '.join(
+        str(invoice.get('CHEQUE', '') or '').strip()
+        for invoice in invoices
+    )
     etatcpt = str(abonment_info.get('ETATCPT') or '').strip()
     etat_record = tabcodes_by_code.get('E' + etatcpt, {})
     etat_label = str(etat_record.get('LIBELLE', '') or '').strip()
@@ -750,6 +763,8 @@ def _build_search_index_entry(record: dict) -> dict:
         'numser_lower': _normalize_search_text(abonment_info.get('NUMSER', '')),
         'etatcpt_lower': _normalize_search_text(etatcpt),
         'etat_label_lower': _normalize_search_text(etat_label),
+        'adresse_lower': _normalize_search_text(address),
+        'payment_references_lower': _normalize_search_text(payment_references),
         'secteur': secteur,
     }
 
@@ -3098,12 +3113,14 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
             if etatcpt_filter and item['etatcpt_lower'] != etatcpt_filter:
                 continue
 
-            if (search_term_lower in item['numab_lower'] or 
+            if (search_term_lower in item['numab_lower'] or
                 search_term_lower in item['raisoc_lower'] or 
                 search_term_lower in item['nom_lower'] or
                 search_term_lower in item['numser_lower'] or
                 search_term_lower in item['etatcpt_lower'] or
-                search_term_lower in item['etat_label_lower']):
+                search_term_lower in item['etat_label_lower'] or
+                all(token in item['payment_references_lower'] for token in search_term_lower.split()) or
+                all(token in item['adresse_lower'] for token in search_term_lower.split())):
                 
                 record = item['record']
                 numab = str(record.get('NUMAB', '')).strip()

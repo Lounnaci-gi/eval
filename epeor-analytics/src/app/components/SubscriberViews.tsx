@@ -452,7 +452,7 @@ export function GestionAbonnesShell({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Nom, NUMAB, compteur ou état (ex. 41)..."
+                placeholder="Nom, adresse, N° chèque/versement, NUMAB, compteur ou état..."
                 className="w-full text-[11px] font-black pl-8 pr-7 py-1.5 rounded-xl border border-[#E4E7EC]/80 bg-white text-[#101828] placeholder-[#98A2B3] focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all"
               />
               {searchQuery && (

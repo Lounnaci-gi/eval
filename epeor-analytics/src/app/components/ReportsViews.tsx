@@ -6,6 +6,9 @@ import {
   ChevronRight, ChevronLeft, Search, Printer, FileText, FileSpreadsheet,
   MapPin, BarChart3, Users, UserX,
 } from "lucide-react";
+import {
+  Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
 import { apiUrlObject } from "../lib/api";
 import { formatPeriodLabel, appendSecteurParam, showAlert } from "./utils";
 import { escapeHtml } from "../../lib/escape";
@@ -24,10 +27,6 @@ export function CommuneDrillDownView({
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedCommune, setSelectedCommune] = useState<any>(null);
-  const [selectedQuartier, setSelectedQuartier] = useState<any>(null);
-  const [quartierBreakdown, setQuartierBreakdown] = useState<any[]>([]);
-  const [quartierLoading, setQuartierLoading] = useState(false);
-  const [quartierError, setQuartierError] = useState<string | null>(null);
   const [quartierSubscribers, setQuartierSubscribers] = useState<any[]>([]);
   const [quartierSubscribersLoading, setQuartierSubscribersLoading] = useState(false);
   const [quartierSubscribersError, setQuartierSubscribersError] = useState<string | null>(null);
@@ -36,106 +35,6 @@ export function CommuneDrillDownView({
 
   const handleCommuneClick = async (commune: any) => {
     setSelectedCommune(commune);
-    setSelectedQuartier(null);
-    setQuartierLoading(true);
-    setQuartierError(null);
-    setQuartierBreakdown([]);
-
-    try {
-      const normalize = (value: any) =>
-        String(value ?? '')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/['’]/g, '')
-          .replace(/[^a-zA-Z0-9]/g, '')
-          .toLowerCase();
-
-      const targetNameNormalized = normalize(targetName);
-      const matchingCommune = Array.isArray(data?.by_commune)
-        ? data.by_commune.find((row: any) => {
-            const sameId = String(row?.id ?? '').trim() && String(row.id).trim() === String(commune?.id ?? '').trim();
-            const sameName = normalize(row?.name) === normalize(commune?.name);
-            return sameId || sameName;
-          })
-        : null;
-
-      if (matchingCommune) {
-        const typeRows = Array.isArray(matchingCommune.by_type) ? matchingCommune.by_type : [];
-        const matchingType = typeRows.find((typeRow: any) => {
-          const allowedNames = [typeRow?.name, typeRow?.label, typeRow?.type_code, targetName];
-          return allowedNames.some((name: any) => {
-            const current = normalize(name);
-            return !current || current === targetNameNormalized || current.includes(targetNameNormalized) || targetNameNormalized.includes(current);
-          });
-        });
-
-        const rows = Array.isArray(matchingType?.quartiers)
-          ? matchingType.quartiers.map((zone: any) => ({
-              code: zone?.name || zone?.id || 'N/A',
-              amount: Number(zone?.value ?? zone?.amount ?? 0) || 0,
-              count: Number(zone?.count ?? zone?.sub_count ?? 0) || 0,
-            }))
-          : [];
-
-        setQuartierBreakdown(rows.sort((a: any, b: any) => b.amount - a.amount));
-        setQuartierLoading(false);
-        return;
-      }
-
-      const url = apiUrlObject('/creance_subscribers');
-      if (startDate) url.searchParams.append('start_date', startDate.replace(/-/g, ''));
-      if (endDate) url.searchParams.append('end_date', endDate.replace(/-/g, ''));
-      if (targetName) url.searchParams.append('target_name', targetName);
-      url.searchParams.append('column', 'creance');
-      appendSecteurParam(url, selectedSecteur);
-
-      const res = await fetch(url.toString());
-      const json = await res.json();
-      const subscribers = Array.isArray(json?.subscribers) ? json.subscribers : [];
-      const targetCommuneId = String(commune?.id ?? '').trim();
-      const targetCommuneName = String(commune?.name ?? '').trim();
-      const targetCommuneVariants = new Set<string>([
-        targetCommuneId,
-        targetCommuneName,
-        targetCommuneId.padStart(2, '0'),
-      ].filter(Boolean).map(v => normalize(v)));
-
-      const byQuartier = new Map<string, { code: string; amount: number; count: number }>();
-      for (const sub of subscribers) {
-        const communeCandidates = [sub?.commune, sub?.libcom, sub?.commune_name, sub?.communeName, sub?.codcom, sub?.commune_code, sub?.communeCode];
-        const matchesCommune = communeCandidates.some((candidate) => {
-          const value = String(candidate ?? '').trim();
-          if (!value) return false;
-          const current = normalize(value);
-          return targetCommuneVariants.has(current)
-            || (targetCommuneName && (current.includes(normalize(targetCommuneName)) || normalize(targetCommuneName).includes(current)))
-            || (targetCommuneId && value === targetCommuneId)
-            || (targetCommuneId && value === targetCommuneId.padStart(2, '0'));
-        });
-
-        if (!matchesCommune) continue;
-
-        const quartierCode = String(sub?.quartier_code || sub?.quartier || sub?.numab || '').trim();
-        const code = quartierCode.slice(0, 2) || 'N/A';
-        const amount = Number(sub?.amount ?? 0) || 0;
-        const current = byQuartier.get(code) ?? { code, amount: 0, count: 0 };
-        current.amount += amount;
-        current.count += 1;
-        byQuartier.set(code, current);
-      }
-
-      const rows = [...byQuartier.values()].sort((a, b) => b.amount - a.amount);
-      setQuartierBreakdown(rows);
-    } catch {
-      setQuartierError('Impossible de charger les zones concernées.');
-    } finally {
-      setQuartierLoading(false);
-    }
-  };
-
-  const handleQuartierClick = async (zone: any) => {
-    if (!selectedCommune) return;
-    setSelectedQuartier(zone);
     setQuartierPage(1);
     setQuartierSubscribersLoading(true);
     setQuartierSubscribersError(null);
@@ -158,42 +57,31 @@ export function CommuneDrillDownView({
       appendSecteurParam(url, selectedSecteur);
 
       const res = await fetch(url.toString());
+      if (!res.ok) throw new Error(`Erreur HTTP ${res.status}`);
       const json = await res.json();
+      if (json?.error) throw new Error(String(json.error));
       const subscribers = Array.isArray(json?.subscribers) ? json.subscribers : [];
+      const targetCommuneId = String(commune?.id ?? '').trim();
+      const targetCommuneName = String(commune?.name ?? '').trim();
+      const targetCommuneVariants = new Set<string>([
+        targetCommuneId,
+        targetCommuneName,
+        targetCommuneId.padStart(2, '0'),
+      ].filter(Boolean).map(v => normalize(v)));
 
-      const targetCommuneName = String(selectedCommune?.name ?? '').trim();
-      const targetCommuneId = String(selectedCommune?.id ?? '').trim();
-      const zoneCandidates = [zone?.code, zone?.name, zone?.id, zone?.quartier, zone?.quartier_code];
-      const zoneSet = new Set(zoneCandidates.filter(Boolean).map(item => normalize(item)));
-
-      const filtered = subscribers.filter((sub: any) => {
-        const communeValues = [sub?.commune, sub?.libcom, sub?.commune_name, sub?.communeName, sub?.codcom, sub?.commune_code, sub?.communeCode];
-        const communeMatches = communeValues.some((candidate) => {
+      setQuartierSubscribers(subscribers.filter((sub: any) => {
+        const communeCandidates = [sub?.commune, sub?.libcom, sub?.commune_name, sub?.communeName, sub?.codcom, sub?.commune_code, sub?.communeCode];
+        return communeCandidates.some((candidate) => {
           const value = String(candidate ?? '').trim();
           if (!value) return false;
           const current = normalize(value);
-          return current === normalize(targetCommuneName)
-            || current === normalize(targetCommuneId)
-            || current === normalize(targetCommuneId.padStart(2, '0'))
-            || (targetCommuneName && (current.includes(normalize(targetCommuneName)) || normalize(targetCommuneName).includes(current)))
-            || (targetCommuneId && (current === normalize(targetCommuneId) || current === normalize(targetCommuneId.padStart(2, '0'))));
+          return targetCommuneVariants.has(current)
+            || (targetCommuneName && current.includes(normalize(targetCommuneName)))
+            || (targetCommuneId && (value === targetCommuneId || value === targetCommuneId.padStart(2, '0')));
         });
-
-        if (!communeMatches) return false;
-
-        const quartierValues = [sub?.quartier_code, sub?.quartier, sub?.numab, sub?.zone, sub?.quartier_name, sub?.libquart];
-        return quartierValues.some((candidate) => {
-          const value = String(candidate ?? '').trim();
-          if (!value) return false;
-          const current = normalize(value);
-          return zoneSet.has(current)
-            || [...zoneSet].some(zoneValue => current.includes(zoneValue) || zoneValue.includes(current));
-        });
-      });
-
-      setQuartierSubscribers(filtered.sort((a: any, b: any) => Number(b.amount || 0) - Number(a.amount || 0)));
+      }));
     } catch {
-      setQuartierSubscribersError('Impossible de charger les abonnés du quartier.');
+      setQuartierSubscribersError('Impossible de charger les abonnés de cette commune.');
     } finally {
       setQuartierSubscribersLoading(false);
     }
@@ -219,22 +107,31 @@ export function CommuneDrillDownView({
     };
 
     const normalize = (list: any[]) => {
-      const filtered = list.filter((row: any) => {
+      return list.flatMap((row: any) => {
         const matches = Array.isArray(row.by_type) ? row.by_type : [];
-        return matches.some((type: any) => {
+        const matchingTypes = matches.filter((type: any) => {
           const sectionMatch = !section || normalizeString(type.section) === normalizeString(section);
           if (!sectionMatch) return false;
           const target = canonicalize(targetName);
           const candidates = [type.name, type.label, type.type_code];
           return candidates.some(candidate => canonicalize(candidate) === target);
         });
-      });
+        if (matchingTypes.length === 0) return [];
 
-      if (filtered.length > 0) return filtered;
+        const sum = (key: string) => matchingTypes.reduce(
+          (total: number, type: any) => total + (Number(type[key]) || 0),
+          0
+        );
 
-      return list.filter((row: any) => {
-        const matches = Array.isArray(row.by_type) ? row.by_type : [];
-        return matches.some((type: any) => !section || normalizeString(type.section) === normalizeString(section));
+        return [{
+          ...row,
+          ca_eau: sum('ca_eau'),
+          ca_prestation: sum('ca_prestation'),
+          ca: sum('ca'),
+          recouvre: sum('recouvre'),
+          creance: sum('creance'),
+          sub_count: sum('sub_count'),
+        }];
       });
     };
 
@@ -275,30 +172,132 @@ export function CommuneDrillDownView({
     c.name?.toLowerCase().includes(search.toLowerCase()) ||
     c.id?.toLowerCase().includes(search.toLowerCase())
   );
+  const communeTotals = filtered.reduce((totals: { ca: number; recouvre: number; creance: number; subscribers: number }, commune: any) => ({
+    ca: totals.ca + (Number(commune.ca) || 0),
+    recouvre: totals.recouvre + (Number(commune.recouvre) || 0),
+    creance: totals.creance + (Number(commune.creance) || 0),
+    subscribers: totals.subscribers + (Number(commune.sub_count) || 0),
+  }), { ca: 0, recouvre: 0, creance: 0, subscribers: 0 });
 
-  if (selectedQuartier) {
+  const handlePrintCommunes = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      void showAlert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.', { title: 'Autorisation requise', icon: 'warning' });
+      return;
+    }
+
+    const rows = filtered.map((commune: any) => `
+      <tr>
+        <td>${escapeHtml(commune.name || '')}</td>
+        <td class="numeric">${escapeHtml(fmt(Number(commune.ca) || 0))}</td>
+        <td class="numeric">${escapeHtml(fmt(Number(commune.recouvre) || 0))}</td>
+        <td class="numeric">${escapeHtml(fmt(Number(commune.creance) || 0))}</td>
+        <td class="numeric">${escapeHtml(Number(commune.sub_count) || 0)}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`<!doctype html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8">
+          <title>${escapeHtml(targetName ? `${targetName} par commune` : 'Détail par commune')}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #101828; margin: 24px; }
+            h1 { font-size: 20px; margin-bottom: 4px; }
+            p { color: #667085; font-size: 12px; margin: 0 0 18px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            th, td { padding: 8px; border: 1px solid #E4E7EC; text-align: left; }
+            th { background: #F9FAFB; text-transform: uppercase; font-size: 9px; }
+            .numeric { text-align: right; white-space: nowrap; }
+            tfoot { font-weight: bold; background: #EFF6FF; }
+            @media print { body { margin: 12mm; } }
+          </style>
+        </head>
+        <body>
+          <h1>${escapeHtml(targetName ? `${targetName} par commune` : 'Détail par commune')}</h1>
+          <p>${filtered.length} commune${filtered.length !== 1 ? 's' : ''} · Imprimé le ${new Date().toLocaleDateString('fr-FR')}</p>
+          <table>
+            <thead><tr><th>Commune</th><th>CA</th><th>Recouvrement</th><th>Créance</th><th>Abonnés</th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr><td>TOTAL</td><td class="numeric">${escapeHtml(fmt(communeTotals.ca))}</td><td class="numeric">${escapeHtml(fmt(communeTotals.recouvre))}</td><td class="numeric">${escapeHtml(fmt(communeTotals.creance))}</td><td class="numeric">${communeTotals.subscribers}</td></tr></tfoot>
+          </table>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>`);
+    printWindow.document.close();
+  };
+
+  const handlePrintSubscribers = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      void showAlert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.', { title: 'Autorisation requise', icon: 'warning' });
+      return;
+    }
+
+    const totalAmount = quartierSubscribers.reduce((total: number, subscriber: any) => total + (Number(subscriber.amount) || 0), 0);
+    const rows = quartierSubscribers.map((subscriber: any) => `
+      <tr>
+        <td>${escapeHtml(subscriber.numab || '')}</td>
+        <td>${escapeHtml(subscriber.name || '')}</td>
+        <td>${escapeHtml(subscriber.type_abonne || '—')}</td>
+        <td class="numeric">${escapeHtml(fmt(Number(subscriber.amount) || 0))}</td>
+        <td class="numeric">${escapeHtml(Number(subscriber.count) || 0)}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`<!doctype html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8">
+          <title>Abonnés concernés - ${escapeHtml(selectedCommune?.name || '')}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #101828; margin: 24px; }
+            h1 { font-size: 20px; margin-bottom: 4px; }
+            p { color: #667085; font-size: 12px; margin: 0 0 18px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            th, td { padding: 8px; border: 1px solid #E4E7EC; text-align: left; }
+            th { background: #F9FAFB; text-transform: uppercase; font-size: 9px; }
+            .numeric { text-align: right; white-space: nowrap; }
+            tfoot { font-weight: bold; background: #EFF6FF; }
+            @media print { body { margin: 12mm; } }
+          </style>
+        </head>
+        <body>
+          <h1>Abonnés concernés — ${escapeHtml(selectedCommune?.name || '')}</h1>
+          <p>${quartierSubscribers.length} abonné${quartierSubscribers.length !== 1 ? 's' : ''} · Imprimé le ${new Date().toLocaleDateString('fr-FR')}</p>
+          <table>
+            <thead><tr><th>Code Abonné</th><th>Nom / Raison sociale</th><th>Type</th><th>Créance</th><th>Opérations</th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr><td colspan="3">Total créance</td><td class="numeric">${escapeHtml(fmt(totalAmount))}</td><td class="numeric">${quartierSubscribers.reduce((total: number, subscriber: any) => total + (Number(subscriber.count) || 0), 0)}</td></tr></tfoot>
+          </table>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>`);
+    printWindow.document.close();
+  };
+
+  if (selectedCommune) {
     const quartierTotalPages = Math.max(1, Math.ceil(quartierSubscribers.length / QUARTIER_PAGE_SIZE));
     const quartierPagedSubscribers = quartierSubscribers.slice(
       (quartierPage - 1) * QUARTIER_PAGE_SIZE,
       quartierPage * QUARTIER_PAGE_SIZE
     );
+    const totalSubscriberAmount = quartierSubscribers.reduce((total: number, subscriber: any) => total + (Number(subscriber.amount) || 0), 0);
+    const totalOperations = quartierSubscribers.reduce((total: number, subscriber: any) => total + (Number(subscriber.count) || 0), 0);
 
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
-        <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
+        <div className="flex items-start justify-between gap-4 p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
           <div>
             <button
-              onClick={() => setSelectedQuartier(null)}
+              onClick={() => setSelectedCommune(null)}
               className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
             >
-              <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
+              <ChevronRight className="rotate-180" size={16} /> Retour aux communes
             </button>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-brand-50 text-brand-600 border-brand-100">
-                {selectedQuartier.code}
-              </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-blue-50 text-blue-600 border-blue-100">
-                {selectedCommune?.name}
+                {selectedCommune.name}
               </span>
             </div>
             <h2 className="text-xl font-black text-[#101828] tracking-tight">Abonnés concernés</h2>
@@ -306,6 +305,15 @@ export function CommuneDrillDownView({
               {quartierSubscribersLoading ? 'Chargement des abonnés...' : `${quartierSubscribers.length} abonné${quartierSubscribers.length !== 1 ? 's' : ''} trouvé${quartierSubscribers.length !== 1 ? 's' : ''}`}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={handlePrintSubscribers}
+            disabled={quartierSubscribersLoading || quartierSubscribers.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 active:scale-95 transition-all shadow-md shadow-brand-600/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Printer size={14} />
+            Imprimer
+          </button>
         </div>
 
         <div className="overflow-auto">
@@ -320,7 +328,7 @@ export function CommuneDrillDownView({
             </div>
           ) : quartierSubscribers.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-56 gap-3">
-              <p className="text-sm font-medium text-[#667085]">Aucun abonné trouvé pour ce quartier.</p>
+              <p className="text-sm font-medium text-[#667085]">Aucun abonné trouvé pour cette commune.</p>
             </div>
           ) : (
             <>
@@ -345,6 +353,13 @@ export function CommuneDrillDownView({
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="bg-blue-50/70 border-t-2 border-blue-100">
+                    <td colSpan={3} className="px-6 py-4 text-sm font-black text-[#101828]">TOTAL</td>
+                    <td className="px-4 py-4 text-right text-sm font-black text-rose-700 whitespace-nowrap">{fmt(totalSubscriberAmount)}</td>
+                    <td className="px-4 py-4 text-right text-xs font-black text-[#475467]">{totalOperations}</td>
+                  </tr>
+                </tfoot>
               </table>
 
               <div className="flex items-center justify-between gap-4 px-6 py-4 border-t border-[#F2F4F7] bg-[#F9FAFB]">
@@ -376,73 +391,6 @@ export function CommuneDrillDownView({
                 </div>
               </div>
             </>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (selectedCommune) {
-    return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
-        <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
-          <div>
-            <button
-              onClick={() => setSelectedCommune(null)}
-              className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
-            >
-              <ChevronRight className="rotate-180" size={16} /> Retour aux communes
-            </button>
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-brand-50 text-brand-600 border-brand-100">
-                {targetName ? `${targetName} par quartier` : 'Zones concernées'}
-              </span>
-              {section && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border bg-blue-50 text-blue-600 border-blue-100">
-                  {section}
-                </span>
-              )}
-            </div>
-            <h2 className="text-xl font-black text-[#101828] tracking-tight">{selectedCommune.name}</h2>
-            <p className="text-sm text-[#667085] mt-1 font-medium">
-              {quartierLoading ? 'Chargement des zones...' : `${quartierBreakdown.length} zone${quartierBreakdown.length !== 1 ? 's' : ''} concernée${quartierBreakdown.length !== 1 ? 's' : ''}`}
-            </p>
-          </div>
-        </div>
-
-        <div className="overflow-auto">
-          {quartierLoading ? (
-            <div className="flex flex-col items-center justify-center h-56 gap-4">
-              <div className="spinner-premium" style={{ width: 40, height: 40 }} />
-              <p className="text-sm font-medium text-[#667085]">Chargement des quartiers...</p>
-            </div>
-          ) : quartierError ? (
-            <div className="flex flex-col items-center justify-center h-56 gap-3">
-              <p className="text-sm font-bold text-rose-600">{quartierError}</p>
-            </div>
-          ) : quartierBreakdown.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-56 gap-3">
-              <p className="text-sm font-medium text-[#667085]">Aucune zone trouvée pour cette commune.</p>
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
-                  <th className="px-6 py-4">Zone / Quartier</th>
-                  <th className="px-4 py-4 text-right">Créance</th>
-                  <th className="px-4 py-4 text-right">Abonnés</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F2F4F7]">
-                {quartierBreakdown.map((zone: any) => (
-                  <tr key={zone.code} className="hover:bg-brand-50/20 transition-colors cursor-pointer" onClick={() => handleQuartierClick(zone)}>
-                    <td className="px-6 py-3.5 text-sm font-semibold text-[#101828]">{zone.code}</td>
-                    <td className="px-4 py-3.5 text-right text-sm font-black text-rose-600 whitespace-nowrap">{fmt(zone.amount || 0)}</td>
-                    <td className="px-4 py-3.5 text-right text-xs font-bold text-[#475467]">{zone.count || 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           )}
         </div>
       </div>
@@ -489,6 +437,15 @@ export function CommuneDrillDownView({
             className="w-full pl-9 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-medium text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100/50 transition-all"
           />
         </div>
+        <button
+          type="button"
+          onClick={handlePrintCommunes}
+          disabled={loading || filtered.length === 0}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 active:scale-95 transition-all shadow-md shadow-brand-600/10 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Printer size={14} />
+          Imprimer
+        </button>
       </div>
 
       <div className="overflow-auto">
@@ -531,6 +488,15 @@ export function CommuneDrillDownView({
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="bg-blue-50/70 border-t-2 border-blue-100">
+                <td className="px-6 py-4 text-sm font-black text-[#101828]">TOTAL</td>
+                <td className="px-4 py-4 text-right text-sm font-black text-brand-700 whitespace-nowrap">{fmt(communeTotals.ca)}</td>
+                <td className="px-4 py-4 text-right text-sm font-black text-emerald-700 whitespace-nowrap">{fmt(communeTotals.recouvre)}</td>
+                <td className="px-4 py-4 text-right text-sm font-black text-rose-700 whitespace-nowrap">{fmt(communeTotals.creance)}</td>
+                <td className="px-4 py-4 text-right text-xs font-black text-[#475467]">{communeTotals.subscribers}</td>
+              </tr>
+            </tfoot>
           </table>
         )}
       </div>
@@ -1508,6 +1474,8 @@ export function CreanceVentilationView({
 export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSectionFilter, onGoToCalculation, startDate, endDate, selectedSecteur = '', sectors = [] }: any) {
   const [expandedTypes, setExpandedTypes] = useState<string[]>(['EAU', 'PRESTATIONS']);
   const [communeDrillDown, setCommuneDrillDown] = useState<{targetName: string, section: string} | null>(null);
+  const [subscriberDrillDown, setSubscriberDrillDown] = useState<{targetName: string, section: string} | null>(null);
+  const [activeView, setActiveView] = useState<'table' | 'chart'>('table');
   const secteurLabel = selectedSecteur
     ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
     : null;
@@ -1517,6 +1485,14 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
       .format(n)
       .replace(/[\u202F\u00A0]/g, ' ') + " DA";
 
+  const typeRows = Array.isArray(data?.by_type) ? data.by_type : [];
+  const chartData = (typeSectionFilter === 'ALL'
+    ? typeRows
+    : typeRows.filter((row: any) => row.section === typeSectionFilter))
+    .map((row: any) => ({ ...row, value: Number(row.creance) || 0 }))
+    .filter((row: any) => Number.isFinite(row.value) && row.value !== 0)
+    .sort((a: any, b: any) => b.value - a.value);
+  const chartTotal = chartData.reduce((total: number, row: any) => total + row.value, 0);
 
   const toggleTypeSection = (section: string) => {
     setExpandedTypes(prev =>
@@ -1897,6 +1873,19 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
     );
   }
 
+  if (subscriberDrillDown) {
+    return (
+      <SubscriberDrillDownView
+        targetName={subscriberDrillDown.targetName}
+        column="creance"
+        startDate={startDate}
+        endDate={endDate}
+        selectedSecteur={selectedSecteur}
+        onClose={() => setSubscriberDrillDown(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Filters and Context */}
@@ -1915,7 +1904,22 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
         
         {/* Modern Tab Filters & Print Button */}
         <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
-          <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC]">
+          <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC]" role="tablist" aria-label="Affichage de la répartition">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === 'table'}
+              onClick={() => setActiveView('table')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
+                activeView === 'table'
+                  ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
+                  : 'text-[#667085] border-transparent hover:text-[#101828]'
+              }`}
+            >
+              Tableau
+            </button>
+          </div>
+          <div className="flex flex-wrap bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC]">
             {[
               { id: 'ALL', label: 'Tous les Types' },
               { id: 'EAU', label: 'Eau Uniquement' },
@@ -1933,6 +1937,19 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
                 {tab.label}
               </button>
             ))}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === 'chart'}
+              onClick={() => setActiveView('chart')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
+                activeView === 'chart'
+                  ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
+                  : 'text-[#667085] border-transparent hover:text-[#101828]'
+              }`}
+            >
+              Graphique des créances
+            </button>
           </div>
 
           <button
@@ -1947,6 +1964,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
       </div>
 
       {/* Table Container */}
+      {activeView === 'table' ? (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -2011,7 +2029,19 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
 
                     {/* Detail Rows */}
                     {isExpanded && sectionRows.map((t: any) => (
-                      <tr key={t.name} className={`${isEau ? 'hover:bg-blue-50/30' : 'hover:bg-teal-50/30'} transition-colors`}>
+                      <tr
+                        key={t.name}
+                        onClick={() => setSubscriberDrillDown({ targetName: t.name, section })}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setSubscriberDrillDown({ targetName: t.name, section });
+                          }
+                        }}
+                        tabIndex={0}
+                        title={`Afficher les abonnés de ${t.name}`}
+                        className={`${isEau ? 'hover:bg-blue-50/30' : 'hover:bg-teal-50/30'} cursor-pointer transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500`}
+                      >
                         <td colSpan={3} className="px-8 py-4">
                           <span className="text-[12px] font-medium text-[#344054] pl-8">{t.name}</span>
                         </td>
@@ -2022,22 +2052,22 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
                           {(t.sub_count > 0 ? (t.forfait_count / t.sub_count * 100) : 0).toFixed(2)}%
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-blue-600 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-blue-50/60 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.ca_eau)}</span>
+                          <span className="cursor-pointer hover:bg-blue-50/60 hover:text-blue-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={(event) => { event.stopPropagation(); setCommuneDrillDown({ targetName: t.name, section }); }} title="Voir les communes concernées">{fmt(t.ca_eau)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-cyan-600 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-cyan-50/60 hover:text-cyan-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.ca_prestation)}</span>
+                          <span className="cursor-pointer hover:bg-cyan-50/60 hover:text-cyan-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={(event) => { event.stopPropagation(); setCommuneDrillDown({ targetName: t.name, section }); }} title="Voir les communes concernées">{fmt(t.ca_prestation)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-black text-[13px] text-brand-600 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-brand-50/60 hover:text-brand-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.ca)}</span>
+                          <span className="cursor-pointer hover:bg-brand-50/60 hover:text-brand-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={(event) => { event.stopPropagation(); setCommuneDrillDown({ targetName: t.name, section }); }} title="Voir les communes concernées">{fmt(t.ca)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-teal-600 bg-teal-50/5 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-teal-50/60 hover:text-teal-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.ca_recouvre || 0)}</span>
+                          <span className="cursor-pointer hover:bg-teal-50/60 hover:text-teal-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={(event) => { event.stopPropagation(); setCommuneDrillDown({ targetName: t.name, section }); }} title="Voir les communes concernées">{fmt(t.ca_recouvre || 0)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-medium text-[13px] text-emerald-600 bg-emerald-50/5 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-emerald-50/60 hover:text-emerald-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.recouvre)}</span>
+                          <span className="cursor-pointer hover:bg-emerald-50/60 hover:text-emerald-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={(event) => { event.stopPropagation(); setCommuneDrillDown({ targetName: t.name, section }); }} title="Voir les communes concernées">{fmt(t.recouvre)}</span>
                         </td>
                         <td className="px-6 py-4 text-right font-black text-[13px] text-rose-600 bg-rose-50/10 whitespace-nowrap">
-                          <span className="cursor-pointer hover:bg-rose-50/60 hover:text-rose-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={() => setCommuneDrillDown({ targetName: t.name, section })} title="Voir les communes concernées">{fmt(t.creance)}</span>
+                          <span className="cursor-pointer hover:bg-rose-50/60 hover:text-rose-700 underline decoration-dotted underline-offset-2 transition-all rounded px-1 py-0.5" onClick={(event) => { event.stopPropagation(); setCommuneDrillDown({ targetName: t.name, section }); }} title="Voir les communes concernées">{fmt(t.creance)}</span>
                         </td>
                         <td className="px-8 py-4 text-right font-black text-[13px] text-[#475467] whitespace-nowrap">{t.taux.toFixed(2)}%</td>
                       </tr>
@@ -2098,6 +2128,73 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
           </table>
         </div>
       </div>
+      ) : (
+        <section className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+          <div className="p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div>
+              <h4 className="text-xl font-black tracking-tight text-[#101828]">Répartition des créances par Type d'Abonné</h4>
+              <p className="text-sm text-[#667085] mt-1 font-medium">
+                Survolez une barre pour consulter le montant, ou cliquez dessus pour afficher le détail.
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#98A2B3]">Créance totale affichée</p>
+              <p className="text-lg font-black text-brand-600">{fmt(chartTotal)}</p>
+            </div>
+          </div>
+          {chartData.length > 0 ? (
+            <div className="p-6 sm:p-8">
+              <ResponsiveContainer width="100%" height={Math.max(360, chartData.length * 42)} minWidth={0}>
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 8, right: 24, left: 8, bottom: 56 }}
+                  barCategoryGap={12}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2F4F7" />
+                  <XAxis
+                    dataKey="name"
+                    interval={0}
+                    angle={-30}
+                    textAnchor="end"
+                    height={72}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <YAxis
+                    type="number"
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(value) => Number(value).toLocaleString('fr-FR')}
+                  />
+                  <Tooltip
+                    cursor={{ fill: '#EFF6FF' }}
+                    labelFormatter={(label) => `Type : ${label}`}
+                    formatter={(value) => [fmt(Number(value ?? 0)), 'Créance']}
+                  />
+                  <Bar
+                    dataKey="value"
+                    name="Créance"
+                    radius={[6, 6, 0, 0]}
+                    cursor="pointer"
+                    onClick={(entry: any) => {
+                      const row = entry?.payload ?? entry;
+                      if (row?.name && row?.section) {
+                        setCommuneDrillDown({ targetName: row.name, section: row.section });
+                      }
+                    }}
+                  >
+                    {chartData.map((row: any, index: number) => (
+                      <Cell key={`${row.section}-${row.name}`} fill={index % 2 === 0 ? '#2563EB' : '#06B6D4'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="p-12 text-center text-sm font-medium text-[#667085]">
+              Aucune créance à afficher pour le filtre sélectionné.
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -3404,4 +3501,3 @@ export function BilanActiviteView({ data, startDate = '', endDate = '', selected
     </div>
   );
 }
-

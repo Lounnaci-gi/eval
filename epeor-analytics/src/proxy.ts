@@ -1,30 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const API_ALLOWLIST = ['/api/auth/login', '/api/auth/refresh'];
-
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-
-  if (pathname.startsWith('/api')) {
-    const method = request.method.toUpperCase();
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-      if (API_ALLOWLIST.includes(pathname)) {
-        return NextResponse.next();
-      }
-
-      const cookieToken = request.cookies.get('csrf_token')?.value || null;
-      const headerToken = request.headers.get('x-csrf-token') || null;
-      if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-        return new NextResponse(JSON.stringify({ error: 'CSRF check failed' }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    return NextResponse.next();
-  }
 
   if (pathname.startsWith('/backend-api')) {
     const requestHeaders = new Headers(request.headers);
@@ -35,7 +13,6 @@ export function proxy(request: NextRequest) {
     });
   }
 
-  // Language detection (Accept-Language header) for page requests
   const langParam = request.nextUrl.searchParams.get('lang');
   const hasLangCookie = request.cookies.has('i18nextLng');
 

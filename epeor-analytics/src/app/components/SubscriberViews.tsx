@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useId } from "react";
 import dynamic from "next/dynamic";
 import {
   ChevronRight, MapPin, Printer, Search,
 } from "lucide-react";
 import {
-  Bar, BarChart, Brush, CartesianGrid, Cell, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, Brush, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { apiUrl, apiUrlObject } from "../lib/api";
 import { buildSubscribersUrl, appendSecteurParam } from "./utils";
@@ -40,6 +40,71 @@ function mapCommuneChartData(communes: any[]) {
     forfait: Number(commune.forfait_count) || 0,
     resigned: Number(commune.resigned) || 0,
   }));
+}
+
+type DistributionChartConfig = {
+  title: string;
+  description: string;
+  emptyMessage: string;
+  color: string;
+  data: { name: string; count: number }[];
+};
+
+function DistributionChart({ chart }: { chart: DistributionChartConfig }) {
+  const gradientId = `distribution-${useId().replace(/:/g, '')}`;
+  const data = chart.data.filter((row) => row.count > 0);
+
+  return (
+    <section className="obat-card min-w-0 overflow-hidden p-5 sm:p-7">
+      <div className="mb-5">
+        <h3 className="text-xl font-black tracking-tight text-[#101828]">{chart.title}</h3>
+        <p className="mt-1 text-sm font-medium text-[#667085]">{chart.description}</p>
+      </div>
+      {data.length > 0 ? (
+        <div className="overflow-x-auto">
+          <div style={{ minWidth: Math.max(520, data.length * 56) }}>
+            <ResponsiveContainer width="100%" height={340} minWidth={0}>
+              <BarChart data={data} margin={{ top: 12, right: 20, left: 0, bottom: 72 }}>
+                <defs>
+                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chart.color} stopOpacity={0.78} />
+                    <stop offset="100%" stopColor={chart.color} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#E9EDF3" />
+                <XAxis
+                  dataKey="name"
+                  interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={76}
+                  tick={{ fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis type="number" allowDecimals={false} width={48} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  cursor={{ fill: `${chart.color}14` }}
+                  formatter={(value) => [Number(value ?? 0).toLocaleString('fr-FR'), 'Abonnés']}
+                />
+                <Bar dataKey="count" fill={`url(#${gradientId})`} radius={[7, 7, 0, 0]} maxBarSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ) : (
+        <p className="py-8 text-center text-sm font-medium text-[#667085]">{chart.emptyMessage}</p>
+      )}
+    </section>
+  );
+}
+
+function DistributionCharts({ charts }: { charts: DistributionChartConfig[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      {charts.map((chart) => <DistributionChart key={chart.title} chart={chart} />)}
+    </div>
+  );
 }
 
 export function GestionAbonnesShell({
@@ -717,6 +782,32 @@ export function GestionAbonnesShell({
                     </div>
                   </section>
                 ))}
+                {!selectedUnconnectedRow && (
+                  <DistributionCharts
+                    charts={[
+                      {
+                        title: "Abonnés non branchés par commune",
+                        description: "Répartition géographique des abonnés non branchés",
+                        emptyMessage: "Aucune donnée de non-branchement disponible par commune.",
+                        color: '#2563EB',
+                        data: (stats?.unconnected_communes ?? []).map((row: any) => ({
+                          name: String(row.name ?? 'Commune inconnue'),
+                          count: Number(row.value) || 0,
+                        })),
+                      },
+                      {
+                        title: "Abonnés non branchés par type",
+                        description: "Répartition par type d'abonné",
+                        emptyMessage: "Aucune donnée de non-branchement disponible par type d'abonné.",
+                        color: '#2563EB',
+                        data: (stats?.unconnected_types ?? []).map((row: any) => ({
+                          name: String(row.name ?? "Type d'abonné inconnu"),
+                          count: Number(row.value) || 0,
+                        })),
+                      },
+                    ]}
+                  />
+                )}
               </div>
             )}
             {!(currentView === 'unconnected' && !searchQuery.trim() && searchStarted)
@@ -1090,7 +1181,6 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
 
   const communes = useMemo(() => stats?.subscriber_communes || [], [stats?.subscriber_communes]);
   const types = stats?.subscriber_types || [];
-  const communeChartData = useMemo(() => mapCommuneChartData(communes), [communes]);
   const categoryLabels = [
     { key: "menages", name: "Ménages" },
     { key: "administrations", name: "Administrations" },
@@ -1105,7 +1195,6 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
       0,
     ),
   }));
-  const categoryColors = ["#0D83DE", "#10B981", "#F97316", "#F43F5E", "#8B5CF6", "#94A3B8"];
   const categorizedSubscribers = categoryChartData.reduce((sum, category) => sum + category.total, 0);
   const totalCommuneSubscribers = communes.reduce(
     (sum: number, commune: any) => sum + (Number(commune.value) || 0),
@@ -1895,81 +1984,30 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
         </div>
       </div>
 
-      <section className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7]">
-          <h3 className="text-xl font-black tracking-tight text-[#101828]">
-            Abonnés par commune
-          </h3>
-          <p className="text-sm text-[#667085] mt-1 font-medium">
-            Comparaison du total, des abonnés actifs, des forfaits et des résiliés
-          </p>
-        </div>
-        {communeChartData.length > 0 ? (
-          <div className="p-6 overflow-x-auto">
-            <div style={{ minWidth: Math.max(700, communeChartData.length * 80) }}>
-              <ResponsiveContainer width="100%" height={380} minWidth={0}>
-                <BarChart data={communeChartData} margin={{ top: 8, right: 24, left: 8, bottom: 48 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" />
-                  <XAxis
-                    dataKey="name"
-                    interval={0}
-                    angle={-35}
-                    textAnchor="end"
-                    height={72}
-                    tick={{ fontSize: 11 }}
-                  />
-                  <YAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value) => Number(value ?? 0).toLocaleString("fr-FR")} />
-                  <Legend />
-                  <Bar dataKey="total" name="Total Abonnés" fill="#0D83DE" />
-                  <Bar dataKey="active" name="Abonnés Actifs" fill="#10B981" />
-                  <Bar dataKey="forfait" name="Forfait" fill="#F97316" />
-                  <Bar dataKey="resigned" name="Abonnés Résiliés" fill="#F43F5E" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        ) : (
-          <p className="p-8 text-center text-sm font-medium text-[#667085]">Aucune donnée disponible par commune.</p>
-        )}
-      </section>
-
-      <section className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7]">
-          <h3 className="text-xl font-black tracking-tight text-[#101828]">
-            Abonnés par catégorie
-          </h3>
-          <p className="text-sm text-[#667085] mt-1 font-medium">
-            Répartition selon la catégorie des abonnés
-          </p>
-        </div>
-        {categoryChartData.some((category) => category.total > 0) ? (
-          <div className="p-6">
-            <ResponsiveContainer width="100%" height={320} minWidth={0}>
-              <BarChart data={categoryChartData} margin={{ top: 8, right: 24, left: 8, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" />
-                <XAxis
-                  dataKey="name"
-                  interval={0}
-                  angle={-25}
-                  textAnchor="end"
-                  height={64}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value) => Number(value ?? 0).toLocaleString("fr-FR")} />
-                <Bar dataKey="total" name="Abonnés" radius={[4, 4, 0, 0]}>
-                  {categoryChartData.map((category, index) => (
-                    <Cell key={category.name} fill={categoryColors[index % categoryColors.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <p className="p-8 text-center text-sm font-medium text-[#667085]">Aucune donnée disponible par catégorie.</p>
-        )}
-      </section>
+      <DistributionCharts
+        charts={[
+          {
+            title: "Abonnés par commune",
+            description: "Nombre total d'abonnés dans chaque commune",
+            emptyMessage: "Aucune donnée disponible par commune.",
+            color: '#2563EB',
+            data: communes.map((commune: any) => ({
+              name: String(commune.name ?? 'Commune inconnue'),
+              count: Number(commune.value) || 0,
+            })),
+          },
+          {
+            title: "Abonnés par catégorie",
+            description: "Répartition des abonnés selon leur catégorie",
+            emptyMessage: "Aucune donnée disponible par catégorie.",
+            color: '#2563EB',
+            data: categoryChartData.map((category) => ({
+              name: category.name,
+              count: category.total,
+            })),
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -2263,6 +2301,14 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
   // Sort by resigned descending
   const communes = [...(stats?.subscriber_communes || [])].sort((a, b) => (b.resigned || 0) - (a.resigned || 0));
   const types = [...(stats?.subscriber_types || [])].sort((a, b) => (b.resigned || 0) - (a.resigned || 0));
+  const resignedCommuneChartData = communes.map((commune: any) => ({
+    name: String(commune.name ?? 'Commune inconnue'),
+    count: Number(commune.resigned) || 0,
+  }));
+  const resignedTypeChartData = types.map((type: any) => ({
+    name: String(type.name ?? "Type d'abonné inconnu"),
+    count: Number(type.resigned) || 0,
+  }));
 
   const handlePrintCommunes = () => {
     const printWindow = window.open("", "_blank");
@@ -2934,6 +2980,24 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
           </table>
         </div>
       </div>
+      <DistributionCharts
+        charts={[
+          {
+            title: "Abonnés résiliés par commune",
+            description: "Comparaison du nombre d'abonnements résiliés",
+            emptyMessage: "Aucune donnée de résiliation disponible par commune.",
+            color: '#E11D48',
+            data: resignedCommuneChartData,
+          },
+          {
+            title: "Abonnés résiliés par type",
+            description: "Comparaison du nombre d'abonnements résiliés",
+            emptyMessage: "Aucune donnée de résiliation disponible par type d'abonné.",
+            color: '#E11D48',
+            data: resignedTypeChartData,
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -3235,6 +3299,20 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   // Sort by stopped descending
   const communes = [...(stats?.subscriber_communes || [])].sort((a, b) => (b.stopped || 0) - (a.stopped || 0));
   const types = [...(stats?.subscriber_types || [])].sort((a, b) => (b.stopped || 0) - (a.stopped || 0));
+  const stoppedCommuneChartData = communes
+    .map((commune: any) => ({
+      id: String(commune.id ?? ''),
+      name: String(commune.name ?? 'Commune inconnue'),
+      count: Number(commune.stopped) || 0,
+    }))
+    .filter((commune: { count: number }) => commune.count > 0);
+  const stoppedTypeChartData = types
+    .map((type: any) => ({
+      code: String(type.code ?? ''),
+      name: String(type.name ?? "Type d'abonné inconnu"),
+      count: Number(type.stopped) || 0,
+    }))
+    .filter((type: { count: number }) => type.count > 0);
 
   const handlePrintCommunes = () => {
     const printWindow = window.open("", "_blank");
@@ -3914,6 +3992,25 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           </table>
         </div>
       </div>
+
+      <DistributionCharts
+        charts={[
+          {
+            title: "Abonnés à l'arrêt par commune",
+            description: "Comparaison du nombre d'abonnés concernés",
+            emptyMessage: "Aucune donnée d'arrêt disponible par commune.",
+            color: '#D97706',
+            data: stoppedCommuneChartData,
+          },
+          {
+            title: "Abonnés à l'arrêt par type",
+            description: "Comparaison du nombre d'abonnés concernés",
+            emptyMessage: "Aucune donnée d'arrêt disponible par type d'abonné.",
+            color: '#D97706',
+            data: stoppedTypeChartData,
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -4648,6 +4745,14 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   // Sort by no_meter descending
   const communes = [...(stats?.subscriber_communes || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
   const types = [...(stats?.subscriber_types || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
+  const noMeterCommuneChartData = communes.map((commune: any) => ({
+    name: String(commune.name ?? 'Commune inconnue'),
+    count: Number(commune.no_meter) || 0,
+  }));
+  const noMeterTypeChartData = types.map((type: any) => ({
+    name: String(type.name ?? "Type d'abonné inconnu"),
+    count: Number(type.no_meter) || 0,
+  }));
 
   if (selectedType) {
     return (
@@ -4888,6 +4993,24 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           </table>
         </div>
       </div>
+      <DistributionCharts
+        charts={[
+          {
+            title: "Abonnés sans compteur par commune",
+            description: "Comparaison du nombre d'abonnés concernés",
+            emptyMessage: "Aucune donnée sans compteur disponible par commune.",
+            color: '#0891B2',
+            data: noMeterCommuneChartData,
+          },
+          {
+            title: "Abonnés sans compteur par type",
+            description: "Comparaison du nombre d'abonnés concernés",
+            emptyMessage: "Aucune donnée sans compteur disponible par type d'abonné.",
+            color: '#0891B2',
+            data: noMeterTypeChartData,
+          },
+        ]}
+      />
     </div>
   );
 }

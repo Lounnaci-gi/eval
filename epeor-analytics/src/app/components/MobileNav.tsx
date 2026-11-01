@@ -19,24 +19,9 @@ import {
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
+import type { AppView } from "./app-view";
 
-export type AppView =
-  | "dashboard"
-  | "details"
-  | "evolution"
-  | "resigned"
-  | "stopped"
-  | "no_meter"
-  | "unconnected"
-  | "creance"
-  | "repartition"
-  | "commune"
-  | "ventilation"
-  | "bilan_activite"
-  | "creances_abonnes"
-  | "creances_institutions"
-  | "service_contentieux"
-  | "settings";
+export type { AppView };
 
 type NavItem = {
   id: AppView;
@@ -47,7 +32,7 @@ type NavItem = {
 
 const BOTTOM_NAV: NavItem[] = [
   { id: "dashboard",         labelKey: "nav.dashboard",        icon: LayoutDashboard },
-  { id: "details",           labelKey: "nav.subscribers",      icon: Users,     match: ["details", "evolution", "resigned", "stopped", "no_meter", "unconnected"] },
+  { id: "details",           labelKey: "nav.subscribers",      icon: Users,     match: ["details", "evolution", "resigned", "stopped", "no_meter", "unconnected", "terrain", "institutions"] },
   { id: "creance",           labelKey: "nav.financials",       icon: BarChart3, match: ["creance", "repartition", "commune", "ventilation", "bilan_activite"] },
   { id: "creances_abonnes",  labelKey: "nav.subscriberDebts",  icon: CreditCard },
 ];

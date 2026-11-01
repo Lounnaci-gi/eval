@@ -41,7 +41,8 @@ import Logo from "./Logo";
 import { StatsCard } from "./dashboard-ui";
 import { FloatingExpandableSidebar } from "./FloatingExpandableSidebar";
 import { SettingsView } from "./SettingsView";
-import { MobileNav, MobileTopBar, type AppView } from "./MobileNav";
+import { MobileNav, MobileTopBar } from "./MobileNav";
+import type { AppView } from "./app-view";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
@@ -88,7 +89,7 @@ const BilanActiviteView = dynamic(
 );
 export default function Dashboard() {
   const { t } = useTranslation();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'details' | 'evolution' | 'resigned' | 'stopped' | 'no_meter' | 'institutions' | 'unconnected' | 'terrain' | 'creance' | 'repartition' | 'commune' | 'ventilation' | 'bilan_activite' | 'creances_abonnes' | 'creances_institutions' | 'service_contentieux' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<AppView>('dashboard');
   const [showChartGuide, setShowChartGuide] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [creanceData, setCreanceData] = useState<any>(null);
@@ -768,7 +769,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen min-h-[100dvh] bg-slate-50 text-[#101828] relative">
+    <div className="app-shell flex min-h-screen min-h-[100dvh] bg-slate-50 text-[#101828] relative">
       {/* Floating Expandable Sidebar */}
       <FloatingExpandableSidebar
         currentView={currentView}
@@ -783,8 +784,9 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="flex-1 app-main mx-auto w-full max-w-[1800px] overflow-y-auto overflow-x-hidden print:p-0">
-        <header className="flex justify-between items-start mb-6 sm:mb-8 lg:mb-10 no-print no-print-charts-only">
+        <header className="app-page-header flex justify-between items-start mb-6 sm:mb-8 lg:mb-10 no-print no-print-charts-only">
           <div className="min-w-0">
+            <p className="app-page-eyebrow">EPEOR ANALYTICS</p>
             <h1 className="page-title text-[#101828]">{t('dashboard.greeting', { name: user?.username || 'Admin' })}</h1>
             <p className="text-[#475467] mt-2 text-sm sm:text-base">{t('dashboard.subtitle')}</p>
           </div>
@@ -792,9 +794,9 @@ export default function Dashboard() {
 
         {/* Main Content */}
         {currentView === 'dashboard' ? (
-          <div className="space-y-8">
+          <div className="dashboard-overview space-y-8">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+            <div className="dashboard-kpi-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
               <StatsCard
                 title={t('kpi.totalSubscribers')}
                 value={stats?.total_subscribers?.toLocaleString() || "..."}
@@ -853,8 +855,8 @@ export default function Dashboard() {
 
             {/* Charts & Analytics — rendus seulement quand les stats sont prêtes (évite width/height -1 Recharts) */}
             {stats?.ready && (stats?.total_subscribers ?? 0) > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 sm:gap-5">
-              <div className="obat-card lg:col-span-4 p-4 sm:p-6 lg:p-7 min-w-0">
+            <div className="dashboard-chart-grid grid grid-cols-1 lg:grid-cols-7 gap-4 sm:gap-5">
+              <div className="obat-card dashboard-chart-card lg:col-span-4 p-4 sm:p-6 lg:p-7 min-w-0">
                 <div className="flex justify-between items-center mb-8">
                   <div
                     className="flex items-center gap-2 cursor-help"
@@ -966,7 +968,7 @@ export default function Dashboard() {
                 role="button"
                 tabIndex={0}
                 aria-label={t('charts.sectors')}
-                className="obat-card lg:col-span-3 p-4 sm:p-6 lg:p-7 text-obat-gray cursor-pointer hover:-translate-y-0.5 group min-w-0"
+                className="obat-card dashboard-chart-card lg:col-span-3 p-4 sm:p-6 lg:p-7 text-obat-gray cursor-pointer hover:-translate-y-0.5 group min-w-0"
               >
                 <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">{t('charts.sectors')}</h3>
                 <ChartContainer className="h-[260px] sm:h-[320px] lg:h-[350px] w-full min-w-0">
@@ -1105,17 +1107,17 @@ export default function Dashboard() {
                     allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
                   />
                   <ScrollableTabs className="w-full sm:w-auto sm:max-w-full">
-                    {[
+                    {([
                       { id: 'creance', label: t('financials.tabs.globalSummary') },
                       { id: 'ventilation', label: t('financials.tabs.debtBreakdown') },
                       { id: 'repartition', label: t('financials.tabs.typeBreakdown') },
                       { id: 'commune', label: t('financials.tabs.communeBreakdown') },
                       { id: 'bilan_activite', label: t('financials.tabs.activityReport') }
-                    ].map(tab => (
+                    ] satisfies { id: AppView; label: string }[]).map(tab => (
                       <ScrollableTab
                         key={tab.id}
                         active={currentView === tab.id}
-                        onClick={() => setCurrentView(tab.id as AppView)}
+                        onClick={() => setCurrentView(tab.id)}
                       >
                         {tab.label}
                       </ScrollableTab>
@@ -1192,7 +1194,7 @@ export default function Dashboard() {
           </div>
         ) : null}
       </main>
-        <MobileNav currentView={currentView as AppView} onNavigate={setCurrentView} onLogout={handleLogout} />
+        <MobileNav currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} />
       </div>
     </div>
   );

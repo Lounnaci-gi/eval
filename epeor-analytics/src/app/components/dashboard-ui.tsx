@@ -9,6 +9,7 @@ const glowMap: Record<string, string> = {
   brand:   "var(--glow-blue,    rgba(13,131,222,0.18))",
   emerald: "var(--glow-emerald, rgba(16,185,129,0.18))",
   indigo:  "var(--glow-indigo,  rgba(99,102,241,0.18))",
+  slate:   "rgba(100,116,139,0.16)",
 };
 
 const iconBgMap: Record<string, string> = {
@@ -19,6 +20,7 @@ const iconBgMap: Record<string, string> = {
   brand:   "bg-brand-50  text-brand-500",
   emerald: "bg-emerald-50 text-emerald-500",
   indigo:  "bg-indigo-50 text-indigo-500",
+  slate:   "bg-slate-100 text-[#475467]",
 };
 
 // ── StatsCard ────────────────────────────────────────────────────────────────
@@ -44,13 +46,13 @@ export function StatsCard({ title, value, icon, trend, color, onClick }: any) {
         obat-card
         relative overflow-hidden
         bg-white border border-[#E4E7EC]
-        p-4 sm:p-6
-        rounded-[1.25rem]
+        p-4 sm:p-5
+        rounded-[1.35rem]
         shadow-sm
-        transition-all duration-200 ease-in-out
+        transition-all duration-300 ease-out
         group
         min-w-0
-        ${onClick ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]" : ""}
+        ${onClick ? "cursor-pointer hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-[0.99]" : ""}
       `}
     >
       {/* Subtle top-left gradient blob */}
@@ -60,11 +62,11 @@ export function StatsCard({ title, value, icon, trend, color, onClick }: any) {
         style={{ background: glow, filter: "blur(20px)" }}
       />
 
-      <div className="relative flex justify-between items-start mb-6">
+      <div className="relative flex justify-between items-start mb-5">
         {/* Icon with glow halo */}
         <div className="relative">
           <div
-            className={`p-3.5 sm:p-4 rounded-2xl transition-transform duration-300 group-hover:scale-110 ${iconCls}`}
+            className={`p-3 rounded-[1.1rem] transition-transform duration-300 group-hover:scale-105 ${iconCls}`}
             style={{ boxShadow: `0 4px 16px ${glow}` }}
           >
             {icon}
@@ -73,15 +75,15 @@ export function StatsCard({ title, value, icon, trend, color, onClick }: any) {
 
         {/* Trend badge */}
         {trend && (
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#98A2B3] bg-[#F9FAFB] px-2 py-1 rounded-lg border border-[#F2F4F7]">
+          <span className="max-w-[55%] truncate text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] text-[#667085] bg-[#F9FAFB] px-2.5 py-1.5 rounded-full border border-[#F2F4F7]">
             {trend}
           </span>
         )}
       </div>
 
       <div className="relative">
-        <p className="text-[#475467] text-xs sm:text-sm font-semibold mb-1 tracking-wide">{title}</p>
-        <p className="text-xl sm:text-2xl font-black text-[#101828] tracking-tight break-words tabular-nums">
+        <p className="text-[#667085] text-xs sm:text-[13px] font-semibold mb-1.5 tracking-wide">{title}</p>
+        <p className="text-[1.35rem] sm:text-[1.6rem] font-extrabold text-[#101828] tracking-tight break-words tabular-nums">
           {value}
         </p>
       </div>
@@ -92,73 +94,6 @@ export function StatsCard({ title, value, icon, trend, color, onClick }: any) {
         className="absolute bottom-0 left-6 right-6 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         style={{ background: "var(--gradient-accent)" }}
       />
-    </div>
-  );
-}
-
-// ── NavItem ──────────────────────────────────────────────────────────────────
-
-export function NavItem({ icon, label, active = false, onClick }: any) {
-  return (
-    <div
-      onClick={onClick}
-      className="relative flex h-12 min-h-12 flex-none items-center gap-3 px-4 py-0 rounded-2xl cursor-pointer transition-[background-color,box-shadow,color] duration-200 ease-out group overflow-hidden will-change-transform"
-      style={{
-        height: 48,
-        minHeight: 48,
-        ...(active ? {
-          background: "linear-gradient(135deg, rgba(13,131,222,0.16) 0%, rgba(99,102,241,0.12) 100%)",
-          color: "var(--sidebar-active-border)",
-          boxShadow: "inset 0 0 0 1px rgba(13,131,222,0.16), 0 6px 18px rgba(13,131,222,0.08)",
-        } : {}),
-      }}
-      onMouseEnter={e => {
-        if (!active) {
-          const target = e.currentTarget as HTMLElement;
-          target.style.background = "var(--gradient-accent-soft)";
-          target.style.transform = "translateX(0)";
-          target.style.boxShadow = "none";
-        }
-      }}
-      onMouseLeave={e => {
-        if (!active) {
-          const target = e.currentTarget as HTMLElement;
-          target.style.background = "transparent";
-          target.style.transform = "translateX(0)";
-          target.style.boxShadow = "none";
-        }
-      }}
-    >
-      {/* Active indicator: vertical bar on left */}
-      {active && (
-        <span
-          aria-hidden
-          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
-          style={{ background: "var(--gradient-accent)" }}
-        />
-      )}
-
-      <span
-        className="flex-none transition-colors duration-200 leading-none"
-        style={{ color: active ? "var(--sidebar-active-border)" : "rgb(var(--color-text-secondary))" }}
-      >
-        {icon}
-      </span>
-
-      <span
-        className={`min-w-0 flex-1 truncate text-sm leading-none transition-colors duration-200 tracking-[0.01em] ${active ? "font-bold" : "font-semibold"}`}
-        style={{ color: active ? "rgb(var(--color-text-primary))" : "rgb(var(--color-text-secondary))" }}
-      >
-        {label}
-      </span>
-
-      {/* Active dot (right) */}
-      {active && (
-        <div
-          className="ml-auto h-2 w-2 shrink-0 rounded-full"
-          style={{ background: "var(--gradient-accent)", boxShadow: "0 0 6px var(--glow-blue)" }}
-        />
-      )}
     </div>
   );
 }

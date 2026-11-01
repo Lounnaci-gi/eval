@@ -69,7 +69,6 @@ $env:EPEOR_PORT = "8000"
 | Variable | Service | Description |
 |----------|---------|-------------|
 | `BACKEND_URL` | Next.js | URL FastAPI utilisée par le proxy serveur ; défaut local `http://127.0.0.1:8000`. |
-| `ACCESS_TOKEN_SECRET` | Next.js | Secret stable pour signer les jetons ; à définir en production avec une valeur aléatoire d'au moins 32 caractères. |
 | `NEXT_PUBLIC_APP_URL` | Next.js | URL publique utilisée pour résoudre les URL côté serveur. |
 | `NEXT_PUBLIC_API_URL` | Next.js | Surcharge facultative de l'API navigateur ; laisser vide pour utiliser le proxy same-origin `/backend-api`. |
 | `ALLOWED_DEV_ORIGINS` | Next.js | Hôtes supplémentaires autorisés pour le développement. |
@@ -81,7 +80,7 @@ $env:EPEOR_PORT = "8000"
 | `EPEOR_AUTH_ENABLED` | FastAPI | Authentification activée par défaut ; ne pas la désactiver sur une instance exposée. |
 | `EPEOR_HOST` / `EPEOR_PORT` | FastAPI | Adresse et port d'écoute ; défaut `0.0.0.0:8000` dans le code. |
 
-En production, définir un secret `ACCESS_TOKEN_SECRET` unique et durable dans l'environnement du déploiement, activer les cookies sécurisés et configurer explicitement l'URL backend, les origines CORS et les hôtes autorisés. Ne pas placer de secrets dans `NEXT_PUBLIC_*` : ces variables sont exposées au navigateur. Les fichiers `.env*` locaux sont ignorés par Git.
+En production, activer les cookies sécurisés et configurer explicitement l'URL backend, les origines CORS et les hôtes autorisés. Ne pas placer de secrets dans `NEXT_PUBLIC_*` : ces variables sont exposées au navigateur. Les fichiers `.env*` locaux sont ignorés par Git.
 
 Le chemin des données peut aussi être modifié dans **Paramètres → Dossier des données (DBF)** ; il est enregistré dans `backend/epeor_config.json` si `EPEOR_DATA_DIR` n'est pas défini. Le cache binaire (pickle) est créé dans `backend/cache/` au premier chargement ; le premier démarrage peut être long.
 

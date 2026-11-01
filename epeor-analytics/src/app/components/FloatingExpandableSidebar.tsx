@@ -4,22 +4,22 @@ import React, { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   LayoutDashboard, Users, CreditCard, Building2, Calendar,
-  Bell, HelpCircle, Settings, LogOut, X, Menu,
+  Settings, LogOut, X, Menu,
   TrendingUp, User, ShieldCheck
 } from 'lucide-react';
+import type { AppView } from './app-view';
 
 interface NavItem {
   id: string;
   icon: React.ReactNode;
   label: string;
   description?: string;
-  views?: string[];
-  action?: () => void;
+  views?: AppView[];
 }
 
 interface FloatingExpandableSidebarProps {
-  currentView: string;
-  setCurrentView: Dispatch<SetStateAction<any>>;
+  currentView: AppView;
+  setCurrentView: Dispatch<SetStateAction<AppView>>;
   user: any;
   onLogout: () => void;
   t: (key: string) => string;
@@ -76,14 +76,14 @@ export function FloatingExpandableSidebar({
       icon: <Users size={24} />,
       label: t('nav.subscribers'),
       description: 'Gestion abonnés',
-      views: ['details', 'evolution', 'resigned', 'stopped', 'no_meter', 'unconnected'],
+      views: ['details', 'evolution', 'resigned', 'stopped', 'no_meter', 'unconnected', 'terrain', 'institutions'],
     },
     {
       id: 'financials',
       icon: <TrendingUp size={24} />,
       label: t('nav.financials'),
       description: 'Analyses financières',
-      views: ['creance', 'repartition', 'commune', 'ventilation'],
+      views: ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite'],
     },
     {
       id: 'subscriberDebts',
@@ -107,18 +107,6 @@ export function FloatingExpandableSidebar({
       views: ['service_contentieux'],
     },
     {
-      id: 'notifications',
-      icon: <Bell size={24} />,
-      label: t('nav.notifications'),
-      description: 'Notifications',
-    },
-    {
-      id: 'help',
-      icon: <HelpCircle size={24} />,
-      label: t('nav.helpCenter'),
-      description: 'Centre d\'aide',
-    },
-    {
       id: 'settings',
       icon: <Settings size={24} />,
       label: t('nav.settings'),
@@ -131,9 +119,6 @@ export function FloatingExpandableSidebar({
     if (item.views && item.views.length > 0) {
       setCurrentView(item.views[0]);
       setIsOpen(false);
-    }
-    if (item.action) {
-      item.action();
     }
   };
 

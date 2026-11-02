@@ -9,6 +9,7 @@ import {
   Users,
   BarChart3,
   CreditCard,
+  ListChecks,
   Building2,
   Settings,
   Menu,
@@ -38,6 +39,7 @@ const BOTTOM_NAV: NavItem[] = [
 ];
 
 const MORE_ITEMS: NavItem[] = [
+  { id: "recovery_queue", labelKey: "nav.recoveryQueue", icon: ListChecks },
   { id: "creances_institutions", labelKey: "nav.institutionDebts", icon: Building2 },
   { id: "service_contentieux",  labelKey: "nav.billingPeriods",    icon: Calendar },
   { id: "settings",             labelKey: "nav.settings",          icon: Settings },

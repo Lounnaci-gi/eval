@@ -27,12 +27,14 @@ try:
         validate_password,
         validate_username,
     )
+    from .payer_classification import _classify_payment_history, _parse_payment_date
 except ImportError:  # pragma: no cover - support when running the file directly
     from security import (
         build_safe_user_update_assignments,
         validate_password,
         validate_username,
     )
+    from payer_classification import _classify_payment_history, _parse_payment_date
 
 from contextlib import asynccontextmanager
 
@@ -633,6 +635,43 @@ def _set_loading_status(message: str) -> None:
     db_loading_status = message
 
 
+_data_load_diagnostics: dict[str, dict[str, object]] = {}
+_data_load_diagnostics_lock = threading.Lock()
+
+
+def _record_data_load_result(
+    filename: str,
+    status: str,
+    record_count: int = 0,
+    source: str | None = None,
+    error: str | None = None,
+) -> None:
+    entry: dict[str, object] = {
+        "file": str(filename).upper(),
+        "status": status,
+        "record_count": record_count,
+    }
+    if source:
+        entry["source"] = source
+    if error:
+        entry["error"] = error
+    with _data_load_diagnostics_lock:
+        _data_load_diagnostics[str(filename).upper()] = entry
+
+
+def _data_load_diagnostics_payload() -> dict[str, object]:
+    with _data_load_diagnostics_lock:
+        entries = [dict(value) for _, value in sorted(_data_load_diagnostics.items())]
+    issues = [entry for entry in entries if entry["status"] in {"missing", "error"}]
+    return {
+        "status": "partial" if issues else "complete",
+        "loaded_tables": sum(entry["status"] == "loaded" for entry in entries),
+        "issue_count": len(issues),
+        "issues": issues,
+        "tables": entries,
+    }
+
+
 def resolve_dbf_path(filename: str) -> str:
     """Résout un fichier DBF (insensible à la casse sous Windows)."""
     direct = os.path.join(DATA_DIR, filename)
@@ -730,6 +769,25 @@ def _normalize_search_text(value: object) -> str:
     return "".join(char for char in decomposed if not unicodedata.combining(char)).strip()
 
 
+def _search_item_matches_term(item: dict, term: str) -> bool:
+    searchable_fields = (
+        "numab_lower",
+        "raisoc_lower",
+        "nom_lower",
+        "numser_lower",
+        "etatcpt_lower",
+        "etat_label_lower",
+    )
+    if any(term in item[field] for field in searchable_fields):
+        return True
+
+    tokens = term.split()
+    return (
+        all(token in item["payment_references_lower"] for token in tokens)
+        or all(token in item["adresse_lower"] for token in tokens)
+    )
+
+
 def _build_search_index_entry(record: dict) -> dict:
     numab = str(record.get('NUMAB', '') or '').strip()
     raisoc = str(record.get('RAISOC', '') or '').strip()
@@ -812,6 +870,7 @@ def load_table_cached(filename, encoding='cp1256'):
     dbf_path = resolve_dbf_path(filename)
     if not os.path.isfile(dbf_path):
         print(f"[WARNING] {filename} does not exist at {dbf_path}")
+        _record_data_load_result(filename, "missing", error="Fichier DBF introuvable")
         return []
 
     fname_upper = str(filename).upper()
@@ -839,6 +898,7 @@ def load_table_cached(filename, encoding='cp1256'):
                     data = raw[1]
                     if len(data) > 0:
                         print(f"[CACHE] Loaded {filename} in {time.time()-t0:.2f}s ({len(data)} records)")
+                        _record_data_load_result(filename, "loaded", len(data), "cache")
                         return data
                     print(f"[CACHE] Cache vide pour {filename}, reconstruction...")
                 elif isinstance(raw, list) and len(raw) > 0:
@@ -869,6 +929,7 @@ def load_table_cached(filename, encoding='cp1256'):
         else:
             records = [dict(r) for r in dbf]
         print(f"[SUCCESS] Loaded {len(records)} records from {filename} in {time.time()-t0:.2f}s")
+        _record_data_load_result(filename, "loaded", len(records), "dbf")
 
         # Save versioned filtered list to pickle
         try:
@@ -881,6 +942,7 @@ def load_table_cached(filename, encoding='cp1256'):
         return records
     except Exception as e:
         print(f"Error loading {filename} from DBF: {e}")
+        _record_data_load_result(filename, "error", error=str(e))
         return []
 
 def build_invoice_indexes():
@@ -1685,6 +1747,8 @@ def load_all_data_to_memory():
         return
 
     try:
+        with _data_load_diagnostics_lock:
+            _data_load_diagnostics.clear()
         is_db_ready = False
         indexes_ready = False
         cached_dashboard_stats = None
@@ -1718,6 +1782,7 @@ def load_all_data_to_memory():
                     _dbf_results[fname] = future.result()
                 except Exception as exc:
                     print(f"[ERROR] Failed loading {fname}: {exc}")
+                    _record_data_load_result(fname, "error", error=str(exc))
                     _dbf_results[fname] = []
 
         MEM_ABONNES   = _dbf_results.get("ABONNE.DBF",   [])
@@ -2350,64 +2415,6 @@ def count_consecutive_etatcpt(invoices: list, target_etat: str = '20') -> int:
 EMPTY_DATE_VALUES = frozenset({'', '        ', '19000101', '00000000', None})
 
 
-def _parse_payment_date(value):
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
-
-    raw = str(value or '').strip()
-    if raw in EMPTY_DATE_VALUES:
-        return None
-    for date_format in ('%Y%m%d', '%Y-%m-%d'):
-        try:
-            return datetime.strptime(raw, date_format).date()
-        except ValueError:
-            continue
-    return None
-
-
-def _classify_payment_history(payment_dates, as_of_date=None):
-    unique_dates = sorted(set(payment_dates))
-    if not unique_dates:
-        return {
-            "level": 5,
-            "classification": "Non payeur",
-            "last_payment": None,
-            "days_since_last_payment": None,
-            "average_gap_days": None,
-            "maximum_gap_days": None,
-            "payment_count": 0,
-        }
-
-    as_of_date = as_of_date or date.today()
-    gaps = [(later - earlier).days for earlier, later in zip(unique_dates, unique_dates[1:])]
-    average_gap = sum(gaps) / len(gaps) if gaps else 0
-    days_since_last = max(0, (as_of_date - unique_dates[-1]).days)
-    worst_gap = max(average_gap, days_since_last)
-
-    if worst_gap <= 45:
-        level, classification = 1, "Bon payeur"
-    elif worst_gap <= 75:
-        level, classification = 2, "Payeur régulier"
-    elif worst_gap <= 120:
-        level, classification = 3, "Retardataire"
-    elif worst_gap <= 240:
-        level, classification = 4, "Mauvais payeur"
-    else:
-        level, classification = 5, "Non payeur"
-
-    return {
-        "level": level,
-        "classification": classification,
-        "last_payment": unique_dates[-1].isoformat(),
-        "days_since_last_payment": days_since_last,
-        "average_gap_days": round(average_gap, 1),
-        "maximum_gap_days": max(gaps) if gaps else 0,
-        "payment_count": len(unique_dates),
-    }
-
-
 def _creance_date_arrete() -> str:
     """Date d'arrêté pour le calcul des créances en cours (aujourd'hui)."""
     return datetime.now().strftime('%Y%m%d')
@@ -2523,6 +2530,7 @@ def resolve_rue_adresse(abonne_rec) -> str:
 @app.get("/stats")
 def get_stats(secteur: str = None, _user: dict = Depends(get_current_user)):
     secteur = _enforce_sector(_user, secteur)
+    data_quality = _data_load_diagnostics_payload()
     if not is_db_ready or cached_dashboard_stats is None:
         msg = db_loading_status or "Chargement en cours..."
         is_error = (
@@ -2536,6 +2544,7 @@ def get_stats(secteur: str = None, _user: dict = Depends(get_current_user)):
             "ready": False,
             "data_dir": DATA_DIR,
             "can_reload": True,
+            "data_quality": data_quality,
         }
     if len(MEM_ABONNES) == 0:
         return {
@@ -2545,13 +2554,20 @@ def get_stats(secteur: str = None, _user: dict = Depends(get_current_user)):
             "message": db_loading_status,
             "data_dir": DATA_DIR,
             "can_reload": True,
+            "data_quality": data_quality,
         }
     if secteur and str(secteur).strip():
         _sec_key = str(secteur).strip()
         if _sec_key not in _secteur_stats_cache:
             _secteur_stats_cache[_sec_key] = compute_dashboard_stats(secteur=_sec_key)
         scoped = _secteur_stats_cache[_sec_key]
-        return {**scoped, "ready": True, "data_dir": DATA_DIR, "secteur": _sec_key}
+        return {
+            **scoped,
+            "ready": True,
+            "data_dir": DATA_DIR,
+            "secteur": _sec_key,
+            "data_quality": data_quality,
+        }
 
     abonne_sectors = _get_user_abonne_sectors(_user)
     if abonne_sectors is not None:
@@ -2567,6 +2583,7 @@ def get_stats(secteur: str = None, _user: dict = Depends(get_current_user)):
             "ready": True,
             "data_dir": DATA_DIR,
             "allowed_sectors": abonne_sectors,
+            "data_quality": data_quality,
         }
 
     if cached_dashboard_stats.get("total_subscribers", 0) == 0:
@@ -2577,8 +2594,14 @@ def get_stats(secteur: str = None, _user: dict = Depends(get_current_user)):
             "message": db_loading_status,
             "data_dir": DATA_DIR,
             "can_reload": True,
+            "data_quality": data_quality,
         }
-    return {**cached_dashboard_stats, "ready": True, "data_dir": DATA_DIR}
+    return {
+        **cached_dashboard_stats,
+        "ready": True,
+        "data_dir": DATA_DIR,
+        "data_quality": data_quality,
+    }
 
 
 def _format_period_label(start_date: str | None, end_date: str | None) -> str:
@@ -2962,6 +2985,7 @@ def get_data_dir_settings(_user: dict = Depends(get_current_user)):
         "config_path": CONFIG_PATH,
         "is_db_ready": is_db_ready,
         "loading_status": db_loading_status,
+        "data_quality": _data_load_diagnostics_payload(),
     }
 
 
@@ -3087,7 +3111,14 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
         allowed_sectors = _normalize_allowed_sectors(_user.get("allowed_sectors"))
 
     try:
-        search_term_lower = _normalize_search_text(search_term)
+        search_terms = [
+            _normalize_search_text(term)
+            for term in search_term.split(",")
+            if term.strip()
+        ]
+        search_terms = [term for term in search_terms if term]
+        if not search_terms:
+            return []
         etatcpt_filter = _normalize_search_text(etatcpt)
         results = []
         
@@ -3113,48 +3144,40 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
             if etatcpt_filter and item['etatcpt_lower'] != etatcpt_filter:
                 continue
 
-            if (search_term_lower in item['numab_lower'] or
-                search_term_lower in item['raisoc_lower'] or 
-                search_term_lower in item['nom_lower'] or
-                search_term_lower in item['numser_lower'] or
-                search_term_lower in item['etatcpt_lower'] or
-                search_term_lower in item['etat_label_lower'] or
-                all(token in item['payment_references_lower'] for token in search_term_lower.split()) or
-                all(token in item['adresse_lower'] for token in search_term_lower.split())):
-                
+            if all(_search_item_matches_term(item, term) for term in search_terms):
                 record = item['record']
                 numab = str(record.get('NUMAB', '')).strip()
                 raisoc = str(record.get('RAISOC', '')).strip()
                 nom = str(record.get('NOM', '')).strip()
-                
+
                 res = dict(record)
                 res['NOM'] = raisoc or nom
-                
+
                 # Resolve Address components
                 codrue = str(record.get('CODRUE', '')).strip()
                 street_rec = rues_by_codrue.get(codrue)
                 street = street_rec.get('NOUVNOM', '') if street_rec else f"Code: {codrue}"
-                
+
                 bloc = str(record.get('BLOC', '')).strip()
                 ndom = str(record.get('NDOM', '')).strip()
-                
+
                 res['ADRESSE'] = street
                 res['BLOC'] = bloc
                 res['NDOM'] = ndom
-                
+
                 res['TOURNEE'] = str(record.get('TOURNEE', '')).strip()
                 res['NUMORDRE'] = str(record.get('NUMORDRE', '')).strip()
-                
+
                 abonment_info = abonments_by_numab.get(numab.upper(), {})
                 res['NUMSER'] = abonment_info.get('NUMSER', '---')
-                
+
                 # Resolve ETATCPT label
                 etatcpt = abonment_info.get('ETATCPT', '')
                 res['ETATCPT'] = etatcpt
                 etat_lookup = "E" + etatcpt if etatcpt else ""
                 etat_rec = tabcodes_by_code.get(etat_lookup) if etat_lookup else None
                 res['ETAT_LABEL'] = etat_rec.get('LIBELLE', '') if etat_rec else (etatcpt if etatcpt else '---')
-                
+
                 # Resolve Nouvel index (nouveau_index / nouvelx)
                 sub_invoices = factures_by_numab.get(numab.upper(), [])
                 raw_nouvelx = sub_invoices[0].get('NOUVELX') if sub_invoices else 0
@@ -3163,11 +3186,11 @@ def search_subscribers(_user: dict = Depends(get_current_user), query: str = Non
                 except:
                     nouvelx = 0
                 res['NOUVELX'] = nouvelx
-                
+
                 t_code = str(record.get('TYPABON', '')).strip()
                 t_rec = tabcodes_by_code.get("T" + t_code)
                 res['TYPE_LABEL'] = t_rec.get('LIBELLE', '') if t_rec else (f"Autre ({t_code})" if t_code else "Inconnu")
-                
+
                 results.append(res)
 
         return results

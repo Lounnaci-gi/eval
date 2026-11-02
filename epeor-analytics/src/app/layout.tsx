@@ -44,7 +44,7 @@ export default async function RootLayout({
       <head>
         {/* Theme initialization script to avoid FOUC: reads localStorage and applies data-theme early */}
         <Script id="theme-init" strategy="beforeInteractive">
-          {"(function(){try{var key='theme';var m=document.cookie.match(new RegExp('(^| )'+key+'=([^;]+)'));var v=m?decodeURIComponent(m[2]):null;var root=document.documentElement;if(v==='dark'){root.setAttribute('data-theme','dark');}else if(v==='light'){root.removeAttribute('data-theme');}else{var isDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(isDark){root.setAttribute('data-theme','dark');}else{root.removeAttribute('data-theme');}}}catch(e){} })()"}
+          {"(function(){try{var key='theme';var m=document.cookie.match(new RegExp('(^| )'+key+'=([^;]+)'));var cookieValue=m?decodeURIComponent(m[2]):null;var saved=localStorage.getItem(key);var v=saved==='dark'||saved==='light'?saved:cookieValue;var root=document.documentElement;if(v==='dark'){root.setAttribute('data-theme','dark');}else if(v==='light'){root.removeAttribute('data-theme');}else{var isDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(isDark){root.setAttribute('data-theme','dark');}else{root.removeAttribute('data-theme');}}}catch(e){} })()"}
         </Script>
       </head>
       <body className={`${poppins.className} min-h-full min-h-[100dvh] flex flex-col overflow-x-hidden`}>

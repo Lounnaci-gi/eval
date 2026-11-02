@@ -84,12 +84,15 @@ En production, activer les cookies sécurisés et configurer explicitement l'URL
 
 Le chemin des données peut aussi être modifié dans **Paramètres → Dossier des données (DBF)** ; il est enregistré dans `backend/epeor_config.json` si `EPEOR_DATA_DIR` n'est pas défini. Le cache binaire (pickle) est créé dans `backend/cache/` au premier chargement ; le premier démarrage peut être long.
 
+Après le chargement, l'API `/stats` expose `data_quality` (`complete` ou `partial`) avec les fichiers DBF manquants ou illisibles. Le tableau de bord signale les chargements partiels tout en laissant disponibles les écrans alimentés par les tables chargées.
+
 ## Commandes utiles
 
 ```powershell
 npm run lint      # ESLint
 npm run build     # Build production Next.js
 npx tsc --noEmit  # Vérification TypeScript
+npm run test:e2e  # Tests navigateur Playwright (installer Chromium une fois avec npx playwright install chromium)
 ```
 
 ## Structure

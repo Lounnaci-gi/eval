@@ -63,6 +63,10 @@ const CreancesAbonnesView = dynamic(
   () => import("./CreancesAbonnesView").then((m) => ({ default: m.CreancesAbonnesView })),
   { loading: () => viewLoader }
 );
+const RecoveryQueueView = dynamic(
+  () => import("./RecoveryQueueView").then((m) => ({ default: m.RecoveryQueueView })),
+  { loading: () => viewLoader }
+);
 const CreancesInstitutionsView = dynamic(
   () => import("./InstitutionsView").then((m) => ({ default: m.CreancesInstitutionsView })),
   { loading: () => viewLoader }
@@ -784,6 +788,19 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="flex-1 app-main mx-auto w-full max-w-[1800px] overflow-y-auto overflow-x-hidden print:p-0">
+        {stats?.ready && stats.data_quality?.status === 'partial' && (
+          <aside
+            role="status"
+            className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          >
+            <p className="font-bold">Certaines données n’ont pas pu être chargées.</p>
+            <p className="mt-1 text-xs">
+              {stats.data_quality.issues.map((issue: { file: string; error?: string }) =>
+                `${issue.file}${issue.error ? ` : ${issue.error}` : ''}`
+              ).join(' · ')}
+            </p>
+          </aside>
+        )}
         <header className="app-page-header flex justify-between items-start mb-6 sm:mb-8 lg:mb-10 no-print no-print-charts-only">
           <div className="min-w-0">
             <p className="app-page-eyebrow">EPEOR ANALYTICS</p>
@@ -801,7 +818,6 @@ export default function Dashboard() {
                 title={t('kpi.totalSubscribers')}
                 value={stats?.total_subscribers?.toLocaleString() || "..."}
                 icon={<Users className="text-[#0D83DE]" size={24} />}
-                trend="+2.5%"
                 color="blue"
                 onClick={() => setCurrentView('details')}
               />
@@ -1043,6 +1059,16 @@ export default function Dashboard() {
           />
         ) : currentView === 'creances_abonnes' ? (
           <CreancesAbonnesView
+            onBack={() => setCurrentView('dashboard')}
+            selectedSecteur={selectedSecteur}
+            sectors={sectors}
+            uniteLabel={uniteLabel}
+            onSecteurChange={setSelectedSecteur}
+            sectorsLoading={sectorsLoading || !stats?.ready}
+            allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
+          />
+        ) : currentView === 'recovery_queue' ? (
+          <RecoveryQueueView
             onBack={() => setCurrentView('dashboard')}
             selectedSecteur={selectedSecteur}
             sectors={sectors}

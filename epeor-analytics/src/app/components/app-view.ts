@@ -14,6 +14,7 @@ export type AppView =
   | "ventilation"
   | "bilan_activite"
   | "creances_abonnes"
+  | "recovery_queue"
   | "creances_institutions"
   | "service_contentieux"
   | "settings";

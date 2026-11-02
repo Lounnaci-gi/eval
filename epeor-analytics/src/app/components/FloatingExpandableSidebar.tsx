@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
-  LayoutDashboard, Users, CreditCard, Building2, Calendar,
+  LayoutDashboard, Users, CreditCard, Building2, Calendar, ListChecks,
   Settings, LogOut, X, Menu,
   TrendingUp, User, ShieldCheck
 } from 'lucide-react';
@@ -91,6 +91,13 @@ export function FloatingExpandableSidebar({
       label: t('nav.subscriberDebts'),
       description: 'Créances abonnés',
       views: ['creances_abonnes'],
+    },
+    {
+      id: 'recoveryQueue',
+      icon: <ListChecks size={24} />,
+      label: t('nav.recoveryQueue'),
+      description: 'Priorités de recouvrement',
+      views: ['recovery_queue'],
     },
     {
       id: 'institutionDebts',

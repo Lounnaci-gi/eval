@@ -5,6 +5,49 @@ from backend import main
 
 
 class SubscriberSearchTests(unittest.TestCase):
+    def test_search_matches_comma_separated_criteria_across_fields(self):
+        record = {
+            "NUMAB": "B32621",
+            "NOM": "AISSA AHMED",
+            "CODRUE": "7",
+            "SECTEUR": "01",
+        }
+
+        with (
+            patch.object(main, "rues_by_codrue", {"7": {"NOUVNOM": "Cité 400 logements"}}),
+            patch.object(main, "abonments_by_numab", {"B32621": {"NUMSER": "020215814"}}),
+            patch.object(main, "tabcodes_by_code", {}),
+            patch.object(main, "search_index_list", [main._build_search_index_entry(record)]),
+            patch.object(main, "factures_by_numab", {}),
+        ):
+            results = main.search_subscribers(
+                _user={"is_admin": True},
+                query="B32, Aissa, 020215814, cité 400",
+            )
+
+        self.assertEqual([result["NUMAB"] for result in results], ["B32621"])
+
+    def test_search_requires_every_comma_separated_criterion_to_match(self):
+        record = {
+            "NUMAB": "B32621",
+            "NOM": "AISSA AHMED",
+            "SECTEUR": "01",
+        }
+
+        with (
+            patch.object(main, "rues_by_codrue", {}),
+            patch.object(main, "abonments_by_numab", {"B32621": {"NUMSER": "020215814"}}),
+            patch.object(main, "tabcodes_by_code", {}),
+            patch.object(main, "search_index_list", [main._build_search_index_entry(record)]),
+            patch.object(main, "factures_by_numab", {}),
+        ):
+            results = main.search_subscribers(
+                _user={"is_admin": True},
+                query="B32, introuvable",
+            )
+
+        self.assertEqual(results, [])
+
     def test_search_matches_multiple_partial_address_terms(self):
         record = {
             "NUMAB": "123",

@@ -492,7 +492,7 @@ export function SubscriberTerrain3D({ data, secteur = "" }: { data: SubscriberTe
       ) : webglUnavailable ? (
         <p role="alert" className="p-8 text-center text-sm font-medium text-[#667085]">La visualisation 3D nécessite un navigateur compatible WebGL.</p>
       ) : (
-        <div className="relative h-[360px] overflow-hidden bg-[#b9d7cf] sm:h-[460px]">
+        <div className="subscriber-terrain-viewport relative h-[360px] overflow-hidden bg-[#b9d7cf] sm:h-[460px]">
           <div ref={hostRef} className="absolute inset-0" />
           <div
             aria-hidden="true"

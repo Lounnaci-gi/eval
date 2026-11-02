@@ -8,6 +8,7 @@ import {
   TrendingUp, User, ShieldCheck
 } from 'lucide-react';
 import type { AppView } from './app-view';
+import ThemeToggle from './ThemeToggle';
 
 interface NavItem {
   id: string;
@@ -249,6 +250,7 @@ export function FloatingExpandableSidebar({
 
           {/* Footer Actions */}
           <div className="flex flex-col gap-2 px-4 py-3">
+            <ThemeToggle />
             <button
               onClick={onLogout}
               className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-[#DC2626] hover:bg-red-50 transition-all duration-200"

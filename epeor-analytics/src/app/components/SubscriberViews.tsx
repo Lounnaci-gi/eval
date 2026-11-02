@@ -5559,10 +5559,6 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                 </div>
               </div>
             </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-[#667085]">
-              Classement basé sur le délai moyen entre DATSAISIE et DATREG sur tout l’historique. Pour une facture impayée, le délai court jusqu’à aujourd’hui. Factures analysées : {analyzedPaymentDelays.length} sur {invoices.length} (DATSAISIE disponible).
-              {' '}Seuils : bon payeur ≤30 j, modéré ≤40 j, retardataire ≤50 j, mauvais payeur ≤60 j, récalcitrant ≤90 j; au-delà, seuil dépassé.
-            </p>
           </section>
         )}
 

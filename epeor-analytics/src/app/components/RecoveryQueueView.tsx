@@ -136,7 +136,7 @@ export function RecoveryQueueView({
 
     void loadSubscribers();
     return () => controller.abort();
-  }, [selectedSecteur, t]);
+  }, [selectedSecteur, t, locale]);
 
   const filteredSubscribers = useMemo(() => {
     const normalizedQuery = normalizeText(query.trim());

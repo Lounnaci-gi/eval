@@ -349,9 +349,7 @@ def _init_auth_db() -> None:
             _create_user_in_db(conn, "admin", "Administrateur", default_pass, is_admin=True)
             print("=" * 60)
             print("[AUTH] Aucun utilisateur trouvé — compte admin créé :")
-            print(f"       Identifiant : admin")
-            print(f"       Mot de passe: {default_pass}")
-            print("[AUTH] Changez ce mot de passe via create_user.py !")
+            print("[AUTH] Définissez son mot de passe avec create_user.py avant la connexion.")
             print("=" * 60)
 
 

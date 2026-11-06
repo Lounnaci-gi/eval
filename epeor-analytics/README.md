@@ -31,6 +31,14 @@ cd d:\eval\epeor-analytics
 
 Le script lance le backend puis le frontend et ouvre http://localhost:3000.
 
+Pour choisir le mot de passe dès l'installation, créez le compte administrateur avant le premier démarrage du backend, avec une invite sécurisée (depuis la racine du dépôt) :
+
+```powershell
+python .\epeor-analytics\backend\create_user.py --create admin --display-name "Administrateur" --admin
+```
+
+Si le backend a déjà créé automatiquement le compte `admin`, définissez son mot de passe avec `python .\epeor-analytics\backend\create_user.py --reset-password admin`. Le mot de passe initial généré automatiquement n'est pas affiché dans les logs.
+
 ## Démarrage manuel
 
 **Terminal 1 — backend**

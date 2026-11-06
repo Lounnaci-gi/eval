@@ -2,7 +2,9 @@ import unittest
 import os
 import sqlite3
 import tempfile
+from contextlib import redirect_stdout
 from concurrent.futures import ThreadPoolExecutor
+from io import StringIO
 from unittest.mock import patch
 
 from fastapi import HTTPException, Request, Response
@@ -16,6 +18,7 @@ from backend.main import (
     _delete_session_cookie,
     _get_audit_log,
     _get_login_status,
+    _init_auth_db,
     _require_auth_enabled,
     LoginRequest,
     _log_audit,
@@ -71,6 +74,27 @@ class SecurityTests(unittest.TestCase):
     def test_rejects_weak_password(self):
         with self.assertRaises(ValueError):
             validate_password("weak")
+
+    def test_initial_admin_password_is_not_written_to_logs(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = StringIO()
+            with patch(
+                "backend.main.AUTH_DB_PATH",
+                os.path.join(temp_dir, "users.db"),
+            ), patch("backend.main.secrets.token_urlsafe", return_value="secret-sentinel"):
+                with redirect_stdout(output):
+                    _init_auth_db()
+                conn = sqlite3.connect(os.path.join(temp_dir, "users.db"))
+                try:
+                    admin = conn.execute(
+                        "SELECT username, is_admin FROM users"
+                    ).fetchone()
+                finally:
+                    conn.close()
+
+        self.assertEqual(admin, ("admin", 1))
+        self.assertNotIn("secret-sentinel", output.getvalue())
+        self.assertIn("create_user.py", output.getvalue())
 
     def test_login_rate_limit_blocks_after_repeated_failures(self):
         ip = "203.0.113.10"

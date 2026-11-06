@@ -457,12 +457,9 @@ def _purge_expired_sessions() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# RATE-LIMITER EN MÉMOIRE (anti brute-force login)
+# RATE-LIMITER PERSISTANT (anti brute-force login)
 # ──────────────────────────────────────────────────────────────────────────────
 
-_login_attempts: dict[str, list[float]] = {}
-_login_blocked_until: dict[str, float] = {}
-_login_lock = threading.Lock()
 _MAX_FAILED_ATTEMPTS = 3     # tentatives max avant blocage
 _BLOCK_DURATION = 600.0     # blocage de 10 minutes
 
@@ -488,44 +485,140 @@ def _get_audit_log() -> list[dict[str, object]]:
         return list(_audit_log)
 
 
+def _login_ip_key(ip: str) -> str:
+    return hashlib.sha256(ip.encode("utf-8")).hexdigest()
+
+
+def _begin_login_rate_limit_transaction(
+    conn: sqlite3.Connection, now: float
+) -> None:
+    conn.execute("BEGIN IMMEDIATE")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS login_rate_limits (
+            ip_key TEXT PRIMARY KEY,
+            failure_count INTEGER NOT NULL,
+            first_failure_at REAL NOT NULL,
+            blocked_until REAL
+        )
+        """
+    )
+    conn.execute(
+        """
+        DELETE FROM login_rate_limits
+        WHERE (blocked_until IS NOT NULL AND blocked_until <= ?)
+           OR (blocked_until IS NULL AND first_failure_at <= ?)
+        """,
+        (now, now - _BLOCK_DURATION),
+    )
+
+
 def _get_login_status(ip: str) -> dict[str, int | bool]:
     now = time.time()
-    with _login_lock:
-        blocked_until = _login_blocked_until.get(ip)
-        if blocked_until and now < blocked_until:
+    ip_key = _login_ip_key(ip)
+    with _get_auth_conn() as conn:
+        _begin_login_rate_limit_transaction(conn, now)
+        row = conn.execute(
+            "SELECT failure_count, first_failure_at, blocked_until "
+            "FROM login_rate_limits WHERE ip_key = ?",
+            (ip_key,),
+        ).fetchone()
+        if row is None:
+            return {"blocked": False, "remaining_attempts": _MAX_FAILED_ATTEMPTS}
+
+        blocked_until = row["blocked_until"]
+        if blocked_until is not None and now < blocked_until:
             return {
                 "blocked": True,
                 "retry_after": int(blocked_until - now),
             }
-        if blocked_until and now >= blocked_until:
-            _login_blocked_until.pop(ip, None)
-            _login_attempts.pop(ip, None)
-
-        attempts = [t for t in _login_attempts.get(ip, []) if now - t < _BLOCK_DURATION]
-        remaining = max(0, _MAX_FAILED_ATTEMPTS - len(attempts))
+        if (
+            blocked_until is not None
+            or now - row["first_failure_at"] >= _BLOCK_DURATION
+        ):
+            conn.execute("DELETE FROM login_rate_limits WHERE ip_key = ?", (ip_key,))
+            return {"blocked": False, "remaining_attempts": _MAX_FAILED_ATTEMPTS}
         return {
             "blocked": False,
-            "remaining_attempts": remaining,
+            "remaining_attempts": max(
+                0, _MAX_FAILED_ATTEMPTS - row["failure_count"]
+            ),
         }
 
 
 def _record_failed_login(ip: str) -> dict[str, int | bool]:
     now = time.time()
-    with _login_lock:
-        attempts = [t for t in _login_attempts.get(ip, []) if now - t < _BLOCK_DURATION]
-        attempts.append(now)
-        if len(attempts) >= _MAX_FAILED_ATTEMPTS:
-            _login_blocked_until[ip] = now + _BLOCK_DURATION
-            _login_attempts.pop(ip, None)
+    ip_key = _login_ip_key(ip)
+    with _get_auth_conn() as conn:
+        _begin_login_rate_limit_transaction(conn, now)
+        row = conn.execute(
+            "SELECT failure_count, first_failure_at, blocked_until "
+            "FROM login_rate_limits WHERE ip_key = ?",
+            (ip_key,),
+        ).fetchone()
+        if row is not None:
+            blocked_until = row["blocked_until"]
+            if blocked_until is not None and now < blocked_until:
+                return {
+                    "blocked": True,
+                    "retry_after": int(blocked_until - now),
+                }
+            if (
+                blocked_until is not None
+                or now - row["first_failure_at"] >= _BLOCK_DURATION
+            ):
+                conn.execute("DELETE FROM login_rate_limits WHERE ip_key = ?", (ip_key,))
+                row = None
+
+        failure_count = (row["failure_count"] if row is not None else 0) + 1
+        first_failure_at = row["first_failure_at"] if row is not None else now
+        if failure_count >= _MAX_FAILED_ATTEMPTS:
+            blocked_until = now + _BLOCK_DURATION
+            conn.execute(
+                """
+                INSERT INTO login_rate_limits
+                    (ip_key, failure_count, first_failure_at, blocked_until)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(ip_key) DO UPDATE SET
+                    failure_count = excluded.failure_count,
+                    first_failure_at = excluded.first_failure_at,
+                    blocked_until = excluded.blocked_until
+                """,
+                (ip_key, failure_count, first_failure_at, blocked_until),
+            )
             return {"blocked": True, "retry_after": int(_BLOCK_DURATION)}
-        _login_attempts[ip] = attempts
-        return {"blocked": False, "remaining_attempts": max(0, _MAX_FAILED_ATTEMPTS - len(attempts))}
+
+        conn.execute(
+            """
+            INSERT INTO login_rate_limits
+                (ip_key, failure_count, first_failure_at, blocked_until)
+            VALUES (?, ?, ?, NULL)
+            ON CONFLICT(ip_key) DO UPDATE SET
+                failure_count = excluded.failure_count,
+                first_failure_at = excluded.first_failure_at,
+                blocked_until = NULL
+            """,
+            (ip_key, failure_count, first_failure_at),
+        )
+        return {
+            "blocked": False,
+            "remaining_attempts": max(0, _MAX_FAILED_ATTEMPTS - failure_count),
+        }
 
 
 def _clear_login_attempts(ip: str) -> None:
-    with _login_lock:
-        _login_attempts.pop(ip, None)
-        _login_blocked_until.pop(ip, None)
+    ip_key = _login_ip_key(ip)
+    with _get_auth_conn() as conn:
+        _begin_login_rate_limit_transaction(conn, time.time())
+        conn.execute("DELETE FROM login_rate_limits WHERE ip_key = ?", (ip_key,))
+
+
+def _require_auth_enabled() -> None:
+    if not _AUTH_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentification désactivée ; accès refusé.",
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -536,8 +629,7 @@ def get_current_user(
     epeor_session: str | None = Cookie(default=None),
 ) -> dict:
     """Dépendance FastAPI : retourne l'utilisateur courant ou lève 401."""
-    if not _AUTH_ENABLED:
-        return {"id": 0, "username": "guest", "display_name": "Guest", "is_admin": 1}
+    _require_auth_enabled()
     user = _get_user_by_session(epeor_session)
     if user is None:
         raise HTTPException(status_code=401, detail="Non authentifié")
@@ -1935,9 +2027,41 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+
+def _session_cookie_secure() -> bool:
+    return os.environ.get("EPEOR_SECURE_COOKIE", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+
+
+def _set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key="epeor_session",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=_session_cookie_secure(),
+        max_age=SESSION_LIFETIME_HOURS * 3600,
+        path="/",
+    )
+
+
+def _delete_session_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key="epeor_session",
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=_session_cookie_secure(),
+    )
+
+
 @app.post("/api/auth/login")
 def auth_login(body: LoginRequest, request: Request, response: Response):
     """Authentifie l'utilisateur et crée une session sécurisée."""
+    _require_auth_enabled()
     ip = request.client.host if request.client else "unknown"
     status_info = _get_login_status(ip)
     if status_info["blocked"]:
@@ -1970,16 +2094,7 @@ def auth_login(body: LoginRequest, request: Request, response: Response):
     _clear_login_attempts(ip)
     _purge_expired_sessions()
     token = _create_session(row["id"])
-    secure = os.environ.get("EPEOR_SECURE_COOKIE", "0") not in ("0", "false", "no")
-    response.set_cookie(
-        key="epeor_session",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=secure,
-        max_age=SESSION_LIFETIME_HOURS * 3600,
-        path="/",
-    )
+    _set_session_cookie(response, token)
     response.headers.setdefault("Cache-Control", "no-store")
     return {"status": "ok", "username": username}
 
@@ -1988,15 +2103,14 @@ def auth_logout(response: Response, epeor_session: str | None = Cookie(default=N
     """Détruit la session courante et efface le cookie."""
     if epeor_session:
         _delete_session(epeor_session)
-    response.delete_cookie(key="epeor_session", path="/")
+    _delete_session_cookie(response)
     response.headers.setdefault("Cache-Control", "no-store")
     return {"status": "ok"}
 
 @app.get("/api/auth/me")
 def auth_me(epeor_session: str | None = Cookie(default=None)):
     """Retourne les infos de l'utilisateur connecté, ou 401."""
-    if not _AUTH_ENABLED:
-        return {"username": "guest", "display_name": "Guest", "is_admin": True, "auth_enabled": False, "allowed_sectors": None}
+    _require_auth_enabled()
     user = _get_user_by_session(epeor_session)
     if user is None:
         raise HTTPException(status_code=401, detail="Non authentifié")

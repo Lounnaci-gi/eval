@@ -1,11 +1,30 @@
 import unittest
+import os
+import sqlite3
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import patch
 
+from fastapi import HTTPException, Request, Response
 from backend.security import (
     build_safe_user_update_assignments,
     validate_password,
     validate_username,
 )
-from backend.main import _get_login_status, _record_failed_login, _clear_login_attempts, _get_audit_log, _log_audit
+from backend.main import (
+    _clear_login_attempts,
+    _delete_session_cookie,
+    _get_audit_log,
+    _get_login_status,
+    _require_auth_enabled,
+    LoginRequest,
+    _log_audit,
+    _record_failed_login,
+    _set_session_cookie,
+    auth_me,
+    auth_login,
+    get_current_user,
+)
 
 
 class SecurityTests(unittest.TestCase):
@@ -55,12 +74,55 @@ class SecurityTests(unittest.TestCase):
 
     def test_login_rate_limit_blocks_after_repeated_failures(self):
         ip = "203.0.113.10"
-        _clear_login_attempts(ip)
-        for _ in range(3):
-            _record_failed_login(ip)
-        status = _get_login_status(ip)
-        self.assertTrue(status["blocked"])
-        _clear_login_attempts(ip)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = os.path.join(temp_dir, "users.db")
+            with patch("backend.main.AUTH_DB_PATH", db_path):
+                _clear_login_attempts(ip)
+                for _ in range(3):
+                    _record_failed_login(ip)
+                status = _get_login_status(ip)
+                self.assertTrue(status["blocked"])
+
+                conn = sqlite3.connect(db_path)
+                try:
+                    stored_ip_key = conn.execute(
+                        "SELECT ip_key FROM login_rate_limits"
+                    ).fetchone()[0]
+                finally:
+                    conn.close()
+                self.assertNotEqual(stored_ip_key, ip)
+                self.assertEqual(len(stored_ip_key), 64)
+
+                _clear_login_attempts(ip)
+                self.assertFalse(_get_login_status(ip)["blocked"])
+
+    def test_login_rate_limit_expires_after_ten_minutes(self):
+        ip = "203.0.113.11"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch(
+                "backend.main.AUTH_DB_PATH",
+                os.path.join(temp_dir, "users.db"),
+            ), patch("backend.main.time.time", return_value=1000):
+                _record_failed_login(ip)
+                _record_failed_login(ip)
+                self.assertTrue(_record_failed_login(ip)["blocked"])
+
+            with patch(
+                "backend.main.AUTH_DB_PATH",
+                os.path.join(temp_dir, "users.db"),
+            ), patch("backend.main.time.time", return_value=1601):
+                self.assertFalse(_get_login_status(ip)["blocked"])
+
+    def test_concurrent_failed_logins_share_the_block(self):
+        ip = "203.0.113.12"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch(
+                "backend.main.AUTH_DB_PATH",
+                os.path.join(temp_dir, "users.db"),
+            ):
+                with ThreadPoolExecutor(max_workers=6) as executor:
+                    list(executor.map(_record_failed_login, [ip] * 6))
+                self.assertTrue(_get_login_status(ip)["blocked"])
 
     def test_audit_log_records_sensitive_actions(self):
         before = len(_get_audit_log())
@@ -69,6 +131,55 @@ class SecurityTests(unittest.TestCase):
         self.assertEqual(len(after), before + 1)
         self.assertEqual(after[-1]["action"], "test_action")
 
+    def test_session_cookie_is_secure_by_default_and_on_logout(self):
+        response = Response()
+        with patch.dict(os.environ):
+            os.environ.pop("EPEOR_SECURE_COOKIE", None)
+            _set_session_cookie(response, "session-token")
+            self.assertIn("HttpOnly", response.headers["set-cookie"])
+            self.assertIn("SameSite=lax", response.headers["set-cookie"])
+            self.assertIn("; Secure", response.headers["set-cookie"])
+
+            response = Response()
+            _delete_session_cookie(response)
+            self.assertIn("HttpOnly", response.headers["set-cookie"])
+            self.assertIn("; Secure", response.headers["set-cookie"])
+
+    def test_session_cookie_can_be_insecure_for_local_http(self):
+        response = Response()
+        with patch.dict(os.environ, {"EPEOR_SECURE_COOKIE": "0"}):
+            _set_session_cookie(response, "session-token")
+        self.assertNotIn("; Secure", response.headers["set-cookie"])
+
+    def test_disabled_authentication_fails_closed(self):
+        with patch("backend.main._AUTH_ENABLED", False):
+            with self.assertRaises(HTTPException) as raised:
+                _require_auth_enabled()
+            self.assertEqual(raised.exception.status_code, 503)
+
+            with self.assertRaises(HTTPException) as raised:
+                get_current_user()
+            self.assertEqual(raised.exception.status_code, 503)
+
+            with self.assertRaises(HTTPException) as raised:
+                auth_me()
+            self.assertEqual(raised.exception.status_code, 503)
+
+            request = Request(
+                {
+                    "type": "http",
+                    "method": "POST",
+                    "path": "/api/auth/login",
+                    "headers": [],
+                    "client": ("127.0.0.1", 1234),
+                    "server": ("localhost", 8000),
+                    "scheme": "http",
+                    "query_string": b"",
+                }
+            )
+            with self.assertRaises(HTTPException) as raised:
+                auth_login(LoginRequest(username="user", password="pass"), request, Response())
+            self.assertEqual(raised.exception.status_code, 503)
 
 if __name__ == "__main__":
     unittest.main()

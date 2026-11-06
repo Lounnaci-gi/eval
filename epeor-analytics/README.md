@@ -75,12 +75,14 @@ $env:EPEOR_PORT = "8000"
 | `EPEOR_DATA_DIR` | FastAPI | Dossier des données EPEOR, prioritaire sur la configuration de l'interface ; défaut `d:\epeor`. |
 | `CORS_ORIGINS` | FastAPI | Liste séparée par des virgules des origines autorisées ; limiter aux domaines de confiance. |
 | `CORS_ORIGIN_REGEX` | FastAPI | Expression régulière facultative pour les origines dynamiques ; éviter les motifs trop larges. |
-| `EPEOR_SECURE_COOKIE` | FastAPI | Mettre `1` sous HTTPS ; garder `0` pour le développement local en HTTP. |
+| `EPEOR_SECURE_COOKIE` | FastAPI | Cookie `Secure` activé par défaut ; mettre `0` uniquement pour le développement local en HTTP. |
 | `SESSION_LIFETIME_HOURS` | FastAPI | Durée de session en heures ; défaut `24`. |
-| `EPEOR_AUTH_ENABLED` | FastAPI | Authentification activée par défaut ; ne pas la désactiver sur une instance exposée. |
+| `EPEOR_AUTH_ENABLED` | FastAPI | Authentification activée par défaut ; si elle est désactivée, les routes protégées et la connexion renvoient HTTP 503 au lieu d'ouvrir l'accès. |
 | `EPEOR_HOST` / `EPEOR_PORT` | FastAPI | Adresse et port d'écoute ; défaut `0.0.0.0:8000` dans le code. |
 
-En production, activer les cookies sécurisés et configurer explicitement l'URL backend, les origines CORS et les hôtes autorisés. Ne pas placer de secrets dans `NEXT_PUBLIC_*` : ces variables sont exposées au navigateur. Les fichiers `.env*` locaux sont ignorés par Git.
+En production HTTPS, le cookie de session `Secure` est activé par défaut ; ne le désactiver qu'en développement local HTTP. Configurer explicitement l'URL backend, les origines CORS et les hôtes autorisés. Ne pas placer de secrets dans `NEXT_PUBLIC_*` : ces variables sont exposées au navigateur. Les fichiers `.env*` locaux sont ignorés par Git.
+
+Le limiteur de tentatives de connexion est stocké dans la base SQLite d'authentification afin d'être partagé entre les processus utilisant le même fichier `users.db`. Des instances sur des hôtes distincts doivent utiliser un stockage de données commun adapté ; des fichiers SQLite locaux séparés ne partagent pas leur compteur.
 
 Le chemin des données peut aussi être modifié dans **Paramètres → Dossier des données (DBF)** ; il est enregistré dans `backend/epeor_config.json` si `EPEOR_DATA_DIR` n'est pas défini. Le cache binaire (pickle) est créé dans `backend/cache/` au premier chargement ; le premier démarrage peut être long.
 

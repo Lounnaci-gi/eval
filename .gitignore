@@ -2,6 +2,9 @@
 .venv/
 venv/
 
+# Base d'authentification locale
+epeor-analytics/backend/users.db
+
 # Outils IDE / agents (config locale)
 .continue/
 .claude/

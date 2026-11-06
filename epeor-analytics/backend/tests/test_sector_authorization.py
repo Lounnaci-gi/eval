@@ -95,6 +95,52 @@ class SectorAuthorizationTests(unittest.TestCase):
         )
         self.assertTrue(result["success"])
 
+    def test_administrator_retains_access_across_sectors(self):
+        admin = {
+            "username": "admin",
+            "is_admin": True,
+            "allowed_sectors": ["01"],
+        }
+        with main_module._get_auth_conn() as conn:
+            conn.executemany(
+                "INSERT INTO legal_status (numab, is_contentieux) VALUES (?, 1)",
+                [("IN-SECTOR",), ("OUT-OF-SECTOR",), ("UNKNOWN",)],
+            )
+            conn.commit()
+
+        result = main_module.get_all_dossiers(_user=admin)
+        self.assertEqual(
+            {dossier["numab"] for dossier in result["dossiers"]},
+            {"IN-SECTOR", "OUT-OF-SECTOR", "UNKNOWN"},
+        )
+        self.assertEqual(
+            main_module.get_dossier_juridique("OUT-OF-SECTOR", _user=admin)["numab"],
+            "OUT-OF-SECTOR",
+        )
+
+        update_result = main_module.update_dossier_juridique(
+            "OUT-OF-SECTOR",
+            main_module.DossierJuridiqueUpdate(
+                statut_abonne="Actif",
+                etape_recouvrement="Amiable",
+            ),
+            _user=admin,
+        )
+        self.assertTrue(update_result["success"])
+
+        status_result = main_module.update_legal_status(
+            "OUT-OF-SECTOR",
+            main_module.LegalStatusUpdate(is_contentieux=True),
+            _user=admin,
+        )
+        self.assertTrue(status_result["success"])
+        self.assertEqual(
+            main_module.generate_pdf_declaration_creance(
+                "OUT-OF-SECTOR", _user=admin
+            ).media_type,
+            "application/pdf",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

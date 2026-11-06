@@ -663,12 +663,17 @@ def _get_user_abonne_sectors(user: dict) -> list[str] | None:
 
 def _enforce_abonne(user: dict, abonne_rec: dict | None) -> None:
     """Enforce access to a specific subscriber based on allowed sectors."""
-    if not _AUTH_ENABLED or user.get("is_admin") or not abonne_rec:
+    if not _AUTH_ENABLED or user.get("is_admin"):
         return
 
     allowed = _normalize_allowed_sectors(user.get("allowed_sectors"))
     if allowed is None:
         return
+    if not abonne_rec:
+        raise HTTPException(
+            status_code=403,
+            detail="Vous n'êtes pas autorisé à accéder aux données de cet abonné.",
+        )
 
     rec_secteur = str(abonne_rec.get('SECTEUR', '')).strip().zfill(2)
     if rec_secteur not in allowed:
@@ -5360,6 +5365,7 @@ class LegalStatusUpdate(BaseModel):
 @app.post("/api/abonne/{numab}/legal_status")
 def update_legal_status(numab: str, payload: LegalStatusUpdate, _user: dict = Depends(get_current_user)):
     numab_key = numab.strip().upper()
+    _enforce_abonne(_user, abonnes_by_numab.get(numab_key))
     if not payload.is_contentieux:
         with _get_auth_conn() as conn:
             row = conn.execute(
@@ -5440,6 +5446,7 @@ class DossierJuridiqueUpdate(BaseModel):
 @app.get("/api/abonne/{numab}/dossier")
 def get_dossier_juridique(numab: str, _user: dict = Depends(get_current_user)):
     numab_key = numab.strip().upper()
+    _enforce_abonne(_user, abonnes_by_numab.get(numab_key))
     try:
         with _get_auth_conn() as conn:
             row = conn.execute("SELECT * FROM dossiers_juridiques WHERE numab = ?", (numab_key,)).fetchone()
@@ -5501,11 +5508,18 @@ def get_all_dossiers(_user: dict = Depends(get_current_user)):
             """).fetchall()
             
             result = []
+            allowed_sectors = _get_user_abonne_sectors(_user)
             for row in rows:
                 d = dict(row)
                 numab_key = d["numab"].strip().upper()
                 # Enrich with abonné info
                 abonne_rec = abonnes_by_numab.get(numab_key)
+                if allowed_sectors is not None and (
+                    not abonne_rec
+                    or str(abonne_rec.get("SECTEUR", "")).strip().zfill(2)
+                    not in allowed_sectors
+                ):
+                    continue
                 d["name"] = abonne_rec.get("RAISOC") or abonne_rec.get("NOM") or "Inconnu" if abonne_rec else "Inconnu"
                 d["adresse"] = resolve_rue_adresse(abonne_rec) if abonne_rec else "—"
                 d["tournee"] = str(abonne_rec.get("TOURNEE", "") if abonne_rec else "").strip() or "—"
@@ -5547,6 +5561,7 @@ def get_all_dossiers(_user: dict = Depends(get_current_user)):
 @app.post("/api/abonne/{numab}/dossier")
 def update_dossier_juridique(numab: str, payload: DossierJuridiqueUpdate, _user: dict = Depends(get_current_user)):
     numab_key = numab.strip().upper()
+    _enforce_abonne(_user, abonnes_by_numab.get(numab_key))
     try:
         with _get_auth_conn() as conn:
             conn.execute("""
@@ -5623,6 +5638,7 @@ except ImportError:
 @app.get("/api/abonne/{numab}/pdf_mise_en_demeure")
 def generate_pdf_mise_en_demeure(numab: str, _user: dict = Depends(get_current_user)):
     numab_key = numab.strip().upper()
+    _enforce_abonne(_user, abonnes_by_numab.get(numab_key))
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     height = A4[1]
@@ -5652,6 +5668,7 @@ def generate_pdf_mise_en_demeure(numab: str, _user: dict = Depends(get_current_u
 @app.get("/api/abonne/{numab}/pdf_declaration_creance")
 def generate_pdf_declaration_creance(numab: str, _user: dict = Depends(get_current_user)):
     numab_key = numab.strip().upper()
+    _enforce_abonne(_user, abonnes_by_numab.get(numab_key))
     
     with _get_auth_conn() as conn:
         dossier = conn.execute("SELECT * FROM dossiers_juridiques WHERE numab = ?", (numab_key,)).fetchone()

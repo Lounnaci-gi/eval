@@ -26,10 +26,13 @@ class Type7SubscriberTests(unittest.TestCase):
             "01006": "01",
         }
 
-        with patch.object(main, "_abonne_codcom", side_effect=lambda numab: commune_by_numab[numab]):
+        with (
+            patch.object(main, "_abonne_codcom", side_effect=lambda numab: commune_by_numab[numab]),
+            patch.object(main, "resolve_rue_adresse", return_value="Rue du Test"),
+        ):
             subscribers = main._collect_type_7_subscribers(
                 records,
-                {"01001": {"NOM": "Abonné 1"}},
+                {"01001": {"NOM": "Abonné 1", "BLOC": "B12", "NDOM": "45"}},
                 {"01001", "01002", "02001", "01003", "01004", "01005", "01006"},
                 "20240101",
                 "20240131",
@@ -38,6 +41,9 @@ class Type7SubscriberTests(unittest.TestCase):
         self.assertEqual(len(subscribers[("01", ("EAU", 1, "E", "MENAGES"))]), 1)
         household = subscribers[("01", ("EAU", 1, "E", "MENAGES"))]["01001"]
         self.assertEqual(household["name"], "Abonné 1")
+        self.assertEqual(household["address"], "Rue du Test")
+        self.assertEqual(household["bloc"], "B12")
+        self.assertEqual(household["ndom"], "45")
         self.assertEqual(household["invoices"], [
             {"datfact": "20240110", "monttc": 1200.0, "type": "7"},
             {"datfact": "20240111", "monttc": 800.0, "type": "7"},

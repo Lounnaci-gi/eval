@@ -3533,8 +3533,67 @@ export function Type7SubscriberReport({
       subscriberType: subscriber.subscriberType,
       numab: subscriber.numab,
       name: subscriber.name,
+      address: subscriber.address,
+      bloc: subscriber.bloc,
+      ndom: subscriber.ndom,
       creance: subscriber.creance,
     }))
+  ).map((invoice: any, order: number) => ({ ...invoice, order }));
+  const [sortKey, setSortKey] = useState('commune');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [communeFilter, setCommuneFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const handleInvoiceSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((direction) => direction === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+  const sortedInvoices = [...invoices].sort((a: any, b: any) => {
+    let comparison = 0;
+    if (sortKey === 'order' || sortKey === 'monttc' || sortKey === 'creance') {
+      const aValue = sortKey === 'order' ? a.order : Number(a[sortKey] || 0);
+      const bValue = sortKey === 'order' ? b.order : Number(b[sortKey] || 0);
+      comparison = aValue - bValue;
+    } else if (sortKey === 'datfact') {
+      comparison = String(a.datfact || '').localeCompare(String(b.datfact || ''));
+    } else {
+      comparison = String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''), 'fr', { numeric: true });
+    }
+    return sortDir === 'asc' ? comparison : -comparison;
+  });
+  const filteredInvoices = sortedInvoices.filter((invoice: any) => {
+    return (
+      (!communeFilter || invoice.commune === communeFilter) &&
+      (!typeFilter || invoice.subscriberType === typeFilter)
+    );
+  });
+  const filteredCreanceTotal = [...new Map(
+    filteredInvoices.map((invoice: any) => [invoice.numab, Number(invoice.creance || 0)])
+  ).values()].reduce((total, amount) => total + amount, 0);
+  const filteredSubscriberCount = new Set(filteredInvoices.map((invoice: any) => invoice.numab)).size;
+  const communeOptions: string[] = Array.from(
+    new Set<string>(invoices.map((invoice: any) => String(invoice.commune || '')))
+  ).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr'));
+  const typeOptions: string[] = Array.from(
+    new Set<string>(invoices.map((invoice: any) => String(invoice.subscriberType || '')))
+  ).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr'));
+  const sortableHeader = (label: string, key: string, align: 'left' | 'right' = 'left') => (
+    <th className={`px-4 py-3 ${align === 'right' ? 'text-right' : ''}`}>
+      <button
+        type="button"
+        onClick={() => handleInvoiceSort(key)}
+        className={`inline-flex items-center gap-1.5 hover:text-[#0D83DE] ${align === 'right' ? 'ml-auto' : ''}`}
+        aria-label={`Trier par ${label} ${sortKey === key ? (sortDir === 'asc' ? 'décroissant' : 'croissant') : ''}`}
+      >
+        {label}
+        <span aria-hidden="true" className={sortKey === key ? 'text-[#0D83DE]' : 'text-[#98A2B3]'}>
+          {sortKey === key ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+        </span>
+      </button>
+    </th>
   );
   const formatDate = (value: string) => {
     const date = String(value || '').trim();
@@ -3575,10 +3634,10 @@ export function Type7SubscriberReport({
                 <tr className="border-b border-[#E4E7EC] bg-[#F9FAFB] text-xs font-black uppercase tracking-wide text-[#475467]">
                   <th className="px-4 py-3">Commune</th>
                   <th className="px-4 py-3">Type d’abonné</th>
-                  <th className="px-4 py-3 text-right">Abonnés concernés</th>
-                  <th className="px-4 py-3 text-right">Totale créance</th>
-                  <th className="px-4 py-3 text-right">Abonnés ayant payé avec pénalité créée</th>
-                  <th className="px-4 py-3 text-right">Montant réglé</th>
+                  <th className="px-4 py-3 text-right">Nbr</th>
+                  <th className="px-4 py-3 text-right">Créances</th>
+                  <th className="px-4 py-3 text-right">Nbr</th>
+                  <th className="px-4 py-3 text-right">Règlement</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
@@ -3626,32 +3685,95 @@ export function Type7SubscriberReport({
             </table>
           </div>
 
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] p-4">
+            <label className="flex min-w-44 flex-col gap-1 text-xs font-semibold text-[#475467]">
+              Commune
+              <select
+                value={communeFilter}
+                onChange={(event) => setCommuneFilter(event.target.value)}
+                className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-normal text-[#101828]"
+              >
+                <option value="">Toutes les communes</option>
+                {communeOptions.map((commune) => <option key={commune} value={commune}>{commune}</option>)}
+              </select>
+            </label>
+            <label className="flex min-w-44 flex-col gap-1 text-xs font-semibold text-[#475467]">
+              Type d’abonné
+              <select
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value)}
+                className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-normal text-[#101828]"
+              >
+                <option value="">Tous les types</option>
+                {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setCommuneFilter('');
+                setTypeFilter('');
+              }}
+              className="h-10 rounded-lg px-3 text-sm font-semibold text-[#475467] hover:bg-white"
+            >
+              Effacer les filtres
+            </button>
+            <span className="ml-auto pb-2 text-xs text-[#667085]">
+              {filteredInvoices.length.toLocaleString('fr-FR')} facture(s)
+            </span>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E4E7EC] bg-[#F9FAFB] text-xs font-black uppercase tracking-wide text-[#475467]">
-                  <th className="px-4 py-3">Commune</th>
-                  <th className="px-4 py-3">Type d’abonné</th>
-                  <th className="px-4 py-3">N° abonné</th>
-                  <th className="px-4 py-3">Nom / raison sociale</th>
-                  <th className="px-4 py-3">Date facture</th>
-                  <th className="px-4 py-3 text-right">Montant facture</th>
-                  <th className="px-4 py-3 text-right">Créance actuelle hors coupures</th>
+                  {sortableHeader('N°', 'order', 'right')}
+                  {sortableHeader('Commune', 'commune')}
+                  {sortableHeader('Type d’abonné', 'subscriberType')}
+                  {sortableHeader('N° abonné', 'numab')}
+                  {sortableHeader('Nom / raison sociale', 'name')}
+                  {sortableHeader('Adresse', 'address')}
+                  {sortableHeader('Bloc', 'bloc')}
+                  {sortableHeader('Ndom', 'ndom')}
+                  {sortableHeader('Créance', 'creance', 'right')}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
-                {invoices.map((invoice: any) => (
+                {filteredInvoices.map((invoice: any, index: number) => (
                   <tr key={invoice.id} className="hover:bg-[#F9FAFB]">
+                    <td className="px-4 py-3 text-right font-mono text-[#475467]">{index + 1}</td>
                     <td className="px-4 py-3 font-semibold text-[#101828]">{invoice.commune}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.subscriberType}</td>
                     <td className="px-4 py-3 font-mono text-[#475467]">{invoice.numab}</td>
                     <td className="px-4 py-3 text-[#101828]">{invoice.name}</td>
-                    <td className="px-4 py-3 font-mono text-[#475467]">{formatDate(invoice.datfact)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-[#101828]">{formatAmount(invoice.monttc)}</td>
+                    <td className="px-4 py-3 text-[#475467]">{invoice.address || '—'}</td>
+                    <td className="px-4 py-3 text-[#475467]">{invoice.bloc || '—'}</td>
+                    <td className="px-4 py-3 text-[#475467]">{invoice.ndom || '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">{formatAmount(invoice.creance)}</td>
                   </tr>
                 ))}
+                {filteredInvoices.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-[#667085]">
+                      Aucune facture ne correspond aux filtres sélectionnés.
+                    </td>
+                  </tr>
+                )}
               </tbody>
+              {filteredInvoices.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-black">
+                    <td colSpan={3} className="px-4 py-3">Total général</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                      {filteredSubscriberCount.toLocaleString('fr-FR')}
+                    </td>
+                    <td colSpan={4} className="px-4 py-3">abonné(s)</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                      {formatAmount(filteredCreanceTotal)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </>

@@ -1302,6 +1302,9 @@ def _collect_type_7_subscribers(
         subscriber = group.setdefault(numab, {
             "numab": numab,
             "name": str(abonne.get('RAISOC') or abonne.get('NOM') or '').strip() or "Nom inconnu",
+            "address": resolve_rue_adresse(abonne),
+            "bloc": str(abonne.get('BLOC') or '').strip(),
+            "ndom": str(abonne.get('NDOM') or '').strip(),
             "invoices": [],
         })
         invoices = subscriber["invoices"]

@@ -3547,6 +3547,7 @@ export function Type7SubscriberReport({
   const [communeFilter, setCommuneFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [tourneeFilter, setTourneeFilter] = useState('');
+  const [selectedSubscribers, setSelectedSubscribers] = useState<Set<string>>(() => new Set());
   const handleInvoiceSort = (key: string) => {
     if (sortKey === key) {
       setSortDir((direction) => direction === 'asc' ? 'desc' : 'asc');
@@ -3575,6 +3576,167 @@ export function Type7SubscriberReport({
       (!tourneeFilter || String(invoice.tournee || '').trim() === tourneeFilter)
     );
   });
+  const visibleSubscriberIds = [...new Set(filteredInvoices.map((invoice: any) => String(invoice.numab)))];
+  const selectedSubscriberRows = [...new Map(
+    invoices
+      .filter((invoice: any) => selectedSubscribers.has(String(invoice.numab)))
+      .map((invoice: any) => [String(invoice.numab), invoice])
+  ).values()];
+  const allVisibleSubscribersSelected = visibleSubscriberIds.length > 0 &&
+    visibleSubscriberIds.every((numab) => selectedSubscribers.has(numab));
+  const toggleSubscriberSelection = (numab: string) => {
+    setSelectedSubscribers((current) => {
+      const next = new Set(current);
+      if (next.has(numab)) next.delete(numab);
+      else next.add(numab);
+      return next;
+    });
+  };
+  const toggleVisibleSubscribersSelection = () => {
+    setSelectedSubscribers((current) => {
+      const next = new Set(current);
+      if (allVisibleSubscribersSelected) {
+        visibleSubscriberIds.forEach((numab) => next.delete(numab));
+      } else {
+        visibleSubscriberIds.forEach((numab) => next.add(numab));
+      }
+      return next;
+    });
+  };
+  const handlePrintSelectedSubscribers = () => {
+    if (selectedSubscriberRows.length === 0) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      void showAlert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.', {
+        title: 'Autorisation requise',
+        icon: 'warning',
+      });
+      return;
+    }
+
+    const cell = (value: unknown) => escapeHtml(String(value ?? '—'));
+    const totalCreance = selectedSubscriberRows.reduce(
+      (total: number, subscriber: any) => total + Number(subscriber.creance || 0),
+      0
+    );
+    const totalPaidAmount = selectedSubscriberRows.reduce(
+      (total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0),
+      0
+    );
+    const outOfRangePaidSubscribers = selectedSubscriberRows.filter(
+      (subscriber: any) => Number(subscriber.paidAmount || 0) > 0 && isPaymentDateOutsideRange(subscriber.paidDate)
+    );
+    const inRangePaidSubscribers = selectedSubscriberRows.filter(
+      (subscriber: any) => Number(subscriber.paidAmount || 0) > 0 && isPaymentDateInsideRange(subscriber.paidDate)
+    );
+    const totalPaidOutsideRange = outOfRangePaidSubscribers.reduce(
+      (total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0),
+      0
+    );
+    const totalPaidInsideRange = inRangePaidSubscribers.reduce(
+      (total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0),
+      0
+    );
+    const rows = selectedSubscriberRows.map((subscriber: any, index: number) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${cell(subscriber.commune)}</td>
+        <td>${cell(subscriber.subscriberType)}</td>
+        <td>${cell(subscriber.tournee || '—')}</td>
+        <td>${cell(subscriber.numab)}</td>
+        <td>${cell(subscriber.name)}</td>
+        <td>${cell(subscriber.address || '—')}</td>
+        <td>${cell(subscriber.bloc || '—')}</td>
+        <td>${cell(subscriber.ndom || '—')}</td>
+        <td class="numeric">${cell(formatAmount(subscriber.creance))}</td>
+        <td class="numeric">${cell(formatAmount(subscriber.paidAmount))}</td>
+        <td>${cell(formatDate(subscriber.paidDate))}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`<!doctype html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8">
+          <title>Abonnés sélectionnés — Répartition des Coupures &amp; Rétablissements</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #101828; margin: 24px; font-size: 9px; }
+            .print-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 2px solid #F2F4F7; padding-bottom: 12px; margin-bottom: 14px; }
+            .logo-section { display: flex; align-items: center; gap: 12px; }
+            .logo-section img { height: 40px; width: auto; object-fit: contain; }
+            .brand-name { color: #0D83DE; font-size: 14px; font-weight: 900; }
+            .company-name { color: #667085; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+            .title-section { text-align: right; }
+            h1 { font-size: 16px; margin: 0 0 6px; }
+            p { color: #667085; margin: 3px 0; }
+            table { width: 100%; border-collapse: collapse; font-size: 8px; }
+            th, td { border: 1px solid #D0D5DD; padding: 5px; text-align: left; }
+            th { background: #F9FAFB; text-transform: uppercase; font-size: 7px; }
+            tfoot { font-weight: bold; background: #F9FAFB; }
+            tfoot .out-of-range { background: #ECFDF3; color: #067647; }
+            tfoot .in-range { background: #EFF6FF; color: #0D83DE; }
+            .numeric { text-align: right; white-space: nowrap; }
+            tr { page-break-inside: avoid; }
+            @page { size: A4 landscape; margin: 10mm; }
+            @media print { body { margin: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="print-header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="Logo ADE">
+              <div>
+                <div class="brand-name">EPEOR Analytics</div>
+                <div class="company-name">Algérienne Des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1>Répartition des Coupures &amp; Rétablissements</h1>
+              <p>Abonnés sélectionnés : ${selectedSubscriberRows.length}</p>
+              <p>${startDate || endDate ? `Période : ${cell(startDate ? formatDate(startDate) : '—')} au ${cell(endDate ? formatDate(endDate) : '—')} · ` : ''}Édité le ${new Date().toLocaleDateString('fr-FR')}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>N°</th><th>Commune</th><th>Type</th><th>Tournée</th><th>N° abonné</th>
+                <th>Nom / raison sociale</th><th>Adresse</th><th>Bloc</th><th>Ndom</th>
+                <th>Créance</th><th>Créance réglée</th><th>Date de règlement</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4">Total général</td>
+                <td class="numeric">${selectedSubscriberRows.length}</td>
+                <td colspan="4">abonné(s) sélectionné(s)</td>
+                <td class="numeric">${cell(formatAmount(totalCreance))}</td>
+                <td class="numeric">${cell(formatAmount(totalPaidAmount))}</td>
+                <td>—</td>
+              </tr>
+              <tr class="out-of-range">
+                <td colspan="4">Règlements hors période</td>
+                <td class="numeric">${outOfRangePaidSubscribers.length}</td>
+                <td colspan="5">abonné(s) concerné(s)</td>
+                <td class="numeric">${cell(formatAmount(totalPaidOutsideRange))}</td>
+                <td>—</td>
+              </tr>
+              <tr class="in-range">
+                <td colspan="4">Règlements dans la période</td>
+                <td class="numeric">${inRangePaidSubscribers.length}</td>
+                <td colspan="5">abonné(s) concerné(s)</td>
+                <td class="numeric">${cell(formatAmount(totalPaidInsideRange))}</td>
+                <td>—</td>
+              </tr>
+            </tfoot>
+          </table>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
   const filteredCreanceTotal = [...new Map(
     filteredInvoices.map((invoice: any) => [invoice.numab, Number(invoice.creance || 0)])
   ).values()].reduce((total, amount) => total + amount, 0);
@@ -3742,6 +3904,16 @@ export function Type7SubscriberReport({
           </div>
 
           <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] p-4">
+            <button
+              type="button"
+              onClick={handlePrintSelectedSubscribers}
+              disabled={selectedSubscriberRows.length === 0}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0D83DE] px-4 text-sm font-bold text-white transition-colors hover:bg-[#0a6ab8] disabled:cursor-not-allowed disabled:opacity-50"
+              title={selectedSubscriberRows.length > 0 ? 'Imprimer les abonnés sélectionnés' : 'Sélectionnez au moins un abonné'}
+            >
+              <Printer size={15} />
+              Imprimer la sélection ({selectedSubscriberRows.length})
+            </button>
             <label className="flex min-w-44 flex-col gap-1 text-xs font-semibold text-[#475467]">
               Commune
               <select
@@ -3795,6 +3967,16 @@ export function Type7SubscriberReport({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E4E7EC] bg-[#F9FAFB] text-xs font-black uppercase tracking-wide text-[#475467]">
+                  <th className="w-10 px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      aria-label="Sélectionner tous les abonnés affichés"
+                      checked={allVisibleSubscribersSelected}
+                      disabled={visibleSubscriberIds.length === 0}
+                      onChange={toggleVisibleSubscribersSelection}
+                      className="h-4 w-4 cursor-pointer accent-[#0D83DE] disabled:cursor-not-allowed"
+                    />
+                  </th>
                   {sortableHeader('N°', 'order', 'right')}
                   {sortableHeader('Commune', 'commune')}
                   {sortableHeader('Type d’abonné', 'subscriberType')}
@@ -3812,6 +3994,15 @@ export function Type7SubscriberReport({
               <tbody className="divide-y divide-[#F2F4F7]">
                 {filteredInvoices.map((invoice: any, index: number) => (
                   <tr key={invoice.id} className="hover:bg-[#F9FAFB]">
+                    <td className="px-3 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        aria-label={`Sélectionner l’abonné ${invoice.numab}`}
+                        checked={selectedSubscribers.has(String(invoice.numab))}
+                        onChange={() => toggleSubscriberSelection(String(invoice.numab))}
+                        className="h-4 w-4 cursor-pointer accent-[#0D83DE]"
+                      />
+                    </td>
                     <td className="px-4 py-3 text-right font-mono text-[#475467]">{index + 1}</td>
                     <td className="px-4 py-3 font-semibold text-[#101828]">{invoice.commune}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.subscriberType}</td>
@@ -3832,7 +4023,7 @@ export function Type7SubscriberReport({
                 ))}
                 {filteredInvoices.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="px-4 py-8 text-center text-sm text-[#667085]">
+                    <td colSpan={13} className="px-4 py-8 text-center text-sm text-[#667085]">
                       Aucune facture ne correspond aux filtres sélectionnés.
                     </td>
                   </tr>
@@ -3841,7 +4032,7 @@ export function Type7SubscriberReport({
               {filteredInvoices.length > 0 && (
                 <tfoot>
                   <tr className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-black">
-                    <td colSpan={4} className="px-4 py-3">Total général</td>
+                    <td colSpan={5} className="px-4 py-3">Total général</td>
                     <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
                       {filteredSubscriberCount.toLocaleString('fr-FR')}
                     </td>
@@ -3855,7 +4046,7 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3 text-right tabular-nums text-[#101828]">—</td>
                   </tr>
                   <tr className="border-t border-[#D0D5DD] bg-emerald-50 font-bold">
-                    <td colSpan={4} className="px-4 py-3 text-emerald-800">Règlements hors période</td>
+                    <td colSpan={5} className="px-4 py-3 text-emerald-800">Règlements hors période</td>
                     <td className="px-4 py-3 text-right tabular-nums text-emerald-800">
                       {outOfRangePaidSubscriberCount.toLocaleString('fr-FR')}
                     </td>
@@ -3866,7 +4057,7 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3">—</td>
                   </tr>
                   <tr className="border-t border-[#D0D5DD] bg-blue-50 font-bold">
-                    <td colSpan={4} className="px-4 py-3 text-[#0D83DE]">Règlements dans la période</td>
+                    <td colSpan={5} className="px-4 py-3 text-[#0D83DE]">Règlements dans la période</td>
                     <td className="px-4 py-3 text-right tabular-nums text-[#0D83DE]">
                       {inRangePaidSubscriberCount.toLocaleString('fr-FR')}
                     </td>

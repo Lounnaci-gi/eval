@@ -1283,12 +1283,10 @@ def _collect_paid_subscribers_with_cut_created(
         if numab not in subscribers_with_cut:
             continue
         payment_date = _parse_payment_date(record.get('DATREG'))
-        invoice_date = _parse_payment_date(record.get('DATFACT'))
         if (
             payment_date
             and start_day <= payment_date <= end_day
-            and (not invoice_date or invoice_date <= end_day)
-            and not _is_cut_penalty_class(record)
+            and not _is_cut_penalty_created_in_period(record, start_date, end_date)
         ):
             paid_amount_by_numab[numab] = paid_amount_by_numab.get(numab, 0.0) + float(record.get('MONTTC') or 0)
 
@@ -1326,11 +1324,12 @@ def _collect_paid_amounts_after_cut_created(
             continue
         payment_date = _parse_payment_date(record.get('DATREG'))
         invoice_date = _parse_payment_date(record.get('DATFACT'))
+        payment_in_period = start_day <= payment_date <= end_day if payment_date else False
         if (
             payment_date
             and payment_date >= start_day
-            and (not invoice_date or invoice_date <= end_day)
-            and not _is_cut_penalty_class(record)
+            and (payment_in_period or not invoice_date or invoice_date <= end_day)
+            and not _is_cut_penalty_created_in_period(record, start_date, end_date)
         ):
             paid_amount_by_numab[numab] = paid_amount_by_numab.get(numab, 0.0) + float(record.get('MONTTC') or 0)
 
@@ -1371,8 +1370,12 @@ def _collect_paid_dates_with_cut_created(
         if (
             not payment_date
             or payment_date < start_day
-            or (invoice_date and invoice_date > end_day)
-            or _is_cut_penalty_class(record)
+            or (
+                invoice_date
+                and invoice_date > end_day
+                and payment_date > end_day
+            )
+            or _is_cut_penalty_created_in_period(record, start_date, end_date)
         ):
             continue
         if numab not in latest_payment_by_numab or payment_date > latest_payment_by_numab[numab]:

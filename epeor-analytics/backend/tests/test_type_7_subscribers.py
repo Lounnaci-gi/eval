@@ -450,6 +450,30 @@ class Type7SubscriberTests(unittest.TestCase):
         self.assertEqual(detail_amounts, {"B36783": 3429.71})
         self.assertEqual(payment_dates, {"B36783": "2026-11-05"})
 
+    def test_includes_november_payments_for_b37483_but_excludes_november_cut_fee(self):
+        records = [
+            {"NUMAB": "B37483", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20260627", "MONTTC": 1200, "DATREG": "20261104", "PAIEMENT": "C"},
+            {"NUMAB": "B37483", "TYPE": "E", "DATFACT": "20260930", "MONTTC": 327, "DATREG": "20261104", "PAIEMENT": "C"},
+            {"NUMAB": "B37483", "TYPE": "E", "DATFACT": "20261231", "MONTTC": 2227.71, "DATREG": "20261104", "PAIEMENT": "C"},
+            {"NUMAB": "B37483", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20261130", "MONTTC": 1200, "DATREG": "20261104", "PAIEMENT": "C"},
+        ]
+
+        paid_amounts = main._collect_paid_subscribers_with_cut_created(
+            records,
+            {"B37483"},
+            "20261101",
+            "20261130",
+        )
+        detail_amounts = main._collect_paid_amounts_after_cut_created(
+            records,
+            {"B37483"},
+            "20261101",
+            "20261130",
+        )
+
+        self.assertEqual(paid_amounts, {"B37483": 3754.71})
+        self.assertEqual(detail_amounts, {"B37483": 3754.71})
+
     def test_paid_total_excludes_cut_penalty_created_in_period(self):
         records = [
             {"NUMAB": "131591", "TYPE": "E", "DATREG": "20261014", "MONTTC": 856.46},

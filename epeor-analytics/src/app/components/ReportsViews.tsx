@@ -3581,6 +3581,41 @@ export function Type7SubscriberReport({
   const filteredPaidAmountTotal = [...new Map(
     filteredInvoices.map((invoice: any) => [invoice.numab, Number(invoice.paidAmount || 0)])
   ).values()].reduce((total, amount) => total + amount, 0);
+  const isPaymentDateOutsideRange = (value: string | null | undefined) => {
+    const paymentDate = String(value || '').replace(/-/g, '');
+    const periodStart = String(startDate || '').replace(/-/g, '');
+    const periodEnd = String(endDate || '').replace(/-/g, '');
+    return Boolean(
+      paymentDate &&
+      ((periodStart && paymentDate < periodStart) || (periodEnd && paymentDate > periodEnd))
+    );
+  };
+  const isPaymentDateInsideRange = (value: string | null | undefined) => {
+    const paymentDate = String(value || '').replace(/-/g, '');
+    const periodStart = String(startDate || '').replace(/-/g, '');
+    const periodEnd = String(endDate || '').replace(/-/g, '');
+    return Boolean(paymentDate && periodStart && periodEnd && paymentDate >= periodStart && paymentDate <= periodEnd);
+  };
+  const inRangePaidAmountsBySubscriber = new Map<string, number>();
+  filteredInvoices.forEach((invoice: any) => {
+    const paidAmount = Number(invoice.paidAmount || 0);
+    if (paidAmount > 0 && isPaymentDateInsideRange(invoice.paidDate)) {
+      inRangePaidAmountsBySubscriber.set(invoice.numab, paidAmount);
+    }
+  });
+  const inRangePaidSubscriberCount = inRangePaidAmountsBySubscriber.size;
+  const inRangePaidTotal = [...inRangePaidAmountsBySubscriber.values()]
+    .reduce((total, amount) => total + amount, 0);
+  const outOfRangePaidAmountsBySubscriber = new Map<string, number>();
+  filteredInvoices.forEach((invoice: any) => {
+    const paidAmount = Number(invoice.paidAmount || 0);
+    if (paidAmount > 0 && isPaymentDateOutsideRange(invoice.paidDate)) {
+      outOfRangePaidAmountsBySubscriber.set(invoice.numab, paidAmount);
+    }
+  });
+  const outOfRangePaidSubscriberCount = outOfRangePaidAmountsBySubscriber.size;
+  const outOfRangePaidTotal = [...outOfRangePaidAmountsBySubscriber.values()]
+    .reduce((total, amount) => total + amount, 0);
   const filteredSubscriberCount = new Set(filteredInvoices.map((invoice: any) => invoice.numab)).size;
   const communeOptions: string[] = Array.from(
     new Set<string>(invoices.map((invoice: any) => String(invoice.commune || '')))
@@ -3786,8 +3821,12 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3 text-[#475467]">{invoice.address || '—'}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.bloc || '—'}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.ndom || '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">{formatAmount(invoice.creance)}</td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">{formatAmount(invoice.paidAmount)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right font-semibold tabular-nums text-[#101828]">{formatAmount(invoice.creance)}</td>
+                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${
+                      isPaymentDateOutsideRange(invoice.paidDate)
+                        ? 'text-emerald-700'
+                        : 'text-[#101828]'
+                    } whitespace-nowrap`}>{formatAmount(invoice.paidAmount)}</td>
                     <td className="px-4 py-3 text-[#475467]">{formatDate(invoice.paidDate)}</td>
                   </tr>
                 ))}
@@ -3807,13 +3846,35 @@ export function Type7SubscriberReport({
                       {filteredSubscriberCount.toLocaleString('fr-FR')}
                     </td>
                     <td colSpan={4} className="px-4 py-3">abonné(s)</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#101828]">
                       {formatAmount(filteredCreanceTotal)}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#101828]">
                       {formatAmount(filteredPaidAmountTotal)}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-[#101828]">—</td>
+                  </tr>
+                  <tr className="border-t border-[#D0D5DD] bg-emerald-50 font-bold">
+                    <td colSpan={4} className="px-4 py-3 text-emerald-800">Règlements hors période</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-emerald-800">
+                      {outOfRangePaidSubscriberCount.toLocaleString('fr-FR')}
+                    </td>
+                    <td colSpan={5} className="px-4 py-3 text-emerald-800">abonné(s) concerné(s)</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-emerald-800">
+                      {formatAmount(outOfRangePaidTotal)}
+                    </td>
+                    <td className="px-4 py-3">—</td>
+                  </tr>
+                  <tr className="border-t border-[#D0D5DD] bg-blue-50 font-bold">
+                    <td colSpan={4} className="px-4 py-3 text-[#0D83DE]">Règlements dans la période</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-[#0D83DE]">
+                      {inRangePaidSubscriberCount.toLocaleString('fr-FR')}
+                    </td>
+                    <td colSpan={5} className="px-4 py-3 text-[#0D83DE]">abonné(s) concerné(s)</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#0D83DE]">
+                      {formatAmount(inRangePaidTotal)}
+                    </td>
+                    <td className="px-4 py-3">—</td>
                   </tr>
                 </tfoot>
               )}

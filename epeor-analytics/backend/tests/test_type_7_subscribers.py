@@ -328,7 +328,10 @@ class Type7SubscriberTests(unittest.TestCase):
             "20261031",
         )
 
-        self.assertEqual(paid_with_cut, {"B12582": 500})
+        self.assertEqual(paid_with_cut, {
+            "B12582": 500,
+            "B35677": 100,
+        })
 
     def test_sums_paid_amounts_for_b12582_with_cut_created_in_period(self):
         records = [
@@ -364,6 +367,7 @@ class Type7SubscriberTests(unittest.TestCase):
         records = [
             {"NUMAB": "B12582", "TYPE": "E", "DATREG": "20261001", "MONTTC": 300},
             {"NUMAB": "B12582", "TYPE": "E", "DATREG": "20261021", "MONTTC": 500},
+            {"NUMAB": "B12582", "TYPE": "E", "DATREG": "20261104", "MONTTC": 200},
             {
                 "NUMAB": "B12582",
                 "TYPE": "7",
@@ -382,7 +386,69 @@ class Type7SubscriberTests(unittest.TestCase):
             "20261031",
         )
 
-        self.assertEqual(payment_dates, {"B12582": "2026-10-21"})
+        self.assertEqual(payment_dates, {"B12582": "2026-11-04"})
+
+    def test_includes_payments_after_selected_period_for_b36477(self):
+        records = [
+            {"NUMAB": "B36477", "TYPE": "E", "DATFACT": "20260630", "MONTTC": 826.78, "DATREG": "20261031", "PAIEMENT": "C"},
+            {"NUMAB": "B36477", "TYPE": "E", "DATFACT": "20260930", "MONTTC": 1497.26, "DATREG": "20261031", "PAIEMENT": "C"},
+            {"NUMAB": "B36477", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20260930", "MONTTC": 1200, "DATREG": "20261031", "PAIEMENT": "C"},
+            {"NUMAB": "B36477", "TYPE": "E", "DATFACT": "20261231", "MONTTC": 1144.36, "DATREG": "20261031", "PAIEMENT": "C"},
+        ]
+
+        paid_amounts = main._collect_paid_subscribers_with_cut_created(
+            records,
+            {"B36477"},
+            "20260901",
+            "20260930",
+        )
+        detail_amounts = main._collect_paid_amounts_after_cut_created(
+            records,
+            {"B36477"},
+            "20260901",
+            "20260930",
+        )
+        payment_dates = main._collect_paid_dates_with_cut_created(
+            records,
+            {"B36477"},
+            "20260901",
+            "20260930",
+        )
+
+        self.assertEqual(paid_amounts, {})
+        self.assertEqual(detail_amounts, {"B36477": 2324.04})
+        self.assertEqual(payment_dates, {"B36477": "2026-10-31"})
+
+    def test_excludes_future_invoice_from_september_paid_amount_for_b36783(self):
+        records = [
+            {"NUMAB": "B36783", "TYPE": "E", "DATFACT": "20260630", "MONTTC": 1144.36, "DATREG": "20261105", "PAIEMENT": "C"},
+            {"NUMAB": "B36783", "TYPE": "E", "DATFACT": "20260930", "MONTTC": 2285.35, "DATREG": "20261105", "PAIEMENT": "C"},
+            {"NUMAB": "B36783", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20260930", "MONTTC": 1200, "DATREG": "20261105", "PAIEMENT": "C"},
+            {"NUMAB": "B36783", "TYPE": "E", "DATFACT": "20261231", "MONTTC": 1824.27, "DATREG": "20261105", "PAIEMENT": "C"},
+        ]
+
+        paid_amounts = main._collect_paid_subscribers_with_cut_created(
+            records,
+            {"B36783"},
+            "20260901",
+            "20260930",
+        )
+        detail_amounts = main._collect_paid_amounts_after_cut_created(
+            records,
+            {"B36783"},
+            "20260901",
+            "20260930",
+        )
+        payment_dates = main._collect_paid_dates_with_cut_created(
+            records,
+            {"B36783"},
+            "20260901",
+            "20260930",
+        )
+
+        self.assertEqual(paid_amounts, {})
+        self.assertEqual(detail_amounts, {"B36783": 3429.71})
+        self.assertEqual(payment_dates, {"B36783": "2026-11-05"})
 
     def test_paid_total_excludes_cut_penalty_created_in_period(self):
         records = [

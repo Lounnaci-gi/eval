@@ -21,7 +21,7 @@ import dynamic from "next/dynamic";
 import Swal from "sweetalert2";
 import {
   Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, ArrowRight,
-  ChevronRight, Percent, User, Lock, Eye, EyeOff, Search,
+  ChevronRight, Percent, User, Lock, Eye, EyeOff,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
@@ -35,7 +35,7 @@ import {
   ChartContainer,
   type DataPathInfo,
 } from "./utils";
-import { FrenchDateInput, SecteurDropdown } from "./ui";
+import { SecteurDropdown } from "./ui";
 import Countdown from "./Countdown";
 import Logo from "./Logo";
 import { StatsCard } from "./dashboard-ui";
@@ -106,8 +106,6 @@ export default function Dashboard() {
   const [ventilationFilter, setVentilationFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [repartitionFilter, setRepartitionFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [calcDateRange, setCalcDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
-  const [commercialDateRange, setCommercialDateRange] = useState({ start: '', end: '' });
-  const [commercialSecteur, setCommercialSecteur] = useState('');
   const [commercialReportData, setCommercialReportData] = useState<any>(null);
   const [commercialReportLoading, setCommercialReportLoading] = useState(false);
   const [commercialReportError, setCommercialReportError] = useState<string | null>(null);
@@ -137,8 +135,7 @@ export default function Dashboard() {
   const [loginCountdown, setLoginCountdown] = useState<number | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const loadCommercialReport = async () => {
-    const { start, end } = commercialDateRange;
+  const loadCommercialReport = async (start = calcDateRange.start, end = calcDateRange.end) => {
     if (start && end && start > end) {
       setCommercialReportError('La date de début doit être antérieure ou égale à la date de fin.');
       return;
@@ -146,11 +143,12 @@ export default function Dashboard() {
 
     setCommercialReportLoading(true);
     setCommercialReportError(null);
+    setCommercialReportData(null);
     try {
       const url = apiUrlObject('/type_7_subscribers');
       if (start) url.searchParams.set('start_date', start.replace(/-/g, ''));
       if (end) url.searchParams.set('end_date', end.replace(/-/g, ''));
-      if (commercialSecteur) url.searchParams.set('secteur', commercialSecteur);
+      if (selectedSecteur) url.searchParams.set('secteur', selectedSecteur);
 
       const response = await fetch(url.toString(), { credentials: 'include' });
       if (!response.ok) {
@@ -1215,7 +1213,10 @@ export default function Dashboard() {
                   setCurrentView('repartition');
                 }}
                 onNavigateToVentilation={() => setCurrentView('ventilation')}
-                onCalcDateChange={(s: string, e: string) => setCalcDateRange({start: s, end: e})}
+                onCalcDateChange={async (s: string, e: string) => {
+                  setCalcDateRange({start: s, end: e});
+                  await loadCommercialReport(s, e);
+                }}
                 selectedSecteur={selectedSecteur}
                 sectors={sectors}
                 uniteLabel={uniteLabel}
@@ -1264,38 +1265,10 @@ export default function Dashboard() {
               />
             ) : currentView === 'bilan_activite_commercial' ? (
               <div className="space-y-6">
-                <section className="flex flex-col lg:flex-row lg:items-end gap-4 rounded-2xl border border-[#E4E7EC] bg-white p-4 shadow-sm">
-                  <SecteurDropdown
-                    sectors={sectors}
-                    selectedSecteur={commercialSecteur}
-                    onSelect={setCommercialSecteur}
-                    uniteLabel={uniteLabel}
-                    loading={sectorsLoading || !stats?.ready}
-                    allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
-                  />
-                  <FrenchDateInput
-                    label="Date de début"
-                    value={commercialDateRange.start}
-                    onChange={(start) => setCommercialDateRange((range) => ({ ...range, start }))}
-                  />
-                  <FrenchDateInput
-                    label="Date de fin"
-                    value={commercialDateRange.end}
-                    onChange={(end) => setCommercialDateRange((range) => ({ ...range, end }))}
-                  />
-                  <button
-                    type="button"
-                    onClick={loadCommercialReport}
-                    disabled={commercialReportLoading || sectorsLoading || !stats?.ready}
-                    className="flex h-[42px] items-center justify-center gap-2 rounded-xl bg-[#0D83DE] px-5 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#0a6ab8] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {commercialReportLoading ? (
-                      <span className="spinner-premium" style={{ width: 14, height: 14 }} aria-hidden="true" />
-                    ) : (
-                      <Search size={14} />
-                    )}
-                    {commercialReportLoading ? 'Chargement…' : 'Appliquer'}
-                  </button>
+                <section className="flex flex-col gap-3 rounded-2xl border border-[#E4E7EC] bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-medium text-[#667085]">
+                    Ce bilan utilise le centre et la période sélectionnés dans la synthèse globale.
+                  </p>
                 </section>
                 {commercialReportLoading && (
                   <div
@@ -1307,7 +1280,7 @@ export default function Dashboard() {
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-[#101828]">Chargement du bilan commercial…</p>
                       <p className="mt-1 text-xs text-[#667085]">
-                        Analyse des factures et des abonnés pour le centre et la période sélectionnés.
+                        Analyse des factures et des abonnés selon les filtres de la synthèse globale.
                       </p>
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100">
                         <div className="h-full w-1/3 rounded-full bg-[#0D83DE] animate-pulse" />
@@ -1323,12 +1296,12 @@ export default function Dashboard() {
                 {commercialReportData ? (
                   <Type7SubscriberReport
                     data={commercialReportData}
-                    startDate={commercialDateRange.start}
-                    endDate={commercialDateRange.end}
+                    startDate={calcDateRange.start}
+                    endDate={calcDateRange.end}
                   />
                 ) : (
                   <div className="rounded-2xl border border-dashed border-[#E4E7EC] bg-white p-8 text-center text-sm text-[#667085]">
-                    Choisissez un centre et une période, puis cliquez sur « Appliquer » pour afficher le bilan.
+                    Sélectionnez le centre et la période dans la synthèse globale, puis cliquez sur « Calculer » pour afficher le bilan.
                   </div>
                 )}
               </div>

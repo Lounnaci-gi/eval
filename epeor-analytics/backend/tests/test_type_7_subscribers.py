@@ -308,6 +308,30 @@ class Type7SubscriberTests(unittest.TestCase):
 
         self.assertEqual(paid_amounts, {"B12582": 5530.85})
 
+    def test_collects_latest_payment_date_for_subscriber_with_cut_created_in_period(self):
+        records = [
+            {"NUMAB": "B12582", "TYPE": "E", "DATREG": "20261001", "MONTTC": 300},
+            {"NUMAB": "B12582", "TYPE": "E", "DATREG": "20261021", "MONTTC": 500},
+            {
+                "NUMAB": "B12582",
+                "TYPE": "7",
+                "PERIODE": "0005",
+                "DATFACT": "20261031",
+                "DATSAISIE": "20261031",
+                "DATREG": "20261021",
+                "MONTTC": 1200,
+            },
+        ]
+
+        payment_dates = main._collect_paid_dates_with_cut_created(
+            records,
+            {"B12582"},
+            "20261001",
+            "20261031",
+        )
+
+        self.assertEqual(payment_dates, {"B12582": "2026-10-21"})
+
     def test_paid_total_excludes_cut_penalty_created_in_period(self):
         records = [
             {"NUMAB": "131591", "TYPE": "E", "DATREG": "20261014", "MONTTC": 856.46},

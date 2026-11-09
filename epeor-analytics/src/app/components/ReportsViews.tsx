@@ -3534,9 +3534,12 @@ export function Type7SubscriberReport({
       numab: subscriber.numab,
       name: subscriber.name,
       address: subscriber.address,
+      tournee: subscriber.tournee,
       bloc: subscriber.bloc,
       ndom: subscriber.ndom,
       creance: subscriber.creance,
+      paidAmount: subscriber.paid_amount,
+      paidDate: subscriber.paid_date,
     }))
   ).map((invoice: any, order: number) => ({ ...invoice, order }));
   const [sortKey, setSortKey] = useState('commune');
@@ -3553,7 +3556,7 @@ export function Type7SubscriberReport({
   };
   const sortedInvoices = [...invoices].sort((a: any, b: any) => {
     let comparison = 0;
-    if (sortKey === 'order' || sortKey === 'monttc' || sortKey === 'creance') {
+    if (sortKey === 'order' || sortKey === 'monttc' || sortKey === 'creance' || sortKey === 'paidAmount') {
       const aValue = sortKey === 'order' ? a.order : Number(a[sortKey] || 0);
       const bValue = sortKey === 'order' ? b.order : Number(b[sortKey] || 0);
       comparison = aValue - bValue;
@@ -3572,6 +3575,9 @@ export function Type7SubscriberReport({
   });
   const filteredCreanceTotal = [...new Map(
     filteredInvoices.map((invoice: any) => [invoice.numab, Number(invoice.creance || 0)])
+  ).values()].reduce((total, amount) => total + amount, 0);
+  const filteredPaidAmountTotal = [...new Map(
+    filteredInvoices.map((invoice: any) => [invoice.numab, Number(invoice.paidAmount || 0)])
   ).values()].reduce((total, amount) => total + amount, 0);
   const filteredSubscriberCount = new Set(filteredInvoices.map((invoice: any) => invoice.numab)).size;
   const communeOptions: string[] = Array.from(
@@ -3610,7 +3616,7 @@ export function Type7SubscriberReport({
     <section className="space-y-5 rounded-2xl border border-[#E4E7EC] bg-white p-5 shadow-sm">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 className="text-xl font-black text-[#101828]">Factures de coupure — type 7 / sous-classe 0005</h3>
+          <h3 className="text-xl font-black text-[#101828]">Répartition des Coupures &amp; Rétablissements</h3>
           <p className="mt-1 text-sm text-[#667085]">
             Créance hors frais de coupure de la période, incluant les factures réglées pendant le mois de fin ou le suivant.
           </p>
@@ -3730,12 +3736,15 @@ export function Type7SubscriberReport({
                   {sortableHeader('N°', 'order', 'right')}
                   {sortableHeader('Commune', 'commune')}
                   {sortableHeader('Type d’abonné', 'subscriberType')}
+                  {sortableHeader('Tournée', 'tournee')}
                   {sortableHeader('N° abonné', 'numab')}
                   {sortableHeader('Nom / raison sociale', 'name')}
                   {sortableHeader('Adresse', 'address')}
                   {sortableHeader('Bloc', 'bloc')}
                   {sortableHeader('Ndom', 'ndom')}
                   {sortableHeader('Créance', 'creance', 'right')}
+                  {sortableHeader('Créance réglée', 'paidAmount', 'right')}
+                  {sortableHeader('Date de règlement', 'paidDate')}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
@@ -3744,17 +3753,20 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3 text-right font-mono text-[#475467]">{index + 1}</td>
                     <td className="px-4 py-3 font-semibold text-[#101828]">{invoice.commune}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.subscriberType}</td>
+                    <td className="px-4 py-3 text-[#475467]">{invoice.tournee || '—'}</td>
                     <td className="px-4 py-3 font-mono text-[#475467]">{invoice.numab}</td>
                     <td className="px-4 py-3 text-[#101828]">{invoice.name}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.address || '—'}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.bloc || '—'}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.ndom || '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">{formatAmount(invoice.creance)}</td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">{formatAmount(invoice.paidAmount)}</td>
+                    <td className="px-4 py-3 text-[#475467]">{formatDate(invoice.paidDate)}</td>
                   </tr>
                 ))}
                 {filteredInvoices.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-[#667085]">
+                    <td colSpan={12} className="px-4 py-8 text-center text-sm text-[#667085]">
                       Aucune facture ne correspond aux filtres sélectionnés.
                     </td>
                   </tr>
@@ -3763,7 +3775,7 @@ export function Type7SubscriberReport({
               {filteredInvoices.length > 0 && (
                 <tfoot>
                   <tr className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-black">
-                    <td colSpan={3} className="px-4 py-3">Total général</td>
+                    <td colSpan={4} className="px-4 py-3">Total général</td>
                     <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
                       {filteredSubscriberCount.toLocaleString('fr-FR')}
                     </td>
@@ -3771,6 +3783,10 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
                       {formatAmount(filteredCreanceTotal)}
                     </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                      {formatAmount(filteredPaidAmountTotal)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-[#101828]">—</td>
                   </tr>
                 </tfoot>
               )}

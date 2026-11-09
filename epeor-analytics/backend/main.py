@@ -1276,6 +1276,43 @@ def _collect_paid_subscribers_with_cut_created(
     }
 
 
+def _collect_paid_dates_with_cut_created(
+    records: list[dict],
+    numabs: set[str],
+    start_date: str | None,
+    end_date: str | None,
+) -> dict[str, str]:
+    if not start_date or not end_date:
+        return {}
+
+    start_day = _parse_payment_date(start_date)
+    end_day = _parse_payment_date(end_date)
+    if not start_day or not end_day:
+        return {}
+
+    subscribers_with_cut = {
+        str(record.get('NUMAB') or '').strip().upper()
+        for record in records
+        if _is_type_7_cut_created_in_period(record, start_date, end_date)
+    }
+    eligible_numabs = numabs & subscribers_with_cut
+    latest_payment_by_numab = {}
+    for record in records:
+        numab = str(record.get('NUMAB') or '').strip().upper()
+        if numab not in eligible_numabs:
+            continue
+        payment_date = _parse_payment_date(record.get('DATREG'))
+        if not payment_date or not start_day <= payment_date <= end_day:
+            continue
+        if numab not in latest_payment_by_numab or payment_date > latest_payment_by_numab[numab]:
+            latest_payment_by_numab[numab] = payment_date
+
+    return {
+        numab: payment_date.isoformat()
+        for numab, payment_date in latest_payment_by_numab.items()
+    }
+
+
 def _collect_type_7_subscribers(
     records: list[dict],
     abonnes: dict[str, dict],
@@ -1303,6 +1340,7 @@ def _collect_type_7_subscribers(
             "numab": numab,
             "name": str(abonne.get('RAISOC') or abonne.get('NOM') or '').strip() or "Nom inconnu",
             "address": resolve_rue_adresse(abonne),
+            "tournee": str(abonne.get('TOURNEE') or '').strip(),
             "bloc": str(abonne.get('BLOC') or '').strip(),
             "ndom": str(abonne.get('NDOM') or '').strip(),
             "invoices": [],
@@ -4948,6 +4986,12 @@ def get_type_7_subscribers(
         start_date,
         end_date,
     )
+    paid_dates_with_cut = _collect_paid_dates_with_cut_created(
+        MEM_FACTURES,
+        report_numabs,
+        start_date,
+        end_date,
+    )
     rows = [
         {
             "commune_id": codcom,
@@ -4965,6 +5009,8 @@ def get_type_7_subscribers(
                     {
                         **subscriber,
                         "creance": round(current_creances.get(numab, 0.0), 2),
+                        "paid_amount": paid_with_cut_numabs.get(numab, 0.0),
+                        "paid_date": paid_dates_with_cut.get(numab),
                     }
                     for numab, subscriber in subscribers.items()
                 ],

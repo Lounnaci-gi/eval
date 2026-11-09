@@ -68,6 +68,58 @@ class Type7SubscriberTests(unittest.TestCase):
         self.assertEqual(len(group), 1)
         self.assertEqual(group["03001"]["name"], "Société test")
 
+    def test_includes_a0009_cut_penalty_class_for_january_2023(self):
+        record = {
+            "NUMAB": "01001",
+            "TYPE": "A",
+            "PERIODE": "9",
+            "DATFACT": "20230115",
+            "MONTTC": 1000,
+            "TYPABON": "10",
+        }
+        with (
+            patch.dict(main.classe_map, {("A", "0009"): "F.COUPURE/RETARD DE PAIEMENT"}),
+            patch.object(main, "_abonne_codcom", return_value="01"),
+            patch.object(main, "resolve_rue_adresse", return_value="Rue du Test"),
+        ):
+            subscribers = main._collect_type_7_subscribers(
+                [record],
+                {"01001": {"NOM": "Abonné test"}},
+                {"01001"},
+                "20230101",
+                "20230131",
+            )
+
+        group = subscribers[("01", ("EAU", 1, "E", "MENAGES"))]
+        self.assertEqual(group["01001"]["invoices"], [
+            {"datfact": "20230115", "monttc": 1000.0, "type": "A"},
+        ])
+
+    def test_recognizes_a0009_penalty_when_class_lookup_is_unavailable(self):
+        with patch.dict(main.classe_map, {}, clear=True):
+            self.assertTrue(main._is_cut_penalty_invoice(
+                {"TYPE": "A", "PERIODE": "9", "DATFACT": "20230115"},
+                "20230101",
+                "20230131",
+            ))
+
+    def test_recognizes_legacy_a0005_penalty_without_class_lookup(self):
+        record = {
+            "NUMAB": "B12582",
+            "TYPE": "A",
+            "PERIODE": "0005",
+            "DATFACT": "20191031",
+            "MONTTC": 1000,
+            "DATREG": "20191016",
+            "PAIEMENT": "C",
+        }
+        with patch.dict(main.classe_map, {}, clear=True):
+            self.assertTrue(main._is_cut_penalty_invoice(
+                record,
+                "20191001",
+                "20191031",
+            ))
+
     def test_current_unpaid_balance_excludes_cut_fees_in_selected_period(self):
         balances = main._collect_current_creances_by_numab(
             [

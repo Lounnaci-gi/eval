@@ -1206,14 +1206,31 @@ def _resolve_typabon_category(typabon: str) -> tuple[str, int, str, str]:
     return ('EAU', ordre, 'E', categorie)
 
 
-def _is_type_7_cut_invoice(
+def _is_cut_penalty_class(record: dict) -> bool:
+    class_code = str(record.get('TYPE') or '').strip().upper()
+    subclass_code = str(record.get('PERIODE') or '').strip().zfill(4)
+    if class_code == '7' and subclass_code == '0005':
+        return True
+    if class_code == 'A' and subclass_code in {'0005', '0009'}:
+        return True
+
+    design = classe_map.get((class_code, subclass_code), '')
+    if not design:
+        design = classe_map.get((class_code, subclass_code.lstrip('0') or '0'), '')
+    normalized_design = ''.join(
+        character
+        for character in unicodedata.normalize('NFKD', design).casefold()
+        if not unicodedata.combining(character)
+    )
+    return 'coupure' in normalized_design or 'penalit' in normalized_design
+
+
+def _is_cut_penalty_invoice(
     record: dict,
     start_date: str | None,
     end_date: str | None,
 ) -> bool:
-    if str(record.get('TYPE') or '').strip() != '7':
-        return False
-    if str(record.get('PERIODE') or '').strip().zfill(4) != '0005':
+    if not _is_cut_penalty_class(record):
         return False
     datfact = str(record.get('DATFACT') or '').strip()
     if start_date and (not datfact or datfact < start_date):
@@ -1223,14 +1240,12 @@ def _is_type_7_cut_invoice(
     return True
 
 
-def _is_type_7_cut_created_in_period(
+def _is_cut_penalty_created_in_period(
     record: dict,
     start_date: str | None,
     end_date: str | None,
 ) -> bool:
-    if str(record.get('TYPE') or '').strip() != '7':
-        return False
-    if str(record.get('PERIODE') or '').strip().zfill(4) != '0005':
+    if not _is_cut_penalty_class(record):
         return False
     date_created = str(record.get('DATSAISIE') or '').strip()
     if start_date and (not date_created or date_created < start_date):
@@ -1261,13 +1276,13 @@ def _collect_paid_subscribers_with_cut_created(
         numab = str(record.get('NUMAB') or '').strip().upper()
         if numab not in numabs:
             continue
-        if _is_type_7_cut_created_in_period(record, start_date, end_date):
+        if _is_cut_penalty_created_in_period(record, start_date, end_date):
             subscribers_with_cut.add(numab)
 
         payment_date = _parse_payment_date(record.get('DATREG'))
         if payment_date and start_day <= payment_date <= end_day:
             subscribers_paid.add(numab)
-            if not _is_type_7_cut_created_in_period(record, start_date, end_date):
+            if not _is_cut_penalty_created_in_period(record, start_date, end_date):
                 paid_amount_by_numab[numab] = paid_amount_by_numab.get(numab, 0.0) + float(record.get('MONTTC') or 0)
 
     return {
@@ -1293,7 +1308,7 @@ def _collect_paid_dates_with_cut_created(
     subscribers_with_cut = {
         str(record.get('NUMAB') or '').strip().upper()
         for record in records
-        if _is_type_7_cut_created_in_period(record, start_date, end_date)
+        if _is_cut_penalty_created_in_period(record, start_date, end_date)
     }
     eligible_numabs = numabs & subscribers_with_cut
     latest_payment_by_numab = {}
@@ -1322,7 +1337,7 @@ def _collect_type_7_subscribers(
 ) -> dict[tuple[str, tuple[str, int, str, str]], dict[str, dict[str, object]]]:
     subscribers_by_group: dict[tuple[str, tuple[str, int, str, str]], dict[str, dict[str, object]]] = {}
     for record in records:
-        if not _is_type_7_cut_invoice(record, start_date, end_date):
+        if not _is_cut_penalty_invoice(record, start_date, end_date):
             continue
 
         numab = str(record.get('NUMAB') or '').strip().upper()
@@ -1350,7 +1365,7 @@ def _collect_type_7_subscribers(
             invoices.append({
                 "datfact": datfact,
                 "monttc": float(record.get('MONTTC') or 0),
-                "type": "7",
+                "type": str(record.get('TYPE') or '').strip(),
             })
     return subscribers_by_group
 
@@ -2794,8 +2809,8 @@ def _collect_current_creances_by_numab(
         for record in records:
             numab = str(record.get('NUMAB') or '').strip().upper()
             if not is_avoir and (
-                _is_type_7_cut_invoice(record, start_date, end_date)
-                or _is_type_7_cut_created_in_period(record, start_date, end_date)
+                _is_cut_penalty_invoice(record, start_date, end_date)
+                or _is_cut_penalty_created_in_period(record, start_date, end_date)
             ):
                 continue
             if numab not in numabs:

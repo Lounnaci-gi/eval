@@ -3546,6 +3546,7 @@ export function Type7SubscriberReport({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [communeFilter, setCommuneFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [tourneeFilter, setTourneeFilter] = useState('');
   const handleInvoiceSort = (key: string) => {
     if (sortKey === key) {
       setSortDir((direction) => direction === 'asc' ? 'desc' : 'asc');
@@ -3570,7 +3571,8 @@ export function Type7SubscriberReport({
   const filteredInvoices = sortedInvoices.filter((invoice: any) => {
     return (
       (!communeFilter || invoice.commune === communeFilter) &&
-      (!typeFilter || invoice.subscriberType === typeFilter)
+      (!typeFilter || invoice.subscriberType === typeFilter) &&
+      (!tourneeFilter || String(invoice.tournee || '').trim() === tourneeFilter)
     );
   });
   const filteredCreanceTotal = [...new Map(
@@ -3586,6 +3588,9 @@ export function Type7SubscriberReport({
   const typeOptions: string[] = Array.from(
     new Set<string>(invoices.map((invoice: any) => String(invoice.subscriberType || '')))
   ).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr'));
+  const tourneeOptions: string[] = Array.from(
+    new Set<string>(invoices.map((invoice: any) => String(invoice.tournee || '').trim()))
+  ).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
   const sortableHeader = (label: string, key: string, align: 'left' | 'right' = 'left') => (
     <th className={`px-4 py-3 ${align === 'right' ? 'text-right' : ''}`}>
       <button
@@ -3647,27 +3652,37 @@ export function Type7SubscriberReport({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
-                {groups.map((group: any) => (
-                  <tr key={`${group.commune_id}-${group.subscriber_type}`} className="hover:bg-[#F9FAFB]">
-                    <td className="px-4 py-3 font-semibold text-[#101828]">{group.commune}</td>
-                    <td className="px-4 py-3 text-[#475467]">{group.subscriber_type}</td>
-                    <td className="px-4 py-3 text-right font-black tabular-nums text-[#0D83DE]">
-                      {Number(group.count || 0).toLocaleString('fr-FR')}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
-                      {formatAmount(
-                        (Array.isArray(group.subscribers) ? group.subscribers : [])
-                          .reduce((total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0)
+                {groups.map((group: any, index: number) => {
+                  const rowsInCommune = groups.slice(index).findIndex((next: any) => next.commune !== group.commune);
+                  return (
+                    <tr key={`${group.commune_id}-${group.subscriber_type}`} className="hover:bg-[#F9FAFB]">
+                      {groups[index - 1]?.commune !== group.commune && (
+                        <td
+                          rowSpan={rowsInCommune === -1 ? groups.length - index : rowsInCommune}
+                          className="px-4 py-3 align-middle font-semibold text-[#101828]"
+                        >
+                          {group.commune}
+                        </td>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
-                      {Number(group.paid_with_cut_count || 0).toLocaleString('fr-FR')}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
-                      {formatAmount(Number(group.paid_with_cut_amount || 0))}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-4 py-3 text-[#475467]">{group.subscriber_type}</td>
+                      <td className="px-4 py-3 text-right font-black tabular-nums text-[#0D83DE]">
+                        {Number(group.count || 0).toLocaleString('fr-FR')}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                        {formatAmount(
+                          (Array.isArray(group.subscribers) ? group.subscribers : [])
+                            .reduce((total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0)
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                        {Number(group.paid_with_cut_count || 0).toLocaleString('fr-FR')}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                        {formatAmount(Number(group.paid_with_cut_amount || 0))}
+                      </td>
+                    </tr>
+                  );
+                })}
                 <tr className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-black">
                   <td className="px-4 py-3" colSpan={2}>Total général</td>
                   <td className="px-4 py-3 text-right tabular-nums text-[#0D83DE]">
@@ -3714,11 +3729,23 @@ export function Type7SubscriberReport({
                 {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
               </select>
             </label>
+            <label className="flex min-w-44 flex-col gap-1 text-xs font-semibold text-[#475467]">
+              Tournée
+              <select
+                value={tourneeFilter}
+                onChange={(event) => setTourneeFilter(event.target.value)}
+                className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-normal text-[#101828]"
+              >
+                <option value="">Toutes les tournées</option>
+                {tourneeOptions.map((tournee) => <option key={tournee} value={tournee}>{tournee}</option>)}
+              </select>
+            </label>
             <button
               type="button"
               onClick={() => {
                 setCommuneFilter('');
                 setTypeFilter('');
+                setTourneeFilter('');
               }}
               className="h-10 rounded-lg px-3 text-sm font-semibold text-[#475467] hover:bg-white"
             >

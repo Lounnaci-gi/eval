@@ -2534,7 +2534,13 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
 
 
 
-export function BilanActiviteView({ data, startDate = '', endDate = '', selectedSecteur = '', sectors = [] }: any) {
+export function BilanActiviteView({
+  data,
+  startDate = '',
+  endDate = '',
+  selectedSecteur = '',
+  sectors = [],
+}: any) {
   const secteurLabel = selectedSecteur
     ? (sectors.find((s: { code: string; libelle: string }) => s.code === selectedSecteur)?.libelle ?? selectedSecteur)
     : 'Toute l\'unité';
@@ -2552,7 +2558,6 @@ export function BilanActiviteView({ data, startDate = '', endDate = '', selected
   const filteredCommunes = selectedSecteur && hasSecteurInfo
     ? communeRows.filter((row: any) => secteurFieldNames.some((field) => String(row[field] ?? '').trim() === selectedSecteur))
     : communeRows;
-
   const processTypeRows = (rows: any[]) => {
     const grouped: Record<string, any> = {};
     const result: any[] = [];
@@ -2786,7 +2791,6 @@ export function BilanActiviteView({ data, startDate = '', endDate = '', selected
     const formattedEnd = formatDateStr(endDate);
     const dateStr = formattedStart && formattedEnd ? 'P\u00e9riode du ' + formattedStart + ' au ' + formattedEnd : '';
     const printDate = new Date().toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -3372,6 +3376,8 @@ export function BilanActiviteView({ data, startDate = '', endDate = '', selected
                               </Fragment>
                             );
                           }
+
+
                           return (
                             <tr key={`${communeId}-type-${tIndex + 1}`} className="bg-slate-50 hover:bg-slate-100/50 transition-colors">
                               <td className="px-6 py-3 text-xs font-semibold text-[#475467]">
@@ -3499,5 +3505,161 @@ export function BilanActiviteView({ data, startDate = '', endDate = '', selected
         )}
       </div>
     </div>
+  );
+}
+
+export function Type7SubscriberReport({
+  data,
+  startDate = '',
+  endDate = '',
+}: {
+  data: any;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const groups = Array.isArray(data?.by_commune_type) ? data.by_commune_type : [];
+  const subscribers = groups.flatMap((group: any) =>
+    (Array.isArray(group.subscribers) ? group.subscribers : []).map((subscriber: any) => ({
+      ...subscriber,
+      commune: group.commune,
+      subscriberType: group.subscriber_type,
+    }))
+  );
+  const invoices = subscribers.flatMap((subscriber: any) =>
+    (Array.isArray(subscriber.invoices) ? subscriber.invoices : []).map((invoice: any, index: number) => ({
+      ...invoice,
+      id: `${subscriber.numab}-${invoice.datfact}-${index}`,
+      commune: subscriber.commune,
+      subscriberType: subscriber.subscriberType,
+      numab: subscriber.numab,
+      name: subscriber.name,
+      creance: subscriber.creance,
+    }))
+  );
+  const formatDate = (value: string) => {
+    const date = String(value || '').trim();
+    if (/^\d{8}$/.test(date)) return `${date.slice(6, 8)}/${date.slice(4, 6)}/${date.slice(0, 4)}`;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}`;
+    return date || '—';
+  };
+  const formatAmount = (value: number) =>
+    new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(Number(value || 0))
+      .replace(/[\u202F\u00A0]/g, ' ');
+
+  return (
+    <section className="space-y-5 rounded-2xl border border-[#E4E7EC] bg-white p-5 shadow-sm">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="text-xl font-black text-[#101828]">Factures de coupure — type 7 / sous-classe 0005</h3>
+          <p className="mt-1 text-sm text-[#667085]">
+            Créance hors frais de coupure de la période, incluant les factures réglées pendant le mois de fin ou le suivant.
+          </p>
+        </div>
+        <div className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-[#0D83DE]">
+          {Number(data?.total_subscriber_count || 0).toLocaleString('fr-FR')} abonnés
+        </div>
+      </header>
+
+      <div className="flex flex-wrap gap-3 text-xs font-medium text-[#667085]">
+        {startDate && <span>Du {formatDate(startDate)}</span>}
+        {endDate && <span>Au {formatDate(endDate)}</span>}
+        {!startDate && !endDate && <span>Toutes les dates</span>}
+      </div>
+
+      {groups.length > 0 ? (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#E4E7EC] bg-[#F9FAFB] text-xs font-black uppercase tracking-wide text-[#475467]">
+                  <th className="px-4 py-3">Commune</th>
+                  <th className="px-4 py-3">Type d’abonné</th>
+                  <th className="px-4 py-3 text-right">Abonnés concernés</th>
+                  <th className="px-4 py-3 text-right">Totale créance</th>
+                  <th className="px-4 py-3 text-right">Abonnés ayant payé avec pénalité créée</th>
+                  <th className="px-4 py-3 text-right">Montant réglé</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {groups.map((group: any) => (
+                  <tr key={`${group.commune_id}-${group.subscriber_type}`} className="hover:bg-[#F9FAFB]">
+                    <td className="px-4 py-3 font-semibold text-[#101828]">{group.commune}</td>
+                    <td className="px-4 py-3 text-[#475467]">{group.subscriber_type}</td>
+                    <td className="px-4 py-3 text-right font-black tabular-nums text-[#0D83DE]">
+                      {Number(group.count || 0).toLocaleString('fr-FR')}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                      {formatAmount(
+                        (Array.isArray(group.subscribers) ? group.subscribers : [])
+                          .reduce((total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0)
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                      {Number(group.paid_with_cut_count || 0).toLocaleString('fr-FR')}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                      {formatAmount(Number(group.paid_with_cut_amount || 0))}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-black">
+                  <td className="px-4 py-3" colSpan={2}>Total général</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-[#0D83DE]">
+                    {Number(data?.total_subscriber_count || 0).toLocaleString('fr-FR')}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                    {formatAmount(
+                      groups.reduce((total: number, group: any) =>
+                        total + (Array.isArray(group.subscribers) ? group.subscribers : [])
+                          .reduce((groupTotal: number, subscriber: any) => groupTotal + Number(subscriber.creance || 0), 0), 0)
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                    {Number(data?.total_paid_with_cut_count || 0).toLocaleString('fr-FR')}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                    {formatAmount(Number(data?.total_paid_with_cut_amount || 0))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#E4E7EC] bg-[#F9FAFB] text-xs font-black uppercase tracking-wide text-[#475467]">
+                  <th className="px-4 py-3">Commune</th>
+                  <th className="px-4 py-3">Type d’abonné</th>
+                  <th className="px-4 py-3">N° abonné</th>
+                  <th className="px-4 py-3">Nom / raison sociale</th>
+                  <th className="px-4 py-3">Date facture</th>
+                  <th className="px-4 py-3 text-right">Montant facture</th>
+                  <th className="px-4 py-3 text-right">Créance actuelle hors coupures</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {invoices.map((invoice: any) => (
+                  <tr key={invoice.id} className="hover:bg-[#F9FAFB]">
+                    <td className="px-4 py-3 font-semibold text-[#101828]">{invoice.commune}</td>
+                    <td className="px-4 py-3 text-[#475467]">{invoice.subscriberType}</td>
+                    <td className="px-4 py-3 font-mono text-[#475467]">{invoice.numab}</td>
+                    <td className="px-4 py-3 text-[#101828]">{invoice.name}</td>
+                    <td className="px-4 py-3 font-mono text-[#475467]">{formatDate(invoice.datfact)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-[#101828]">{formatAmount(invoice.monttc)}</td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">{formatAmount(invoice.creance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <p className="rounded-xl border border-dashed border-[#E4E7EC] bg-[#F8FAFC] p-6 text-center text-sm text-[#667085]">
+          Aucune facture de type 7 / sous-classe 0005 pour le centre et la période sélectionnés.
+        </p>
+      )}
+    </section>
   );
 }

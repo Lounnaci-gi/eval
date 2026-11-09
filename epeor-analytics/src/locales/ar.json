@@ -121,6 +121,7 @@
       "typeBreakdown": "التوزيع حسب النوع",
       "communeBreakdown": "التوزيع حسب البلدية",
       "activityReport": "تقرير النشاط",
+      "commercialActivityReport": "تقرير النشاط التجاري",
       "payerClassification": "تصنيف المشتركين حسب الدفع"
     }
   },

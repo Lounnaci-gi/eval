@@ -21,12 +21,12 @@ import dynamic from "next/dynamic";
 import Swal from "sweetalert2";
 import {
   Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, ArrowRight,
-  ChevronRight, Percent, User, Lock, Eye, EyeOff,
+  ChevronRight, Percent, User, Lock, Eye, EyeOff, Search,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from "recharts";
-import { apiUrl } from "../lib/api";
+import { apiUrl, apiUrlObject } from "../lib/api";
 import {
   sanitizeUserFacingMessage,
   isBackendConnectionError,
@@ -35,7 +35,7 @@ import {
   ChartContainer,
   type DataPathInfo,
 } from "./utils";
-import { SecteurDropdown } from "./ui";
+import { FrenchDateInput, SecteurDropdown } from "./ui";
 import Countdown from "./Countdown";
 import Logo from "./Logo";
 import { StatsCard } from "./dashboard-ui";
@@ -91,6 +91,10 @@ const BilanActiviteView = dynamic(
   () => import("./ReportsViews").then((m) => ({ default: m.BilanActiviteView })),
   { loading: () => viewLoader }
 );
+const Type7SubscriberReport = dynamic(
+  () => import("./ReportsViews").then((m) => ({ default: m.Type7SubscriberReport })),
+  { loading: () => viewLoader }
+);
 export default function Dashboard() {
   const { t } = useTranslation();
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
@@ -102,6 +106,11 @@ export default function Dashboard() {
   const [ventilationFilter, setVentilationFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [repartitionFilter, setRepartitionFilter] = useState<'ALL' | 'EAU' | 'PRESTATIONS'>('ALL');
   const [calcDateRange, setCalcDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
+  const [commercialDateRange, setCommercialDateRange] = useState({ start: '', end: '' });
+  const [commercialSecteur, setCommercialSecteur] = useState('');
+  const [commercialReportData, setCommercialReportData] = useState<any>(null);
+  const [commercialReportLoading, setCommercialReportLoading] = useState(false);
+  const [commercialReportError, setCommercialReportError] = useState<string | null>(null);
   const [reloadPending, setReloadPending] = useState(false);
   // Secteur/centre filter
   const [selectedSecteur, setSelectedSecteur] = useState('');
@@ -127,6 +136,42 @@ export default function Dashboard() {
   const [loginRetryAfter, setLoginRetryAfter] = useState<number | null>(null);
   const [loginCountdown, setLoginCountdown] = useState<number | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  const loadCommercialReport = async () => {
+    const { start, end } = commercialDateRange;
+    if (start && end && start > end) {
+      setCommercialReportError('La date de début doit être antérieure ou égale à la date de fin.');
+      return;
+    }
+
+    setCommercialReportLoading(true);
+    setCommercialReportError(null);
+    try {
+      const url = apiUrlObject('/type_7_subscribers');
+      if (start) url.searchParams.set('start_date', start.replace(/-/g, ''));
+      if (end) url.searchParams.set('end_date', end.replace(/-/g, ''));
+      if (commercialSecteur) url.searchParams.set('secteur', commercialSecteur);
+
+      const response = await fetch(url.toString(), { credentials: 'include' });
+      if (!response.ok) {
+        throw new Error(`Le chargement du bilan a échoué (HTTP ${response.status}).`);
+      }
+      const data = await response.json();
+      if (data?.error) {
+        throw new Error(String(data.error));
+      }
+      if (data?.ready === false) {
+        throw new Error(data.message || 'Les données ne sont pas encore prêtes.');
+      }
+      setCommercialReportData(data);
+    } catch (error) {
+      setCommercialReportError(
+        error instanceof Error ? error.message : 'Une erreur est survenue lors du chargement du bilan.'
+      );
+    } finally {
+      setCommercialReportLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (loginCountdown === null || loginCountdown <= 0) {
@@ -1099,7 +1144,7 @@ export default function Dashboard() {
             sectorsLoading={sectorsLoading || !stats?.ready}
             allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
           />
-        ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite'].includes(currentView) ? (
+        ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite', 'bilan_activite_commercial'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}
             <div className="obat-card page-card no-print no-print-charts-only">
@@ -1138,7 +1183,8 @@ export default function Dashboard() {
                       { id: 'ventilation', label: t('financials.tabs.debtBreakdown') },
                       { id: 'repartition', label: t('financials.tabs.typeBreakdown') },
                       { id: 'commune', label: t('financials.tabs.communeBreakdown') },
-                      { id: 'bilan_activite', label: t('financials.tabs.activityReport') }
+                      { id: 'bilan_activite', label: t('financials.tabs.activityReport') },
+                      { id: 'bilan_activite_commercial', label: t('financials.tabs.commercialActivityReport') }
                     ] satisfies { id: AppView; label: string }[]).map(tab => (
                       <ScrollableTab
                         key={tab.id}
@@ -1216,6 +1262,76 @@ export default function Dashboard() {
                 selectedSecteur={selectedSecteur}
                 sectors={sectors}
               />
+            ) : currentView === 'bilan_activite_commercial' ? (
+              <div className="space-y-6">
+                <section className="flex flex-col lg:flex-row lg:items-end gap-4 rounded-2xl border border-[#E4E7EC] bg-white p-4 shadow-sm">
+                  <SecteurDropdown
+                    sectors={sectors}
+                    selectedSecteur={commercialSecteur}
+                    onSelect={setCommercialSecteur}
+                    uniteLabel={uniteLabel}
+                    loading={sectorsLoading || !stats?.ready}
+                    allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
+                  />
+                  <FrenchDateInput
+                    label="Date de début"
+                    value={commercialDateRange.start}
+                    onChange={(start) => setCommercialDateRange((range) => ({ ...range, start }))}
+                  />
+                  <FrenchDateInput
+                    label="Date de fin"
+                    value={commercialDateRange.end}
+                    onChange={(end) => setCommercialDateRange((range) => ({ ...range, end }))}
+                  />
+                  <button
+                    type="button"
+                    onClick={loadCommercialReport}
+                    disabled={commercialReportLoading || sectorsLoading || !stats?.ready}
+                    className="flex h-[42px] items-center justify-center gap-2 rounded-xl bg-[#0D83DE] px-5 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#0a6ab8] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {commercialReportLoading ? (
+                      <span className="spinner-premium" style={{ width: 14, height: 14 }} aria-hidden="true" />
+                    ) : (
+                      <Search size={14} />
+                    )}
+                    {commercialReportLoading ? 'Chargement…' : 'Appliquer'}
+                  </button>
+                </section>
+                {commercialReportLoading && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="flex items-center gap-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-5 text-sm text-[#344054]"
+                  >
+                    <span className="spinner-premium shrink-0" style={{ width: 32, height: 32 }} aria-hidden="true" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-[#101828]">Chargement du bilan commercial…</p>
+                      <p className="mt-1 text-xs text-[#667085]">
+                        Analyse des factures et des abonnés pour le centre et la période sélectionnés.
+                      </p>
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100">
+                        <div className="h-full w-1/3 rounded-full bg-[#0D83DE] animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {commercialReportError && (
+                  <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                    {commercialReportError}
+                  </p>
+                )}
+                {commercialReportData ? (
+                  <Type7SubscriberReport
+                    data={commercialReportData}
+                    startDate={commercialDateRange.start}
+                    endDate={commercialDateRange.end}
+                  />
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[#E4E7EC] bg-white p-8 text-center text-sm text-[#667085]">
+                    Choisissez un centre et une période, puis cliquez sur « Appliquer » pour afficher le bilan.
+                  </div>
+                )}
+              </div>
             ) : null}
           </div>
         ) : null}

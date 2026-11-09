@@ -121,6 +121,7 @@
       "typeBreakdown": "Répartition par Type",
       "communeBreakdown": "Répartition par Commune",
       "activityReport": "Bilan d'activité",
+      "commercialActivityReport": "Bilan d'activité commerciale",
       "payerClassification": "Classement des payeurs"
     }
   },

@@ -34,7 +34,7 @@ type NavItem = {
 const BOTTOM_NAV: NavItem[] = [
   { id: "dashboard",         labelKey: "nav.dashboard",        icon: LayoutDashboard },
   { id: "details",           labelKey: "nav.subscribers",      icon: Users,     match: ["details", "evolution", "resigned", "stopped", "no_meter", "unconnected", "terrain", "institutions"] },
-  { id: "creance",           labelKey: "nav.financials",       icon: BarChart3, match: ["creance", "repartition", "commune", "ventilation", "bilan_activite"] },
+  { id: "creance",           labelKey: "nav.financials",       icon: BarChart3, match: ["creance", "repartition", "commune", "ventilation", "bilan_activite", "bilan_activite_commercial"] },
   { id: "creances_abonnes",  labelKey: "nav.subscriberDebts",  icon: CreditCard },
 ];
 

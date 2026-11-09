@@ -1190,6 +1190,130 @@ def _abonne_codcom(numab: str) -> str:
     return quartier_to_commune.get(prefix, '02')
 
 
+def _resolve_typabon_category(typabon: str) -> tuple[str, int, str, str]:
+    if typabon == '15':
+        ordre, categorie = 5, 'VENTE EN GROS'
+    elif '10' <= typabon <= '19':
+        ordre, categorie = 1, 'MENAGES'
+    elif '20' <= typabon <= '29':
+        ordre, categorie = 2, 'ADMINISTRATIONS'
+    elif '30' <= typabon <= '39':
+        ordre, categorie = 3, 'SERVICES'
+    elif '40' <= typabon <= '49':
+        ordre, categorie = 4, 'INDUSTRIE & TOURISME'
+    else:
+        ordre, categorie = 6, f'AUTRE EAU ({typabon})'
+    return ('EAU', ordre, 'E', categorie)
+
+
+def _is_type_7_cut_invoice(
+    record: dict,
+    start_date: str | None,
+    end_date: str | None,
+) -> bool:
+    if str(record.get('TYPE') or '').strip() != '7':
+        return False
+    if str(record.get('PERIODE') or '').strip().zfill(4) != '0005':
+        return False
+    datfact = str(record.get('DATFACT') or '').strip()
+    if start_date and (not datfact or datfact < start_date):
+        return False
+    if end_date and (not datfact or datfact > end_date):
+        return False
+    return True
+
+
+def _is_type_7_cut_created_in_period(
+    record: dict,
+    start_date: str | None,
+    end_date: str | None,
+) -> bool:
+    if str(record.get('TYPE') or '').strip() != '7':
+        return False
+    if str(record.get('PERIODE') or '').strip().zfill(4) != '0005':
+        return False
+    date_created = str(record.get('DATSAISIE') or '').strip()
+    if start_date and (not date_created or date_created < start_date):
+        return False
+    if end_date and (not date_created or date_created > end_date):
+        return False
+    return True
+
+
+def _collect_paid_subscribers_with_cut_created(
+    records: list[dict],
+    numabs: set[str],
+    start_date: str | None,
+    end_date: str | None,
+) -> dict[str, float]:
+    if not start_date or not end_date:
+        return {}
+
+    start_day = _parse_payment_date(start_date)
+    end_day = _parse_payment_date(end_date)
+    if not start_day or not end_day:
+        return {}
+
+    subscribers_with_cut = set()
+    subscribers_paid = set()
+    paid_amount_by_numab: dict[str, float] = {}
+    for record in records:
+        numab = str(record.get('NUMAB') or '').strip().upper()
+        if numab not in numabs:
+            continue
+        if _is_type_7_cut_created_in_period(record, start_date, end_date):
+            subscribers_with_cut.add(numab)
+
+        payment_date = _parse_payment_date(record.get('DATREG'))
+        if payment_date and start_day <= payment_date <= end_day:
+            subscribers_paid.add(numab)
+            if not _is_type_7_cut_created_in_period(record, start_date, end_date):
+                paid_amount_by_numab[numab] = paid_amount_by_numab.get(numab, 0.0) + float(record.get('MONTTC') or 0)
+
+    return {
+        numab: round(paid_amount_by_numab.get(numab, 0.0), 2)
+        for numab in subscribers_with_cut & subscribers_paid
+    }
+
+
+def _collect_type_7_subscribers(
+    records: list[dict],
+    abonnes: dict[str, dict],
+    allowed_numabs: set[str] | None,
+    start_date: str | None,
+    end_date: str | None,
+) -> dict[tuple[str, tuple[str, int, str, str]], dict[str, dict[str, object]]]:
+    subscribers_by_group: dict[tuple[str, tuple[str, int, str, str]], dict[str, dict[str, object]]] = {}
+    for record in records:
+        if not _is_type_7_cut_invoice(record, start_date, end_date):
+            continue
+
+        numab = str(record.get('NUMAB') or '').strip().upper()
+        if not numab or (allowed_numabs is not None and numab not in allowed_numabs):
+            continue
+
+        datfact = str(record.get('DATFACT') or '').strip()
+
+        codcom = _abonne_codcom(numab)
+        abonne = abonnes.get(numab, {})
+        typabon = str(record.get('TYPABON') or abonne.get('TYPABON') or '').strip()
+        category = _resolve_typabon_category(typabon)
+        group = subscribers_by_group.setdefault((codcom, category), {})
+        subscriber = group.setdefault(numab, {
+            "numab": numab,
+            "name": str(abonne.get('RAISOC') or abonne.get('NOM') or '').strip() or "Nom inconnu",
+            "invoices": [],
+        })
+        invoices = subscriber["invoices"]
+        if isinstance(invoices, list):
+            invoices.append({
+                "datfact": datfact,
+                "monttc": float(record.get('MONTTC') or 0),
+                "type": "7",
+            })
+    return subscribers_by_group
+
+
 def _abonne_in_centre(numab: str, allowed_communes: set[str] | None) -> bool:
     if allowed_communes is None:
         return True
@@ -2599,6 +2723,59 @@ def creance_monttc_delta(r, is_avoir: bool) -> float:
     return -monttc if is_avoir else monttc
 
 
+def _collect_current_creances_by_numab(
+    factures: list[dict],
+    avoirs: list[dict],
+    numabs: set[str],
+    date_arrete: str,
+    start_date: str | None,
+    end_date: str | None,
+) -> dict[str, float]:
+    end_day = _parse_payment_date(end_date)
+    date_arrete_day = _parse_payment_date(date_arrete)
+    payment_month_start = None
+    payment_month_end = None
+    if end_day:
+        payment_month_start = date(end_day.year, end_day.month, 1)
+        month_after_end = date(
+            end_day.year + (end_day.month == 12),
+            end_day.month % 12 + 1,
+            1,
+        )
+        payment_month_end = date(
+            month_after_end.year + (month_after_end.month == 12),
+            month_after_end.month % 12 + 1,
+            1,
+        )
+
+    creances: dict[str, float] = {}
+    for records, is_avoir in ((factures, False), (avoirs, True)):
+        for record in records:
+            numab = str(record.get('NUMAB') or '').strip().upper()
+            if not is_avoir and (
+                _is_type_7_cut_invoice(record, start_date, end_date)
+                or _is_type_7_cut_created_in_period(record, start_date, end_date)
+            ):
+                continue
+            if numab not in numabs:
+                continue
+
+            amount = 0.0
+            if is_unpaid_creance(record, is_avoir, date_arrete):
+                amount = creance_monttc_delta(record, is_avoir)
+            elif not is_avoir and payment_month_start and payment_month_end and date_arrete_day:
+                payment_date = _parse_payment_date(record.get('DATREG'))
+                if (
+                    payment_date
+                    and payment_month_start <= payment_date < payment_month_end
+                    and payment_date <= date_arrete_day
+                ):
+                    amount = creance_monttc_delta(record, False)
+            if amount:
+                creances[numab] = creances.get(numab, 0.0) + amount
+    return creances
+
+
 def resolve_instit_record(codinstit: str, unite: str = ""):
     """INSTIT.DBF row from CODINSTIT, with optional UNITE fallback."""
     cod = str(codinstit or '').strip().upper()
@@ -3709,7 +3886,6 @@ def get_creance(_user: dict = Depends(get_current_user),
         target_date = end_date if end_date else '99991231'
 
         secteur_numabs = _secteur_numabs_set(secteur)
-
         # Precompute active subscribers count inspired by SQL:
         # Select CENTRE, Min(DATFACT) as Min_DATFACT, NUMAB From FACTURES.DBF
         # Where TYPABON <> ''
@@ -3752,30 +3928,6 @@ def get_creance(_user: dict = Depends(get_current_user),
 
         secteur_zfill = str(secteur).strip().zfill(2) if secteur else None
 
-        # Helper to resolve category key from typabon
-        def _resolve_cat_key(typabon):
-            section = 'EAU'
-            type_code = 'E'
-            if typabon == '15':
-                ordre = 5
-                categorie = 'VENTE EN GROS'
-            elif '10' <= typabon <= '19':
-                ordre = 1
-                categorie = 'MENAGES'
-            elif '20' <= typabon <= '29':
-                ordre = 2
-                categorie = 'ADMINISTRATIONS'
-            elif '30' <= typabon <= '39':
-                ordre = 3
-                categorie = 'SERVICES'
-            elif '40' <= typabon <= '49':
-                ordre = 4
-                categorie = 'INDUSTRIE & TOURISME'
-            else:
-                ordre = 6
-                categorie = f'AUTRE EAU ({typabon})'
-            return (section, ordre, type_code, categorie)
-
         for (centre, numab, typabon), min_datfact in min_datfact_map.items():
             # Use secteur_numabs (ABONNES.SECTEUR) for filtering, consistent with the
             # main financial loop. FACTURES.CENTRE can be blank ('00'), which would
@@ -3786,7 +3938,7 @@ def get_creance(_user: dict = Depends(get_current_user),
                 continue
 
             codcom = _abonne_codcom(numab)
-            cat_key = _resolve_cat_key(typabon)
+            cat_key = _resolve_typabon_category(typabon)
             
             sub_tuple = (numab, typabon)
 
@@ -3891,7 +4043,7 @@ def get_creance(_user: dict = Depends(get_current_user),
                 continue
 
             codcom = _abonne_codcom(numab)
-            cat_key = _resolve_cat_key(typabon)
+            cat_key = _resolve_typabon_category(typabon)
             
             sub_tuple = (numab, typabon)
 
@@ -3917,7 +4069,7 @@ def get_creance(_user: dict = Depends(get_current_user),
                 continue
 
             codcom = _abonne_codcom(numab)
-            cat_key = _resolve_cat_key(typabon)
+            cat_key = _resolve_typabon_category(typabon)
             
             sub_tuple = (numab, typabon)
 
@@ -3943,7 +4095,7 @@ def get_creance(_user: dict = Depends(get_current_user),
                 continue
 
             codcom = _abonne_codcom(numab)
-            cat_key = _resolve_cat_key(typabon)
+            cat_key = _resolve_typabon_category(typabon)
             
             sub_tuple = (numab, typabon)
 
@@ -4742,6 +4894,115 @@ def get_creance(_user: dict = Depends(get_current_user),
             "by_raw_type": [],
             "is_official": False,
         }
+
+
+@app.get("/type_7_subscribers")
+def get_type_7_subscribers(
+    _user: dict = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None,
+    secteur: str = None,
+):
+    secteur = _enforce_sector(_user, secteur)
+    if not is_db_ready or not indexes_ready:
+        return {
+            "ready": False,
+            "message": db_loading_status or "Données indisponibles",
+            "total_subscriber_count": 0,
+            "total_paid_with_cut_amount": 0,
+            "by_commune_type": [],
+        }
+
+    allowed_numabs = _secteur_numabs_set_for_user(_user, secteur)
+    commune_map = (
+        _commune_map_for_centre(secteur)
+        if secteur
+        else _commune_map_for_user_sectors(_user)
+    )
+    grouped_subscribers = _collect_type_7_subscribers(
+        MEM_FACTURES,
+        abonnes_by_numab,
+        allowed_numabs,
+        start_date,
+        end_date,
+    )
+    report_numabs = {
+        numab
+        for subscribers in grouped_subscribers.values()
+        for numab in subscribers
+    }
+    current_creances = _collect_current_creances_by_numab(
+        MEM_FACTURES,
+        MEM_AVOIRS,
+        report_numabs,
+        _creance_date_arrete(),
+        start_date,
+        end_date,
+    )
+    paid_with_cut_numabs = _collect_paid_subscribers_with_cut_created(
+        MEM_FACTURES,
+        report_numabs,
+        start_date,
+        end_date,
+    )
+    rows = [
+        {
+            "commune_id": codcom,
+            "commune": commune_map[codcom],
+            "subscriber_type_code": category[2],
+            "subscriber_type": category[3],
+            "count": len(subscribers),
+            "paid_with_cut_count": len(set(subscribers) & paid_with_cut_numabs.keys()),
+            "paid_with_cut_amount": round(sum(
+                paid_with_cut_numabs.get(numab, 0.0)
+                for numab in subscribers
+            ), 2),
+            "subscribers": sorted(
+                [
+                    {
+                        **subscriber,
+                        "creance": round(current_creances.get(numab, 0.0), 2),
+                    }
+                    for numab, subscriber in subscribers.items()
+                ],
+                key=lambda subscriber: (
+                    str(subscriber["name"]).casefold(),
+                    str(subscriber["numab"]),
+                ),
+            ),
+        }
+        for (codcom, category), subscribers in sorted(
+            grouped_subscribers.items(),
+            key=lambda item: (item[0][0], item[0][1][1], item[0][1][3]),
+        )
+        if codcom in commune_map
+    ]
+    total_subscriber_count = len({
+        subscriber["numab"]
+        for row in rows
+        for subscriber in row["subscribers"]
+    })
+    total_paid_with_cut_count = len({
+        subscriber["numab"]
+        for row in rows
+        for subscriber in row["subscribers"]
+        if subscriber["numab"] in paid_with_cut_numabs
+    })
+    displayed_numabs = {
+        subscriber["numab"]
+        for row in rows
+        for subscriber in row["subscribers"]
+    }
+    return {
+        "ready": True,
+        "total_subscriber_count": total_subscriber_count,
+        "total_paid_with_cut_count": total_paid_with_cut_count,
+        "total_paid_with_cut_amount": round(sum(
+            paid_with_cut_numabs.get(numab, 0.0)
+            for numab in displayed_numabs
+        ), 2),
+        "by_commune_type": rows,
+    }
 
 
 @app.get("/creance_detaillee")

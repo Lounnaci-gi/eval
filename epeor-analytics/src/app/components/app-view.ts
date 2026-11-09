@@ -13,6 +13,7 @@ export type AppView =
   | "commune"
   | "ventilation"
   | "bilan_activite"
+  | "bilan_activite_commercial"
   | "creances_abonnes"
   | "recovery_queue"
   | "creances_institutions"

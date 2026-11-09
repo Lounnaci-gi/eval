@@ -84,7 +84,7 @@ export function FloatingExpandableSidebar({
       icon: <TrendingUp size={24} />,
       label: t('nav.financials'),
       description: 'Analyses financières',
-      views: ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite'],
+      views: ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite', 'bilan_activite_commercial'],
     },
     {
       id: 'subscriberDebts',

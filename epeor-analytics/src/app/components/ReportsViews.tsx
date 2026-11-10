@@ -3559,9 +3559,16 @@ export function Type7SubscriberReport({
   };
   const sortedInvoices = [...invoices].sort((a: any, b: any) => {
     let comparison = 0;
-    if (sortKey === 'order' || sortKey === 'monttc' || sortKey === 'creance' || sortKey === 'paidAmount') {
-      const aValue = sortKey === 'order' ? a.order : Number(a[sortKey] || 0);
-      const bValue = sortKey === 'order' ? b.order : Number(b[sortKey] || 0);
+    if (sortKey === 'order' || sortKey === 'monttc' || sortKey === 'creance' || sortKey === 'paidAmount' || sortKey === 'paymentRate') {
+      const getNumericValue = (invoice: any) => sortKey === 'order'
+        ? invoice.order
+        : sortKey === 'paymentRate'
+          ? (Number(invoice.creance || 0) > 0
+              ? Number(invoice.paidAmount || 0) / Number(invoice.creance)
+              : 0)
+          : Number(invoice[sortKey] || 0);
+      const aValue = getNumericValue(a);
+      const bValue = getNumericValue(b);
       comparison = aValue - bValue;
     } else if (sortKey === 'datfact') {
       comparison = String(a.datfact || '').localeCompare(String(b.datfact || ''));
@@ -3770,6 +3777,14 @@ export function Type7SubscriberReport({
   const filteredPaidAmountTotal = [...new Map(
     filteredInvoices.map((invoice: any) => [invoice.numab, Number(invoice.paidAmount || 0)])
   ).values()].reduce((total, amount) => total + amount, 0);
+  const formatPaymentRate = (paidAmount: number, creance: number) => (
+    creance > 0
+      ? `${((paidAmount / creance) * 100).toLocaleString('fr-FR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} %`
+      : '—'
+  );
   const isPaymentDateInsideRange = (value: string | null | undefined) => {
     const paymentDate = String(value || '').replace(/-/g, '');
     const periodStart = String(startDate || '').replace(/-/g, '');
@@ -4046,6 +4061,7 @@ export function Type7SubscriberReport({
                   {sortableHeader('Ndom', 'ndom')}
                   {sortableHeader('Créance', 'creance', 'right')}
                   {sortableHeader('Créance réglée', 'paidAmount', 'right')}
+                  {sortableHeader('Taux réglé', 'paymentRate', 'right')}
                   {sortableHeader('Date de règlement', 'paidDate')}
                 </tr>
               </thead>
@@ -4076,12 +4092,15 @@ export function Type7SubscriberReport({
                         ? 'text-emerald-700'
                         : 'text-[#101828]'
                     } whitespace-nowrap`}>{formatAmount(invoice.paidAmount)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right font-semibold tabular-nums text-[#475467]">
+                      {formatPaymentRate(Number(invoice.paidAmount || 0), Number(invoice.creance || 0))}
+                    </td>
                     <td className="px-4 py-3 text-[#475467]">{formatDate(invoice.paidDate)}</td>
                   </tr>
                 ))}
                 {filteredInvoices.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="px-4 py-8 text-center text-sm text-[#667085]">
+                    <td colSpan={14} className="px-4 py-8 text-center text-sm text-[#667085]">
                       Aucune facture ne correspond aux filtres sélectionnés.
                     </td>
                   </tr>
@@ -4101,6 +4120,9 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#101828]">
                       {formatAmount(filteredPaidAmountTotal)}
                     </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#101828]">
+                      {formatPaymentRate(filteredPaidAmountTotal, filteredCreanceTotal)}
+                    </td>
                     <td className="px-4 py-3 text-right tabular-nums text-[#101828]">—</td>
                   </tr>
                   <tr className="border-t border-[#D0D5DD] bg-emerald-50 font-bold">
@@ -4112,6 +4134,9 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-emerald-800">
                       {formatAmount(outOfRangePaidTotal)}
                     </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-emerald-800">
+                      {formatPaymentRate(outOfRangePaidTotal, filteredCreanceTotal)}
+                    </td>
                     <td className="px-4 py-3">—</td>
                   </tr>
                   <tr className="border-t border-[#D0D5DD] bg-blue-50 font-bold">
@@ -4122,6 +4147,9 @@ export function Type7SubscriberReport({
                     <td colSpan={5} className="px-4 py-3 text-[#0D83DE]">abonné(s) concerné(s)</td>
                     <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#0D83DE]">
                       {formatAmount(inRangePaidTotal)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#0D83DE]">
+                      {formatPaymentRate(inRangePaidTotal, filteredCreanceTotal)}
                     </td>
                     <td className="px-4 py-3">—</td>
                   </tr>

@@ -3547,6 +3547,7 @@ export function Type7SubscriberReport({
   const [communeFilter, setCommuneFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [tourneeFilter, setTourneeFilter] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'unpaid' | 'outside_period'>('all');
   const [selectedSubscribers, setSelectedSubscribers] = useState<Set<string>>(() => new Set());
   const handleInvoiceSort = (key: string) => {
     if (sortKey === key) {
@@ -3569,13 +3570,39 @@ export function Type7SubscriberReport({
     }
     return sortDir === 'asc' ? comparison : -comparison;
   });
-  const filteredInvoices = sortedInvoices.filter((invoice: any) => {
-    return (
-      (!communeFilter || invoice.commune === communeFilter) &&
-      (!typeFilter || invoice.subscriberType === typeFilter) &&
-      (!tourneeFilter || String(invoice.tournee || '').trim() === tourneeFilter)
+  const matchesInvoiceFilters = (invoice: any) => (
+    (!communeFilter || invoice.commune === communeFilter) &&
+    (!typeFilter || invoice.subscriberType === typeFilter) &&
+    (!tourneeFilter || String(invoice.tournee || '').trim() === tourneeFilter)
+  );
+  const isPaymentDateOutsideRange = (value: string | null | undefined) => {
+    const paymentDate = String(value || '').replace(/-/g, '');
+    const periodStart = String(startDate || '').replace(/-/g, '');
+    const periodEnd = String(endDate || '').replace(/-/g, '');
+    return Boolean(
+      paymentDate &&
+      ((periodStart && paymentDate < periodStart) || (periodEnd && paymentDate > periodEnd))
     );
-  });
+  };
+  const matchingInvoices = sortedInvoices.filter(matchesInvoiceFilters);
+  const unpaidInvoiceCount = matchingInvoices.filter((invoice: any) => !invoice.paidDate).length;
+  const outsidePeriodInvoiceCount = matchingInvoices.filter(
+    (invoice: any) => isPaymentDateOutsideRange(invoice.paidDate)
+  ).length;
+  const paymentFilterOptions = [
+    { value: 'all', label: 'Tous les règlements', count: matchingInvoices.length },
+    { value: 'unpaid', label: 'Sans règlement', count: unpaidInvoiceCount },
+    { value: 'outside_period', label: 'Règlements hors période', count: outsidePeriodInvoiceCount },
+  ] as const;
+  const activePaymentFilter = paymentFilterOptions.find((option) => option.value === paymentFilter)
+    ?? paymentFilterOptions[0];
+  const filteredInvoices = matchingInvoices.filter((invoice: any) => (
+    paymentFilter === 'unpaid'
+      ? !invoice.paidDate
+      : paymentFilter === 'outside_period'
+        ? isPaymentDateOutsideRange(invoice.paidDate)
+        : true
+  ));
   const visibleSubscriberIds = [...new Set(filteredInvoices.map((invoice: any) => String(invoice.numab)))];
   const selectedSubscriberRows = [...new Map(
     invoices
@@ -3743,15 +3770,6 @@ export function Type7SubscriberReport({
   const filteredPaidAmountTotal = [...new Map(
     filteredInvoices.map((invoice: any) => [invoice.numab, Number(invoice.paidAmount || 0)])
   ).values()].reduce((total, amount) => total + amount, 0);
-  const isPaymentDateOutsideRange = (value: string | null | undefined) => {
-    const paymentDate = String(value || '').replace(/-/g, '');
-    const periodStart = String(startDate || '').replace(/-/g, '');
-    const periodEnd = String(endDate || '').replace(/-/g, '');
-    return Boolean(
-      paymentDate &&
-      ((periodStart && paymentDate < periodStart) || (periodEnd && paymentDate > periodEnd))
-    );
-  };
   const isPaymentDateInsideRange = (value: string | null | undefined) => {
     const paymentDate = String(value || '').replace(/-/g, '');
     const periodStart = String(startDate || '').replace(/-/g, '');
@@ -3947,12 +3965,52 @@ export function Type7SubscriberReport({
                 {tourneeOptions.map((tournee) => <option key={tournee} value={tournee}>{tournee}</option>)}
               </select>
             </label>
+            <label className="flex min-w-56 flex-col gap-1 text-xs font-semibold text-[#475467]">
+              Statut de règlement
+              <span className="flex items-center gap-2">
+                <select
+                  value={paymentFilter}
+                  onChange={(event) => {
+                    const selectedOption = paymentFilterOptions.find(
+                      (option) => option.value === event.target.value
+                    );
+                    if (selectedOption) setPaymentFilter(selectedOption.value);
+                  }}
+                  className={`h-10 min-w-0 flex-1 rounded-lg border bg-white px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0D83DE] ${
+                    paymentFilter === 'unpaid'
+                      ? 'border-rose-200 text-rose-700'
+                      : paymentFilter === 'outside_period'
+                        ? 'border-amber-300 text-amber-800'
+                        : 'border-[#D0D5DD] text-[#101828]'
+                  }`}
+                >
+                  {paymentFilterOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} ({option.count.toLocaleString('fr-FR')})
+                    </option>
+                  ))}
+                </select>
+                <span
+                  aria-live="polite"
+                  className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-bold tabular-nums ${
+                    paymentFilter === 'unpaid'
+                      ? 'bg-rose-50 text-rose-700'
+                      : paymentFilter === 'outside_period'
+                        ? 'bg-amber-50 text-amber-800'
+                        : 'bg-[#F2F4F7] text-[#667085]'
+                  }`}
+                >
+                  {activePaymentFilter.count.toLocaleString('fr-FR')}
+                </span>
+              </span>
+            </label>
             <button
               type="button"
               onClick={() => {
                 setCommuneFilter('');
                 setTypeFilter('');
                 setTourneeFilter('');
+                setPaymentFilter('all');
               }}
               className="h-10 rounded-lg px-3 text-sm font-semibold text-[#475467] hover:bg-white"
             >

@@ -533,6 +533,35 @@ class Type7SubscriberTests(unittest.TestCase):
                 "MONTTC": 1200,
             },
             {"NUMAB": "01004", "TYPE": "E", "DATFACT": "20260930", "DATREG": "20261014", "MONTTC": 100},
+            {"NUMAB": "HA1449", "TYPE": "4", "DATFACT": "20251231", "MONTTC": 2380, "DATREG": "20260826"},
+            {"NUMAB": "HA1449", "TYPE": "E", "DATFACT": "20260331", "MONTTC": 327, "DATREG": "20260826"},
+            {"NUMAB": "HA1449", "TYPE": "E", "DATFACT": "20260630", "MONTTC": 327, "DATREG": "20260826"},
+            {
+                "NUMAB": "HA1449",
+                "TYPE": "7",
+                "PERIODE": "0005",
+                "DATFACT": "20260831",
+                "DATSAISIE": "20260831",
+                "MONTTC": 1200,
+                "DATREG": "20260826",
+            },
+            {"NUMAB": "HA1449", "TYPE": "E", "DATFACT": "20260930", "MONTTC": 327, "DATREG": "20261006"},
+            {"NUMAB": "HA1271", "TYPE": "E", "DATFACT": "20250331", "MONTTC": 339.93, "DATREG": "20260809"},
+            {"NUMAB": "HA1271", "TYPE": "E", "DATFACT": "20250630", "MONTTC": 378.74, "DATREG": "20260809"},
+            {"NUMAB": "HA1271", "TYPE": "E", "DATFACT": "20250930", "MONTTC": 352.85, "DATREG": "20260809"},
+            {"NUMAB": "HA1271", "TYPE": "E", "DATFACT": "20251231", "MONTTC": 327, "DATREG": "20260809"},
+            {"NUMAB": "HA1271", "TYPE": "E", "DATFACT": "20260331", "MONTTC": 327, "DATREG": "20260809"},
+            {"NUMAB": "HA1271", "TYPE": "E", "DATFACT": "20260630", "MONTTC": 339.93, "DATREG": "20260809"},
+            {
+                "NUMAB": "HA1271",
+                "TYPE": "7",
+                "PERIODE": "0005",
+                "DATFACT": "20260831",
+                "DATSAISIE": "20260831",
+                "MONTTC": 1200,
+                "DATREG": "20261003",
+            },
+            {"NUMAB": "HA1271", "TYPE": "E", "DATFACT": "20260930", "MONTTC": 443.39, "DATREG": "20261003"},
             {
                 "NUMAB": "01003",
                 "TYPE": "7",
@@ -552,14 +581,17 @@ class Type7SubscriberTests(unittest.TestCase):
                     "01002": {"NOM": "Abonné 2", "TYPABON": "20"},
                     "01003": {"NOM": "Abonné 3", "TYPABON": "10"},
                     "01004": {"NOM": "Abonné 4", "TYPABON": "10"},
+                    "HA1449": {"NOM": "Abonné HA1449", "TYPABON": "10"},
+                    "HA1271": {"NOM": "Abonné HA1271", "TYPABON": "10"},
                 },
-                {"01001", "01002", "01003", "01004"},
+                {"01001", "01002", "01003", "01004", "HA1449", "HA1271"},
                 {"01003"},
                 "20261001",
                 "20261031",
             )
 
-        self.assertEqual(len(settlements), 1)
+        self.assertEqual(len(settlements), 2)
+        self.assertEqual({settlement["numab"] for settlement in settlements}, {"01001", "01004"})
         self.assertEqual(settlements[0]["numab"], "01001")
         self.assertEqual(settlements[0]["name"], "Abonné 1")
         self.assertEqual(settlements[0]["cut_date"], "20260630")

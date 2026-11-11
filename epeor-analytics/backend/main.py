@@ -1404,7 +1404,7 @@ def _collect_settled_previous_cuts(
         return []
 
     records_by_numab: dict[str, list[dict]] = {}
-    latest_previous_cut_by_numab: dict[str, tuple[date, dict]] = {}
+    latest_previous_cut_by_numab: dict[str, tuple[date, date, dict]] = {}
     for record in records:
         numab = str(record.get('NUMAB') or '').strip().upper()
         if not numab or (allowed_numabs is not None and numab not in allowed_numabs):
@@ -1422,16 +1422,25 @@ def _collect_settled_previous_cuts(
         if not cut_date or cut_date >= start_day:
             continue
 
+        cut_event_date = cut_date
+        cut_payment_date = _parse_payment_date(record.get('DATREG'))
+        if cut_payment_date and cut_payment_date < cut_event_date:
+            cut_event_date = cut_payment_date
+        cut_period_start = date(cut_date.year, cut_date.month, 1)
+        if cut_event_date < cut_period_start:
+            cut_period_start = cut_event_date
+
         previous_cut = latest_previous_cut_by_numab.get(numab)
         if previous_cut is None or cut_date > previous_cut[0]:
-            latest_previous_cut_by_numab[numab] = (cut_date, record)
+            latest_previous_cut_by_numab[numab] = (cut_date, cut_period_start, record)
 
     settlements = []
-    for numab, (cut_date, cut_record) in latest_previous_cut_by_numab.items():
+    for numab, (cut_date, cut_period_start, cut_record) in latest_previous_cut_by_numab.items():
         subscriber_records = records_by_numab[numab]
         if any(
-            (payment_date := _parse_payment_date(record.get('DATREG'))) is not None
-            and cut_date < payment_date < start_day
+            not _is_cut_penalty_class(record)
+            and (payment_date := _parse_payment_date(record.get('DATREG'))) is not None
+            and cut_period_start <= payment_date < start_day
             for record in subscriber_records
         ):
             continue

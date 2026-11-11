@@ -3568,11 +3568,14 @@ export function Type7SubscriberReport({
   const [communeFilter, setCommuneFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [tourneeFilter, setTourneeFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 30;
   const [paymentFilter, setPaymentFilter] = useState<
     'all' | 'unpaid' | 'in_period' | 'outside_period' | 'previous_cut_settled'
   >('all');
   const [selectedSubscribers, setSelectedSubscribers] = useState<Set<string>>(() => new Set());
   const handleInvoiceSort = (key: string) => {
+    setPage(1);
     if (sortKey === key) {
       setSortDir((direction) => direction === 'asc' ? 'desc' : 'asc');
     } else {
@@ -3647,14 +3650,17 @@ export function Type7SubscriberReport({
           ? !invoice.settledPreviousCut && isPaymentDateOutsideRange(invoice.paidDate)
           : true
   ));
-  const visibleSubscriberIds = [...new Set(filteredInvoices.map((invoice: any) => String(invoice.numab)))];
+  const pageCount = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageInvoices = filteredInvoices.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const filteredSubscriberIds = [...new Set(filteredInvoices.map((invoice: any) => String(invoice.numab)))];
   const selectedSubscriberRows = [...new Map(
     invoices
       .filter((invoice: any) => selectedSubscribers.has(String(invoice.numab)))
       .map((invoice: any) => [String(invoice.numab), invoice])
   ).values()];
-  const allVisibleSubscribersSelected = visibleSubscriberIds.length > 0 &&
-    visibleSubscriberIds.every((numab) => selectedSubscribers.has(numab));
+  const allFilteredSubscribersSelected = filteredSubscriberIds.length > 0 &&
+    filteredSubscriberIds.every((numab) => selectedSubscribers.has(numab));
   const toggleSubscriberSelection = (numab: string) => {
     setSelectedSubscribers((current) => {
       const next = new Set(current);
@@ -3663,13 +3669,13 @@ export function Type7SubscriberReport({
       return next;
     });
   };
-  const toggleVisibleSubscribersSelection = () => {
+  const toggleFilteredSubscribersSelection = () => {
     setSelectedSubscribers((current) => {
       const next = new Set(current);
-      if (allVisibleSubscribersSelected) {
-        visibleSubscriberIds.forEach((numab) => next.delete(numab));
+      if (allFilteredSubscribersSelected) {
+        filteredSubscriberIds.forEach((numab) => next.delete(numab));
       } else {
-        visibleSubscriberIds.forEach((numab) => next.add(numab));
+        filteredSubscriberIds.forEach((numab) => next.add(numab));
       }
       return next;
     });
@@ -3707,6 +3713,13 @@ export function Type7SubscriberReport({
     );
     const totalPaidInsideRange = inRangePaidSubscribers.reduce(
       (total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0),
+      0
+    );
+    const selectedPreviousCutSettlements = previousCutSettlements.filter(
+      (subscriber: any) => selectedSubscribers.has(String(subscriber.numab))
+    );
+    const totalPreviousCutSettlements = selectedPreviousCutSettlements.reduce(
+      (total: number, subscriber: any) => total + Number(subscriber.paid_amount || 0),
       0
     );
     const rows = selectedSubscriberRows.map((subscriber: any, index: number) => `
@@ -3747,6 +3760,7 @@ export function Type7SubscriberReport({
             tfoot { font-weight: bold; background: #F9FAFB; }
             tfoot .out-of-range { background: #ECFDF3; color: #067647; }
             tfoot .in-range { background: #EFF6FF; color: #0D83DE; }
+            tfoot .previous-cut-settlement { background: #F5F3FF; color: #5B21B6; }
             tbody .previous-cut-settlement { background: #F5F3FF; color: #5B21B6; }
             .numeric { text-align: right; white-space: nowrap; }
             tr { page-break-inside: avoid; }
@@ -3799,6 +3813,13 @@ export function Type7SubscriberReport({
                 <td class="numeric">${inRangePaidSubscribers.length}</td>
                 <td colspan="5">abonné(s) concerné(s)</td>
                 <td class="numeric">${cell(formatAmount(totalPaidInsideRange))}</td>
+                <td>—</td>
+              </tr>
+              <tr class="previous-cut-settlement">
+                <td colspan="4">Coupures antérieures réglées</td>
+                <td class="numeric">${selectedPreviousCutSettlements.length}</td>
+                <td colspan="5">abonné(s) concerné(s)</td>
+                <td class="numeric">${cell(formatAmount(totalPreviousCutSettlements))}</td>
                 <td>—</td>
               </tr>
             </tfoot>
@@ -4008,7 +4029,10 @@ export function Type7SubscriberReport({
               Commune
               <select
                 value={communeFilter}
-                onChange={(event) => setCommuneFilter(event.target.value)}
+                onChange={(event) => {
+                  setCommuneFilter(event.target.value);
+                  setPage(1);
+                }}
                 className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-normal text-[#101828]"
               >
                 <option value="">Toutes les communes</option>
@@ -4019,7 +4043,10 @@ export function Type7SubscriberReport({
               Type d’abonné
               <select
                 value={typeFilter}
-                onChange={(event) => setTypeFilter(event.target.value)}
+                onChange={(event) => {
+                  setTypeFilter(event.target.value);
+                  setPage(1);
+                }}
                 className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-normal text-[#101828]"
               >
                 <option value="">Tous les types</option>
@@ -4030,7 +4057,10 @@ export function Type7SubscriberReport({
               Tournée
               <select
                 value={tourneeFilter}
-                onChange={(event) => setTourneeFilter(event.target.value)}
+                onChange={(event) => {
+                  setTourneeFilter(event.target.value);
+                  setPage(1);
+                }}
                 className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-normal text-[#101828]"
               >
                 <option value="">Toutes les tournées</option>
@@ -4046,7 +4076,10 @@ export function Type7SubscriberReport({
                     const selectedOption = paymentFilterOptions.find(
                       (option) => option.value === event.target.value
                     );
-                    if (selectedOption) setPaymentFilter(selectedOption.value);
+                    if (selectedOption) {
+                      setPaymentFilter(selectedOption.value);
+                      setPage(1);
+                    }
                   }}
                   className={`h-10 min-w-0 flex-1 rounded-lg border bg-white px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0D83DE] ${
                     paymentFilter === 'unpaid'
@@ -4091,13 +4124,16 @@ export function Type7SubscriberReport({
                 setTypeFilter('');
                 setTourneeFilter('');
                 setPaymentFilter('all');
+                setPage(1);
               }}
               className="h-10 rounded-lg px-3 text-sm font-semibold text-[#475467] hover:bg-white"
             >
               Effacer les filtres
             </button>
             <span className="ml-auto pb-2 text-xs text-[#667085]">
-              {filteredInvoices.length.toLocaleString('fr-FR')} facture(s)
+              {filteredInvoices.length > 0
+                ? `${((currentPage - 1) * PAGE_SIZE + 1).toLocaleString('fr-FR')}-${Math.min(currentPage * PAGE_SIZE, filteredInvoices.length).toLocaleString('fr-FR')} sur ${filteredInvoices.length.toLocaleString('fr-FR')} facture(s)`
+                : '0 facture'}
             </span>
           </div>
 
@@ -4108,10 +4144,10 @@ export function Type7SubscriberReport({
                   <th className="w-10 px-3 py-3 text-center">
                     <input
                       type="checkbox"
-                      aria-label="Sélectionner tous les abonnés affichés"
-                      checked={allVisibleSubscribersSelected}
-                      disabled={visibleSubscriberIds.length === 0}
-                      onChange={toggleVisibleSubscribersSelection}
+                      aria-label="Sélectionner tous les abonnés filtrés, toutes pages confondues"
+                      checked={allFilteredSubscribersSelected}
+                      disabled={filteredSubscriberIds.length === 0}
+                      onChange={toggleFilteredSubscribersSelection}
                       className="h-4 w-4 cursor-pointer accent-[#0D83DE] disabled:cursor-not-allowed"
                     />
                   </th>
@@ -4131,7 +4167,7 @@ export function Type7SubscriberReport({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
-                {filteredInvoices.map((invoice: any, index: number) => (
+                {pageInvoices.map((invoice: any, index: number) => (
                   <tr
                     key={invoice.id}
                     className={invoice.settledPreviousCut
@@ -4147,7 +4183,9 @@ export function Type7SubscriberReport({
                         className="h-4 w-4 cursor-pointer accent-[#0D83DE]"
                       />
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-[#475467]">{index + 1}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[#475467]">
+                      {(currentPage - 1) * PAGE_SIZE + index + 1}
+                    </td>
                     <td className="px-4 py-3 font-semibold text-[#101828]">{invoice.commune}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.subscriberType}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.tournee || '—'}</td>
@@ -4248,6 +4286,56 @@ export function Type7SubscriberReport({
               )}
             </table>
           </div>
+          {pageCount > 1 && (
+            <nav
+              aria-label="Pagination du tableau des règlements"
+              className="flex flex-wrap items-center justify-between gap-3 border-t border-[#F2F4F7] px-2 py-4"
+            >
+              <span className="text-xs font-medium text-[#667085]">
+                Page {currentPage} / {pageCount} · {filteredInvoices.length.toLocaleString('fr-FR')} résultats
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-[#D0D5DD] bg-white px-3 py-1.5 text-xs font-bold text-[#475467] hover:border-[#D0D5DD] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ← Préc.
+                </button>
+                {Array.from({ length: Math.min(5, pageCount) }, (_, index) => {
+                  let pageNumber: number;
+                  if (pageCount <= 5) pageNumber = index + 1;
+                  else if (currentPage <= 3) pageNumber = index + 1;
+                  else if (currentPage >= pageCount - 2) pageNumber = pageCount - 4 + index;
+                  else pageNumber = currentPage - 2 + index;
+                  return (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      aria-current={pageNumber === currentPage ? 'page' : undefined}
+                      onClick={() => setPage(pageNumber)}
+                      className={`h-8 w-8 rounded-lg text-xs font-bold transition-all ${
+                        pageNumber === currentPage
+                          ? 'bg-[#0D83DE] text-white shadow-sm'
+                          : 'border border-[#E4E7EC] bg-white text-[#475467] hover:border-[#D0D5DD]'
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                  disabled={currentPage === pageCount}
+                  className="rounded-lg border border-[#D0D5DD] bg-white px-3 py-1.5 text-xs font-bold text-[#475467] hover:border-[#D0D5DD] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Suiv. →
+                </button>
+              </div>
+            </nav>
+          )}
         </>
       ) : (
         <p className="rounded-xl border border-dashed border-[#E4E7EC] bg-[#F8FAFC] p-6 text-center text-sm text-[#667085]">

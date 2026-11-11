@@ -3525,7 +3525,7 @@ export function Type7SubscriberReport({
       subscriberType: group.subscriber_type,
     }))
   );
-  const invoices = subscribers.flatMap((subscriber: any) =>
+  const periodCutInvoices = subscribers.flatMap((subscriber: any) =>
     (Array.isArray(subscriber.invoices) ? subscriber.invoices : []).map((invoice: any, index: number) => ({
       ...invoice,
       id: `${subscriber.numab}-${invoice.datfact}-${index}`,
@@ -3542,12 +3542,35 @@ export function Type7SubscriberReport({
       paidDate: subscriber.paid_date,
     }))
   ).map((invoice: any, order: number) => ({ ...invoice, order }));
+  const previousCutSettlements = Array.isArray(data?.previous_cut_settlements)
+    ? data.previous_cut_settlements
+    : [];
+  const previousCutInvoices = previousCutSettlements.map((subscriber: any, index: number) => ({
+    id: `previous-cut-${subscriber.numab}-${subscriber.cut_date}-${index}`,
+    datfact: subscriber.cut_date,
+    commune: subscriber.commune || '',
+    subscriberType: subscriber.subscriber_type || '',
+    tournee: subscriber.tournee || '',
+    bloc: subscriber.bloc || '',
+    ndom: subscriber.ndom || '',
+    numab: subscriber.numab,
+    name: subscriber.name,
+    address: subscriber.address,
+    creance: 0,
+    paidAmount: subscriber.paid_amount,
+    paidDate: subscriber.paid_date,
+    settledPreviousCut: Boolean(subscriber.settled_previous_cut),
+    order: periodCutInvoices.length + index,
+  }));
+  const invoices = [...periodCutInvoices, ...previousCutInvoices];
   const [sortKey, setSortKey] = useState('commune');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [communeFilter, setCommuneFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [tourneeFilter, setTourneeFilter] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState<'all' | 'unpaid' | 'in_period' | 'outside_period'>('all');
+  const [paymentFilter, setPaymentFilter] = useState<
+    'all' | 'unpaid' | 'in_period' | 'outside_period' | 'previous_cut_settled'
+  >('all');
   const [selectedSubscribers, setSelectedSubscribers] = useState<Set<string>>(() => new Set());
   const handleInvoiceSort = (key: string) => {
     if (sortKey === key) {
@@ -3592,28 +3615,36 @@ export function Type7SubscriberReport({
     );
   };
   const matchingInvoices = sortedInvoices.filter(matchesInvoiceFilters);
-  const unpaidInvoiceCount = matchingInvoices.filter((invoice: any) => !invoice.paidDate).length;
+  const previousCutSettledCount = matchingInvoices.filter(
+    (invoice: any) => invoice.settledPreviousCut
+  ).length;
+  const unpaidInvoiceCount = matchingInvoices.filter(
+    (invoice: any) => !invoice.settledPreviousCut && !invoice.paidDate
+  ).length;
   const inPeriodInvoiceCount = matchingInvoices.filter(
-    (invoice: any) => invoice.paidDate && !isPaymentDateOutsideRange(invoice.paidDate)
+    (invoice: any) => !invoice.settledPreviousCut && invoice.paidDate && !isPaymentDateOutsideRange(invoice.paidDate)
   ).length;
   const outsidePeriodInvoiceCount = matchingInvoices.filter(
-    (invoice: any) => isPaymentDateOutsideRange(invoice.paidDate)
+    (invoice: any) => !invoice.settledPreviousCut && isPaymentDateOutsideRange(invoice.paidDate)
   ).length;
   const paymentFilterOptions = [
     { value: 'all', label: 'Tous les règlements', count: matchingInvoices.length },
     { value: 'unpaid', label: 'Sans règlement', count: unpaidInvoiceCount },
     { value: 'in_period', label: 'Règlements dans la période', count: inPeriodInvoiceCount },
     { value: 'outside_period', label: 'Règlements hors période', count: outsidePeriodInvoiceCount },
+    { value: 'previous_cut_settled', label: 'Coupures antérieures réglées', count: previousCutSettledCount },
   ] as const;
   const activePaymentFilter = paymentFilterOptions.find((option) => option.value === paymentFilter)
     ?? paymentFilterOptions[0];
   const filteredInvoices = matchingInvoices.filter((invoice: any) => (
-    paymentFilter === 'unpaid'
-      ? !invoice.paidDate
+    paymentFilter === 'previous_cut_settled'
+      ? invoice.settledPreviousCut
+      : paymentFilter === 'unpaid'
+      ? !invoice.settledPreviousCut && !invoice.paidDate
       : paymentFilter === 'in_period'
-        ? Boolean(invoice.paidDate) && !isPaymentDateOutsideRange(invoice.paidDate)
+        ? !invoice.settledPreviousCut && Boolean(invoice.paidDate) && !isPaymentDateOutsideRange(invoice.paidDate)
         : paymentFilter === 'outside_period'
-          ? isPaymentDateOutsideRange(invoice.paidDate)
+          ? !invoice.settledPreviousCut && isPaymentDateOutsideRange(invoice.paidDate)
           : true
   ));
   const visibleSubscriberIds = [...new Set(filteredInvoices.map((invoice: any) => String(invoice.numab)))];
@@ -3679,7 +3710,7 @@ export function Type7SubscriberReport({
       0
     );
     const rows = selectedSubscriberRows.map((subscriber: any, index: number) => `
-      <tr>
+      <tr${subscriber.settledPreviousCut ? ' class="previous-cut-settlement"' : ''}>
         <td>${index + 1}</td>
         <td>${cell(subscriber.commune)}</td>
         <td>${cell(subscriber.subscriberType)}</td>
@@ -3690,7 +3721,7 @@ export function Type7SubscriberReport({
         <td>${cell(subscriber.bloc || '—')}</td>
         <td>${cell(subscriber.ndom || '—')}</td>
         <td class="numeric">${cell(formatAmount(subscriber.creance))}</td>
-        <td class="numeric">${cell(formatAmount(subscriber.paidAmount))}</td>
+        <td class="numeric">${subscriber.settledPreviousCut ? '<strong>Coupure antérieure réglée</strong><br>' : ''}${cell(formatAmount(subscriber.paidAmount))}</td>
         <td>${cell(formatDate(subscriber.paidDate))}</td>
       </tr>
     `).join('');
@@ -3716,6 +3747,7 @@ export function Type7SubscriberReport({
             tfoot { font-weight: bold; background: #F9FAFB; }
             tfoot .out-of-range { background: #ECFDF3; color: #067647; }
             tfoot .in-range { background: #EFF6FF; color: #0D83DE; }
+            tbody .previous-cut-settlement { background: #F5F3FF; color: #5B21B6; }
             .numeric { text-align: right; white-space: nowrap; }
             tr { page-break-inside: avoid; }
             @page { size: A4 landscape; margin: 10mm; }
@@ -3778,11 +3810,23 @@ export function Type7SubscriberReport({
     printWindow.document.close();
   };
   const filteredCreanceTotal = [...new Map(
-    filteredInvoices.map((invoice: any) => [invoice.numab, Number(invoice.creance || 0)])
+    filteredInvoices
+      .filter((invoice: any) => !invoice.settledPreviousCut)
+      .map((invoice: any) => [invoice.numab, Number(invoice.creance || 0)])
   ).values()].reduce((total, amount) => total + amount, 0);
   const filteredPaidAmountTotal = [...new Map(
-    filteredInvoices.map((invoice: any) => [invoice.numab, Number(invoice.paidAmount || 0)])
+    filteredInvoices
+      .filter((invoice: any) => !invoice.settledPreviousCut)
+      .map((invoice: any) => [invoice.numab, Number(invoice.paidAmount || 0)])
   ).values()].reduce((total, amount) => total + amount, 0);
+  const filteredPreviousCutSettlements = [...new Map(
+    filteredInvoices
+      .filter((invoice: any) => invoice.settledPreviousCut)
+      .map((invoice: any) => [invoice.numab, Number(invoice.paidAmount || 0)])
+  ).entries()];
+  const previousCutSettlementCount = filteredPreviousCutSettlements.length;
+  const previousCutSettlementTotal = filteredPreviousCutSettlements
+    .reduce((total, [, amount]) => total + amount, 0);
   const formatPaymentRate = (paidAmount: number, creance: number) => (
     creance > 0
       ? `${((paidAmount / creance) * 100).toLocaleString('fr-FR', {
@@ -3799,6 +3843,7 @@ export function Type7SubscriberReport({
   };
   const inRangePaidAmountsBySubscriber = new Map<string, number>();
   filteredInvoices.forEach((invoice: any) => {
+    if (invoice.settledPreviousCut) return;
     const paidAmount = Number(invoice.paidAmount || 0);
     if (paidAmount > 0 && isPaymentDateInsideRange(invoice.paidDate)) {
       inRangePaidAmountsBySubscriber.set(invoice.numab, paidAmount);
@@ -3809,6 +3854,7 @@ export function Type7SubscriberReport({
     .reduce((total, amount) => total + amount, 0);
   const outOfRangePaidAmountsBySubscriber = new Map<string, number>();
   filteredInvoices.forEach((invoice: any) => {
+    if (invoice.settledPreviousCut) return;
     const paidAmount = Number(invoice.paidAmount || 0);
     if (paidAmount > 0 && isPaymentDateOutsideRange(invoice.paidDate)) {
       outOfRangePaidAmountsBySubscriber.set(invoice.numab, paidAmount);
@@ -3817,7 +3863,11 @@ export function Type7SubscriberReport({
   const outOfRangePaidSubscriberCount = outOfRangePaidAmountsBySubscriber.size;
   const outOfRangePaidTotal = [...outOfRangePaidAmountsBySubscriber.values()]
     .reduce((total, amount) => total + amount, 0);
-  const filteredSubscriberCount = new Set(filteredInvoices.map((invoice: any) => invoice.numab)).size;
+  const filteredSubscriberCount = new Set(
+    filteredInvoices
+      .filter((invoice: any) => !invoice.settledPreviousCut)
+      .map((invoice: any) => invoice.numab)
+  ).size;
   const communeOptions: string[] = Array.from(
     new Set<string>(invoices.map((invoice: any) => String(invoice.commune || '')))
   ).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr'));
@@ -3860,6 +3910,7 @@ export function Type7SubscriberReport({
           <h3 className="text-xl font-black text-[#101828]">Répartition des Coupures &amp; Rétablissements</h3>
           <p className="mt-1 text-sm text-[#667085]">
             Créance hors frais de coupure de la période, incluant les factures réglées pendant le mois de fin ou le suivant.
+            Les coupures antérieures réglées dans la période sont affichées en violet, sans être comptées dans les créances ni les coupures de la période.
           </p>
         </div>
         <div className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-[#0D83DE]">
@@ -3873,7 +3924,7 @@ export function Type7SubscriberReport({
         {!startDate && !endDate && <span>Toutes les dates</span>}
       </div>
 
-      {groups.length > 0 ? (
+      {groups.length > 0 || previousCutSettlements.length > 0 ? (
         <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -4004,6 +4055,8 @@ export function Type7SubscriberReport({
                         ? 'border-emerald-200 text-emerald-800'
                         : paymentFilter === 'outside_period'
                           ? 'border-amber-300 text-amber-800'
+                          : paymentFilter === 'previous_cut_settled'
+                            ? 'border-violet-300 text-violet-800'
                           : 'border-[#D0D5DD] text-[#101828]'
                   }`}
                 >
@@ -4022,6 +4075,8 @@ export function Type7SubscriberReport({
                         ? 'bg-emerald-50 text-emerald-800'
                         : paymentFilter === 'outside_period'
                           ? 'bg-amber-50 text-amber-800'
+                          : paymentFilter === 'previous_cut_settled'
+                            ? 'bg-violet-50 text-violet-800'
                           : 'bg-[#F2F4F7] text-[#667085]'
                   }`}
                 >
@@ -4077,7 +4132,12 @@ export function Type7SubscriberReport({
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
                 {filteredInvoices.map((invoice: any, index: number) => (
-                  <tr key={invoice.id} className="hover:bg-[#F9FAFB]">
+                  <tr
+                    key={invoice.id}
+                    className={invoice.settledPreviousCut
+                      ? 'bg-violet-50 text-violet-950 hover:bg-violet-100'
+                      : 'hover:bg-[#F9FAFB]'}
+                  >
                     <td className="px-3 py-3 text-center">
                       <input
                         type="checkbox"
@@ -4101,7 +4161,14 @@ export function Type7SubscriberReport({
                       isPaymentDateOutsideRange(invoice.paidDate)
                         ? 'text-emerald-700'
                         : 'text-[#101828]'
-                    } whitespace-nowrap`}>{formatAmount(invoice.paidAmount)}</td>
+                    } whitespace-nowrap`}>
+                      {invoice.settledPreviousCut && (
+                        <span className="mb-1 block text-xs font-black text-violet-700">
+                          Coupure antérieure réglée
+                        </span>
+                      )}
+                      {formatAmount(invoice.paidAmount)}
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right font-semibold tabular-nums text-[#475467]">
                       {formatPaymentRate(Number(invoice.paidAmount || 0), Number(invoice.creance || 0))}
                     </td>
@@ -4123,7 +4190,7 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
                       {filteredSubscriberCount.toLocaleString('fr-FR')}
                     </td>
-                    <td colSpan={4} className="px-4 py-3">abonné(s)</td>
+                    <td colSpan={4} className="px-4 py-3">abonné(s) coupé(s) dans la période</td>
                     <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#101828]">
                       {formatAmount(filteredCreanceTotal)}
                     </td>
@@ -4163,6 +4230,20 @@ export function Type7SubscriberReport({
                     </td>
                     <td className="px-4 py-3">—</td>
                   </tr>
+                  {previousCutSettlementCount > 0 && (
+                    <tr className="border-t-2 border-violet-200 bg-violet-50 font-black text-violet-800">
+                      <td colSpan={5} className="px-4 py-3">Coupures antérieures réglées</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {previousCutSettlementCount.toLocaleString('fr-FR')}
+                      </td>
+                      <td colSpan={5} className="px-4 py-3">abonné(s) concerné(s)</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums">
+                        {formatAmount(previousCutSettlementTotal)}
+                      </td>
+                      <td className="px-4 py-3">—</td>
+                      <td className="px-4 py-3">—</td>
+                    </tr>
+                  )}
                 </tfoot>
               )}
             </table>

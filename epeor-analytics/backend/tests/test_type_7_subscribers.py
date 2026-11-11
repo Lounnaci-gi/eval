@@ -502,6 +502,72 @@ class Type7SubscriberTests(unittest.TestCase):
 
         self.assertEqual(paid_amounts, {"131591": 8008.84})
 
+    def test_collects_prior_cut_as_settled_when_first_payment_is_in_selected_period(self):
+        records = [
+            {
+                "NUMAB": "01001",
+                "TYPE": "7",
+                "PERIODE": "0005",
+                "DATFACT": "20260630",
+                "DATSAISIE": "20260630",
+                "MONTTC": 1200,
+            },
+            {"NUMAB": "01001", "TYPE": "E", "DATFACT": "20260531", "DATREG": "20261014", "MONTTC": 500},
+            {
+                "NUMAB": "01002",
+                "TYPE": "A",
+                "PERIODE": "0009",
+                "DATFACT": "20260228",
+                "DATSAISIE": "20260228",
+                "MONTTC": 1200,
+            },
+            {"NUMAB": "01002", "TYPE": "E", "DATFACT": "20260531", "DATREG": "20260914", "MONTTC": 300},
+            {"NUMAB": "01002", "TYPE": "E", "DATFACT": "20260930", "DATREG": "20261014", "MONTTC": 200},
+            {
+                "NUMAB": "01004",
+                "TYPE": "7",
+                "PERIODE": "0005",
+                "DATFACT": "20260630",
+                "DATSAISIE": "20260630",
+                "DATREG": "20260715",
+                "MONTTC": 1200,
+            },
+            {"NUMAB": "01004", "TYPE": "E", "DATFACT": "20260930", "DATREG": "20261014", "MONTTC": 100},
+            {
+                "NUMAB": "01003",
+                "TYPE": "7",
+                "PERIODE": "0005",
+                "DATFACT": "20261015",
+                "DATSAISIE": "20261015",
+                "MONTTC": 1200,
+            },
+            {"NUMAB": "01003", "TYPE": "E", "DATFACT": "20260930", "DATREG": "20261014", "MONTTC": 400},
+        ]
+
+        with patch.object(main, "resolve_rue_adresse", return_value="Rue du Test"):
+            settlements = main._collect_settled_previous_cuts(
+                records,
+                {
+                    "01001": {"NOM": "Abonné 1", "TYPABON": "10"},
+                    "01002": {"NOM": "Abonné 2", "TYPABON": "20"},
+                    "01003": {"NOM": "Abonné 3", "TYPABON": "10"},
+                    "01004": {"NOM": "Abonné 4", "TYPABON": "10"},
+                },
+                {"01001", "01002", "01003", "01004"},
+                {"01003"},
+                "20261001",
+                "20261031",
+            )
+
+        self.assertEqual(len(settlements), 1)
+        self.assertEqual(settlements[0]["numab"], "01001")
+        self.assertEqual(settlements[0]["name"], "Abonné 1")
+        self.assertEqual(settlements[0]["cut_date"], "20260630")
+        self.assertEqual(settlements[0]["creance"], 0.0)
+        self.assertEqual(settlements[0]["paid_amount"], 500)
+        self.assertEqual(settlements[0]["paid_date"], "2026-10-14")
+        self.assertTrue(settlements[0]["settled_previous_cut"])
+
 
 if __name__ == "__main__":
     unittest.main()

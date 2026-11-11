@@ -1387,6 +1387,94 @@ def _collect_paid_dates_with_cut_created(
     }
 
 
+def _collect_settled_previous_cuts(
+    records: list[dict],
+    abonnes: dict[str, dict],
+    allowed_numabs: set[str] | None,
+    current_period_numabs: set[str],
+    start_date: str | None,
+    end_date: str | None,
+) -> list[dict]:
+    if not start_date or not end_date:
+        return []
+
+    start_day = _parse_payment_date(start_date)
+    end_day = _parse_payment_date(end_date)
+    if not start_day or not end_day:
+        return []
+
+    records_by_numab: dict[str, list[dict]] = {}
+    latest_previous_cut_by_numab: dict[str, tuple[date, dict]] = {}
+    for record in records:
+        numab = str(record.get('NUMAB') or '').strip().upper()
+        if not numab or (allowed_numabs is not None and numab not in allowed_numabs):
+            continue
+
+        records_by_numab.setdefault(numab, []).append(record)
+        if (
+            numab in current_period_numabs
+            or not _is_cut_penalty_class(record)
+            or _is_cut_penalty_created_in_period(record, start_date, end_date)
+        ):
+            continue
+
+        cut_date = _parse_payment_date(record.get('DATFACT')) or _parse_payment_date(record.get('DATSAISIE'))
+        if not cut_date or cut_date >= start_day:
+            continue
+
+        previous_cut = latest_previous_cut_by_numab.get(numab)
+        if previous_cut is None or cut_date > previous_cut[0]:
+            latest_previous_cut_by_numab[numab] = (cut_date, record)
+
+    settlements = []
+    for numab, (cut_date, cut_record) in latest_previous_cut_by_numab.items():
+        subscriber_records = records_by_numab[numab]
+        if any(
+            (payment_date := _parse_payment_date(record.get('DATREG'))) is not None
+            and cut_date < payment_date < start_day
+            for record in subscriber_records
+        ):
+            continue
+
+        paid_records = [
+            (payment_date, record)
+            for record in subscriber_records
+            if not _is_cut_penalty_class(record)
+            and (payment_date := _parse_payment_date(record.get('DATREG'))) is not None
+            and start_day <= payment_date <= end_day
+            and payment_date > cut_date
+            and (
+                (invoice_date := _parse_payment_date(record.get('DATFACT'))) is None
+                or invoice_date <= end_day
+            )
+        ]
+        if not paid_records:
+            continue
+
+        subscriber = abonnes.get(numab, {})
+        typabon = str(cut_record.get('TYPABON') or subscriber.get('TYPABON') or '').strip()
+        latest_payment_date = max(payment_date for payment_date, _ in paid_records)
+        settlements.append({
+            "numab": numab,
+            "name": str(subscriber.get('RAISOC') or subscriber.get('NOM') or '').strip() or "Nom inconnu",
+            "address": resolve_rue_adresse(subscriber),
+            "tournee": str(subscriber.get('TOURNEE') or '').strip(),
+            "bloc": str(subscriber.get('BLOC') or '').strip(),
+            "ndom": str(subscriber.get('NDOM') or '').strip(),
+            "commune_id": _abonne_codcom(numab),
+            "subscriber_type_code": typabon,
+            "subscriber_type": _resolve_typabon_category(typabon)[3],
+            "cut_date": str(cut_record.get('DATFACT') or '').strip()
+            or str(cut_record.get('DATSAISIE') or '').strip(),
+            "creance": 0.0,
+            "paid_amount": round(sum(float(record.get('MONTTC') or 0) for _, record in paid_records), 2),
+            "paid_date": latest_payment_date.isoformat(),
+            "settled_previous_cut": True,
+        })
+
+    return settlements
+
+
 def _collect_type_7_subscribers(
     records: list[dict],
     abonnes: dict[str, dict],
@@ -5025,6 +5113,7 @@ def get_type_7_subscribers(
             "message": db_loading_status or "Données indisponibles",
             "total_subscriber_count": 0,
             "total_paid_with_cut_amount": 0,
+            "previous_cut_settlements": [],
             "by_commune_type": [],
         }
 
@@ -5046,6 +5135,14 @@ def get_type_7_subscribers(
         for subscribers in grouped_subscribers.values()
         for numab in subscribers
     }
+    previous_cut_settlements = _collect_settled_previous_cuts(
+        MEM_FACTURES,
+        abonnes_by_numab,
+        allowed_numabs,
+        report_numabs,
+        start_date,
+        end_date,
+    )
     current_creances = _collect_current_creances_by_numab(
         MEM_FACTURES,
         MEM_AVOIRS,
@@ -5130,6 +5227,14 @@ def get_type_7_subscribers(
             paid_with_cut_numabs.get(numab, 0.0)
             for numab in displayed_numabs
         ), 2),
+        "previous_cut_settlements": [
+            {
+                **settlement,
+                "commune": commune_map[settlement["commune_id"]],
+            }
+            for settlement in previous_cut_settlements
+            if settlement["commune_id"] in commune_map
+        ],
         "by_commune_type": rows,
     }
 

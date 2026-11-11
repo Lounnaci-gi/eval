@@ -3547,7 +3547,7 @@ export function Type7SubscriberReport({
   const [communeFilter, setCommuneFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [tourneeFilter, setTourneeFilter] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState<'all' | 'unpaid' | 'outside_period'>('all');
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'unpaid' | 'in_period' | 'outside_period'>('all');
   const [selectedSubscribers, setSelectedSubscribers] = useState<Set<string>>(() => new Set());
   const handleInvoiceSort = (key: string) => {
     if (sortKey === key) {
@@ -3593,12 +3593,16 @@ export function Type7SubscriberReport({
   };
   const matchingInvoices = sortedInvoices.filter(matchesInvoiceFilters);
   const unpaidInvoiceCount = matchingInvoices.filter((invoice: any) => !invoice.paidDate).length;
+  const inPeriodInvoiceCount = matchingInvoices.filter(
+    (invoice: any) => invoice.paidDate && !isPaymentDateOutsideRange(invoice.paidDate)
+  ).length;
   const outsidePeriodInvoiceCount = matchingInvoices.filter(
     (invoice: any) => isPaymentDateOutsideRange(invoice.paidDate)
   ).length;
   const paymentFilterOptions = [
     { value: 'all', label: 'Tous les règlements', count: matchingInvoices.length },
     { value: 'unpaid', label: 'Sans règlement', count: unpaidInvoiceCount },
+    { value: 'in_period', label: 'Règlements dans la période', count: inPeriodInvoiceCount },
     { value: 'outside_period', label: 'Règlements hors période', count: outsidePeriodInvoiceCount },
   ] as const;
   const activePaymentFilter = paymentFilterOptions.find((option) => option.value === paymentFilter)
@@ -3606,9 +3610,11 @@ export function Type7SubscriberReport({
   const filteredInvoices = matchingInvoices.filter((invoice: any) => (
     paymentFilter === 'unpaid'
       ? !invoice.paidDate
-      : paymentFilter === 'outside_period'
-        ? isPaymentDateOutsideRange(invoice.paidDate)
-        : true
+      : paymentFilter === 'in_period'
+        ? Boolean(invoice.paidDate) && !isPaymentDateOutsideRange(invoice.paidDate)
+        : paymentFilter === 'outside_period'
+          ? isPaymentDateOutsideRange(invoice.paidDate)
+          : true
   ));
   const visibleSubscriberIds = [...new Set(filteredInvoices.map((invoice: any) => String(invoice.numab)))];
   const selectedSubscriberRows = [...new Map(
@@ -3994,9 +4000,11 @@ export function Type7SubscriberReport({
                   className={`h-10 min-w-0 flex-1 rounded-lg border bg-white px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0D83DE] ${
                     paymentFilter === 'unpaid'
                       ? 'border-rose-200 text-rose-700'
-                      : paymentFilter === 'outside_period'
-                        ? 'border-amber-300 text-amber-800'
-                        : 'border-[#D0D5DD] text-[#101828]'
+                      : paymentFilter === 'in_period'
+                        ? 'border-emerald-200 text-emerald-800'
+                        : paymentFilter === 'outside_period'
+                          ? 'border-amber-300 text-amber-800'
+                          : 'border-[#D0D5DD] text-[#101828]'
                   }`}
                 >
                   {paymentFilterOptions.map((option) => (
@@ -4010,9 +4018,11 @@ export function Type7SubscriberReport({
                   className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-bold tabular-nums ${
                     paymentFilter === 'unpaid'
                       ? 'bg-rose-50 text-rose-700'
-                      : paymentFilter === 'outside_period'
-                        ? 'bg-amber-50 text-amber-800'
-                        : 'bg-[#F2F4F7] text-[#667085]'
+                      : paymentFilter === 'in_period'
+                        ? 'bg-emerald-50 text-emerald-800'
+                        : paymentFilter === 'outside_period'
+                          ? 'bg-amber-50 text-amber-800'
+                          : 'bg-[#F2F4F7] text-[#667085]'
                   }`}
                 >
                   {activePaymentFilter.count.toLocaleString('fr-FR')}

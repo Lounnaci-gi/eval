@@ -29,7 +29,7 @@ cd d:\eval\epeor-analytics
 .\start.bat
 ```
 
-Le script lance le backend puis le frontend et ouvre http://localhost:3000.
+Le script lance le backend, le frontend et ouvre http://localhost:3000. Si `ngrok` est installé et configuré dans le `PATH`, il lance également un tunnel vers le backend (port 8000) dans une fenêtre séparée.
 
 Pour choisir le mot de passe dès l'installation, créez le compte administrateur avant le premier démarrage du backend, avec une invite sécurisée (depuis la racine du dépôt) :
 

@@ -636,7 +636,7 @@ export function ServiceContentieuxView({
       <style>
         .print-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
         .print-logo { height:48px; width:auto; object-fit:contain; }
-        body { font-family: 'Inter', Arial, sans-serif; font-size: 9px; margin: 30px; color: #101828; }
+        body { font-family: 'Manrope', 'Segoe UI', sans-serif; font-size: 9px; margin: 30px; color: #101828; }
         h1 { font-size: 16px; font-weight: 900; margin: 0 0 4px; }
         .sub { font-size: 10px; color: #667085; margin-bottom: 16px; }
         .totals { display: flex; gap: 24px; background: #F9FAFB; border: 1px solid #E4E7EC; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; }
@@ -1084,7 +1084,7 @@ export function ServiceContentieuxView({
                 <style>
                   .print-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
                   .print-logo { height:48px; width:auto; object-fit:contain; }
-                  body { font-family: 'Inter', Arial, sans-serif; font-size: 9px; margin: 24px; color: #101828; }
+                  body { font-family: 'Manrope', 'Segoe UI', sans-serif; font-size: 9px; margin: 24px; color: #101828; }
                   h1 { font-size: 16px; font-weight: 900; margin: 0 0 4px; }
                   .sub { font-size: 10px; color: #667085; margin-bottom: 12px; }
                   table { width: 100%; border-collapse: collapse; }
@@ -2239,7 +2239,7 @@ export function BilanImpressionView({
     @page { size: A4 portrait; margin: 15mm 12mm; }
     * { box-sizing: border-box; }
     body {
-      font-family: 'Inter', Arial, sans-serif;
+      font-family: 'Manrope', 'Segoe UI', sans-serif;
       font-size: 10px;
       color: #101828;
       margin: 0;

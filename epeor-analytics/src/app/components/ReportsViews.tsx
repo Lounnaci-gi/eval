@@ -202,7 +202,7 @@ export function CommuneDrillDownView({
           <meta charset="utf-8">
           <title>${escapeHtml(targetName ? `${targetName} par commune` : 'Détail par commune')}</title>
           <style>
-            body { font-family: Arial, sans-serif; color: #101828; margin: 24px; }
+            body { font-family: 'Manrope', 'Segoe UI', sans-serif; color: #101828; margin: 24px; }
             h1 { font-size: 20px; margin-bottom: 4px; }
             p { color: #667085; font-size: 12px; margin: 0 0 18px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -251,7 +251,7 @@ export function CommuneDrillDownView({
           <meta charset="utf-8">
           <title>Abonnés concernés - ${escapeHtml(selectedCommune?.name || '')}</title>
           <style>
-            body { font-family: Arial, sans-serif; color: #101828; margin: 24px; }
+            body { font-family: 'Manrope', 'Segoe UI', sans-serif; color: #101828; margin: 24px; }
             h1 { font-size: 20px; margin-bottom: 4px; }
             p { color: #667085; font-size: 12px; margin: 0 0 18px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -793,7 +793,7 @@ export function CreanceVentilationView({
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           const imageId = workbook.addImage({ buffer: arrayBuffer, extension: 'png' });
-          worksheet.addImage(imageId, { tl: { col: 0, row: 0 }, ext: { width: 100, height: 60 } });
+          worksheet.addImage(imageId, { tl: { col: 0, row: 0 }, ext: { width: 100, height: 27 } });
         }
       } catch { /* logo optionnel */ }
 
@@ -1003,13 +1003,13 @@ export function CreanceVentilationView({
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: portrait;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -1033,7 +1033,7 @@ export function CreanceVentilationView({
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }
@@ -1265,7 +1265,7 @@ export function CreanceVentilationView({
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {secteurLabel && (
-        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE]">
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#245A83]">
           <MapPin size={16} className="shrink-0" />
           <span>
             Périmètre : centre <strong className="font-black">{secteurLabel}</strong>
@@ -1571,7 +1571,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
             <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #e67e22;">${t.forfait_count || 0}</td>
             <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #7c3aed;">${t.sc_count || 0}</td>
             <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #e67e22;">${(t.sub_count > 0 ? (t.forfait_count / t.sub_count * 100) : 0).toFixed(2)}%</td>
-            <td style="padding: 5px 12px; text-align: right; color: #2563eb;">${fmt(t.ca_eau)}</td>
+            <td style="padding: 5px 12px; text-align: right; color: #245a83;">${fmt(t.ca_eau)}</td>
             <td style="padding: 5px 12px; text-align: right; color: #0891b2;">${fmt(t.ca_prestation)}</td>
             <td style="padding: 5px 12px; text-align: right; font-weight: bold; color: #4f46e5;">${fmt(t.ca)}</td>
             <td style="padding: 5px 12px; text-align: right; color: #0d9488;">${fmt(t.ca_recouvre || 0)}</td>
@@ -1589,7 +1589,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
           <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #e67e22;">${subTotalForfaitCount}</td>
           <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #7c3aed;">${subTotalScCount}</td>
           <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #e67e22;">${(subTotalSubCount > 0 ? (subTotalForfaitCount / subTotalSubCount * 100) : 0).toFixed(2)}%</td>
-          <td style="padding: 8px 12px; text-align: right; color: #2563eb;">${fmt(subTotalCaEau)}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #245a83;">${fmt(subTotalCaEau)}</td>
           <td style="padding: 8px 12px; text-align: right; color: #0891b2;">${fmt(subTotalCaPrest)}</td>
           <td style="padding: 8px 12px; text-align: right; color: #4f46e5;">${fmt(subTotalCa)}</td>
           <td style="padding: 8px 12px; text-align: right; color: #0d9488;">${fmt(subTotalCaRecouvre)}</td>
@@ -1611,7 +1611,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
           <td style="padding: 9px 12px; text-align: right; color: #c2410c; border-bottom: none;">${(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
           <td style="padding: 9px 12px; text-align: right; color: #1d4ed8; border-bottom: none;">${fmt(data.total_ca_eau)}</td>
           <td style="padding: 9px 12px; text-align: right; color: #0e7490; border-bottom: none;">${fmt(data.total_ca_prestation)}</td>
-          <td style="padding: 9px 12px; text-align: right; color: #0d83de; border-bottom: none;">${fmt(data.total_ca)}</td>
+          <td style="padding: 9px 12px; text-align: right; color: #245a83; border-bottom: none;">${fmt(data.total_ca)}</td>
           <td style="padding: 9px 12px; text-align: right; color: #0f766e; border-bottom: none;">${fmt(data.total_ca_recouvre || 0)}</td>
           <td style="padding: 9px 12px; text-align: right; color: #065f46; border-bottom: none;">${fmt(data.total_recouvre)}</td>
           <td style="padding: 9px 12px; text-align: right; color: #b91c1c; border-bottom: none;">${fmt(data.total_creance)}</td>
@@ -1626,13 +1626,13 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -1656,7 +1656,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }
@@ -2182,7 +2182,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
                     }}
                   >
                     {chartData.map((row: any, index: number) => (
-                      <Cell key={`${row.section}-${row.name}`} fill={index % 2 === 0 ? '#2563EB' : '#06B6D4'} />
+                      <Cell key={`${row.section}-${row.name}`} fill={index % 2 === 0 ? '#245A83' : '#147D78'} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -2251,21 +2251,21 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#e67e22;">${c.forfait_count || 0}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#7c3aed;">${c.sc_count || 0}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#e67e22;">${(c.sub_count > 0 ? (c.forfait_count / c.sub_count * 100) : 0).toFixed(2)}%</td>
-          <td style="padding:5px 8px;text-align:right;color:#2563eb;">${fmtP(c.ca_eau)}</td>
+          <td style="padding:5px 8px;text-align:right;color:#245a83;">${fmtP(c.ca_eau)}</td>
           <td style="padding:5px 8px;text-align:right;color:#0891b2;">${fmtP(c.ca_prestation)}</td>
-          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#0D83DE;">${fmtP(c.ca)}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#245A83;">${fmtP(c.ca)}</td>
           <td style="padding:5px 8px;text-align:right;color:#0d9488;">${fmtP(c.ca_recouvre || 0)}</td>
           <td style="padding:5px 8px;text-align:right;color:#059669;">${fmtP(c.recouvre)}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#e11d48;">${fmtP(c.creance)}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#475467;">${taux.toFixed(2)}%</td>
         </tr>
         <tr class="sub-row">
-          <td style="padding:3px 8px 3px 22px;font-size:8px;color:#2563eb;">\u21b3\u00a0Eau</td>
+          <td style="padding:3px 8px 3px 22px;font-size:8px;color:#245a83;">\u21b3\u00a0Eau</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#475467;">${c.sub_count || 0}</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
-          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#2563eb;">${fmtP(c.ca_eau)}</td>
+          <td style="padding:3px 8px;text-align:right;font-size:8px;color:#245a83;">${fmtP(c.ca_eau)}</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#94a3b8;">-</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#1e40af;">${fmtP(c.ca_eau)}</td>
           <td style="padding:3px 8px;text-align:right;font-size:8px;color:#0d9488;">${fmtP(c.ca_recouvre_eau || 0)}</td>
@@ -2300,7 +2300,7 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
         <td style="padding:8px;text-align:right;color:#c2410c;border-bottom:none;">${(data.total_sub_count > 0 ? (data.total_forfait_count / data.total_sub_count * 100) : 0).toFixed(2)}%</td>
         <td style="padding:8px;text-align:right;color:#1d4ed8;border-bottom:none;">${fmtP(data.total_ca_eau)}</td>
         <td style="padding:8px;text-align:right;color:#0e7490;border-bottom:none;">${fmtP(data.total_ca_prestation)}</td>
-        <td style="padding:8px;text-align:right;color:#0d83de;border-bottom:none;">${fmtP(data.total_ca)}</td>
+        <td style="padding:8px;text-align:right;color:#245a83;border-bottom:none;">${fmtP(data.total_ca)}</td>
         <td style="padding:8px;text-align:right;color:#0f766e;border-bottom:none;">${fmtP(data.total_ca_recouvre || 0)}</td>
         <td style="padding:8px;text-align:right;color:#065f46;border-bottom:none;">${fmtP(data.total_recouvre)}</td>
         <td style="padding:8px;text-align:right;color:#b91c1c;border-bottom:none;">${fmtP(data.total_creance)}</td>
@@ -2314,11 +2314,11 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page { size: landscape; margin: 8mm 10mm; }
             * { box-sizing: border-box; }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
               color: #101828; margin: 0; font-size: 8.5px; line-height: 1.35;
               -webkit-print-color-adjust: exact; print-color-adjust: exact;
             }
@@ -2326,7 +2326,7 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
               display: flex; justify-content: space-between; align-items: center;
               border-bottom: 2px solid #F2F4F7; padding-bottom: 8px; margin-bottom: 10px;
             }
-            .logo-text { font-size: 13px; font-weight: 900; color: #0D83DE; letter-spacing: -0.5px; margin: 0; }
+            .logo-text { font-size: 13px; font-weight: 900; color: #245A83; letter-spacing: -0.5px; margin: 0; }
             .company-name { font-size: 8px; font-weight: 700; color: #667085; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
             .title-section { text-align: right; }
             .title { font-size: 15px; font-weight: 900; color: #101828; margin: 0; }
@@ -2380,7 +2380,7 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
                 <th style="text-align:right;color:#e67e22;">Forfait</th>
                 <th style="text-align:right;color:#7c3aed;">Sans Compteur</th>
                 <th style="text-align:right;color:#e67e22;">Taux Forfait</th>
-                <th style="text-align:right;color:#2563eb;">CA Eau</th>
+                <th style="text-align:right;color:#245a83;">CA Eau</th>
                 <th style="text-align:right;color:#0891b2;">CA Prest.</th>
                 <th style="text-align:right;">Total CA</th>
                 <th style="text-align:right;color:#0d9488;">CA Recouv.</th>
@@ -2451,7 +2451,7 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
           <div className="w-[1px] h-6 bg-[#E4E7EC] mx-1 hidden sm:block"></div>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#0D83DE] hover:bg-[#0a6ab8] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10"
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#245A83] hover:bg-[#1F4D70] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10"
             title="Imprimer la répartition par commune"
           >
             <Printer size={13} />
@@ -2697,9 +2697,9 @@ export function BilanActiviteView({
         <td style="${base}font-weight:700;color:#e67e22;">${forfaitPct}%</td>
         <td style="${base}font-weight:700;color:#ef4444;">${row.resigned_count || 0}</td>
         <td style="${base}font-weight:700;color:#b91c1c;">${fmtP(Number(row.creance_resilie || 0))}</td>
-        <td style="${base}color:#2563eb;">${fmtP(Number(row.ca_eau || 0))}</td>
+        <td style="${base}color:#245a83;">${fmtP(Number(row.ca_eau || 0))}</td>
         <td style="${base}color:#0891b2;">${fmtP(Number(row.ca_prestation || 0))}</td>
-        <td style="${base}font-weight:700;color:#0D83DE;">${fmtP(totCa)}</td>
+        <td style="${base}font-weight:700;color:#245A83;">${fmtP(totCa)}</td>
         <td style="${base}color:#0d9488;">${fmtP(totCaRecouvre)}</td>
         <td style="${base}color:#059669;">${fmtP(encaisse)}</td>
         <td style="${base}font-weight:700;color:#e11d48;">${fmtP(creance)}</td>
@@ -2777,7 +2777,7 @@ export function BilanActiviteView({
         <td style="padding:6px 4px;text-align:right;color:#b91c1c;">${fmtP(totals.creance_resilie)}</td>
         <td style="padding:6px 4px;text-align:right;color:#1d4ed8;">${fmtP(totals.ca_eau)}</td>
         <td style="padding:6px 4px;text-align:right;color:#0e7490;">${fmtP(totals.ca_prestation)}</td>
-        <td style="padding:6px 4px;text-align:right;color:#0d83de;">${fmtP(totals.ca)}</td>
+        <td style="padding:6px 4px;text-align:right;color:#245a83;">${fmtP(totals.ca)}</td>
         <td style="padding:6px 4px;text-align:right;color:#0f766e;">${fmtP(totals.recouvre)}</td>
         <td style="padding:6px 4px;text-align:right;color:#065f46;">${fmtP(totals.encaissement)}</td>
         <td style="padding:6px 4px;text-align:right;color:#9f1239;">${fmtP(totals.creance)}</td>
@@ -2797,11 +2797,11 @@ export function BilanActiviteView({
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page { size: A4 landscape; margin: 8mm 10mm; }
             * { box-sizing: border-box; }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
               color: #101828; margin: 0; font-size: 7px; line-height: 1.3;
               -webkit-print-color-adjust: exact; print-color-adjust: exact;
             }
@@ -2810,7 +2810,7 @@ export function BilanActiviteView({
               border-bottom: 2px solid #F2F4F7; padding-bottom: 6px; margin-bottom: 8px;
             }
             .logo-section { display: flex; align-items: center; gap: 8px; }
-            .logo-text { font-size: 12px; font-weight: 900; color: #0D83DE; letter-spacing: -0.5px; margin: 0; }
+            .logo-text { font-size: 12px; font-weight: 900; color: #245A83; letter-spacing: -0.5px; margin: 0; }
             .company-name { font-size: 7px; font-weight: 700; color: #667085; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
             .title-section { text-align: right; }
             .title { font-size: 13px; font-weight: 900; color: #101828; margin: 0; }
@@ -2871,7 +2871,7 @@ export function BilanActiviteView({
                 <th style="text-align:right;color:#e67e22;">Taux Forf.</th>
                 <th style="text-align:right;color:#ef4444;">R\u00e9sili\u00e9s</th>
                 <th style="text-align:right;color:#b91c1c;">Cr\u00e9. R\u00e9s.</th>
-                <th style="text-align:right;color:#2563eb;">CA Eau</th>
+                <th style="text-align:right;color:#245a83;">CA Eau</th>
                 <th style="text-align:right;color:#0891b2;">CA Prest.</th>
                 <th style="text-align:right;">Total CA</th>
                 <th style="text-align:right;color:#0d9488;">CA Recouv.</th>
@@ -3145,7 +3145,7 @@ export function BilanActiviteView({
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-[#0D83DE] hover:bg-[#0a6ab8] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-[#245A83] hover:bg-[#1F4D70] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10"
                   title="Imprimer le tableau (A4 paysage)"
                 >
                   <Printer size={13} />
@@ -3533,12 +3533,17 @@ export function Type7SubscriberReport({
       subscriberType: subscriber.subscriberType,
       numab: subscriber.numab,
       name: subscriber.name,
+      nom: subscriber.nom,
+      prenom: subscriber.prenom,
+      raisonSociale: subscriber.raison_sociale,
       address: subscriber.address,
       tournee: subscriber.tournee,
       bloc: subscriber.bloc,
       ndom: subscriber.ndom,
       creance: subscriber.creance,
-      paidAmount: subscriber.paid_amount,
+      paidAmount: Number(subscriber.paid_amount || 0) + Number(subscriber.paid_amount_outside_period || 0),
+      paidAmountInPeriod: subscriber.paid_amount,
+      paidAmountOutsidePeriod: subscriber.paid_amount_outside_period,
       paidDate: subscriber.paid_date,
     }))
   ).map((invoice: any, order: number) => ({ ...invoice, order }));
@@ -3555,9 +3560,14 @@ export function Type7SubscriberReport({
     ndom: subscriber.ndom || '',
     numab: subscriber.numab,
     name: subscriber.name,
+    nom: subscriber.nom,
+    prenom: subscriber.prenom,
+    raisonSociale: subscriber.raison_sociale,
     address: subscriber.address,
     creance: 0,
     paidAmount: subscriber.paid_amount,
+    paidAmountInPeriod: subscriber.paid_amount,
+    paidAmountOutsidePeriod: 0,
     paidDate: subscriber.paid_date,
     settledPreviousCut: Boolean(subscriber.settled_previous_cut),
     order: periodCutInvoices.length + index,
@@ -3568,6 +3578,7 @@ export function Type7SubscriberReport({
   const [communeFilter, setCommuneFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [tourneeFilter, setTourneeFilter] = useState('');
+  const [subscriberSearch, setSubscriberSearch] = useState('');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 30;
   const [paymentFilter, setPaymentFilter] = useState<
@@ -3603,32 +3614,45 @@ export function Type7SubscriberReport({
     }
     return sortDir === 'asc' ? comparison : -comparison;
   });
+  const normalizeSubscriberSearch = (value: unknown) =>
+    String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  const searchTerm = normalizeSubscriberSearch(subscriberSearch).trim();
+  const matchesSubscriberSearch = (invoice: any) => !searchTerm || [
+    invoice.numab,
+    invoice.name,
+    invoice.nom,
+    invoice.prenom,
+    invoice.raisonSociale,
+    `${invoice.prenom || ''} ${invoice.nom || ''}`,
+    `${invoice.nom || ''} ${invoice.prenom || ''}`,
+  ].some((value) => normalizeSubscriberSearch(value).includes(searchTerm));
   const matchesInvoiceFilters = (invoice: any) => (
     (!communeFilter || invoice.commune === communeFilter) &&
     (!typeFilter || invoice.subscriberType === typeFilter) &&
-    (!tourneeFilter || String(invoice.tournee || '').trim() === tourneeFilter)
+    (!tourneeFilter || String(invoice.tournee || '').trim() === tourneeFilter) &&
+    matchesSubscriberSearch(invoice)
   );
-  const isPaymentDateOutsideRange = (value: string | null | undefined) => {
-    const paymentDate = String(value || '').replace(/-/g, '');
-    const periodStart = String(startDate || '').replace(/-/g, '');
-    const periodEnd = String(endDate || '').replace(/-/g, '');
-    return Boolean(
-      paymentDate &&
-      ((periodStart && paymentDate < periodStart) || (periodEnd && paymentDate > periodEnd))
-    );
-  };
+  const hasInPeriodPayment = (invoice: any) =>
+    !invoice.settledPreviousCut && Number(invoice.paidAmountInPeriod || 0) > 0;
+  const hasOutsidePeriodPayment = (invoice: any) =>
+    !invoice.settledPreviousCut && Number(invoice.paidAmountOutsidePeriod || 0) > 0;
   const matchingInvoices = sortedInvoices.filter(matchesInvoiceFilters);
   const previousCutSettledCount = matchingInvoices.filter(
     (invoice: any) => invoice.settledPreviousCut
   ).length;
   const unpaidInvoiceCount = matchingInvoices.filter(
-    (invoice: any) => !invoice.settledPreviousCut && !invoice.paidDate
+    (invoice: any) => !invoice.settledPreviousCut &&
+      !hasInPeriodPayment(invoice) &&
+      !hasOutsidePeriodPayment(invoice)
   ).length;
   const inPeriodInvoiceCount = matchingInvoices.filter(
-    (invoice: any) => !invoice.settledPreviousCut && invoice.paidDate && !isPaymentDateOutsideRange(invoice.paidDate)
+    hasInPeriodPayment
   ).length;
   const outsidePeriodInvoiceCount = matchingInvoices.filter(
-    (invoice: any) => !invoice.settledPreviousCut && isPaymentDateOutsideRange(invoice.paidDate)
+    hasOutsidePeriodPayment
   ).length;
   const paymentFilterOptions = [
     { value: 'all', label: 'Tous les règlements', count: matchingInvoices.length },
@@ -3643,11 +3667,13 @@ export function Type7SubscriberReport({
     paymentFilter === 'previous_cut_settled'
       ? invoice.settledPreviousCut
       : paymentFilter === 'unpaid'
-      ? !invoice.settledPreviousCut && !invoice.paidDate
+      ? !invoice.settledPreviousCut &&
+        !hasInPeriodPayment(invoice) &&
+        !hasOutsidePeriodPayment(invoice)
       : paymentFilter === 'in_period'
-        ? !invoice.settledPreviousCut && Boolean(invoice.paidDate) && !isPaymentDateOutsideRange(invoice.paidDate)
+        ? hasInPeriodPayment(invoice)
         : paymentFilter === 'outside_period'
-          ? !invoice.settledPreviousCut && isPaymentDateOutsideRange(invoice.paidDate)
+          ? hasOutsidePeriodPayment(invoice)
           : true
   ));
   const pageCount = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
@@ -3697,22 +3723,25 @@ export function Type7SubscriberReport({
       (total: number, subscriber: any) => total + Number(subscriber.creance || 0),
       0
     );
-    const totalPaidAmount = selectedSubscriberRows.reduce(
+    const paidSubscriberRows = selectedSubscriberRows.filter(
+      (subscriber: any) => !subscriber.settledPreviousCut
+    );
+    const totalPaidAmount = paidSubscriberRows.reduce(
       (total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0),
       0
     );
-    const outOfRangePaidSubscribers = selectedSubscriberRows.filter(
-      (subscriber: any) => Number(subscriber.paidAmount || 0) > 0 && isPaymentDateOutsideRange(subscriber.paidDate)
+    const outOfRangePaidSubscribers = paidSubscriberRows.filter(
+      (subscriber: any) => Number(subscriber.paidAmountOutsidePeriod || 0) > 0
     );
-    const inRangePaidSubscribers = selectedSubscriberRows.filter(
-      (subscriber: any) => Number(subscriber.paidAmount || 0) > 0 && isPaymentDateInsideRange(subscriber.paidDate)
+    const inRangePaidSubscribers = paidSubscriberRows.filter(
+      (subscriber: any) => Number(subscriber.paidAmountInPeriod || 0) > 0
     );
     const totalPaidOutsideRange = outOfRangePaidSubscribers.reduce(
-      (total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0),
+      (total: number, subscriber: any) => total + Number(subscriber.paidAmountOutsidePeriod || 0),
       0
     );
     const totalPaidInsideRange = inRangePaidSubscribers.reduce(
-      (total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0),
+      (total: number, subscriber: any) => total + Number(subscriber.paidAmountInPeriod || 0),
       0
     );
     const selectedPreviousCutSettlements = previousCutSettlements.filter(
@@ -3734,7 +3763,7 @@ export function Type7SubscriberReport({
         <td>${cell(subscriber.bloc || '—')}</td>
         <td>${cell(subscriber.ndom || '—')}</td>
         <td class="numeric">${cell(formatAmount(subscriber.creance))}</td>
-        <td class="numeric">${subscriber.settledPreviousCut ? '<strong>Coupure antérieure réglée</strong><br>' : ''}${cell(formatAmount(subscriber.paidAmount))}</td>
+        <td class="numeric">${subscriber.settledPreviousCut ? '<strong>Coupure antérieure réglée</strong><br>' : ''}<span${Number(subscriber.paidAmountOutsidePeriod || 0) > 0 && Number(subscriber.paidAmountInPeriod || 0) === 0 ? ' class="outside-period-amount"' : ''}>${cell(formatAmount(subscriber.paidAmount))}</span>${Number(subscriber.paidAmountOutsidePeriod || 0) > 0 && Number(subscriber.paidAmountInPeriod || 0) > 0 ? `<br><span class="outside-period-amount">Dont hors période : ${cell(formatAmount(subscriber.paidAmountOutsidePeriod))}</span>` : ''}</td>
         <td>${cell(formatDate(subscriber.paidDate))}</td>
       </tr>
     `).join('');
@@ -3745,11 +3774,11 @@ export function Type7SubscriberReport({
           <meta charset="utf-8">
           <title>Abonnés sélectionnés — Répartition des Coupures &amp; Rétablissements</title>
           <style>
-            body { font-family: Arial, sans-serif; color: #101828; margin: 24px; font-size: 9px; }
+            body { font-family: 'Manrope', 'Segoe UI', sans-serif; color: #101828; margin: 24px; font-size: 9px; }
             .print-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 2px solid #F2F4F7; padding-bottom: 12px; margin-bottom: 14px; }
             .logo-section { display: flex; align-items: center; gap: 12px; }
             .logo-section img { height: 40px; width: auto; object-fit: contain; }
-            .brand-name { color: #0D83DE; font-size: 14px; font-weight: 900; }
+            .brand-name { color: #245A83; font-size: 14px; font-weight: 900; }
             .company-name { color: #667085; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
             .title-section { text-align: right; }
             h1 { font-size: 16px; margin: 0 0 6px; }
@@ -3759,9 +3788,10 @@ export function Type7SubscriberReport({
             th { background: #F9FAFB; text-transform: uppercase; font-size: 7px; }
             tfoot { font-weight: bold; background: #F9FAFB; }
             tfoot .out-of-range { background: #ECFDF3; color: #067647; }
-            tfoot .in-range { background: #EFF6FF; color: #0D83DE; }
+            tfoot .in-range { background: #EFF6FF; color: #245A83; }
             tfoot .previous-cut-settlement { background: #F5F3FF; color: #5B21B6; }
             tbody .previous-cut-settlement { background: #F5F3FF; color: #5B21B6; }
+            .outside-period-amount { color: #067647; }
             .numeric { text-align: right; white-space: nowrap; }
             tr { page-break-inside: avoid; }
             @page { size: A4 landscape; margin: 10mm; }
@@ -3856,17 +3886,11 @@ export function Type7SubscriberReport({
         })} %`
       : '—'
   );
-  const isPaymentDateInsideRange = (value: string | null | undefined) => {
-    const paymentDate = String(value || '').replace(/-/g, '');
-    const periodStart = String(startDate || '').replace(/-/g, '');
-    const periodEnd = String(endDate || '').replace(/-/g, '');
-    return Boolean(paymentDate && periodStart && periodEnd && paymentDate >= periodStart && paymentDate <= periodEnd);
-  };
   const inRangePaidAmountsBySubscriber = new Map<string, number>();
   filteredInvoices.forEach((invoice: any) => {
     if (invoice.settledPreviousCut) return;
-    const paidAmount = Number(invoice.paidAmount || 0);
-    if (paidAmount > 0 && isPaymentDateInsideRange(invoice.paidDate)) {
+    const paidAmount = Number(invoice.paidAmountInPeriod || 0);
+    if (paidAmount > 0) {
       inRangePaidAmountsBySubscriber.set(invoice.numab, paidAmount);
     }
   });
@@ -3876,8 +3900,8 @@ export function Type7SubscriberReport({
   const outOfRangePaidAmountsBySubscriber = new Map<string, number>();
   filteredInvoices.forEach((invoice: any) => {
     if (invoice.settledPreviousCut) return;
-    const paidAmount = Number(invoice.paidAmount || 0);
-    if (paidAmount > 0 && isPaymentDateOutsideRange(invoice.paidDate)) {
+    const paidAmount = Number(invoice.paidAmountOutsidePeriod || 0);
+    if (paidAmount > 0) {
       outOfRangePaidAmountsBySubscriber.set(invoice.numab, paidAmount);
     }
   });
@@ -3903,11 +3927,11 @@ export function Type7SubscriberReport({
       <button
         type="button"
         onClick={() => handleInvoiceSort(key)}
-        className={`inline-flex items-center gap-1.5 hover:text-[#0D83DE] ${align === 'right' ? 'ml-auto' : ''}`}
+        className={`inline-flex items-center gap-1.5 hover:text-[#245A83] ${align === 'right' ? 'ml-auto' : ''}`}
         aria-label={`Trier par ${label} ${sortKey === key ? (sortDir === 'asc' ? 'décroissant' : 'croissant') : ''}`}
       >
         {label}
-        <span aria-hidden="true" className={sortKey === key ? 'text-[#0D83DE]' : 'text-[#98A2B3]'}>
+        <span aria-hidden="true" className={sortKey === key ? 'text-[#245A83]' : 'text-[#98A2B3]'}>
           {sortKey === key ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
         </span>
       </button>
@@ -3934,7 +3958,7 @@ export function Type7SubscriberReport({
             Les coupures antérieures réglées dans la période sont affichées en violet, sans être comptées dans les créances ni les coupures de la période.
           </p>
         </div>
-        <div className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-[#0D83DE]">
+        <div className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-[#245A83]">
           {Number(data?.total_subscriber_count || 0).toLocaleString('fr-FR')} abonnés
         </div>
       </header>
@@ -3973,7 +3997,7 @@ export function Type7SubscriberReport({
                         </td>
                       )}
                       <td className="px-4 py-3 text-[#475467]">{group.subscriber_type}</td>
-                      <td className="px-4 py-3 text-right font-black tabular-nums text-[#0D83DE]">
+                      <td className="px-4 py-3 text-right font-black tabular-nums text-[#245A83]">
                         {Number(group.count || 0).toLocaleString('fr-FR')}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
@@ -3993,7 +4017,7 @@ export function Type7SubscriberReport({
                 })}
                 <tr className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-black">
                   <td className="px-4 py-3" colSpan={2}>Total général</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-[#0D83DE]">
+                  <td className="px-4 py-3 text-right tabular-nums text-[#245A83]">
                     {Number(data?.total_subscriber_count || 0).toLocaleString('fr-FR')}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
@@ -4019,12 +4043,28 @@ export function Type7SubscriberReport({
               type="button"
               onClick={handlePrintSelectedSubscribers}
               disabled={selectedSubscriberRows.length === 0}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0D83DE] px-4 text-sm font-bold text-white transition-colors hover:bg-[#0a6ab8] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#245A83] px-4 text-sm font-bold text-white transition-colors hover:bg-[#1F4D70] disabled:cursor-not-allowed disabled:opacity-50"
               title={selectedSubscriberRows.length > 0 ? 'Imprimer les abonnés sélectionnés' : 'Sélectionnez au moins un abonné'}
             >
               <Printer size={15} />
               Imprimer la sélection ({selectedSubscriberRows.length})
             </button>
+            <label className="flex min-w-64 flex-1 flex-col gap-1 text-xs font-semibold text-[#475467]">
+              Rechercher un abonné
+              <span className="relative block">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" aria-hidden="true" />
+                <input
+                  type="search"
+                  value={subscriberSearch}
+                  onChange={(event) => {
+                    setSubscriberSearch(event.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Code, nom, prénom ou raison sociale"
+                  className="h-10 w-full rounded-lg border border-[#D0D5DD] bg-white pl-9 pr-3 text-sm font-normal text-[#101828] placeholder:text-[#98A2B3]"
+                />
+              </span>
+            </label>
             <label className="flex min-w-44 flex-col gap-1 text-xs font-semibold text-[#475467]">
               Commune
               <select
@@ -4081,7 +4121,7 @@ export function Type7SubscriberReport({
                       setPage(1);
                     }
                   }}
-                  className={`h-10 min-w-0 flex-1 rounded-lg border bg-white px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0D83DE] ${
+                  className={`h-10 min-w-0 flex-1 rounded-lg border bg-white px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#245A83] ${
                     paymentFilter === 'unpaid'
                       ? 'border-rose-200 text-rose-700'
                       : paymentFilter === 'in_period'
@@ -4123,6 +4163,7 @@ export function Type7SubscriberReport({
                 setCommuneFilter('');
                 setTypeFilter('');
                 setTourneeFilter('');
+                setSubscriberSearch('');
                 setPaymentFilter('all');
                 setPage(1);
               }}
@@ -4148,7 +4189,7 @@ export function Type7SubscriberReport({
                       checked={allFilteredSubscribersSelected}
                       disabled={filteredSubscriberIds.length === 0}
                       onChange={toggleFilteredSubscribersSelection}
-                      className="h-4 w-4 cursor-pointer accent-[#0D83DE] disabled:cursor-not-allowed"
+                      className="h-4 w-4 cursor-pointer accent-[#245A83] disabled:cursor-not-allowed"
                     />
                   </th>
                   {sortableHeader('N°', 'order', 'right')}
@@ -4180,7 +4221,7 @@ export function Type7SubscriberReport({
                         aria-label={`Sélectionner l’abonné ${invoice.numab}`}
                         checked={selectedSubscribers.has(String(invoice.numab))}
                         onChange={() => toggleSubscriberSelection(String(invoice.numab))}
-                        className="h-4 w-4 cursor-pointer accent-[#0D83DE]"
+                        className="h-4 w-4 cursor-pointer accent-[#245A83]"
                       />
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-[#475467]">
@@ -4195,17 +4236,20 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3 text-[#475467]">{invoice.bloc || '—'}</td>
                     <td className="px-4 py-3 text-[#475467]">{invoice.ndom || '—'}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-right font-semibold tabular-nums text-[#101828]">{formatAmount(invoice.creance)}</td>
-                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${
-                      isPaymentDateOutsideRange(invoice.paidDate)
-                        ? 'text-emerald-700'
-                        : 'text-[#101828]'
-                    } whitespace-nowrap`}>
+                    <td className="px-4 py-3 whitespace-nowrap text-right font-bold tabular-nums text-[#101828]">
                       {invoice.settledPreviousCut && (
                         <span className="mb-1 block text-xs font-black text-violet-700">
                           Coupure antérieure réglée
                         </span>
                       )}
-                      {formatAmount(invoice.paidAmount)}
+                      <span className={Number(invoice.paidAmountOutsidePeriod || 0) > 0 && Number(invoice.paidAmountInPeriod || 0) === 0 ? 'text-emerald-700' : ''}>
+                        {formatAmount(invoice.paidAmount)}
+                      </span>
+                      {Number(invoice.paidAmountOutsidePeriod || 0) > 0 && Number(invoice.paidAmountInPeriod || 0) > 0 && (
+                        <span className="mt-1 block text-xs font-semibold text-emerald-700">
+                          Dont hors période : {formatAmount(invoice.paidAmountOutsidePeriod)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right font-semibold tabular-nums text-[#475467]">
                       {formatPaymentRate(Number(invoice.paidAmount || 0), Number(invoice.creance || 0))}
@@ -4255,15 +4299,15 @@ export function Type7SubscriberReport({
                     <td className="px-4 py-3">—</td>
                   </tr>
                   <tr className="border-t border-[#D0D5DD] bg-blue-50 font-bold">
-                    <td colSpan={5} className="px-4 py-3 text-[#0D83DE]">Règlements dans la période</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-[#0D83DE]">
+                    <td colSpan={5} className="px-4 py-3 text-[#245A83]">Règlements dans la période</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-[#245A83]">
                       {inRangePaidSubscriberCount.toLocaleString('fr-FR')}
                     </td>
-                    <td colSpan={5} className="px-4 py-3 text-[#0D83DE]">abonné(s) concerné(s)</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#0D83DE]">
+                    <td colSpan={5} className="px-4 py-3 text-[#245A83]">abonné(s) concerné(s)</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#245A83]">
                       {formatAmount(inRangePaidTotal)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#0D83DE]">
+                    <td className="px-4 py-3 whitespace-nowrap text-right tabular-nums text-[#245A83]">
                       {formatPaymentRate(inRangePaidTotal, filteredCreanceTotal)}
                     </td>
                     <td className="px-4 py-3">—</td>
@@ -4317,7 +4361,7 @@ export function Type7SubscriberReport({
                       onClick={() => setPage(pageNumber)}
                       className={`h-8 w-8 rounded-lg text-xs font-bold transition-all ${
                         pageNumber === currentPage
-                          ? 'bg-[#0D83DE] text-white shadow-sm'
+                          ? 'bg-[#245A83] text-white shadow-sm'
                           : 'border border-[#E4E7EC] bg-white text-[#475467] hover:border-[#D0D5DD]'
                       }`}
                     >

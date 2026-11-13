@@ -73,7 +73,7 @@ export function showAlert(message: string, options?: Partial<import("sweetalert2
     text: message,
     icon: "info",
     confirmButtonText: "OK",
-    confirmButtonColor: "#0D83DE",
+    confirmButtonColor: "#245A83",
   };
   const mergedOptions = { ...baseOptions, ...(options ?? {}) } as import("sweetalert2").SweetAlertOptions;
   return Swal.fire(mergedOptions);
@@ -87,7 +87,7 @@ export function showConfirm(message: string, options?: Partial<import("sweetaler
     showCancelButton: true,
     confirmButtonText: "Oui",
     cancelButtonText: "Annuler",
-    confirmButtonColor: "#0D83DE",
+    confirmButtonColor: "#245A83",
     cancelButtonColor: "#98A2B3",
   };
   const mergedOptions = { ...baseOptions, ...(options ?? {}) } as import("sweetalert2").SweetAlertOptions;

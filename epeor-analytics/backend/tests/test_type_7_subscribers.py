@@ -176,7 +176,24 @@ class Type7SubscriberTests(unittest.TestCase):
             "20261031",
         )
 
-        self.assertEqual(balances, {"B10518": 6226.82})
+        self.assertEqual(balances, {"B10518": 6126.82})
+
+    def test_current_unpaid_balance_excludes_invoices_created_on_or_after_cut_penalty(self):
+        balances = main._collect_current_creances_by_numab(
+            [
+                {"NUMAB": "B10518", "TYPE": "E", "DATFACT": "20260930", "DATSAISIE": "20261014", "DATREG": "", "MONTTC": 100},
+                {"NUMAB": "B10518", "TYPE": "E", "DATFACT": "20260930", "DATSAISIE": "20261015", "DATREG": "", "MONTTC": 200},
+                {"NUMAB": "B10518", "TYPE": "E", "DATFACT": "20261015", "DATSAISIE": "20261016", "DATREG": "", "MONTTC": 300},
+                {"NUMAB": "B10518", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20261031", "DATSAISIE": "20261015", "DATREG": "", "MONTTC": 1200},
+            ],
+            [],
+            {"B10518"},
+            "20261109",
+            "20261001",
+            "20261031",
+        )
+
+        self.assertEqual(balances, {"B10518": 100})
 
     def test_includes_invoices_paid_in_period_end_month_or_following_month(self):
         balances = main._collect_current_creances_by_numab(
@@ -230,7 +247,7 @@ class Type7SubscriberTests(unittest.TestCase):
             "20261031",
         )
 
-        self.assertEqual(balances, {"B35677": 4143.1})
+        self.assertEqual(balances, {"B35677": 2681.14})
 
     def test_includes_b12582_invoices_paid_same_month_as_cut_fee(self):
         balances = main._collect_current_creances_by_numab(
@@ -402,7 +419,7 @@ class Type7SubscriberTests(unittest.TestCase):
             "20260901",
             "20260930",
         )
-        detail_amounts = main._collect_paid_amounts_after_cut_created(
+        outside_period_amounts = main._collect_paid_amounts_outside_period_after_cut_created(
             records,
             {"B36477"},
             "20260901",
@@ -416,10 +433,10 @@ class Type7SubscriberTests(unittest.TestCase):
         )
 
         self.assertEqual(paid_amounts, {})
-        self.assertEqual(detail_amounts, {"B36477": 2324.04})
+        self.assertEqual(outside_period_amounts, {"B36477": 3468.4})
         self.assertEqual(payment_dates, {"B36477": "2026-10-31"})
 
-    def test_excludes_future_invoice_from_september_paid_amount_for_b36783(self):
+    def test_includes_future_invoice_paid_after_selected_period_for_b36783(self):
         records = [
             {"NUMAB": "B36783", "TYPE": "E", "DATFACT": "20260630", "MONTTC": 1144.36, "DATREG": "20261105", "PAIEMENT": "C"},
             {"NUMAB": "B36783", "TYPE": "E", "DATFACT": "20260930", "MONTTC": 2285.35, "DATREG": "20261105", "PAIEMENT": "C"},
@@ -433,7 +450,7 @@ class Type7SubscriberTests(unittest.TestCase):
             "20260901",
             "20260930",
         )
-        detail_amounts = main._collect_paid_amounts_after_cut_created(
+        outside_period_amounts = main._collect_paid_amounts_outside_period_after_cut_created(
             records,
             {"B36783"},
             "20260901",
@@ -447,10 +464,29 @@ class Type7SubscriberTests(unittest.TestCase):
         )
 
         self.assertEqual(paid_amounts, {})
-        self.assertEqual(detail_amounts, {"B36783": 3429.71})
+        self.assertEqual(outside_period_amounts, {"B36783": 5253.98})
         self.assertEqual(payment_dates, {"B36783": "2026-11-05"})
 
-    def test_includes_november_payments_for_b37483_but_excludes_november_cut_fee(self):
+    def test_counts_all_bc0508_invoices_paid_outside_selected_period(self):
+        records = [
+            {"NUMAB": "BC0508", "TYPE": "E", "DATFACT": "20251231", "MONTTC": 606.9, "DATREG": "20261108"},
+            {"NUMAB": "BC0508", "TYPE": "E", "DATFACT": "20260331", "MONTTC": 606.9, "DATREG": "20261108"},
+            {"NUMAB": "BC0508", "TYPE": "E", "DATFACT": "20260630", "MONTTC": 606.9, "DATREG": "20261108"},
+            {"NUMAB": "BC0508", "TYPE": "E", "DATFACT": "20260930", "MONTTC": 1542.78, "DATREG": "20261108"},
+            {"NUMAB": "BC0508", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20261031", "MONTTC": 2000, "DATREG": "20261108"},
+            {"NUMAB": "BC0508", "TYPE": "E", "DATFACT": "20261231", "MONTTC": 731.68, "DATREG": "20261108"},
+        ]
+
+        outside_period_amounts = main._collect_paid_amounts_outside_period_after_cut_created(
+            records,
+            {"BC0508"},
+            "20261001",
+            "20261031",
+        )
+
+        self.assertEqual(outside_period_amounts, {"BC0508": 4095.16})
+
+    def test_excludes_cut_fees_from_november_paid_amounts_for_b37483(self):
         records = [
             {"NUMAB": "B37483", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20260627", "MONTTC": 1200, "DATREG": "20261104", "PAIEMENT": "C"},
             {"NUMAB": "B37483", "TYPE": "E", "DATFACT": "20260930", "MONTTC": 327, "DATREG": "20261104", "PAIEMENT": "C"},
@@ -464,15 +500,15 @@ class Type7SubscriberTests(unittest.TestCase):
             "20261101",
             "20261130",
         )
-        detail_amounts = main._collect_paid_amounts_after_cut_created(
+        outside_period_amounts = main._collect_paid_amounts_outside_period_after_cut_created(
             records,
             {"B37483"},
             "20261101",
             "20261130",
         )
 
-        self.assertEqual(paid_amounts, {"B37483": 3754.71})
-        self.assertEqual(detail_amounts, {"B37483": 3754.71})
+        self.assertEqual(paid_amounts, {"B37483": 2554.71})
+        self.assertEqual(outside_period_amounts, {})
 
     def test_paid_total_excludes_cut_penalty_created_in_period(self):
         records = [
@@ -501,6 +537,91 @@ class Type7SubscriberTests(unittest.TestCase):
         )
 
         self.assertEqual(paid_amounts, {"131591": 8008.84})
+
+    def test_commercial_report_summary_matches_detail_without_cut_fees(self):
+        records = [
+            {
+                "NUMAB": "01001",
+                "TYPE": "7",
+                "PERIODE": "0005",
+                "DATFACT": "20261015",
+                "DATSAISIE": "20261015",
+                "DATREG": "20261016",
+                "MONTTC": 1200,
+                "TYPABON": "10",
+            },
+            {
+                "NUMAB": "01001",
+                "TYPE": "A",
+                "PERIODE": "0009",
+                "DATFACT": "20260930",
+                "DATSAISIE": "20260930",
+                "DATREG": "20261016",
+                "MONTTC": 3948.36,
+            },
+            {
+                "NUMAB": "01001",
+                "TYPE": "E",
+                "DATFACT": "20260930",
+                "DATREG": "20261016",
+                "MONTTC": 4000,
+            },
+            {
+                "NUMAB": "01001",
+                "TYPE": "E",
+                "DATFACT": "20260930",
+                "DATREG": "20261104",
+                "MONTTC": 200,
+            },
+            {
+                "NUMAB": "01002",
+                "TYPE": "7",
+                "PERIODE": "0005",
+                "DATFACT": "20260630",
+                "DATSAISIE": "20260630",
+                "MONTTC": 1200,
+                "TYPABON": "10",
+            },
+            {
+                "NUMAB": "01002",
+                "TYPE": "E",
+                "DATFACT": "20260531",
+                "DATREG": "20261016",
+                "MONTTC": 500,
+            },
+        ]
+
+        with (
+            patch.object(main, "is_db_ready", True),
+            patch.object(main, "indexes_ready", True),
+            patch.object(main, "MEM_FACTURES", records),
+            patch.object(main, "MEM_AVOIRS", []),
+            patch.object(main, "abonnes_by_numab", {
+                "01001": {"TYPABON": "10", "NOM": "Dupont", "PRENOM": "Jean", "RAISOC": "Société test"},
+                "01002": {"TYPABON": "10", "NOM": "Abonné précédent"},
+            }),
+            patch.object(main, "_enforce_sector", return_value=None),
+            patch.object(main, "_secteur_numabs_set_for_user", return_value=None),
+            patch.object(main, "_commune_map_for_user_sectors", return_value={"01": "Commune test"}),
+            patch.object(main, "_abonne_codcom", return_value="01"),
+            patch.object(main, "resolve_rue_adresse", return_value="Rue du Test"),
+        ):
+            report = main.get_type_7_subscribers(
+                _user={"is_admin": True, "allowed_sectors": []},
+                start_date="20261001",
+                end_date="20261031",
+            )
+
+        group = report["by_commune_type"][0]
+        self.assertEqual(group["paid_with_cut_count"], 1)
+        self.assertEqual(group["paid_with_cut_amount"], 4000)
+        self.assertEqual(report["total_paid_with_cut_amount"], 4000)
+        self.assertEqual(group["subscribers"][0]["paid_amount"], 4000)
+        self.assertEqual(group["subscribers"][0]["paid_amount_outside_period"], 200)
+        self.assertEqual(group["subscribers"][0]["nom"], "Dupont")
+        self.assertEqual(group["subscribers"][0]["prenom"], "Jean")
+        self.assertEqual(group["subscribers"][0]["raison_sociale"], "Société test")
+        self.assertEqual(report["previous_cut_settlements"][0]["paid_amount"], 500)
 
     def test_collects_prior_cut_as_settled_when_first_payment_is_in_selected_period(self):
         records = [
@@ -599,6 +720,38 @@ class Type7SubscriberTests(unittest.TestCase):
         self.assertEqual(settlements[0]["paid_amount"], 500)
         self.assertEqual(settlements[0]["paid_date"], "2026-10-14")
         self.assertTrue(settlements[0]["settled_previous_cut"])
+
+    def test_includes_paid_previous_cut_penalties_in_settlement_amount(self):
+        records = [
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20230630", "MONTTC": 520.99, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20230930", "MONTTC": 546.85, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20231231", "MONTTC": 391.67, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20240331", "MONTTC": 327, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20240630", "MONTTC": 327, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20240930", "MONTTC": 352.85, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20241231", "MONTTC": 339.93, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20250331", "MONTTC": 327, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20240104", "MONTTC": 1200, "DATREG": ""},
+            {"NUMAB": "HA0003", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20250204", "MONTTC": 1200, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20250630", "MONTTC": 327, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20250625", "MONTTC": 1200, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20250930", "MONTTC": 327, "DATREG": "20261026"},
+            {"NUMAB": "HA0003", "TYPE": "E", "DATFACT": "20251231", "MONTTC": 327, "DATREG": "20261026"},
+        ]
+
+        with patch.object(main, "resolve_rue_adresse", return_value="Rue du Test"):
+            settlements = main._collect_settled_previous_cuts(
+                records,
+                {"HA0003": {"NOM": "Abonné HA0003", "TYPABON": "10"}},
+                {"HA0003"},
+                set(),
+                "20261001",
+                "20261031",
+            )
+
+        self.assertEqual(len(settlements), 1)
+        self.assertEqual(settlements[0]["paid_amount"], 6514.29)
+        self.assertEqual(settlements[0]["paid_date"], "2026-10-26")
 
 
 if __name__ == "__main__":

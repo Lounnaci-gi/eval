@@ -16,6 +16,7 @@ import {
   X,
   Calendar,
   LogOut,
+  Search,
 } from "lucide-react";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
@@ -53,14 +54,21 @@ function isActive(view: AppView, item: NavItem): boolean {
 export function MobileTopBar() {
   const { t } = useTranslation();
   return (
-    <header className="lg:hidden sticky top-0 z-40 flex items-center gap-3 border-b border-[#E4E7EC] bg-white/95 backdrop-blur-md px-4 py-3 safe-top no-print">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 p-1">
-          <Logo variant="mobile" alt="EPEOR" />
-      </div>
-      <div className="min-w-0">
+    <header className="mobile-topbar lg:hidden sticky top-0 z-40 flex items-center gap-3 border-b border-[#E4E7EC] bg-white/95 backdrop-blur-md px-4 py-3 safe-top no-print">
+        <Logo variant="mobile" alt="Logo de l'Algérienne des Eaux" className="shrink-0" />
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-black text-[#101828] truncate">EPEOR Analytics</p>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[#0D83DE]">{t('nav.dashboard')}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#245A83]">{t('nav.dashboard')}</p>
       </div>
+        <button
+          type="button"
+          aria-label={t('command.open')}
+          title={t('command.open')}
+          onClick={() => window.dispatchEvent(new Event('epeor:open-command-palette'))}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#DDE5E8] text-[#56636D] transition-colors hover:bg-[#F3F6F7] focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          <Search size={18} />
+        </button>
     </header>
   );
 }
@@ -90,7 +98,7 @@ export function MobileNav({
       )}
 
       {moreOpen && (
-        <div className="lg:hidden fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-50 bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl p-2 animate-in fade-in slide-in-from-bottom-2 duration-200 no-print">
+        <div id="mobile-more-menu" className="mobile-more-menu lg:hidden fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] inset-x-4 z-50 bg-white border border-[#E4E7EC] rounded-xl shadow-2xl p-2 animate-in fade-in slide-in-from-bottom-2 duration-200 no-print">
           <div className="flex items-center justify-between px-3 py-2 border-b border-[#F2F4F7] mb-1">
             <span className="text-xs font-black text-[#101828]">{t('nav.more', 'Autres sections')}</span>
             <button
@@ -114,7 +122,7 @@ export function MobileNav({
                   setMoreOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-colors ${
-                  active ? "bg-blue-50 text-[#0D83DE]" : "text-[#344054] hover:bg-[#F9FAFB]"
+                  active ? "bg-brand-50 text-brand-700" : "text-[#344054] hover:bg-[#F9FAFB]"
                 }`}
               >
                 <Icon size={18} />
@@ -139,7 +147,7 @@ export function MobileNav({
                     text: t('logout.confirm', 'Êtes-vous sûr de vouloir vous déconnecter ?'),
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonColor: '#0D83DE',
+                    confirmButtonColor: '#245A83',
                     cancelButtonColor: '#6B7280',
                     confirmButtonText: t('common.yes', 'Oui'),
                     cancelButtonText: t('common.no', 'Non'),
@@ -162,7 +170,7 @@ export function MobileNav({
       )}
 
       <nav
-        className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-[#E4E7EC] bg-white/95 backdrop-blur-md safe-bottom no-print"
+        className="mobile-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-[#E4E7EC] bg-white/95 backdrop-blur-md safe-bottom no-print"
         aria-label={t('nav.mainNav', 'Navigation principale')}
       >
         <div className="flex items-stretch justify-around px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
@@ -175,7 +183,7 @@ export function MobileNav({
                 type="button"
                 onClick={() => onNavigate(item.id)}
                 className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 px-1 min-w-0 rounded-xl transition-colors ${
-                  active ? "text-[#0D83DE]" : "text-[#667085]"
+                  active ? "text-[#245A83]" : "text-[#667085]"
                 }`}
               >
                 <Icon size={20} strokeWidth={active ? 2.5 : 2} />
@@ -186,8 +194,10 @@ export function MobileNav({
           <button
             type="button"
             onClick={() => setMoreOpen((o) => !o)}
+              aria-expanded={moreOpen}
+              aria-controls="mobile-more-menu"
             className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 px-1 min-w-0 rounded-xl transition-colors ${
-              moreActive || moreOpen ? "text-[#0D83DE]" : "text-[#667085]"
+              moreActive || moreOpen ? "text-[#245A83]" : "text-[#667085]"
             }`}
           >
             <Menu size={20} strokeWidth={moreActive || moreOpen ? 2.5 : 2} />

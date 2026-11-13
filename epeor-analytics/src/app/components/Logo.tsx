@@ -11,23 +11,23 @@ interface Props {
   alt?: string;
 }
 
-export default function Logo({ variant = "default", className = "", alt = "EPEOR" }: Props) {
-  let sizeCls = "h-8 w-8";
+export default function Logo({ variant = "default", className = "", alt = "Logo de l'Algérienne des Eaux" }: Props) {
+  let sizeCls = "h-auto w-10";
   switch (variant) {
     case "login":
-      sizeCls = "h-10 w-10";
+      sizeCls = "h-auto w-10";
       break;
     case "sidebar":
-      sizeCls = "w-8 h-8";
+      sizeCls = "h-auto w-8";
       break;
     case "mobile":
-      sizeCls = "w-7 h-7";
+      sizeCls = "h-auto w-7";
       break;
     case "small":
-      sizeCls = "w-6 h-6";
+      sizeCls = "h-auto w-6";
       break;
     default:
-      sizeCls = "h-8 w-8";
+      sizeCls = "h-auto w-10";
   }
 
   return (
@@ -35,8 +35,8 @@ export default function Logo({ variant = "default", className = "", alt = "EPEOR
       src="/logo.png"
       alt={alt}
       className={`${sizeCls} object-contain ${className}`.trim()}
-      width={40}
-      height={40}
+      width={64}
+      height={64}
       priority
       role="img"
       aria-hidden={alt ? undefined : true}

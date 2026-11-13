@@ -352,7 +352,7 @@ export function DossierJuridiquePanel({
           <style>
             @page { size: A4 portrait; margin: 10mm; }
             html, body { width: 190mm; height: 277mm; margin: 0; padding: 0; }
-            body { font-family: Inter, sans-serif; color: #111827; padding: 10px; font-size: 10px; line-height: 1.25; }
+            body { font-family: Manrope, sans-serif; color: #111827; padding: 10px; font-size: 10px; line-height: 1.25; }
             h1, h2, h3 { margin: 0 0 10px; }
             .print-header { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
             .print-header div { line-height: 1.2; }

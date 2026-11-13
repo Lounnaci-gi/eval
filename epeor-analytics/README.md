@@ -7,7 +7,7 @@ Tableau de bord d'analyse pour les données EPEOR. Stack : **Next.js** (frontend
 - Node.js 20+
 - Python 3.11+ avec venv à la racine du dépôt : `d:\eval\.venv`
 - Dossier de données EPEOR (export base locale), par défaut `d:\epeor`
-- Logo optionnel : placer `ade.png` dans `public/` pour les exports PDF
+- Logos : `logo.png` pour l’interface et `ade.png` pour les impressions et exports
 
 ## Installation
 
@@ -112,6 +112,6 @@ epeor-analytics/
   backend/main.py    # API FastAPI
   backend/cache/     # Cache .pkl (ignoré par git)
   src/app/page.tsx   # Interface principale
-  public/ade.png     # Logo PDF (à fournir)
+  public/logo.png    # Logo utilisé dans l’interface et les exports
   start.bat          # Lancement Windows
 ```

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 import {
   Brush,
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -61,7 +62,7 @@ export function NominativeTable({ subscribers, loading, accentColor = "blue", co
   };
 
   const accentMap: any = {
-    blue: { spinner: "border-[#0D83DE]", badge: "bg-blue-50 text-[#0D83DE] border-blue-200", dot: "bg-[#0D83DE]" },
+    blue: { spinner: "border-[#245A83]", badge: "bg-blue-50 text-[#245A83] border-blue-200", dot: "bg-[#245A83]" },
     rose: { spinner: "border-rose-500", badge: "bg-rose-50 text-rose-600 border-rose-200", dot: "bg-rose-500" },
     amber: { spinner: "border-amber-500", badge: "bg-amber-50 text-amber-600 border-amber-200", dot: "bg-amber-500" },
     cyan: { spinner: "border-cyan-500", badge: "bg-cyan-50 text-cyan-600 border-cyan-200", dot: "bg-cyan-500" },
@@ -100,7 +101,7 @@ export function NominativeTable({ subscribers, loading, accentColor = "blue", co
               </div>
               <div className="flex justify-between items-center gap-3">
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Tournée</span>
-                <span className="text-[12px] font-bold text-[#0D83DE]">{hoveredSub.tournee ? `T-${hoveredSub.tournee}` : '—'}</span>
+                <span className="text-[12px] font-bold text-[#245A83]">{hoveredSub.tournee ? `T-${hoveredSub.tournee}` : '—'}</span>
               </div>
               <div className="flex justify-between items-center gap-3">
                 <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">N° Série</span>
@@ -154,16 +155,37 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   const [sortKey, setSortKey] = useState<string>('numab');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [filterText, setFilterText] = useState('');
+  const subscriberSearchRef = useRef<HTMLInputElement | null>(null);
   const [selectedSubForInvoices, setSelectedSubForInvoices] = useState<any>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoicePage, setInvoicePage] = useState(1);
   const [invoiceFilter, setInvoiceFilter] = useState<'ALL' | 'PAID' | 'UNPAID'>('ALL');
   const [invoiceChartTab, setInvoiceChartTab] = useState<'amount' | 'volume'>('amount');
+  const [hoveredInvoicePeriod, setHoveredInvoicePeriod] = useState<string | null>(null);
   const INVOICES_PER_PAGE = 20;
+
+  useEffect(() => {
+    const applyQueuedSearch = () => {
+      try {
+      const queuedSearch = window.sessionStorage.getItem('epeor:subscriber-search');
+      if (queuedSearch === null) return;
+      window.sessionStorage.removeItem('epeor:subscriber-search');
+      setFilterText(queuedSearch);
+      requestAnimationFrame(() => subscriberSearchRef.current?.focus());
+      } catch {
+        // The subscriber list remains usable when session storage is unavailable.
+      }
+    };
+
+    applyQueuedSearch();
+    window.addEventListener('epeor:subscriber-search', applyQueuedSearch);
+    return () => window.removeEventListener('epeor:subscriber-search', applyQueuedSearch);
+  }, []);
 
   const handleRowClick = async (sub: any) => {
     setSelectedSubForInvoices(sub);
+    setHoveredInvoicePeriod(null);
     if (onInvoiceViewChange) onInvoiceViewChange(true);
     setLoadingInvoices(true);
     setInvoicePage(1);
@@ -303,7 +325,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
     const chartDataKey = isAmountChart ? 'amount' : 'volume';
     const chartName = isAmountChart ? 'Montant TTC' : "Volume d'eau";
     const chartUnit = isAmountChart ? 'DA' : 'm³';
-    const chartColor = isAmountChart ? '#0D83DE' : '#0F766E';
+    const chartColor = isAmountChart ? '#245A83' : '#0F766E';
 
     const parseInvoiceDate = (value: unknown) => {
       const rawDate = String(value ?? '').trim();
@@ -383,7 +405,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
 
       try {
         const logoImg = await loadImage("/ade.png");
-        doc.addImage(logoImg, "PNG", 40, 25, 150, 45);
+        doc.addImage(logoImg, "PNG", 40, 25, 150, 40);
       } catch (e) {
         console.error("Failed to load logo, falling back to text:", e);
         doc.setFont("helvetica", "bold");
@@ -507,7 +529,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                 id="invoice-filter"
                 value={invoiceFilter}
                 onChange={(e) => { setInvoiceFilter(e.target.value as any); setInvoicePage(1); }}
-                className="pl-3 pr-9 py-1.5 bg-white border border-[#D0D5DD] rounded-lg text-xs font-bold text-[#101828] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/20 focus:border-[#0D83DE] transition-all cursor-pointer appearance-none"
+                className="pl-3 pr-9 py-1.5 bg-white border border-[#D0D5DD] rounded-lg text-xs font-bold text-[#101828] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#245A83]/20 focus:border-[#245A83] transition-all cursor-pointer appearance-none"
               >
                 <option value="ALL">Toutes les factures</option>
                 <option value="PAID">Factures payées</option>
@@ -588,9 +610,14 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                   const isPaid = inv.DATREG && inv.DATREG.trim() !== '' && inv.DATREG !== '00000000' && inv.DATREG !== '19000101';
                   const paymentDelay = paymentDelayByInvoice.get(inv);
                   return (
-                    <tr key={i} className="hover:bg-[#F9FAFB] transition-colors">
+                    <tr
+                      key={i}
+                      onMouseEnter={() => setHoveredInvoicePeriod(formatDatFact(inv.DATFACT, inv.PERIODE))}
+                      onMouseLeave={() => setHoveredInvoicePeriod(null)}
+                      className={`transition-colors ${hoveredInvoicePeriod === formatDatFact(inv.DATFACT, inv.PERIODE) ? 'bg-signal-50' : 'hover:bg-[#F9FAFB]'}`}
+                    >
                       <td className="px-6 py-4 font-bold text-[13px] text-[#101828]">{formatDatFact(inv.DATFACT, inv.PERIODE)}</td>
-                      <td className="px-6 py-4 font-medium text-[13px] text-[#0D83DE] font-mono">{formatInvoiceRef(inv.DATFACT, inv.TYPE)}</td>
+                      <td className="px-6 py-4 font-medium text-[13px] text-[#245A83] font-mono">{formatInvoiceRef(inv.DATFACT, inv.TYPE)}</td>
                       <td className="px-6 py-4 font-medium text-[13px] text-[#667085]">{inv.TYPE || '---'}</td>
                       <td className="px-6 py-4 font-black text-[13px] text-[#101828] text-right">{inv.MONTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA</td>
                       <td className="px-6 py-4 font-bold text-[12px] text-right text-[#475467]">
@@ -691,7 +718,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                   aria-selected={isAmountChart}
                   aria-controls="invoice-chart-panel"
                   onClick={() => setInvoiceChartTab('amount')}
-                  className={`rounded-md px-3 py-2 text-xs font-bold transition-colors ${isAmountChart ? 'bg-white text-[#0D83DE] shadow-sm' : 'text-[#667085] hover:text-[#101828]'}`}
+                  className={`rounded-md px-3 py-2 text-xs font-bold transition-colors ${isAmountChart ? 'bg-white text-[#245A83] shadow-sm' : 'text-[#667085] hover:text-[#101828]'}`}
                 >
                   Montant (DA)
                 </button>
@@ -711,7 +738,12 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             <div id="invoice-chart-panel" role="tabpanel" aria-labelledby={isAmountChart ? 'invoice-chart-amount-tab' : 'invoice-chart-volume-tab'} className="overflow-x-auto">
               <div style={{ minWidth: Math.max(680, invoiceChartData.length * 52) }}>
                 <ResponsiveContainer width="100%" height={320} minWidth={0}>
-                  <ComposedChart data={invoiceChartData} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
+                  <ComposedChart
+                    data={invoiceChartData}
+                    margin={{ top: 8, right: 12, left: 8, bottom: 8 }}
+                    onMouseMove={(state: any) => setHoveredInvoicePeriod(typeof state?.activeLabel === 'string' ? state.activeLabel : null)}
+                    onMouseLeave={() => setHoveredInvoicePeriod(null)}
+                  >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2F4F7" />
                     <XAxis
                       dataKey="period"
@@ -736,6 +768,9 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                       ]}
                     />
                     <Brush dataKey="period" height={22} stroke="#98A2B3" travellerWidth={10} />
+                    {hoveredInvoicePeriod && (
+                      <ReferenceLine x={hoveredInvoicePeriod} stroke="#C66A3D" strokeDasharray="4 4" />
+                    )}
                     <Line
                       yAxisId={chartDataKey}
                       type="monotone"
@@ -793,11 +828,11 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           <meta charset="utf-8" />
           <title>Abonnés sélectionnés</title>
           <style>
-            body { font-family: Arial, sans-serif; color: #101828; margin: 24px; font-size: 11px; }
+            body { font-family: 'Manrope', 'Segoe UI', sans-serif; color: #101828; margin: 24px; font-size: 11px; }
             .print-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 2px solid #F2F4F7; padding-bottom: 16px; margin-bottom: 18px; }
             .logo-section { display: flex; align-items: center; gap: 12px; }
             .logo-section img { height: 40px; width: auto; object-fit: contain; }
-            .brand-name { color: #0D83DE; font-size: 14px; font-weight: 900; }
+            .brand-name { color: #245A83; font-size: 14px; font-weight: 900; }
             .company-name { color: #667085; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
             .title-section { text-align: right; }
             h1 { font-size: 18px; margin: 0 0 6px; }
@@ -850,13 +885,13 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
       >
         <span className="inline-flex items-center gap-1.5">
           {align === 'right' && (
-            <span className={`text-[10px] transition-colors ${active ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+            <span className={`text-[10px] transition-colors ${active ? 'text-[#245A83]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
               {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
             </span>
           )}
-          <span className={`transition-colors ${active ? 'text-[#0D83DE]' : 'group-hover:text-[#101828]'}`}>{label}</span>
+          <span className={`transition-colors ${active ? 'text-[#245A83]' : 'group-hover:text-[#101828]'}`}>{label}</span>
           {align !== 'right' && (
-            <span className={`text-[10px] transition-colors ${active ? 'text-[#0D83DE]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
+            <span className={`text-[10px] transition-colors ${active ? 'text-[#245A83]' : 'text-[#D0D5DD] group-hover:text-[#98A2B3]'}`}>
               {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
             </span>
           )}
@@ -876,8 +911,11 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             </svg>
           </div>
           <input
+            ref={subscriberSearchRef}
+            aria-label="Rechercher un abonné"
+            data-testid="subscriber-search"
             type="text"
-            className="block w-full pl-9 pr-3 py-2 border border-[#E4E7EC] rounded-xl text-sm font-medium focus:ring-2 focus:ring-[#0D83DE]/20 focus:border-[#0D83DE] outline-none transition-all placeholder-[#98A2B3]"
+            className="block w-full pl-9 pr-3 py-2 border border-[#E4E7EC] rounded-xl text-sm font-medium focus:ring-2 focus:ring-[#245A83]/20 focus:border-[#245A83] outline-none transition-all placeholder-[#98A2B3]"
             placeholder="Rechercher un abonné (Nom, N° série...)"
             value={filterText}
             onChange={(e) => {
@@ -890,7 +928,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           type="button"
           onClick={handlePrintSelected}
           disabled={selectedSubscribers.length === 0}
-          className="no-print inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#0D83DE] hover:bg-[#0B74C9] active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:bg-[#D0D5DD] disabled:text-[#667085] disabled:shadow-none disabled:cursor-not-allowed"
+          className="no-print inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#245A83] hover:bg-[#1F4D70] active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:bg-[#D0D5DD] disabled:text-[#667085] disabled:shadow-none disabled:cursor-not-allowed"
           title={selectedSubscribers.length > 0 ? "Imprimer uniquement les abonnés sélectionnés" : "Cochez au moins un abonné pour l'imprimer"}
         >
           <Printer size={14} />
@@ -913,7 +951,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                     }
                   }
                 }}
-                className="w-4 h-4 rounded border-[#D0D5DD] text-[#0D83DE] focus:ring-2 focus:ring-[#0D83DE]/20 cursor-pointer"
+                className="w-4 h-4 rounded border-[#D0D5DD] text-[#245A83] focus:ring-2 focus:ring-[#245A83]/20 cursor-pointer"
               />
             </th>
             <Th label="N° Abonné" field="numab" />
@@ -956,13 +994,13 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
                       }
                     }
                   }}
-                  className="w-4 h-4 rounded border-[#D0D5DD] text-[#0D83DE] focus:ring-2 focus:ring-[#0D83DE]/20 cursor-pointer"
+                  className="w-4 h-4 rounded border-[#D0D5DD] text-[#245A83] focus:ring-2 focus:ring-[#245A83]/20 cursor-pointer"
                 />
               </td>
               <td className="px-6 py-4 font-black text-[13px] text-[#101828] whitespace-nowrap cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.numab}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#101828] min-w-[200px] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.name}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#667085] min-w-[200px] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.adresse}</td>
-              <td className="px-6 py-4 font-bold text-[13px] text-[#0D83DE] whitespace-nowrap cursor-pointer" onClick={() => handleRowClick(sub)}>T-{sub.tournee}</td>
+              <td className="px-6 py-4 font-bold text-[13px] text-[#245A83] whitespace-nowrap cursor-pointer" onClick={() => handleRowClick(sub)}>T-{sub.tournee}</td>
               <td className="px-4 py-4 font-medium text-[13px] text-[#667085] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.bloc}</td>
               <td className="px-4 py-4 font-medium text-[13px] text-[#667085] cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.ndom}</td>
               <td className="px-6 py-4 font-medium text-[13px] text-[#475467] whitespace-nowrap cursor-pointer" onClick={() => handleRowClick(sub)}>{sub.numser}</td>
@@ -997,7 +1035,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           <p className="text-xs font-bold text-[#667085]">
             Affichage {start + 1}–{Math.min(start + ITEMS_PER_PAGE, total)} sur{" "}
             <span className="text-[#101828]">{total}</span> abonnés
-            {sortKey && <span className="ml-2 text-[#0D83DE]">· Trié par {sortKey} ({sortDir === 'asc' ? '↑ ASC' : '↓ DESC'})</span>}
+            {sortKey && <span className="ml-2 text-[#245A83]">· Trié par {sortKey} ({sortDir === 'asc' ? '↑ ASC' : '↓ DESC'})</span>}
           </p>
           <div className="flex items-center gap-2">
             <button

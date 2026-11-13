@@ -20,8 +20,9 @@ import { useTranslation } from "react-i18next";
 import dynamic from "next/dynamic";
 import Swal from "sweetalert2";
 import {
-  Users, UserX, TimerOff, Ban, CreditCard, TrendingUp, ArrowRight,
-  ChevronRight, Percent, User, Lock, Eye, EyeOff,
+  Users, UserX, TimerOff, Ban, CreditCard, TrendingUp,
+  ChevronRight, Percent, User, Lock, Eye, EyeOff, Database, LoaderCircle,
+  CircleAlert, RefreshCw, FolderCog, Clock3,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
@@ -42,6 +43,7 @@ import { StatsCard } from "./dashboard-ui";
 import { FloatingExpandableSidebar } from "./FloatingExpandableSidebar";
 import { SettingsView } from "./SettingsView";
 import { MobileNav, MobileTopBar } from "./MobileNav";
+import { CommandPalette } from "./CommandPalette";
 import type { AppView } from "./app-view";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -266,7 +268,7 @@ export default function Dashboard() {
       text: t('logout.confirm', 'Êtes-vous sûr de vouloir vous déconnecter ?'),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#0D83DE',
+      confirmButtonColor: '#245A83',
       cancelButtonColor: '#6B7280',
       confirmButtonText: t('common.yes', 'Oui'),
       cancelButtonText: t('common.no', 'Non'),
@@ -430,8 +432,8 @@ export default function Dashboard() {
 
   if (stats?.error && isBackendConnectionError(stats)) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
-        <div className="bg-white border border-rose-100 shadow-2xl rounded-2xl sm:rounded-[3rem] p-6 sm:p-16 flex flex-col items-center gap-6 max-w-md w-full text-center mx-4">
+      <div className="status-screen flex min-h-screen flex-col items-center justify-center p-4 sm:p-8">
+        <div className="status-card flex w-full max-w-md flex-col items-center gap-6 p-6 text-center sm:p-10">
           <Ban size={48} className="text-rose-500" />
           <h1 className="text-2xl font-black text-[#101828]">Connexion impossible</h1>
           <p className="text-sm text-[#475467] font-medium">{stats.error}</p>
@@ -443,30 +445,22 @@ export default function Dashboard() {
 
   if (authChecked && user === null && backendReachable) {
     return (
-      <div className="relative min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,131,222,0.06),_transparent_55%),#F9FAFB] dark:bg-[radial-gradient(circle_at_top,_rgba(13,131,222,0.15),_transparent_55%),#080C14] flex items-center justify-center p-4 sm:p-8 overflow-hidden font-sans">
-        {/* Ambient Decorative Blurry Blobs */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#0D83DE]/8 dark:bg-[#0D83DE]/15 blur-[120px] animate-float-slow pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#00D1FF]/8 dark:bg-[#00D1FF]/15 blur-[120px] animate-float-delayed pointer-events-none" />
-
-        {/* Global actions top header */}
-        <div className="absolute top-4 right-4 flex items-center gap-3 z-10 bg-white/40 dark:bg-[#071127]/40 backdrop-blur-md p-1.5 rounded-full border border-white/20 dark:border-white/5 shadow-sm">
+      <div className="login-shell relative flex min-h-screen items-center justify-center overflow-hidden p-4 pt-20 sm:p-8">
+        <div className="login-toolbar absolute end-4 top-4 z-10 flex items-center gap-2 rounded-xl border p-1.5 sm:end-8 sm:top-8">
           <LanguageSwitcher />
           <ThemeToggle />
         </div>
 
-        {/* Login Container */}
-        <div className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] border border-white/30 dark:border-white/5 bg-white/70 dark:bg-[#071127]/70 backdrop-blur-2xl shadow-[0_32px_64px_-12px_rgba(16,24,40,0.18)] dark:shadow-[0_32px_64px_-12px_rgba(2,6,23,0.6)]">
-          {/* Top Gradient bar */}
-          <div className="h-1.5 w-full bg-gradient-to-r from-brand-400 via-brand-500 to-[#00D1FF]" />
+        <div className="login-card relative w-full max-w-md overflow-hidden">
+          <div className="login-brand-band h-1 w-full" />
 
-          {/* Header section */}
-          <div className="px-8 pt-8 pb-6 text-center">
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-white dark:bg-[#081225] shadow-[0_8px_16px_-4px_rgba(16,24,40,0.06)] dark:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.4)] border border-slate-100 dark:border-white/10 transition-all duration-500 hover:scale-105 hover:rotate-3">
-              <Logo variant="login" alt="EPEOR logo" className="h-10 w-10" />
+          <div className="px-8 pb-6 pt-8 text-center">
+            <div className="mx-auto mb-5 flex w-fit items-center justify-center rounded-lg border border-[#DDE5E8] bg-white p-2 dark:border-slate-700">
+              <Logo variant="login" />
             </div>
             
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">EPEOR Insights</h1>
-            <p className="mt-2 text-sm text-[#475467] dark:text-slate-400 font-medium">
+            <h1 className="text-2xl font-bold tracking-tight text-[#26313A] dark:text-slate-100">EPEOR Analytics</h1>
+            <p className="mt-2 text-sm font-medium text-[#56636D] dark:text-slate-400">
               Accédez au tableau de bord en toute sécurité.
             </p>
           </div>
@@ -599,7 +593,7 @@ export default function Dashboard() {
             className="space-y-5"
           >
             <div>
-              <label className="block text-xs font-black uppercase tracking-[0.15em] text-[#98A2B3] dark:text-slate-400 mb-2">
+              <label className="mb-2 block text-sm font-semibold text-[#56636D] dark:text-slate-300">
                 Nom d'utilisateur
               </label>
               <div className="relative group">
@@ -619,7 +613,7 @@ export default function Dashboard() {
             </div>
 
             <div>
-              <label className="block text-xs font-black uppercase tracking-[0.15em] text-[#98A2B3] dark:text-slate-400 mb-2">
+              <label className="mb-2 block text-sm font-semibold text-[#56636D] dark:text-slate-300">
                 Mot de passe
               </label>
               <div className="relative group">
@@ -649,7 +643,7 @@ export default function Dashboard() {
             <button
               type="submit"
               disabled={loginPending || (loginCountdown !== null && loginCountdown > 0)}
-              className="relative overflow-hidden group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-3.5 text-sm font-black text-white transition-all duration-300 hover:from-brand-600 hover:to-brand-700 hover:shadow-lg hover:shadow-brand-500/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+              className="group flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-3.5 text-sm font-bold text-white transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loginPending ? (
                 <div className="spinner-premium" style={{ width: 20, height: 20 }} />
@@ -658,13 +652,12 @@ export default function Dashboard() {
               ) : (
                 <>
                   <span>Se connecter</span>
-                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1 rtl-flip" />
                 </>
               )}
             </button>
           </form>
 
-          <p className="mt-8 text-center text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold">
+          <p className="mt-8 text-center text-xs text-[#66757C] dark:text-slate-500">
             EPEOR Analytics &copy; {new Date().getFullYear()}
           </p>
 
@@ -676,10 +669,10 @@ export default function Dashboard() {
 
   if (needsDataPathConfig || showDataPathSetup) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] text-[#101828]">
-        <div className="border-b border-[#E4E7EC] bg-white shadow-sm">
+      <div className="status-screen min-h-screen text-[#101828]">
+        <div className="border-b border-[#E4E7EC] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="max-w-4xl mx-auto px-6 py-5 flex items-center gap-4">
-            <div className="w-11 h-11 bg-[#0D83DE] rounded-2xl flex items-center justify-center text-white font-black text-sm">
+            <div className="w-11 h-11 bg-[#245A83] rounded-2xl flex items-center justify-center text-white font-black text-sm">
               E
             </div>
             <div>
@@ -731,67 +724,110 @@ export default function Dashboard() {
       (typeof stats?.message === 'string' && stats.message.includes('Aucune donnée chargée'));
 
     return (
-      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
-        <div className="bg-white border border-[#E4E7EC] shadow-2xl rounded-2xl sm:rounded-[3rem] p-6 sm:p-16 flex flex-col items-center gap-8 max-w-lg w-full text-center mx-4">
-          {!isLoadError && (
-            <div className="relative">
-              <div className="spinner-premium" style={{ width: 96, height: 96 }}></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[10px] font-black text-brand-600 uppercase tracking-widest animate-pulse">EPEOR</span>
-              </div>
+      <div className="status-screen relative flex min-h-screen flex-col overflow-hidden text-[#101828]">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_12%_0%,rgba(30,64,175,0.09),transparent_34rem),radial-gradient(ellipse_at_94%_94%,rgba(217,119,6,0.035),transparent_30rem)]" />
+        <header className="relative z-10 flex items-center justify-between border-b border-[#E4E7EC] bg-white/80 px-5 py-4 backdrop-blur sm:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+              <Database size={19} strokeWidth={2.2} />
             </div>
-          )}
-          {isLoadError && <Ban size={48} className="text-amber-500" />}
-          <div className="space-y-4">
-            <h1 className="text-2xl font-black text-[#101828] tracking-tight">
-              {isLoadError ? t('loading.errorTitle') : t('loading.title')}
-            </h1>
-            <p className="text-sm text-[#475467] font-medium min-h-[40px] flex items-center justify-center text-left w-full">
-              {sanitizeUserFacingMessage(stats?.message || stats?.error) || t('loading.connecting')}
-            </p>
-            {/* data directory display removed per request */}
+            <div>
+              <p className="text-sm font-extrabold tracking-tight text-[#101828]">EPEOR Analytics</p>
+              <p className="text-xs font-medium text-[#667085]">{t('loading.systemLabel')}</p>
+            </div>
           </div>
-          {!isLoadError && (
-            <>
-              <div className="w-full bg-[#F2F4F7] rounded-full h-1.5 overflow-hidden">
-                <div className="bg-brand-600 h-full animate-pulse w-full rounded-full"></div>
+          <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold ${isLoadError ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-brand-200 bg-brand-50 text-brand-700'}`}>
+            <span className={`h-2 w-2 rounded-full ${isLoadError ? 'bg-amber-500' : 'animate-pulse bg-brand-600'}`} />
+            {isLoadError ? t('loading.statusError') : t('loading.statusLoading')}
+          </span>
+        </header>
+
+        <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 items-center px-4 py-8 sm:px-8 sm:py-12">
+          <section className="status-card grid w-full overflow-hidden lg:grid-cols-[1.25fr_0.75fr]">
+            <div className="p-6 sm:p-10 lg:p-12">
+              <div className="mb-8 flex items-center gap-4">
+                <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${isLoadError ? 'bg-amber-100 text-amber-700' : 'bg-brand-50 text-brand-700'}`}>
+                  {isLoadError ? <CircleAlert size={27} /> : <LoaderCircle size={28} className="animate-spin" />}
+                </div>
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#475467]">
+                    {isLoadError ? t('loading.statusError') : t('loading.cacheLabel')}
+                  </p>
+                  <h1 className="mt-1 text-2xl font-extrabold leading-tight text-[#101828] sm:text-3xl">
+                    {isLoadError ? t('loading.errorTitle') : t('loading.title')}
+                  </h1>
+                </div>
               </div>
-              <p className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">
-                {t('loading.cacheHint')}
+
+              <div className="rounded-2xl border border-[#E4E7EC] bg-[#F9FAFB] p-4 sm:p-5">
+                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#667085]">
+                  {t('loading.messageLabel')}
+                </p>
+                <p aria-live="polite" className="text-sm font-semibold leading-6 text-[#344054]">
+                  {sanitizeUserFacingMessage(stats?.message || stats?.error) || t('loading.connecting')}
+                </p>
+              </div>
+
+              {!isLoadError && (
+                <div className="mt-7" aria-label={t('loading.progressLabel')}>
+                  <div
+                    role="progressbar"
+                    aria-label={t('loading.progressLabel')}
+                    aria-valuetext={t('loading.statusLoading')}
+                    className="h-2 overflow-hidden rounded-full bg-[#EAECF0]"
+                  >
+                    <div className="h-full w-2/5 animate-shimmer rounded-full bg-[linear-gradient(90deg,#1e3a8a,#3b82f6,#1e3a8a)] bg-[length:200%_100%]" />
+                  </div>
+                  <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#667085]">
+                    <Clock3 size={14} />
+                    {t('loading.cacheHint')}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <aside className="flex flex-col justify-center border-t border-[#E4E7EC] bg-[#F8FAFC] p-6 sm:p-10 lg:border-l lg:border-t-0">
+              <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#475467]">
+                {t('loading.actionsLabel')}
               </p>
-            </>
-          )}
-          <div className="flex flex-col gap-3 w-full">
-            <button
-              type="button"
-              onClick={requestDataReload}
-              disabled={reloadPending}
-              className="w-full px-6 py-3 bg-brand-600 text-white rounded-2xl text-sm font-black hover:bg-brand-700 disabled:opacity-50 transition-all"
-            >
-              {reloadPending ? t('loading.reloading') : t('loading.reloadData')}
-            </button>
-            {backendReachable && (
-              <button
-                type="button"
-                onClick={() => setShowDataPathSetup(true)}
-                className="w-full px-6 py-3 bg-white border border-[#D0D5DD] text-[#344054] rounded-2xl text-sm font-black hover:bg-[#F9FAFB] transition-all"
-              >
-                {t('loading.configureFolder')}
-              </button>
-            )}
-            <p className="text-[10px] text-[#98A2B3]">
-              {t('loading.alternativeRestart')}
-            </p>
-          </div>
-        </div>
+              <p className="mt-2 text-sm leading-6 text-[#667085]">
+                {isLoadError ? t('loading.errorActionsHint') : t('loading.loadingActionsHint')}
+              </p>
+              <div className="mt-7 flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={requestDataReload}
+                  disabled={reloadPending}
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RefreshCw size={17} className={reloadPending ? 'animate-spin' : ''} />
+                  {reloadPending ? t('loading.reloading') : t('loading.reloadData')}
+                </button>
+                {backendReachable && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDataPathSetup(true)}
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#D0D5DD] bg-white px-5 py-3 text-sm font-bold text-[#344054] transition-colors hover:border-[#98A2B3] hover:bg-[#F9FAFB] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                  >
+                    <FolderCog size={17} />
+                    {t('loading.configureFolder')}
+                  </button>
+                )}
+              </div>
+            </aside>
+          </section>
+        </main>
+        <footer className="relative z-10 px-5 pb-5 text-center text-xs font-medium text-[#667085]">
+          EPEOR Analytics <span aria-hidden="true">·</span> {new Date().getFullYear()}
+        </footer>
       </div>
     );
   }
 
   if (isRestrictedEmptyData) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-8">
-        <div className="bg-white border border-amber-100 shadow-2xl rounded-2xl sm:rounded-[3rem] p-6 sm:p-16 flex flex-col items-center gap-6 max-w-lg w-full text-center mx-4">
+      <div className="status-screen flex min-h-screen flex-col items-center justify-center p-4 sm:p-8">
+        <div className="status-card mx-4 flex w-full max-w-lg flex-col items-center gap-6 p-6 text-center sm:p-10">
           <Ban size={48} className="text-amber-500" />
           <div className="space-y-3">
             <h1 className="text-2xl font-black text-[#101828] tracking-tight">{t('restricted.title')}</h1>
@@ -806,7 +842,7 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full px-6 py-3 bg-[#0D83DE] text-white rounded-2xl text-sm font-black hover:bg-[#0b72c2] transition-all"
+            className="w-full px-6 py-3 bg-[#245A83] text-white rounded-2xl text-sm font-black hover:bg-[#1F4D70] transition-all"
           >
             {t('restricted.logout')}
           </button>
@@ -816,8 +852,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="app-shell flex min-h-screen min-h-[100dvh] bg-slate-50 text-[#101828] relative">
-      {/* Floating Expandable Sidebar */}
+    <div className="app-shell relative flex min-h-screen min-h-[100dvh] text-[#101828]">
       <FloatingExpandableSidebar
         currentView={currentView}
         setCurrentView={setCurrentView}
@@ -846,9 +881,9 @@ export default function Dashboard() {
         )}
         <header className="app-page-header flex justify-between items-start mb-6 sm:mb-8 lg:mb-10 no-print no-print-charts-only">
           <div className="min-w-0">
-            <p className="app-page-eyebrow">EPEOR ANALYTICS</p>
-            <h1 className="page-title text-[#101828]">{t('dashboard.greeting', { name: user?.username || 'Admin' })}</h1>
-            <p className="text-[#475467] mt-2 text-sm sm:text-base">{t('dashboard.subtitle')}</p>
+            <p className="app-page-eyebrow">Vue d’ensemble</p>
+            <h1 className="page-title">{t('dashboard.greeting', { name: user?.username || 'Admin' })}</h1>
+            <p className="app-page-subtitle mt-2 text-sm sm:text-base">{t('dashboard.subtitle')}</p>
           </div>
         </header>
 
@@ -860,7 +895,7 @@ export default function Dashboard() {
               <StatsCard
                 title={t('kpi.totalSubscribers')}
                 value={stats?.total_subscribers?.toLocaleString() || "..."}
-                icon={<Users className="text-[#0D83DE]" size={24} />}
+                icon={<Users className="text-[#245A83]" size={24} />}
                 color="blue"
                 onClick={() => setCurrentView('details')}
               />
@@ -922,14 +957,14 @@ export default function Dashboard() {
                     onMouseEnter={() => setShowChartGuide(true)}
                     onMouseLeave={() => setShowChartGuide(false)}
                   >
-                    <h3 className="text-xl font-black tracking-tight text-[#101828] hover:text-[#0D83DE] transition-colors">
+                    <h3 className="text-xl font-black tracking-tight text-[#101828] hover:text-[#245A83] transition-colors">
                       {t('charts.sectorDistribution')}
                     </h3>
                   </div>
                 </div>
                 <ChartContainer className="h-[260px] sm:h-[320px] lg:h-[350px] w-full min-w-0">
                     <BarChart data={stats?.subscriber_sectors || []} margin={{ top: 30, right: 10, left: -20, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F7" vertical={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--color-border))" vertical={false} />
                       <XAxis
                         dataKey="name"
                         axisLine={false}
@@ -942,15 +977,15 @@ export default function Dashboard() {
                       />
                       <YAxis hide />
                       <Tooltip
-                        cursor={{ fill: '#F9FAFB' }}
+                        cursor={{ fill: 'rgb(var(--color-bg-tertiary))' }}
                         contentStyle={{
-                          backgroundColor: "#101828",
-                          border: "none",
-                          borderRadius: "12px",
-                          color: "#fff",
+                          backgroundColor: "rgb(var(--color-bg-secondary))",
+                          border: "1px solid rgb(var(--color-border-strong))",
+                          borderRadius: "10px",
+                          color: "rgb(var(--color-text-primary))",
                           fontSize: '12px'
                         }}
-                        itemStyle={{ color: "#fff" }}
+                        itemStyle={{ color: "rgb(var(--color-text-primary))" }}
                         formatter={(value: any, name: any) => [
                           `${value.toLocaleString()} ${t('kpi.subscribers')}`,
                           name === "value" ? t('charts.active') : t('charts.resigned')
@@ -965,7 +1000,7 @@ export default function Dashboard() {
                       <Bar
                         dataKey="value"
                         name={t('charts.active')}
-                        fill="#0D83DE"
+                        fill="#245A83"
                         radius={[4, 4, 0, 0]}
                         barSize={40}
                       >
@@ -977,8 +1012,8 @@ export default function Dashboard() {
                               const { x, y, width, value } = props;
                               return (
                                 <g>
-                                  <path d={`M${x + width / 2} ${y - 5} L${x + width / 2 - 5} ${y - 15} L${x + width / 2 + 5} ${y - 15} Z`} fill="#0D83DE" />
-                                  <text x={x + width / 2} y={y - 20} fill="#0D83DE" fontSize={10} fontWeight="bold" textAnchor="middle">
+                                  <path d={`M${x + width / 2} ${y - 5} L${x + width / 2 - 5} ${y - 15} L${x + width / 2 + 5} ${y - 15} Z`} fill="#245A83" />
+                                  <text x={x + width / 2} y={y - 20} fill="#245A83" fontSize={10} fontWeight="bold" textAnchor="middle">
                                     {value.toLocaleString()}
                                   </text>
                                 </g>
@@ -990,7 +1025,7 @@ export default function Dashboard() {
                       <Bar
                         dataKey="resigned"
                         name={t('charts.resigned')}
-                        fill="#E11D48"
+                        fill="#B42318"
                         radius={[4, 4, 0, 0]}
                         barSize={40}
                       >
@@ -1002,8 +1037,8 @@ export default function Dashboard() {
                               const { x, y, width, value } = props;
                               return (
                                 <g>
-                                  <path d={`M${x + width / 2} ${y - 5} L${x + width / 2 - 5} ${y - 15} L${x + width / 2 + 5} ${y - 15} Z`} fill="#E11D48" />
-                                  <text x={x + width / 2} y={y - 20} fill="#E11D48" fontSize={10} fontWeight="bold" textAnchor="middle">
+                                  <path d={`M${x + width / 2} ${y - 5} L${x + width / 2 - 5} ${y - 15} L${x + width / 2 + 5} ${y - 15} Z`} fill="#B42318" />
+                                  <text x={x + width / 2} y={y - 20} fill="#B42318" fontSize={10} fontWeight="bold" textAnchor="middle">
                                     {value.toLocaleString()}
                                   </text>
                                 </g>
@@ -1029,7 +1064,7 @@ export default function Dashboard() {
                 aria-label={t('charts.sectors')}
                 className="obat-card dashboard-chart-card lg:col-span-3 p-4 sm:p-6 lg:p-7 text-obat-gray cursor-pointer hover:-translate-y-0.5 group min-w-0"
               >
-                <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#0D83DE] transition-colors">{t('charts.sectors')}</h3>
+                <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#245A83] transition-colors">{t('charts.sectors')}</h3>
                 <ChartContainer className="h-[260px] sm:h-[320px] lg:h-[350px] w-full min-w-0">
                     <PieChart>
                       <Pie
@@ -1039,30 +1074,30 @@ export default function Dashboard() {
                         outerRadius={120}
                         paddingAngle={2}
                         dataKey="value"
-                        stroke="#fff"
+                        stroke="rgb(var(--color-bg-secondary))"
                         strokeWidth={2}
                         label={({ name, percent }) => percent !== undefined ? `${name} ${(percent * 100).toFixed(0)}%` : name}
                       >
                         {(stats?.subscriber_sectors || []).map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={[
-                            '#0D83DE', // Blue
-                            '#00D1FF', // Cyan
-                            '#0891B2', // Teal
-                            '#10B981', // Emerald
-                            '#F59E0B', // Amber
-                            '#E11D48', // Rose
+                            '#245A83',
+                            '#147D78',
+                            '#C66A3D',
+                            '#18794E',
+                            '#B7791F',
+                            '#7C627D',
                           ][index % 6]} />
                         ))}
                       </Pie>
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#101828",
-                          border: "none",
-                          borderRadius: "12px",
-                          color: "#fff",
+                          backgroundColor: "rgb(var(--color-bg-secondary))",
+                          border: "1px solid rgb(var(--color-border-strong))",
+                          borderRadius: "10px",
+                          color: "rgb(var(--color-text-primary))",
                           fontSize: '12px'
                         }}
-                        itemStyle={{ color: "#fff" }}
+                        itemStyle={{ color: "rgb(var(--color-text-primary))" }}
                         formatter={(value: any, name: any, props: any) => [
                           `${value.toLocaleString()} (${props.payload.percentage}%)`,
                           name
@@ -1283,7 +1318,7 @@ export default function Dashboard() {
                         Analyse des factures et des abonnés selon les filtres de la synthèse globale.
                       </p>
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100">
-                        <div className="h-full w-1/3 rounded-full bg-[#0D83DE] animate-pulse" />
+                        <div className="h-full w-1/3 rounded-full bg-[#245A83] animate-pulse" />
                       </div>
                     </div>
                   </div>
@@ -1311,6 +1346,7 @@ export default function Dashboard() {
       </main>
         <MobileNav currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} />
       </div>
+      <CommandPalette onNavigate={setCurrentView} t={t} />
     </div>
   );
 }

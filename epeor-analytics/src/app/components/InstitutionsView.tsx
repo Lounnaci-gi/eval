@@ -1116,9 +1116,9 @@ export function CreancesInstitutionsView({
         <head>
           <title>Créance Institutions</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 40px;
               font-size: 10px;
@@ -1142,7 +1142,7 @@ export function CreancesInstitutionsView({
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin-bottom: 2px;
             }
@@ -1552,13 +1552,13 @@ export function CreancesInstitutionsView({
         <head>
           <title>Détails des Créances par Facture et Trimestre (10 ans)</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 6mm 6mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 10px;
               font-size: 8px;
@@ -1580,7 +1580,7 @@ export function CreancesInstitutionsView({
             .logo-text {
               font-size: 11px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin-bottom: 1px;
             }
@@ -2008,9 +2008,9 @@ export function CreancesInstitutionsView({
         <head>
           <title>Impression Combinaison - ${escapeHtml(combo.label)}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 40px;
               font-size: 10px;
@@ -2034,7 +2034,7 @@ export function CreancesInstitutionsView({
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin-bottom: 2px;
             }
@@ -2090,7 +2090,7 @@ export function CreancesInstitutionsView({
             }
             .comb-banner {
               background-color: #F8F9FA;
-              border-left: 4px solid #0D83DE;
+              border-left: 4px solid #245A83;
               padding: 12px 16px;
               border-radius: 0 8px 8px 0;
               margin-bottom: 20px;
@@ -2282,7 +2282,7 @@ export function CreancesInstitutionsView({
         </div>
 
         {secteurLabel && !dataLoading && (
-          <div className="flex items-center gap-3 mt-6 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE]">
+          <div className="flex items-center gap-3 mt-6 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#245A83]">
             <MapPin size={16} className="shrink-0" />
             <span>
               Données limitées au centre <strong className="font-black">{secteurLabel}</strong>

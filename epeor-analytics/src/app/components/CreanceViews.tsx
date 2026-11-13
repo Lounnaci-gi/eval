@@ -419,10 +419,10 @@ export function CreanceDetailView({
       }).join('');
 
       return `<div style="background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:10px 14px 8px;page-break-inside:avoid;">
-          <div style="font-family:Inter,sans-serif;font-size:10px;font-weight:900;color:#101828;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-family:Manrope,sans-serif;font-size:10px;font-weight:900;color:#101828;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
             <span>${title}</span>
             <span style="display:flex;gap:8px;font-size:8px;font-weight:700;color:#667085;align-items:center;">
-              <span style="display:flex;align-items:center;gap:2px;"><span style="display:inline-block;width:14px;height:2px;background:#0D83DE;border-radius:2px;"></span>Eau</span>
+              <span style="display:flex;align-items:center;gap:2px;"><span style="display:inline-block;width:14px;height:2px;background:#245A83;border-radius:2px;"></span>Eau</span>
               <span style="display:flex;align-items:center;gap:2px;"><span style="display:inline-block;width:14px;height:2px;background:${colorPrest};border-radius:2px;"></span>Prestations</span>
               <span style="display:flex;align-items:center;gap:2px;"><span style="display:inline-block;width:14px;height:0;border-top:2px dashed #10B981;"></span>Total</span>
             </span>
@@ -431,10 +431,10 @@ export function CreanceDetailView({
             ${yTicksSvg}
             ${xTicksSvg}
             <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + chartH}" stroke="#E4E7EC" stroke-width="1"/>
-            ${mkPolyline(keyEau, '#0D83DE')}
+            ${mkPolyline(keyEau, '#245A83')}
             ${mkPolyline(keyPrest, colorPrest)}
             ${mkPolyline(keyTotal, '#10B981', '5 4')}
-            ${mkDots(keyEau, '#0D83DE')}
+            ${mkDots(keyEau, '#245A83')}
             ${mkDots(keyPrest, colorPrest)}
           </svg>
         </div>`;
@@ -487,7 +487,7 @@ export function CreanceDetailView({
       }).join('');
 
       return `<div style="background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:16px 18px 12px;">
-          <div style="font-family:Inter,sans-serif;font-size:12px;font-weight:900;color:#101828;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-family:Manrope,sans-serif;font-size:12px;font-weight:900;color:#101828;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span>Taux Objectif Atteint (%)</span>
             <span style="display:flex;align-items:center;gap:10px;font-size:9px;font-weight:700;color:#F59E0B;">
               <span style="display:inline-block;width:20px;height:2.5px;background:#F59E0B;border-radius:2px;"></span>Taux Objectif &nbsp;
@@ -533,7 +533,7 @@ export function CreanceDetailView({
           <td style="padding:4px 8px;border:1px solid #E4E7EC;text-align:right;white-space:nowrap;color:${Number(row.taux_objectif_atteint)>=90?'#16A34A':'#D97706'};font-weight:700;">${Number(row.taux_objectif_atteint).toFixed(2)}%</td>
         </tr>`;
       }).join('');
-      return `<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:10px;">
+      return `<table style="width:100%;border-collapse:collapse;font-family:Manrope,sans-serif;font-size:10px;">
         <thead><tr style="background:#F2F4F7;">
           <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:left;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">Période</th>
           <th style="padding:5px 8px;border:1px solid #E4E7EC;text-align:right;font-size:9px;font-weight:700;color:#667085;text-transform:uppercase;white-space:nowrap;">CA Eau</th>
@@ -572,12 +572,12 @@ export function CreanceDetailView({
         <div style="display:flex;align-items:center;gap:12px;">
           <img src="${origin}/ade.png" style="height:42px;width:auto;object-fit:contain;">
           <div>
-            <div style="font-family:Inter,sans-serif;font-size:13px;font-weight:900;color:#101828;">${pageTitle}</div>
-            <div style="font-family:Inter,sans-serif;font-size:9px;font-weight:600;color:#667085;margin-top:3px;">Période : ${periodLabel}</div>
-            ${secteurLabel ? `<div style="display:inline-block;margin-top:5px;padding:2px 10px;background:#EBF5FF;border:1px solid #BFDBFE;border-radius:20px;font-family:Inter,sans-serif;font-size:9px;font-weight:800;color:#1D4ED8;letter-spacing:0.02em;">&#128205; Secteur : ${secteurLabel}</div>` : ''}
+            <div style="font-family:Manrope,sans-serif;font-size:13px;font-weight:900;color:#101828;">${pageTitle}</div>
+            <div style="font-family:Manrope,sans-serif;font-size:9px;font-weight:600;color:#667085;margin-top:3px;">Période : ${periodLabel}</div>
+            ${secteurLabel ? `<div style="display:inline-block;margin-top:5px;padding:2px 10px;background:#EBF5FF;border:1px solid #BFDBFE;border-radius:20px;font-family:Manrope,sans-serif;font-size:9px;font-weight:800;color:#1D4ED8;letter-spacing:0.02em;">&#128205; Secteur : ${secteurLabel}</div>` : ''}
           </div>
         </div>
-        <div style="text-align:right;font-family:Inter,sans-serif;font-size:8.5px;color:#98A2B3;font-weight:600;line-height:1.7;">
+        <div style="text-align:right;font-family:Manrope,sans-serif;font-size:8.5px;color:#98A2B3;font-weight:600;line-height:1.7;">
           <div>Édité le : ${dateStr}</div>
           <div>Unité : 26 — MEDEA &nbsp;|&nbsp; EPEOR Analytics</div>
         </div>
@@ -591,11 +591,11 @@ export function CreanceDetailView({
 <head>
   <meta charset="UTF-8">
   <title>Analyse Rétrospective — ${periodLabel}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
     @page{size:A4 landscape;margin:12mm;}
-    body{font-family:'Inter',sans-serif;background:white;color:#101828;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    body{font-family:'Manrope','Segoe UI',sans-serif;background:white;color:#101828;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
     .print-page{width:100%;page-break-after:always;overflow:hidden;}
     .print-page:last-child{page-break-after:auto;}
     .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -628,7 +628,7 @@ export function CreanceDetailView({
   return (
     <div className="space-y-10">
       {secteurLabel && (
-        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE]">
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#245A83]">
           <MapPin size={16} className="shrink-0" />
           <span>
             Périmètre : centre <strong className="font-black">{secteurLabel}</strong>
@@ -657,7 +657,7 @@ export function CreanceDetailView({
                   ))}
                 </datalist>
                 <button type="button" onClick={() => setFilterYear('all')}
-                  className="hidden md:inline-block px-3 py-2 rounded-xl text-[10px] font-black bg-white text-[#0D83DE] border border-[#E4E7EC]">
+                  className="hidden md:inline-block px-3 py-2 rounded-xl text-[10px] font-black bg-white text-[#245A83] border border-[#E4E7EC]">
                   Toutes
                 </button>
               </div>
@@ -1300,9 +1300,9 @@ export function CreanceDetailView({
                               'ca_recouvre_eau'
                             }
                             name="Eau"
-                            stroke="#0D83DE"
+                            stroke="#245A83"
                             strokeWidth={3}
-                            dot={{ r: 4, stroke: "#0D83DE", strokeWidth: 2, fill: "#fff" }}
+                            dot={{ r: 4, stroke: "#245A83", strokeWidth: 2, fill: "#fff" }}
                             activeDot={{ r: 6, strokeWidth: 0 }}
                           />
                           <Line

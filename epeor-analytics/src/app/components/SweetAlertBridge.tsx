@@ -14,7 +14,7 @@ export function SweetAlertBridge() {
         text: message instanceof Error ? message.message : String(message ?? ""),
         icon: "info",
         confirmButtonText: "OK",
-        confirmButtonColor: "#0D83DE",
+        confirmButtonColor: "#245A83",
       });
       return undefined as never;
     }) as typeof window.alert;
@@ -27,7 +27,7 @@ export function SweetAlertBridge() {
         showCancelButton: true,
         confirmButtonText: "Oui",
         cancelButtonText: "Annuler",
-        confirmButtonColor: "#0D83DE",
+        confirmButtonColor: "#245A83",
         cancelButtonColor: "#98A2B3",
       });
       return popup.then((result) => result.isConfirmed) as unknown as boolean;

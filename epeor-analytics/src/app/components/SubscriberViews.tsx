@@ -403,12 +403,12 @@ export function GestionAbonnesShell({
           <meta charset="utf-8">
           <title>${escapeHtml(title)}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page { size: landscape; margin: 10mm 12mm; }
-            body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #101828; margin: 0; font-size: 9px; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #101828; margin: 0; font-size: 9px; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #F2F4F7; padding-bottom: 10px; margin-bottom: 12px; }
             .logo-section { display: flex; align-items: center; gap: 12px; }
-            .logo-text { font-size: 14px; font-weight: 900; color: #0D83DE; margin: 0; }
+            .logo-text { font-size: 14px; font-weight: 900; color: #245A83; margin: 0; }
             .company-name { font-size: 8.5px; font-weight: 700; color: #667085; text-transform: uppercase; margin-top: 1px; }
             .title-section { text-align: right; }
             .title { font-size: 16px; font-weight: 900; color: #101828; margin: 0; }
@@ -537,7 +537,7 @@ export function GestionAbonnesShell({
       </div>
 
       {secteurLabel && (
-        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE]">
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#245A83]">
           <MapPin size={16} className="shrink-0" />
           <span>
             Périmètre : centre <strong className="font-black">{secteurLabel}</strong>
@@ -792,7 +792,7 @@ export function GestionAbonnesShell({
                         title: "Abonnés non branchés par commune",
                         description: "Répartition géographique des abonnés non branchés",
                         emptyMessage: "Aucune donnée de non-branchement disponible par commune.",
-                        color: '#2563EB',
+                        color: '#245A83',
                         data: (stats?.unconnected_communes ?? []).map((row: any) => ({
                           name: String(row.name ?? 'Commune inconnue'),
                           count: Number(row.value) || 0,
@@ -802,7 +802,7 @@ export function GestionAbonnesShell({
                         title: "Abonnés non branchés par type",
                         description: "Répartition par type d'abonné",
                         emptyMessage: "Aucune donnée de non-branchement disponible par type d'abonné.",
-                        color: '#2563EB',
+                        color: '#245A83',
                         data: (stats?.unconnected_types ?? []).map((row: any) => ({
                           name: String(row.name ?? "Type d'abonné inconnu"),
                           count: Number(row.value) || 0,
@@ -992,9 +992,9 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
         <head>
           <title>Liste nominative - ${escapeHtml(selectedQuartier.name)}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 40px;
               font-size: 11px;
@@ -1016,7 +1016,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin-bottom: 2px;
             }
@@ -1234,7 +1234,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
       tableRowsHtml += `
         <tr>
           <td style="padding: 6px 12px; font-weight: bold;">${escapeHtml(c.name)}</td>
-          <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #0D83DE;">${c.value.toLocaleString()}</td>
+          <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #245A83;">${c.value.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #059669;">${actifs.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #c2410c;">${forfait.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #e11d48;">${c.resigned?.toLocaleString() || 0}</td>
@@ -1266,13 +1266,13 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -1296,7 +1296,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }
@@ -1467,7 +1467,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
       tableRowsHtml += `
         <tr>
           <td style="padding: 6px 12px; font-weight: bold;">${escapeHtml(t.name)}</td>
-          <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #0D83DE;">${t.value.toLocaleString()}</td>
+          <td style="padding: 6px 12px; text-align: right; font-weight: bold; color: #245A83;">${t.value.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #059669;">${actifs.toLocaleString()}</td>
           <td style="padding: 6px 12px; text-align: right; color: #e11d48;">${t.resigned?.toLocaleString() || 0}</td>
           <td style="padding: 6px 12px; text-align: right; font-weight: bold;">${t.percentage}%</td>
@@ -1496,13 +1496,13 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -1526,7 +1526,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }
@@ -1697,7 +1697,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             </div>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#0D83DE] hover:bg-[#0B74C9] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10 self-start md:self-auto"
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#245A83] hover:bg-[#1F4D70] active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/10 border border-blue-500/10 self-start md:self-auto"
               title="Imprimer la liste des abonnés du quartier"
             >
               <Printer size={13} />
@@ -1756,7 +1756,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{q.name}</td>
-                    <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{q.value.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-bold text-[#245A83]">{q.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{q.resigned?.toLocaleString() || 0}</td>
@@ -1814,7 +1814,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
-                    <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{c.value.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-bold text-[#245A83]">{c.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{c.resigned?.toLocaleString() || 0}</td>
@@ -1873,7 +1873,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
-                    <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{c.value.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-bold text-[#245A83]">{c.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{c.resigned?.toLocaleString() || 0}</td>
@@ -1898,7 +1898,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 return (
                   <tr className="bg-[#F9FAFB] font-bold">
                     <td className="px-8 py-5 text-sm text-[#101828]">Totaux</td>
-                    <td className="px-6 py-5 text-right text-[#0D83DE]">{totals.total.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right text-[#245A83]">{totals.total.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-emerald-600">{actifsTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-orange-600">{forfaitTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-rose-600">{resignedTotal.toLocaleString()}</td>
@@ -1949,7 +1949,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
                     <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
-                    <td className="px-6 py-5 text-right font-bold text-[#0D83DE]">{t.value.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right font-bold text-[#245A83]">{t.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{t.resigned?.toLocaleString() || 0}</td>
@@ -1974,7 +1974,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 return (
                   <tr className="bg-[#F9FAFB] font-bold">
                     <td className="px-8 py-5 text-sm text-[#101828]">Totaux</td>
-                    <td className="px-6 py-5 text-right text-[#0D83DE]">{totals.total.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right text-[#245A83]">{totals.total.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-emerald-600">{actifsTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-orange-600">{forfaitTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-rose-600">{resignedTotal.toLocaleString()}</td>
@@ -1993,7 +1993,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             title: "Abonnés par commune",
             description: "Nombre total d'abonnés dans chaque commune",
             emptyMessage: "Aucune donnée disponible par commune.",
-            color: '#2563EB',
+            color: '#245A83',
             data: communes.map((commune: any) => ({
               name: String(commune.name ?? 'Commune inconnue'),
               count: Number(commune.value) || 0,
@@ -2003,7 +2003,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             title: "Abonnés par catégorie",
             description: "Répartition des abonnés selon leur catégorie",
             emptyMessage: "Aucune donnée disponible par catégorie.",
-            color: '#2563EB',
+            color: '#245A83',
             data: categoryChartData.map((category) => ({
               name: category.name,
               count: category.total,
@@ -2111,9 +2111,9 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
         <head>
           <title>Liste nominative des abonnés résiliés - ${selectedQuartier.name}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 40px;
               font-size: 11px;
@@ -2135,7 +2135,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin-bottom: 2px;
             }
@@ -2356,13 +2356,13 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -2386,7 +2386,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }
@@ -2576,13 +2576,13 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -2606,7 +2606,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }
@@ -3096,9 +3096,9 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         <head>
           <title>Liste nominative des abonnés à l'arrêt - ${selectedQuartier.name}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 40px;
               font-size: 11px;
@@ -3120,7 +3120,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin-bottom: 2px;
             }
@@ -3360,13 +3360,13 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -3390,7 +3390,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }
@@ -3580,13 +3580,13 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -3610,7 +3610,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }
@@ -4102,9 +4102,9 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         <head>
           <title>Liste nominative des abonnés sans compteur - ${selectedQuartier.name}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 40px;
               font-size: 11px;
@@ -4126,7 +4126,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin-bottom: 2px;
             }
@@ -4348,13 +4348,13 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -4378,7 +4378,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }
@@ -4568,13 +4568,13 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         <head>
           <title>${titleStr}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 10mm 12mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 0;
               font-size: 9px;
@@ -4598,7 +4598,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             .logo-text {
               font-size: 14px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin: 0;
             }

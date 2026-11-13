@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   LayoutDashboard, Users, CreditCard, Building2, Calendar, ListChecks,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import type { AppView } from './app-view';
 import ThemeToggle from './ThemeToggle';
+import Logo from './Logo';
 
 interface NavItem {
   id: string;
@@ -34,8 +35,8 @@ export function FloatingExpandableSidebar({
   t
 }: FloatingExpandableSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [localUser, setLocalUser] = useState<any>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     // If parent didn't provide user prop (or it's null), try fetching current user.
@@ -63,6 +64,18 @@ export function FloatingExpandableSidebar({
     });
     return () => { cancelled = true; };
   }, [user]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        requestAnimationFrame(() => toggleRef.current?.focus());
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
 
   const navItems: NavItem[] = [
     {
@@ -135,143 +148,100 @@ export function FloatingExpandableSidebar({
   };
 
   return (
-    <div className="hidden lg:block">
-      {/* Floating Toggle Button */}
+    <div className="no-print hidden lg:block">
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-8 right-8 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-[#0D83DE] to-[#0066BB] text-white shadow-2xl transition-all duration-300 flex items-center justify-center hover:scale-110 active:scale-95 no-print ${
-          isOpen ? 'rotate-90' : ''
-        }`}
-        aria-label="Toggle menu"
+        ref={toggleRef}
+        type="button"
+        aria-label={isOpen ? t('nav.close') : t('nav.mainNav')}
+        aria-expanded={isOpen}
+        aria-controls="desktop-navigation"
+        onClick={() => setIsOpen((open) => !open)}
+        className="fixed bottom-6 end-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-[var(--shadow-feature)] transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
       >
-        {isOpen ? <X size={28} /> : <Menu size={28} />}
+        {isOpen ? <X size={21} /> : <Menu size={21} />}
       </button>
 
-      {/* Overlay */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 z-30 no-print"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
-      {/* Expandable Sidebar */}
-      <div
-        className={`fixed bottom-24 right-8 z-40 transition-all duration-300 ease-out transform no-print ${
-          isOpen
-            ? 'opacity-100 translate-y-0'
-            : 'opacity-0 translate-y-4 pointer-events-none'
-        }`}
-      >
-        <div
-          className="rounded-[1.25rem] border p-3 shadow-xl flex flex-col gap-3 max-h-[calc(100vh-200px)] overflow-hidden"
-          style={{
-            background: "var(--glass-bg)",
-            borderColor: "var(--glass-border)",
-            boxShadow: "var(--glass-shadow-hover)",
-          }}
-        >
-          {/* Header with User Profile */}
-          <div className="px-4 py-3 border-b border-[#E4E7EC]">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#0D83DE] to-[#0066BB] rounded-full flex items-center justify-center text-white font-bold">
-                <User size={20} />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-[#101828]">
-                  {(() => {
-                    const dn = (localUser?.display_name || '').trim();
-                    const un = (localUser?.username || '').trim();
-                    // If display_name is missing or generic like 'Administrateur'/'Admin', prefer username (capitalized)
-                    if (!dn || /^(admin|administrateur)$/i.test(dn)) {
-                      if (un) return un.charAt(0).toUpperCase() + un.slice(1);
-                      return 'Utilisateur';
-                    }
-                    return dn;
-                  })()}
-                </p>
-                <p className="flex items-center gap-1.5 text-xs text-[#667085]">
-                  {localUser?.is_admin && <ShieldCheck size={13} aria-hidden="true" />}
-                  {localUser?.is_admin ? 'Admin' : 'User'}
-                </p>
+        <>
+          <button
+            type="button"
+            aria-label={t('nav.close')}
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 z-30 cursor-default bg-[#26313A]/25 backdrop-blur-[1px]"
+          />
+          <aside
+            id="desktop-navigation"
+            data-testid="desktop-navigation"
+            className="sidebar-premium floating-sidebar fixed bottom-24 end-6 z-40 flex max-h-[calc(100dvh-7rem)] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl shadow-[var(--shadow-feature)]"
+          >
+            <div className="sidebar-header border-b px-5 py-4">
+              <Logo variant="sidebar" alt="Logo de l'Algérienne des Eaux" />
+              <div className="mt-2">
+                <p className="truncate text-sm font-bold text-[#26313A] dark:text-slate-100">EPEOR Analytics</p>
+                <p className="text-xs text-[#66757C] dark:text-slate-400">Lecture de données</p>
               </div>
             </div>
-          </div>
 
-          {/* Navigation Items */}
-          <nav className="flex flex-col gap-2 max-h-[400px] overflow-y-auto scrollbar-hide">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onMouseEnter={() => setHoveredItem(item.id)}
-                onMouseLeave={() => setHoveredItem(null)}
-                onClick={() => handleNavClick(item)}
-                className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group cursor-pointer ${
-                  isItemActive(item)
-                    ? 'bg-[#0D83DE]/10 text-[#0D83DE] font-semibold'
-                    : 'text-[#475467] hover:bg-[#F9FAFB]'
-                }`}
-              >
-                {/* Icon Container */}
-                <div
-                  className={`flex-shrink-0 transition-all duration-200 ${
-                    hoveredItem === item.id ? 'scale-125' : 'scale-100'
-                  }`}
-                >
-                  {item.icon}
+            <div className="border-b border-[#E4E7EC] px-4 py-4 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-slate-700 dark:text-slate-100">
+                  {localUser?.is_admin ? <ShieldCheck size={18} /> : <User size={18} />}
                 </div>
-
-                {/* Label & Description */}
-                <div
-                  className={`flex-1 text-left transition-all duration-200 ${
-                    hoveredItem === item.id ? 'opacity-100' : 'opacity-75'
-                  }`}
-                >
-                  <p className="text-sm font-semibold leading-tight">
-                    {item.label}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[#26313A] dark:text-slate-100">
+                    {(() => {
+                      const displayName = (localUser?.display_name || '').trim();
+                      const username = (localUser?.username || '').trim();
+                      if (!displayName || /^(admin|administrateur)$/i.test(displayName)) {
+                        return username ? username.charAt(0).toUpperCase() + username.slice(1) : 'Utilisateur';
+                      }
+                      return displayName;
+                    })()}
                   </p>
-                  {item.description && (
-                    <p className="text-xs text-[#667085] leading-tight">
-                      {item.description}
-                    </p>
-                  )}
+                  <p className="text-xs text-[#66757C] dark:text-slate-400">
+                    {localUser?.is_admin ? 'Administrateur' : 'Agent'}
+                  </p>
                 </div>
+              </div>
+            </div>
 
-                {/* Active Indicator */}
-                {isItemActive(item) && (
-                  <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#0D83DE]" />
-                )}
+            <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label={t('nav.mainNav')}>
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleNavClick(item)}
+                  aria-current={isItemActive(item) ? 'page' : undefined}
+                  className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-start transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
+                    isItemActive(item)
+                      ? 'bg-[var(--sidebar-active-bg)] font-semibold text-brand-700 dark:text-slate-100'
+                      : 'text-[#56636D] hover:bg-black/[0.035] dark:text-slate-300 dark:hover:bg-white/[0.06]'
+                  }`}
+                >
+                  <span className="shrink-0">{item.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] leading-5">{item.label}</span>
+                    {item.description && <span className="block truncate text-[11px] font-normal opacity-70">{item.description}</span>}
+                  </span>
+                  {isItemActive(item) && <span className="absolute inset-y-2 start-0 w-1 rounded-e-full bg-[var(--sidebar-active-border)]" />}
+                </button>
+              ))}
+            </nav>
+
+            <div className="space-y-2 border-t border-[#E4E7EC] px-3 py-3 dark:border-slate-700">
+              <ThemeToggle />
+              <button
+                type="button"
+                onClick={onLogout}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#B42318] transition-colors hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 dark:text-rose-300 dark:hover:bg-rose-950/30"
+              >
+                <LogOut size={18} />
+                <span>{t('nav.logout')}</span>
               </button>
-            ))}
-          </nav>
-
-          {/* Divider */}
-          <div className="h-px bg-[#E4E7EC]" />
-
-          {/* Footer Actions */}
-          <div className="flex flex-col gap-2 px-4 py-3">
-            <ThemeToggle />
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-[#DC2626] hover:bg-red-50 transition-all duration-200"
-            >
-              <LogOut size={18} />
-              <span>{t('nav.logout')}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Hide scrollbar style */}
-      <style jsx>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }

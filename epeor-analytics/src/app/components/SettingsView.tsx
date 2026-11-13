@@ -207,27 +207,33 @@ export function SettingsView({
 
       {/* Tab navigation — visible only in non-setup mode for admins */}
       {!setupMode && user?.is_admin && (
-        <div className="flex gap-1 bg-[#F2F4F7] rounded-2xl p-1.5 no-print">
+        <div className="settings-tabs flex gap-1 rounded-xl p-1 no-print" role="tablist">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'system'}
             onClick={() => setActiveTab('system')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-black transition-all ${activeTab === 'system' ? 'bg-white shadow-sm text-[#0D83DE]' : 'text-[#667085] hover:text-[#344054]'}`}
+            className={`settings-tab flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'system' ? 'is-active' : ''}`}
           >
-            ⚙️ {t('settings.tabSystem', 'Système')}
+            <Database size={16} /> {t('settings.tabSystem', 'Système')}
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'users'}
             onClick={() => setActiveTab('users')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-black transition-all ${activeTab === 'users' ? 'bg-white shadow-sm text-[#0D83DE]' : 'text-[#667085] hover:text-[#344054]'}`}
+            className={`settings-tab flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'users' ? 'is-active' : ''}`}
           >
-            👥 {t('settings.tabUsers', 'Utilisateurs')}
+            <Shield size={16} /> {t('settings.tabUsers', 'Utilisateurs')}
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'profile'}
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-black transition-all ${activeTab === 'profile' ? 'bg-white shadow-sm text-[#0D83DE]' : 'text-[#667085] hover:text-[#344054]'}`}
+            className={`settings-tab flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'profile' ? 'is-active' : ''}`}
           >
-            👤 {t('settings.tabProfile', 'Mon Profil')}
+            <User size={16} /> {t('settings.tabProfile', 'Mon profil')}
           </button>
         </div>
       )}
@@ -283,7 +289,7 @@ export function SettingsView({
       {/* Dossier données EPEOR */}
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
         <div className="flex items-start gap-4 mb-6">
-          <div className="w-12 h-12 bg-slate-100 text-[#0D83DE] rounded-2xl flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 bg-slate-100 text-[#245A83] rounded-2xl flex items-center justify-center shrink-0">
             <Database size={22} />
           </div>
           <div>
@@ -314,7 +320,7 @@ export function SettingsView({
                 onChange={(e) => setDataDir(e.target.value)}
                 disabled={dataDirInfo?.locked_by_env || savingDataDir}
                 placeholder={t('settings.dataPathPlaceholder')}
-                className="w-full font-mono text-sm font-bold text-[#344054] bg-[#F9FAFB] border border-[#D0D5DD] rounded-xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0D83DE] disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full font-mono text-sm font-bold text-[#344054] bg-[#F9FAFB] border border-[#D0D5DD] rounded-xl px-4 py-3 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#245A83] disabled:opacity-60 disabled:cursor-not-allowed"
                 spellCheck={false}
               />
             </div>
@@ -364,7 +370,7 @@ export function SettingsView({
                 className={`px-6 py-3 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 flex items-center gap-2 ${
                   dataDirInfo?.locked_by_env || savingDataDir || !dataDir.trim()
                     ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                    : 'bg-[#0D83DE] text-white hover:bg-[#0b72c2] border border-[#0b72c2]'
+                    : 'bg-[#245A83] text-white hover:bg-[#1F4D70] border border-[#1F4D70]'
                 }`}
               >
                 <RefreshCw size={16} className={savingDataDir ? 'animate-spin' : ''} />
@@ -477,7 +483,7 @@ export function SettingsView({
                       <input
                         type="text"
                         placeholder={t('settings.searchCenter', 'Rechercher un centre...')}
-                        className="bg-white border-[#D0D5DD] border rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0D83DE] transition-all placeholder:text-[#98A2B3] w-48 sm:w-64"
+                        className="bg-white border-[#D0D5DD] border rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#245A83] transition-all placeholder:text-[#98A2B3] w-48 sm:w-64"
                         value={sectorSearch}
                         onChange={(e) => setSectorSearch(e.target.value)}
                       />
@@ -498,7 +504,7 @@ export function SettingsView({
                         {filteredSectors.length > 0 ? (
                           filteredSectors.map((s: any) => (
                             <tr key={s.code} className="hover:bg-[#F9FAFB] transition-colors group">
-                              <td className="px-6 py-4 font-mono font-black text-sm text-[#0D83DE]">
+                              <td className="px-6 py-4 font-mono font-black text-sm text-[#245A83]">
                                 {s.code}
                               </td>
                               <td className="px-6 py-4 font-black text-slate-800 text-sm">
@@ -542,7 +548,7 @@ export function SettingsView({
                 className={`px-6 py-3.5 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-2 ${
                   clearingCache 
                     ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed' 
-                    : 'bg-[#0D83DE] text-white hover:bg-[#0b72c2] border border-[#0b72c2] shadow-blue-100'
+                    : 'bg-[#245A83] text-white hover:bg-[#1F4D70] border border-[#1F4D70] shadow-blue-100'
                 }`}
               >
                 <RefreshCw size={16} className={clearingCache ? 'animate-spin' : ''} />
@@ -785,7 +791,7 @@ function UsersManagementPanel({
           <button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-2 px-5 py-3 bg-[#0D83DE] text-white rounded-2xl text-sm font-black hover:bg-[#0b72c2] transition-all shadow-md shadow-blue-100 shrink-0"
+            className="flex items-center gap-2 px-5 py-3 bg-[#245A83] text-white rounded-2xl text-sm font-black hover:bg-[#1F4D70] transition-all shadow-md shadow-blue-100 shrink-0"
           >
             <Plus size={16} /> {t('settings.newUser', 'Nouvel utilisateur')}
           </button>
@@ -834,7 +840,7 @@ function UsersManagementPanel({
                   <button
                     type="button"
                     onClick={() => openEdit(u)}
-                    className="p-2 rounded-xl text-[#667085] hover:bg-[#EFF8FF] hover:text-[#0D83DE] transition-colors"
+                    className="p-2 rounded-xl text-[#667085] hover:bg-[#EFF8FF] hover:text-[#245A83] transition-colors"
                     title={t('common.edit')}
                   >
                     <Edit2 size={16} />
@@ -894,7 +900,7 @@ function UsersManagementPanel({
                     required
                     value={formData.username}
                     onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
-                    className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.username && !isUsernameValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                    className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition ${formData.username && !isUsernameValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
                     placeholder="ex: agent01"
                     autoComplete="username"
                     aria-invalid={formData.username !== '' && !isUsernameValid}
@@ -914,7 +920,7 @@ function UsersManagementPanel({
                     required
                     value={formData.display_name}
                     onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
-                    className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+                    className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition"
                     placeholder="ex: Agent Secteur 01"
                   />
                 </label>
@@ -929,7 +935,7 @@ function UsersManagementPanel({
                       required={!editingUser}
                       value={formData.password}
                       onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
-                      className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.password && !passwordValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                      className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition ${formData.password && !passwordValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
                       placeholder={editingUser ? t('settings.pwdPlaceholderEdit', 'Laisser vide = inchangé') : t('settings.pwdPlaceholderNew', '8 caractères minimum')}
                       autoComplete="new-password"
                     />
@@ -948,7 +954,7 @@ function UsersManagementPanel({
                       <button
                         type="button"
                         onClick={generatePassword}
-                        className="text-[#0D83DE] font-black text-[11px] hover:text-[#0b72c2] transition"
+                        className="text-[#245A83] font-black text-[11px] hover:text-[#1F4D70] transition"
                       >
                         {t('settings.generate', 'Générer')}
                       </button>
@@ -982,7 +988,7 @@ function UsersManagementPanel({
                         required
                         value={formData.password_confirm}
                         onChange={e => setFormData(p => ({ ...p, password_confirm: e.target.value }))}
-                        className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.password_confirm && !passwordMatch ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                        className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition ${formData.password_confirm && !passwordMatch ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
                         placeholder={t('settings.confirmPwdPlaceholder', 'Retapez le mot de passe')}
                         autoComplete="new-password"
                       />
@@ -1022,13 +1028,13 @@ function UsersManagementPanel({
                           return (
                             <label
                               key={s.code}
-                              className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-blue-50 border-[#0D83DE] text-[#0D83DE]' : 'border-[#E4E7EC] text-[#344054] hover:bg-[#F9FAFB]'}`}
+                              className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-blue-50 border-[#245A83] text-[#245A83]' : 'border-[#E4E7EC] text-[#344054] hover:bg-[#F9FAFB]'}`}
                             >
                               <input
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => toggleSector(s.code)}
-                                className="accent-[#0D83DE] w-4 h-4"
+                                className="accent-[#245A83] w-4 h-4"
                               />
                               <div className="min-w-0">
                                 <p className="text-xs font-black truncate">{s.libelle || s.code}</p>
@@ -1059,7 +1065,7 @@ function UsersManagementPanel({
                   <button
                     type="submit"
                     disabled={formLoading || !isFormValid}
-                    className={`flex-1 py-3 rounded-2xl bg-[#0D83DE] text-white text-sm font-black hover:bg-[#0b72c2] transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 flex items-center justify-center gap-2 ${formLoading || !isFormValid ? 'opacity-80' : ''}`}
+                    className={`flex-1 py-3 rounded-2xl bg-[#245A83] text-white text-sm font-black hover:bg-[#1F4D70] transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 flex items-center justify-center gap-2 ${formLoading || !isFormValid ? 'opacity-80' : ''}`}
                   >
                     {formLoading ? (
                       <span className="spinner-premium" style={{ width: 16, height: 16, display: 'inline-block' }} />
@@ -1207,7 +1213,7 @@ function UserProfilePanel({
       {/* Profil Form Card */}
       <div className="lg:col-span-2 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 page-card">
         <div className="flex items-start gap-4 mb-6">
-          <div className="w-12 h-12 bg-blue-50 text-[#0D83DE] rounded-2xl flex items-center justify-center font-black text-lg">
+          <div className="w-12 h-12 bg-blue-50 text-[#245A83] rounded-2xl flex items-center justify-center font-black text-lg">
             <User size={22} />
           </div>
           <div>
@@ -1226,7 +1232,7 @@ function UserProfilePanel({
               required
               value={formData.username}
               onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
-              className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.username && !isUsernameValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+              className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition ${formData.username && !isUsernameValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
               autoComplete="username"
             />
             {formData.username && !isUsernameValid && (
@@ -1241,7 +1247,7 @@ function UserProfilePanel({
               required
               value={formData.display_name}
               onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
-              className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+              className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition"
             />
           </label>
 
@@ -1258,7 +1264,7 @@ function UserProfilePanel({
                     type={showPassword ? 'text' : 'password'}
                     value={formData.new_password}
                     onChange={e => setFormData(p => ({ ...p, new_password: e.target.value }))}
-                    className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.new_password && !passwordValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                    className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition ${formData.new_password && !passwordValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
                     placeholder="8 caractères minimum"
                     autoComplete="new-password"
                   />
@@ -1303,7 +1309,7 @@ function UserProfilePanel({
                       required
                       value={formData.new_password_confirm}
                       onChange={e => setFormData(p => ({ ...p, new_password_confirm: e.target.value }))}
-                      className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition ${formData.new_password_confirm && !passwordMatch ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
+                      className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition ${formData.new_password_confirm && !passwordMatch ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
                       placeholder="Confirmez le mot de passe"
                       autoComplete="new-password"
                     />
@@ -1336,7 +1342,7 @@ function UserProfilePanel({
                   required
                   value={formData.current_password}
                   onChange={e => setFormData(p => ({ ...p, current_password: e.target.value }))}
-                  className="w-full border border-[#D0D5DD] bg-white rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0D83DE]/30 focus:border-[#0D83DE] transition"
+                  className="w-full border border-[#D0D5DD] bg-white rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition"
                   placeholder="Mot de passe actuel"
                   autoComplete="current-password"
                 />
@@ -1362,7 +1368,7 @@ function UserProfilePanel({
             <button
               type="submit"
               disabled={formLoading || !isFormValid}
-              className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-[#0D83DE] text-white text-sm font-black hover:bg-[#0b72c2] transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 flex items-center justify-center gap-2 ${formLoading || !isFormValid ? 'opacity-80' : ''}`}
+              className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-[#245A83] text-white text-sm font-black hover:bg-[#1F4D70] transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 flex items-center justify-center gap-2 ${formLoading || !isFormValid ? 'opacity-80' : ''}`}
             >
               {formLoading ? (
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
@@ -1413,7 +1419,7 @@ function UserProfilePanel({
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {assignedSectors.map(s => (
                   <div key={s.code} className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0D83DE] border border-blue-100 flex items-center justify-center font-black text-xs">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#245A83] border border-blue-100 flex items-center justify-center font-black text-xs">
                       {s.code
 }                    </div>
                     <div className="min-w-0">

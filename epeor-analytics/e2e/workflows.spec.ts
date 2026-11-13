@@ -190,17 +190,32 @@ async function openApp(page: Page, user: MockUser = admin) {
   await page.locator('input[autocomplete="username"]').fill(user.username);
   await page.locator('input[autocomplete="current-password"]').fill("SyntheticPass123");
   await page.getByRole("button", { name: "Se connecter" }).click();
-  await expect(page.getByText("EPEOR ANALYTICS", { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId("desktop-navigation")).toHaveCount(0);
 }
 
 async function openSidebar(page: Page) {
-  await page.getByRole("button", { name: "Toggle menu" }).click();
+  await page.getByRole("button", { name: "Navigation principale" }).click();
+  await expect(page.getByTestId("desktop-navigation")).toBeVisible();
 }
 
 test("authenticates with the mocked session and loads the dashboard", async ({ page }) => {
   await openApp(page);
   await expect(page.getByText("Ahmed Belaid", { exact: true })).toHaveCount(0);
   await expect(page.getByText("1", { exact: true }).first()).toBeVisible();
+});
+
+test("opens the command palette with Ctrl+K and searches for subscribers", async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator(".dashboard-kpi-grid")).toBeVisible();
+  await page.keyboard.press("Control+k");
+
+  const palette = page.getByRole("dialog", { name: "Recherche rapide" });
+  await expect(palette).toBeVisible();
+  await palette.getByRole("searchbox").fill("AB123");
+  await expect(palette.getByRole("option").first()).toContainText("Rechercher « AB123 » parmi les abonnés");
+
+  await page.keyboard.press("Escape");
+  await expect(palette).toHaveCount(0);
 });
 
 test("restricts sector choices for a non-admin user", async ({ page }) => {

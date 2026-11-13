@@ -1286,7 +1286,7 @@ def _collect_paid_subscribers_with_cut_created(
         if (
             payment_date
             and start_day <= payment_date <= end_day
-            and not _is_cut_penalty_created_in_period(record, start_date, end_date)
+            and not _is_cut_penalty_class(record)
         ):
             paid_amount_by_numab[numab] = paid_amount_by_numab.get(numab, 0.0) + float(record.get('MONTTC') or 0)
 
@@ -1297,7 +1297,7 @@ def _collect_paid_subscribers_with_cut_created(
     }
 
 
-def _collect_paid_amounts_after_cut_created(
+def _collect_paid_amounts_outside_period_after_cut_created(
     records: list[dict],
     numabs: set[str],
     start_date: str | None,
@@ -1323,13 +1323,10 @@ def _collect_paid_amounts_after_cut_created(
         if numab not in subscribers_with_cut:
             continue
         payment_date = _parse_payment_date(record.get('DATREG'))
-        invoice_date = _parse_payment_date(record.get('DATFACT'))
-        payment_in_period = start_day <= payment_date <= end_day if payment_date else False
         if (
             payment_date
-            and payment_date >= start_day
-            and (payment_in_period or not invoice_date or invoice_date <= end_day)
-            and not _is_cut_penalty_created_in_period(record, start_date, end_date)
+            and payment_date > end_day
+            and not _is_cut_penalty_class(record)
         ):
             paid_amount_by_numab[numab] = paid_amount_by_numab.get(numab, 0.0) + float(record.get('MONTTC') or 0)
 
@@ -1366,15 +1363,9 @@ def _collect_paid_dates_with_cut_created(
         if numab not in eligible_numabs:
             continue
         payment_date = _parse_payment_date(record.get('DATREG'))
-        invoice_date = _parse_payment_date(record.get('DATFACT'))
         if (
             not payment_date
             or payment_date < start_day
-            or (
-                invoice_date
-                and invoice_date > end_day
-                and payment_date > end_day
-            )
             or _is_cut_penalty_created_in_period(record, start_date, end_date)
         ):
             continue
@@ -1460,12 +1451,30 @@ def _collect_settled_previous_cuts(
         if not paid_records:
             continue
 
+        paid_penalty_records = [
+            (payment_date, record)
+            for record in subscriber_records
+            if _is_cut_penalty_class(record)
+            and (payment_date := _parse_payment_date(record.get('DATREG'))) is not None
+            and start_day <= payment_date <= end_day
+            and payment_date > cut_date
+            and (
+                (penalty_date := _parse_payment_date(record.get('DATFACT'))
+                or _parse_payment_date(record.get('DATSAISIE'))) is not None
+            )
+            and penalty_date < start_day
+        ]
+        settled_records = paid_records + paid_penalty_records
+
         subscriber = abonnes.get(numab, {})
         typabon = str(cut_record.get('TYPABON') or subscriber.get('TYPABON') or '').strip()
-        latest_payment_date = max(payment_date for payment_date, _ in paid_records)
+        latest_payment_date = max(payment_date for payment_date, _ in settled_records)
         settlements.append({
             "numab": numab,
             "name": str(subscriber.get('RAISOC') or subscriber.get('NOM') or '').strip() or "Nom inconnu",
+            "nom": str(subscriber.get('NOM') or '').strip(),
+            "prenom": str(subscriber.get('PRENOM') or '').strip(),
+            "raison_sociale": str(subscriber.get('RAISOC') or '').strip(),
             "address": resolve_rue_adresse(subscriber),
             "tournee": str(subscriber.get('TOURNEE') or '').strip(),
             "bloc": str(subscriber.get('BLOC') or '').strip(),
@@ -1476,7 +1485,7 @@ def _collect_settled_previous_cuts(
             "cut_date": str(cut_record.get('DATFACT') or '').strip()
             or str(cut_record.get('DATSAISIE') or '').strip(),
             "creance": 0.0,
-            "paid_amount": round(sum(float(record.get('MONTTC') or 0) for _, record in paid_records), 2),
+            "paid_amount": round(sum(float(record.get('MONTTC') or 0) for _, record in settled_records), 2),
             "paid_date": latest_payment_date.isoformat(),
             "settled_previous_cut": True,
         })
@@ -1510,6 +1519,9 @@ def _collect_type_7_subscribers(
         subscriber = group.setdefault(numab, {
             "numab": numab,
             "name": str(abonne.get('RAISOC') or abonne.get('NOM') or '').strip() or "Nom inconnu",
+            "nom": str(abonne.get('NOM') or '').strip(),
+            "prenom": str(abonne.get('PRENOM') or '').strip(),
+            "raison_sociale": str(abonne.get('RAISOC') or '').strip(),
             "address": resolve_rue_adresse(abonne),
             "tournee": str(abonne.get('TOURNEE') or '').strip(),
             "bloc": str(abonne.get('BLOC') or '').strip(),
@@ -2961,9 +2973,30 @@ def _collect_current_creances_by_numab(
         )
 
     creances: dict[str, float] = {}
+    cut_penalty_saisie_by_numab: dict[str, date] = {}
+    for record in factures:
+        numab = str(record.get('NUMAB') or '').strip().upper()
+        if numab not in numabs or not _is_cut_penalty_created_in_period(record, start_date, end_date):
+            continue
+        penalty_saisie = _parse_payment_date(record.get('DATSAISIE'))
+        if penalty_saisie and (
+            numab not in cut_penalty_saisie_by_numab
+            or penalty_saisie < cut_penalty_saisie_by_numab[numab]
+        ):
+            cut_penalty_saisie_by_numab[numab] = penalty_saisie
+
     for records, is_avoir in ((factures, False), (avoirs, True)):
         for record in records:
             numab = str(record.get('NUMAB') or '').strip().upper()
+            invoice_saisie = _parse_payment_date(record.get('DATSAISIE'))
+            penalty_saisie = cut_penalty_saisie_by_numab.get(numab)
+            if (
+                not is_avoir
+                and invoice_saisie
+                and penalty_saisie
+                and invoice_saisie >= penalty_saisie
+            ):
+                continue
             if not is_avoir and (
                 _is_cut_penalty_invoice(record, start_date, end_date)
                 or _is_cut_penalty_created_in_period(record, start_date, end_date)
@@ -5166,7 +5199,7 @@ def get_type_7_subscribers(
         start_date,
         end_date,
     )
-    paid_amounts_after_cut = _collect_paid_amounts_after_cut_created(
+    paid_amounts_outside_period = _collect_paid_amounts_outside_period_after_cut_created(
         MEM_FACTURES,
         report_numabs,
         start_date,
@@ -5195,7 +5228,8 @@ def get_type_7_subscribers(
                     {
                         **subscriber,
                         "creance": round(current_creances.get(numab, 0.0), 2),
-                        "paid_amount": paid_amounts_after_cut.get(numab, 0.0),
+                        "paid_amount": paid_with_cut_numabs.get(numab, 0.0),
+                        "paid_amount_outside_period": paid_amounts_outside_period.get(numab, 0.0),
                         "paid_date": paid_dates_with_cut.get(numab),
                     }
                     for numab, subscriber in subscribers.items()

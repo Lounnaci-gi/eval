@@ -677,9 +677,9 @@ export function CreancesAbonnesView({
         <head>
           <title>Liste des abonnés créanciers</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 40px;
               font-size: 10px;
@@ -694,7 +694,7 @@ export function CreancesAbonnesView({
               margin-bottom: 25px;
             }
             .logo-section { display: flex; align-items: center; gap: 12px; }
-            .logo-text { font-size: 14px; font-weight: 900; color: #0D83DE; }
+            .logo-text { font-size: 14px; font-weight: 900; color: #245A83; }
             .company-name { font-size: 9px; font-weight: 700; color: #667085; text-transform: uppercase; }
             .title-section { text-align: right; }
             .title { font-size: 18px; font-weight: 900; margin: 0; }
@@ -741,7 +741,7 @@ export function CreancesAbonnesView({
               color: #475467;
             }
             .font-bold-black { font-weight: 700; color: #101828; }
-            .tournee-badge { font-weight: 700; color: #2563EB; }
+            .tournee-badge { font-weight: 700; color: #245A83; }
             .observation-cell {
               min-width: 90px;
               min-height: 1.4em;
@@ -973,13 +973,13 @@ export function CreancesAbonnesView({
         <head>
           <title>Détails des Créances par Facture et Trimestre (10 ans) - Abonnés</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
             @page {
               size: landscape;
               margin: 6mm 6mm;
             }
             body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #101828;
               margin: 10px;
               font-size: 8px;
@@ -1001,7 +1001,7 @@ export function CreancesAbonnesView({
             .logo-text {
               font-size: 11px;
               font-weight: 900;
-              color: #0D83DE;
+              color: #245A83;
               letter-spacing: -0.5px;
               margin-bottom: 1px;
             }
@@ -1466,7 +1466,7 @@ export function CreancesAbonnesView({
       </div>
 
       {secteurLabel && !dataLoading && (
-        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#0D83DE] no-print">
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-xs font-bold text-[#245A83] no-print">
           <MapPin size={16} className="shrink-0" />
           <span>
             Données limitées au centre <strong className="font-black">{secteurLabel}</strong>

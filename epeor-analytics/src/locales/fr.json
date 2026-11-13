@@ -1,7 +1,16 @@
 {
   "loading": {
-    "title": "Initialisation du Système",
+    "title": "Préparation du tableau de bord",
     "errorTitle": "Chargement des données impossible",
+    "systemLabel": "Plateforme d'analyse",
+    "statusLoading": "Initialisation en cours",
+    "statusError": "Action requise",
+    "cacheLabel": "Préparation des données",
+    "messageLabel": "État du traitement",
+    "progressLabel": "Progression du chargement des données",
+    "actionsLabel": "Actions disponibles",
+    "loadingActionsHint": "Le tableau de bord sera accessible dès que le chargement sera terminé.",
+    "errorActionsHint": "Vous pouvez relancer le chargement ou vérifier le dossier de données.",
     "connecting": "Connexion au serveur backend...",
     "folder": "Dossier :",
     "cacheHint": "Reconstitution du cache (1 à 2 minutes la première fois, ~30 s ensuite)",
@@ -9,6 +18,15 @@
     "reloadData": "Relancer le chargement des données",
     "configureFolder": "Configurer le dossier de données",
     "alternativeRestart": ""
+  },
+  "command": {
+    "title": "Recherche rapide",
+    "placeholder": "Chercher un écran ou saisir un nom/numéro d’abonné",
+    "screens": "Accès aux écrans",
+    "subscriberSearch": "Rechercher « {{query}} » parmi les abonnés",
+    "empty": "Aucun écran ne correspond à cette recherche.",
+    "hint": "Utilisez les flèches pour naviguer, puis Entrée pour ouvrir.",
+    "open": "Rechercher ou ouvrir"
   },
   "restricted": {
     "title": "Aucune donnée pour votre compte",

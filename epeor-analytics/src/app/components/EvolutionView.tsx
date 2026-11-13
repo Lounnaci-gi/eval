@@ -257,7 +257,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white border border-[#E4E7EC] p-6 rounded-[2rem] shadow-sm">
           <div className="flex justify-between items-start mb-6">
-            <div className="p-4 rounded-2xl bg-blue-50 text-[#0D83DE]">
+            <div className="p-4 rounded-2xl bg-blue-50 text-[#245A83]">
               <Users size={24} />
             </div>
             <span className="text-[11px] font-black uppercase tracking-widest text-[#98A2B3]">{t('kpi.cumul', 'Cumul')}</span>
@@ -373,8 +373,8 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
           <AreaChart data={filteredData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0D83DE" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#0D83DE" stopOpacity={0.0}/>
+                  <stop offset="5%" stopColor="#245A83" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#245A83" stopOpacity={0.0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2F4F7" />
@@ -411,7 +411,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
                   t('kpi.cumul', 'Cumul')
                 ]}
               />
-              <Area type="monotone" dataKey="count" stroke="#0D83DE" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
+              <Area type="monotone" dataKey="count" stroke="#245A83" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
             </AreaChart>
         </ChartContainer>
       </div>
@@ -575,7 +575,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
               ]}
             />
             <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '12px' }} />
-            <Bar dataKey="actifs" name={t('charts.active', 'Actifs')} stackId="a" fill="#0D83DE" radius={[0, 0, 0, 0]} />
+            <Bar dataKey="actifs" name={t('charts.active', 'Actifs')} stackId="a" fill="#245A83" radius={[0, 0, 0, 0]} />
             <Bar dataKey="resiliés" name={t('charts.resigned', 'Résiliés')} stackId="a" fill="#f43f5e" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

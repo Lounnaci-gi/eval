@@ -58,7 +58,7 @@ export default function ThemeToggle() {
         >
           <div
             className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all duration-300"
-            style={{ left: isDark ? "calc(100% - 14px)" : "2px" }}
+            style={{ insetInlineStart: isDark ? "calc(100% - 14px)" : "2px" }}
           />
         </div>
       </div>

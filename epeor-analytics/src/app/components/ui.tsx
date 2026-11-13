@@ -72,7 +72,7 @@ export function MultiSelectDropdown({
       ref={menuRef}
       style={{ position: 'absolute', top: pos.top - 4, left: pos.left, width: pos.width, zIndex: 9999 }}
     >
-      <div className="max-h-44 overflow-y-auto rounded-2xl border border-[#E4E7EC] bg-white p-3 shadow-lg">
+      <div className="filter-menu max-h-44 overflow-y-auto rounded-xl border border-[#E4E7EC] bg-white p-3 shadow-lg">
         {options.map(o => (
           <label key={o} className="flex items-center gap-2 text-xs text-[#101828] py-1" onClick={e => e.stopPropagation()}>
             <input
@@ -97,12 +97,14 @@ export function MultiSelectDropdown({
       <button
         ref={buttonRef}
         type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
         onClick={() => { setOpen(o => !o); if (!open) setTimeout(updatePos, 0); }}
         onFocus={() => { setOpen(true); setTimeout(updatePos, 0); }}
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); setTimeout(updatePos, 0); }
         }}
-        className="w-full flex justify-between items-center py-2 px-4 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold"
+        className="filter-trigger w-full flex justify-between items-center py-2 px-4 bg-[#F9FAFB] border border-[#E4E7EC] rounded-lg text-xs font-semibold"
       >
         <span className="text-left">
           <span className="font-black">{label}</span>
@@ -129,7 +131,7 @@ export function FrenchDateInput({
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const defaultClass = 'block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500 w-32 shadow-sm';
+  const defaultClass = 'block bg-white border border-[#E4E7EC] rounded-lg px-4 py-2.5 text-xs font-semibold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500 w-32';
   const formatDisplay = (raw: string) => {
     if (!raw) return '—';
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
@@ -202,7 +204,7 @@ export function FrenchDateInput({
           onChange={(e) => handleTextChange(e.target.value)}
           placeholder="dd/mm/yyyy"
           inputMode="numeric"
-          className={`${cleanedClass} relative z-20 cursor-text pr-8`}
+          className={`${cleanedClass} relative z-20 cursor-text pe-8`}
           aria-label={label ? `Saisir la date ${label}` : 'Saisir une date'}
         />
         <button
@@ -212,7 +214,7 @@ export function FrenchDateInput({
               inputRef.current?.showPicker();
             } catch {}
           }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#98A2B3] z-30 hover:text-[#475467] transition-colors"
+          className="absolute end-3 top-1/2 -translate-y-1/2 text-[#98A2B3] z-30 hover:text-[#475467] transition-colors"
           aria-label={label ? `Choisir la date ${label}` : 'Choisir une date'}
         >
           <Calendar size={14} />
@@ -263,17 +265,17 @@ export function SecteurDropdown({
         type="button"
         disabled={loading}
         onClick={() => !loading && setOpen(o => !o)}
-        className="flex w-full sm:w-auto items-center gap-2 pl-4 pr-3 py-2.5 bg-white border border-[#E4E7EC] rounded-2xl text-xs font-bold text-[#344054] hover:border-[#0D83DE] hover:text-[#0D83DE] transition-all shadow-sm min-w-0 sm:min-w-[200px] max-w-full justify-between disabled:opacity-60 disabled:cursor-wait"
+        className="filter-trigger flex w-full sm:w-auto items-center gap-2 ps-4 pe-3 py-2.5 bg-white border border-[#E4E7EC] rounded-lg text-xs font-semibold text-[#344054] hover:border-brand-500 hover:text-brand-700 transition-colors min-w-0 sm:min-w-[200px] max-w-full justify-between disabled:opacity-60 disabled:cursor-wait"
       >
         <span className="flex items-center gap-2">
-          <MapPin size={14} className={selectedSecteur ? 'text-[#0D83DE]' : 'text-[#98A2B3]'} />
-          <span className={selectedSecteur ? 'text-[#0D83DE] font-black' : ''}>{currentLabel}</span>
+          <MapPin size={14} className={selectedSecteur ? 'text-[#245A83]' : 'text-[#98A2B3]'} />
+          <span className={selectedSecteur ? 'text-brand-700 font-bold' : ''}>{currentLabel}</span>
         </span>
         <ChevronDown size={14} className="text-[#98A2B3] shrink-0" />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 sm:right-auto mt-2 w-full sm:w-64 bg-white border border-[#E4E7EC] rounded-2xl shadow-xl z-50 overflow-hidden max-h-[min(70vh,20rem)] overflow-y-auto">
+        <div className="filter-menu absolute top-full inset-x-0 sm:inset-x-auto sm:start-0 mt-2 w-full sm:w-64 bg-white border border-[#E4E7EC] rounded-xl shadow-xl z-50 overflow-hidden max-h-[min(70vh,20rem)] overflow-y-auto">
           {allowAll && (
             <>
               <button
@@ -281,7 +283,7 @@ export function SecteurDropdown({
                 onClick={() => { onSelect(''); setOpen(false); }}
                 className={`w-full text-left px-4 py-3 text-xs font-bold flex items-center gap-2 transition-colors ${
                   !selectedSecteur
-                    ? 'bg-blue-50 text-[#0D83DE]'
+                    ? 'bg-blue-50 text-[#245A83]'
                     : 'text-[#344054] hover:bg-[#F9FAFB]'
                 }`}
               >
@@ -305,11 +307,11 @@ export function SecteurDropdown({
               onClick={() => { onSelect(s.code); setOpen(false); }}
               className={`w-full text-left px-4 py-3 text-xs font-bold flex items-center gap-2 transition-colors ${
                 selectedSecteur === s.code
-                  ? 'bg-blue-50 text-[#0D83DE]'
+                  ? 'bg-blue-50 text-[#245A83]'
                   : 'text-[#344054] hover:bg-[#F9FAFB]'
               }`}
             >
-              <span className="w-5 h-5 rounded-lg bg-blue-50 text-[#0D83DE] flex items-center justify-center text-[9px] font-black shrink-0">
+              <span className="w-5 h-5 rounded-lg bg-blue-50 text-[#245A83] flex items-center justify-center text-[9px] font-black shrink-0">
                 {s.code}
               </span>
               {s.libelle}

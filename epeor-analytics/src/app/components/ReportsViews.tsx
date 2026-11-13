@@ -7,7 +7,7 @@ import {
   MapPin, BarChart3, Users, UserX,
 } from "lucide-react";
 import {
-  Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { apiUrlObject } from "../lib/api";
 import { formatPeriodLabel, appendSecteurParam, showAlert } from "./utils";
@@ -3938,6 +3938,40 @@ export function Type7SubscriberReport({
       .filter((invoice: any) => !invoice.settledPreviousCut)
       .map((invoice: any) => invoice.numab)
   ).size;
+  const chartSubscribersByNumab = new Map<string, any>();
+  matchingInvoices.forEach((invoice: any) => {
+    const numab = String(invoice.numab || '');
+    if (!chartSubscribersByNumab.has(numab)) chartSubscribersByNumab.set(numab, invoice);
+  });
+  const chartSubscribers = [...chartSubscribersByNumab.values()];
+  const chartCurrentCutSubscribers = chartSubscribers.filter((subscriber: any) => !subscriber.settledPreviousCut);
+  const chartPreviousCutSettlements = chartSubscribers.filter((subscriber: any) => subscriber.settledPreviousCut);
+  const chartData = [
+    {
+      category: 'Créances',
+      label: 'Coupures de la période',
+      amount: chartCurrentCutSubscribers.reduce((total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0),
+      count: chartCurrentCutSubscribers.length,
+    },
+    {
+      category: 'Réglées période',
+      label: 'Règlements dans la période',
+      amount: chartCurrentCutSubscribers.reduce((total: number, subscriber: any) => total + Number(subscriber.paidAmountInPeriod || 0), 0),
+      count: chartCurrentCutSubscribers.filter((subscriber: any) => Number(subscriber.paidAmountInPeriod || 0) > 0).length,
+    },
+    {
+      category: 'Hors période',
+      label: 'Règlements hors période',
+      amount: chartCurrentCutSubscribers.reduce((total: number, subscriber: any) => total + Number(subscriber.paidAmountOutsidePeriod || 0), 0),
+      count: chartCurrentCutSubscribers.filter((subscriber: any) => Number(subscriber.paidAmountOutsidePeriod || 0) > 0).length,
+    },
+    {
+      category: 'Antérieures réglées',
+      label: 'Coupures antérieures réglées',
+      amount: chartPreviousCutSettlements.reduce((total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0), 0),
+      count: chartPreviousCutSettlements.length,
+    },
+  ];
   const communeOptions: string[] = Array.from(
     new Set<string>(invoices.map((invoice: any) => String(invoice.commune || '')))
   ).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr'));
@@ -3972,10 +4006,100 @@ export function Type7SubscriberReport({
     new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(Number(value || 0))
       .replace(/[\u202F\u00A0]/g, ' ');
+  const handlePrintSummary = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      void showAlert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.', {
+        title: 'Autorisation requise',
+        icon: 'warning',
+      });
+      return;
+    }
+
+    const cell = (value: unknown) => escapeHtml(String(value ?? '—'));
+    const rows = communeGroups.flatMap((communeGroup: any) => {
+      const communeSummary = summarizeCommune(communeGroup);
+      const typeRows = communeGroup.groups.map((group: any, index: number) => {
+        const creance = (Array.isArray(group.subscribers) ? group.subscribers : [])
+          .reduce((total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0);
+        const communeCell = index === 0
+          ? `<td class="commune-name" rowspan="${communeGroup.groups.length + 1}">${cell(communeGroup.commune)}</td>`
+          : '';
+        return `<tr>${communeCell}<td>${cell(group.subscriber_type)}</td><td class="numeric">${Number(group.count || 0).toLocaleString('fr-FR')}</td><td class="numeric">${cell(formatAmount(creance))}</td><td class="numeric">${Number(group.paid_with_cut_count || 0).toLocaleString('fr-FR')}</td><td class="numeric">${cell(formatAmount(Number(group.paid_with_cut_amount || 0)))}</td></tr>`;
+      });
+      return [
+        ...typeRows,
+        `<tr class="subtotal"><td>Sous-total</td><td class="numeric">${communeSummary.count.toLocaleString('fr-FR')}</td><td class="numeric">${cell(formatAmount(communeSummary.creance))}</td><td class="numeric">${communeSummary.paidCount.toLocaleString('fr-FR')}</td><td class="numeric">${cell(formatAmount(communeSummary.paidAmount))}</td></tr>`,
+      ];
+    }).join('');
+    const totalCreance = communeGroups.reduce(
+      (total: number, communeGroup: any) => total + summarizeCommune(communeGroup).creance,
+      0
+    );
+    const period = startDate || endDate
+      ? `Période : ${cell(startDate ? formatDate(startDate) : '—')} au ${cell(endDate ? formatDate(endDate) : '—')}`
+      : 'Toutes les dates';
+
+    printWindow.document.write(`<!doctype html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8">
+          <title>Bilan commercial — récapitulatif</title>
+          <style>
+            body { font-family: 'Manrope', 'Segoe UI', sans-serif; color: #101828; margin: 24px; font-size: 9px; }
+            .print-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 2px solid #F2F4F7; padding-bottom: 12px; margin-bottom: 14px; }
+            .logo-section { display: flex; align-items: center; gap: 12px; }
+            .logo-section img { height: 40px; width: auto; object-fit: contain; }
+            .brand-name { color: #245A83; font-size: 14px; font-weight: 900; }
+            .company-name { color: #667085; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+            .title-section { text-align: right; }
+            h1 { font-size: 16px; margin: 0 0 6px; }
+            p { color: #667085; margin: 3px 0; }
+            table { width: 100%; border-collapse: collapse; font-size: 8px; }
+            th, td { border: 1px solid #D0D5DD; padding: 5px; text-align: left; }
+            th { background: #F9FAFB; text-transform: uppercase; font-size: 7px; }
+            .commune-name { vertical-align: middle; font-weight: 700; white-space: nowrap; }
+            .numeric { text-align: right; white-space: nowrap; }
+            .subtotal { border-top: 2px solid #245A83; background-color: #EFF6FA; color: #245A83; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .grand-total { border-top: 2px solid #173F5B; background-color: #245A83; color: #fff; font-weight: 900; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            tr { page-break-inside: avoid; }
+            @page { size: A4 landscape; margin: 10mm; }
+            @media print {
+              body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .subtotal { background-color: #EFF6FA !important; }
+              .grand-total { background-color: #245A83 !important; color: #fff !important; }
+              tr { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-header">
+            <div class="logo-section">
+              <img src="${window.location.origin}/ade.png" alt="Logo ADE">
+              <div>
+                <div class="brand-name">EPEOR Analytics</div>
+                <div class="company-name">Algérienne Des Eaux</div>
+              </div>
+            </div>
+            <div class="title-section">
+              <h1>Répartition des Coupures &amp; Rétablissements</h1>
+              <p>${communeGroups.length} commune${communeGroups.length !== 1 ? 's' : ''}</p>
+              <p>${period} · Édité le ${new Date().toLocaleDateString('fr-FR')}</p>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Commune</th><th>Type d’abonné</th><th class="numeric">Nbr</th><th class="numeric">Créances</th><th class="numeric">Nbr</th><th class="numeric">Règlement</th></tr></thead>
+            <tbody>${rows}<tr class="grand-total"><td colspan="2">Total général</td><td class="numeric">${Number(data?.total_subscriber_count || 0).toLocaleString('fr-FR')}</td><td class="numeric">${cell(formatAmount(totalCreance))}</td><td class="numeric">${Number(data?.total_paid_with_cut_count || 0).toLocaleString('fr-FR')}</td><td class="numeric">${cell(formatAmount(Number(data?.total_paid_with_cut_amount || 0)))}</td></tr></tbody>
+          </table>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>`);
+    printWindow.document.close();
+  };
 
   return (
     <section className="space-y-5 rounded-2xl border border-[#E4E7EC] bg-white p-5 shadow-sm">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-xl font-black text-[#101828]">Répartition des Coupures &amp; Rétablissements</h3>
           <p className="mt-1 text-sm text-[#667085]">
@@ -3983,9 +4107,15 @@ export function Type7SubscriberReport({
             Les coupures antérieures réglées dans la période sont affichées en violet, sans être comptées dans les créances ni les coupures de la période.
           </p>
         </div>
-        <div className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-[#245A83]">
-          {Number(data?.total_subscriber_count || 0).toLocaleString('fr-FR')} abonnés
-        </div>
+        <button
+          type="button"
+          onClick={handlePrintSummary}
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-bold text-[#344054] transition-colors hover:bg-[#F9FAFB]"
+          title="Imprimer le tableau récapitulatif"
+        >
+          <Printer size={15} />
+          Imprimer le tableau
+        </button>
       </header>
 
       <div className="flex flex-wrap gap-3 text-xs font-medium text-[#667085]">
@@ -4040,39 +4170,39 @@ export function Type7SubscriberReport({
                         </td>
                       </tr>
                     )),
-                    <tr key={`subtotal-${communeGroup.commune_id}`} className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-bold">
-                      <td colSpan={2} className="px-4 py-3 text-[#101828]">Sous-total {communeGroup.commune}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-[#245A83]">
+                    <tr key={`subtotal-${communeGroup.commune_id}`} className="border-t-2 border-[#245A83] bg-[#EFF6FA] font-bold text-[#245A83] dark:border-sky-700 dark:bg-slate-800 dark:text-sky-200">
+                      <td colSpan={2} className="px-4 py-3">Sous-total {communeGroup.commune}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
                         {communeSummary.count.toLocaleString('fr-FR')}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                      <td className="px-4 py-3 text-right tabular-nums">
                         {formatAmount(communeSummary.creance)}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                      <td className="px-4 py-3 text-right tabular-nums">
                         {communeSummary.paidCount.toLocaleString('fr-FR')}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                      <td className="px-4 py-3 text-right tabular-nums">
                         {formatAmount(communeSummary.paidAmount)}
                       </td>
                     </tr>,
                   ];
                 })}
-                <tr className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-black">
+                <tr className="grand-total-row border-t-2 border-[#173F5B] bg-[#245A83] font-black text-white dark:border-slate-700 dark:bg-slate-950">
                   <td className="px-4 py-3" colSpan={2}>Total général</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-[#245A83]">
+                  <td className="px-4 py-3 text-right tabular-nums text-white">
                     {Number(data?.total_subscriber_count || 0).toLocaleString('fr-FR')}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                  <td className="px-4 py-3 text-right tabular-nums text-white">
                     {formatAmount(
                       groups.reduce((total: number, group: any) =>
                         total + (Array.isArray(group.subscribers) ? group.subscribers : [])
                           .reduce((groupTotal: number, subscriber: any) => groupTotal + Number(subscriber.creance || 0), 0), 0)
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                  <td className="px-4 py-3 text-right tabular-nums text-white">
                     {Number(data?.total_paid_with_cut_count || 0).toLocaleString('fr-FR')}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                  <td className="px-4 py-3 text-right tabular-nums text-white">
                     {formatAmount(Number(data?.total_paid_with_cut_amount || 0))}
                   </td>
                 </tr>
@@ -4422,6 +4552,52 @@ export function Type7SubscriberReport({
               </div>
             </nav>
           )}
+          <section className="space-y-4 rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] p-4 sm:p-5 dark:border-slate-700 dark:bg-slate-900">
+            <header>
+              <h4 className="text-sm font-black text-[#101828] dark:text-slate-100">Coupures, créances et règlements</h4>
+              <p className="mt-1 text-xs text-[#667085] dark:text-slate-400">
+                Montants en DA et nombre d’abonnés pour la période sélectionnée.
+              </p>
+            </header>
+            <div className="h-[320px] w-full" role="img" aria-label="Graphique des créances et règlements par période">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 12, right: 12, bottom: 8, left: 8 }}>
+                  <CartesianGrid stroke="#E4E7EC" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="category" tick={{ fill: '#667085', fontSize: 11 }} axisLine={{ stroke: '#D0D5DD' }} tickLine={false} />
+                  <YAxis
+                    yAxisId="amount"
+                    tick={{ fill: '#667085', fontSize: 11 }}
+                    tickFormatter={(value: number) => new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}
+                    axisLine={false}
+                    tickLine={false}
+                    width={56}
+                  />
+                  <YAxis
+                    yAxisId="count"
+                    orientation="right"
+                    tick={{ fill: '#B45309', fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                    width={38}
+                  />
+                  <Tooltip
+                    labelFormatter={(_label: unknown, payload: any[]) => payload?.[0]?.payload?.label || String(_label)}
+                    formatter={(value: number | string, name: string) => [
+                      name === 'Montant'
+                        ? `${formatAmount(Number(value))} DA`
+                        : `${Number(value).toLocaleString('fr-FR')} abonné(s)`,
+                      name,
+                    ]}
+                    contentStyle={{ borderRadius: 8, borderColor: '#D0D5DD', fontSize: 12 }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12, cursor: 'pointer' }} />
+                  <Bar yAxisId="amount" dataKey="amount" name="Montant" fill="#245A83" radius={[4, 4, 0, 0]} maxBarSize={68} />
+                  <Line yAxisId="count" type="monotone" dataKey="count" name="Abonnés" stroke="#D97706" strokeWidth={2.5} dot={{ r: 4, fill: '#D97706' }} activeDot={{ r: 6 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
         </>
       ) : (
         <p className="rounded-xl border border-dashed border-[#E4E7EC] bg-[#F8FAFC] p-6 text-center text-sm text-[#667085]">

@@ -1558,6 +1558,14 @@ body {
   background-color: rgba(125, 173, 194, 0.09);
 }
 
+.grand-total-row:hover {
+  background-color: #245A83 !important;
+}
+
+[data-theme="dark"] .grand-total-row:hover {
+  background-color: #020617 !important;
+}
+
 @media (min-width: 1024px) {
   .app-main {
     padding-block: 2rem;

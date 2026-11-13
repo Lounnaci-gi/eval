@@ -11,6 +11,7 @@ class SubscriberSearchTests(unittest.TestCase):
             "NOM": "AISSA AHMED",
             "CODRUE": "7",
             "SECTEUR": "01",
+            "TOURNEE": "008",
         }
 
         with (
@@ -22,7 +23,7 @@ class SubscriberSearchTests(unittest.TestCase):
         ):
             results = main.search_subscribers(
                 _user={"is_admin": True},
-                query="B32, Aissa, 020215814, cité 400",
+                query="B32, Aissa, 020215814, cité 400, 008",
             )
 
         self.assertEqual([result["NUMAB"] for result in results], ["B32621"])

@@ -512,15 +512,15 @@ export function GestionAbonnesShell({
               ))}
             </div>
 
-            <div className="relative shrink-0 w-48 sm:w-64 ml-auto mr-1 py-0.5">
+            <div className="relative shrink-0 w-56 sm:w-72 lg:w-96 ml-auto mr-1 py-0.5">
               <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Nom, adresse, N° chèque/versement, NUMAB, compteur ou état..."
-                aria-label="Recherche par plusieurs critères, séparés par des virgules"
-                title="Séparez les critères par des virgules. Chaque critère doit correspondre au même abonné."
+                placeholder="Code, raison sociale, adresse, tournée, série compteur..."
+                aria-label="Recherche par code abonné, raison sociale, adresse, tournée ou numéro de série; critères combinables par virgules"
+                title="Code, nom/raison sociale, adresse, tournée, numéro de série, chèque/versement ou état. Séparez les critères par des virgules; tous doivent correspondre au même abonné."
                 className="w-full text-[11px] font-black pl-8 pr-7 py-1.5 rounded-xl border border-[#E4E7EC]/80 bg-white text-[#101828] placeholder-[#98A2B3] focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all"
               />
               {searchQuery && (

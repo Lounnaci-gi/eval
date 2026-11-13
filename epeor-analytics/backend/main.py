@@ -870,6 +870,7 @@ def _search_item_matches_term(item: dict, term: str) -> bool:
         "raisoc_lower",
         "nom_lower",
         "numser_lower",
+        "tournee_lower",
         "etatcpt_lower",
         "etat_label_lower",
     )
@@ -914,6 +915,7 @@ def _build_search_index_entry(record: dict) -> dict:
         'nom_lower': _normalize_search_text(nom),
         'raisoc_lower': _normalize_search_text(raisoc),
         'numser_lower': _normalize_search_text(abonment_info.get('NUMSER', '')),
+        'tournee_lower': _normalize_search_text(record.get('TOURNEE', '')),
         'etatcpt_lower': _normalize_search_text(etatcpt),
         'etat_label_lower': _normalize_search_text(etat_label),
         'adresse_lower': _normalize_search_text(address),

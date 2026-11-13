@@ -3518,6 +3518,31 @@ export function Type7SubscriberReport({
   endDate?: string;
 }) {
   const groups = Array.isArray(data?.by_commune_type) ? data.by_commune_type : [];
+  const communeGroups = groups.reduce((communes: any[], group: any) => {
+    let communeGroup = communes.find((item) => item.commune_id === group.commune_id);
+    if (!communeGroup) {
+      communeGroup = { commune_id: group.commune_id, commune: group.commune, groups: [] };
+      communes.push(communeGroup);
+    }
+    communeGroup.groups.push(group);
+    return communes;
+  }, []);
+  const summarizeCommune = (communeGroup: any) => {
+    const subscribersByNumab = new Map<string, any>();
+    communeGroup.groups.forEach((group: any) => {
+      (Array.isArray(group.subscribers) ? group.subscribers : []).forEach((subscriber: any) => {
+        const numab = String(subscriber.numab || '');
+        if (!subscribersByNumab.has(numab)) subscribersByNumab.set(numab, subscriber);
+      });
+    });
+    const communeSubscribers = [...subscribersByNumab.values()];
+    return {
+      count: communeSubscribers.length,
+      creance: communeSubscribers.reduce((total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0),
+      paidCount: communeSubscribers.filter((subscriber: any) => Number(subscriber.paid_amount || 0) > 0).length,
+      paidAmount: communeSubscribers.reduce((total: number, subscriber: any) => total + Number(subscriber.paid_amount || 0), 0),
+    };
+  };
   const subscribers = groups.flatMap((group: any) =>
     (Array.isArray(group.subscribers) ? group.subscribers : []).map((subscriber: any) => ({
       ...subscriber,
@@ -3984,36 +4009,53 @@ export function Type7SubscriberReport({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
-                {groups.map((group: any, index: number) => {
-                  const rowsInCommune = groups.slice(index).findIndex((next: any) => next.commune !== group.commune);
-                  return (
-                    <tr key={`${group.commune_id}-${group.subscriber_type}`} className="hover:bg-[#F9FAFB]">
-                      {groups[index - 1]?.commune !== group.commune && (
-                        <td
-                          rowSpan={rowsInCommune === -1 ? groups.length - index : rowsInCommune}
-                          className="px-4 py-3 align-middle font-semibold text-[#101828]"
-                        >
-                          {group.commune}
-                        </td>
-                      )}
-                      <td className="px-4 py-3 text-[#475467]">{group.subscriber_type}</td>
-                      <td className="px-4 py-3 text-right font-black tabular-nums text-[#245A83]">
-                        {Number(group.count || 0).toLocaleString('fr-FR')}
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
-                        {formatAmount(
-                          (Array.isArray(group.subscribers) ? group.subscribers : [])
-                            .reduce((total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0)
+                {communeGroups.flatMap((communeGroup: any) => {
+                  const communeSummary = summarizeCommune(communeGroup);
+                  return [
+                    ...communeGroup.groups.map((group: any, index: number) => (
+                      <tr key={`${group.commune_id}-${group.subscriber_type}`} className="hover:bg-[#F9FAFB]">
+                        {index === 0 && (
+                          <td
+                            rowSpan={communeGroup.groups.length}
+                            className="px-4 py-3 align-middle font-semibold text-[#101828]"
+                          >
+                            {group.commune}
+                          </td>
                         )}
+                        <td className="px-4 py-3 text-[#475467]">{group.subscriber_type}</td>
+                        <td className="px-4 py-3 text-right font-black tabular-nums text-[#245A83]">
+                          {Number(group.count || 0).toLocaleString('fr-FR')}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                          {formatAmount(
+                            (Array.isArray(group.subscribers) ? group.subscribers : [])
+                              .reduce((total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0)
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                          {Number(group.paid_with_cut_count || 0).toLocaleString('fr-FR')}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                          {formatAmount(Number(group.paid_with_cut_amount || 0))}
+                        </td>
+                      </tr>
+                    )),
+                    <tr key={`subtotal-${communeGroup.commune_id}`} className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-bold">
+                      <td colSpan={2} className="px-4 py-3 text-[#101828]">Sous-total {communeGroup.commune}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-[#245A83]">
+                        {communeSummary.count.toLocaleString('fr-FR')}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
-                        {Number(group.paid_with_cut_count || 0).toLocaleString('fr-FR')}
+                      <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                        {formatAmount(communeSummary.creance)}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
-                        {formatAmount(Number(group.paid_with_cut_amount || 0))}
+                      <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                        {communeSummary.paidCount.toLocaleString('fr-FR')}
                       </td>
-                    </tr>
-                  );
+                      <td className="px-4 py-3 text-right tabular-nums text-[#101828]">
+                        {formatAmount(communeSummary.paidAmount)}
+                      </td>
+                    </tr>,
+                  ];
                 })}
                 <tr className="border-t-2 border-[#D0D5DD] bg-[#F9FAFB] font-black">
                   <td className="px-4 py-3" colSpan={2}>Total général</td>

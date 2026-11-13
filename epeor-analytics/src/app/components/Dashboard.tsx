@@ -1309,16 +1309,44 @@ export default function Dashboard() {
                   <div
                     role="status"
                     aria-live="polite"
-                    className="flex items-center gap-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-5 text-sm text-[#344054]"
+                    aria-busy="true"
+                    className="overflow-hidden rounded-xl border border-[#E4E7EC] bg-white text-sm text-[#344054] shadow-sm"
                   >
-                    <span className="spinner-premium shrink-0" style={{ width: 32, height: 32 }} aria-hidden="true" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-[#101828]">Chargement du bilan commercial…</p>
-                      <p className="mt-1 text-xs text-[#667085]">
-                        Analyse des factures et des abonnés selon les filtres de la synthèse globale.
-                      </p>
-                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100">
-                        <div className="h-full w-1/3 rounded-full bg-[#245A83] animate-pulse" />
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#EAECF0] px-4 py-4 sm:px-5">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FA] text-[#245A83]">
+                          <LoaderCircle size={20} className="animate-spin" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-bold text-[#101828]">Préparation du bilan commercial</p>
+                          <p className="mt-1 text-xs text-[#667085]">
+                            Analyse des factures et des règlements selon les filtres sélectionnés.
+                          </p>
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#D0D5DD] px-3 py-1.5 text-xs font-semibold text-[#475467]">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-[#245A83]" aria-hidden="true" />
+                        Calcul en cours
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto" aria-hidden="true">
+                      <div className="min-w-[620px]">
+                        <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1fr] gap-4 border-b border-[#EAECF0] bg-[#F9FAFB] px-5 py-3 text-[10px] font-bold uppercase text-[#667085]">
+                          <span>Abonné</span>
+                          <span>Commune</span>
+                          <span className="text-right">Créance</span>
+                          <span className="text-right">Réglée</span>
+                          <span>Date de règlement</span>
+                        </div>
+                        {[0, 1, 2].map((row) => (
+                          <div key={row} className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1fr] items-center gap-4 border-b border-[#F2F4F7] px-5 py-4 last:border-b-0">
+                            <span className="h-3 w-28 animate-pulse rounded bg-[#EAECF0]" style={{ animationDelay: `${row * 100}ms` }} />
+                            <span className="h-3 w-24 animate-pulse rounded bg-[#EAECF0]" style={{ animationDelay: `${row * 100}ms` }} />
+                            <span className="ml-auto h-3 w-20 animate-pulse rounded bg-[#EAECF0]" style={{ animationDelay: `${row * 100}ms` }} />
+                            <span className="ml-auto h-3 w-20 animate-pulse rounded bg-[#EAECF0]" style={{ animationDelay: `${row * 100}ms` }} />
+                            <span className="h-3 w-24 animate-pulse rounded bg-[#EAECF0]" style={{ animationDelay: `${row * 100}ms` }} />
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>

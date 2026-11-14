@@ -42,7 +42,6 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager: replaces deprecated on_event startup/shutdown."""
     _init_auth_db()
-    threading.Thread(target=load_all_data_to_memory, daemon=True).start()
     yield
     print("[INFO] Server is stopping. Cache is preserved for fast restart.")
 
@@ -631,6 +630,7 @@ def get_current_user(
     user = _get_user_by_session(epeor_session)
     if user is None:
         raise HTTPException(status_code=401, detail="Non authentifié")
+    _start_data_load_after_auth()
     return user
 
 
@@ -816,6 +816,18 @@ indexes_ready = False
 db_loading_status = "Initialisation du serveur backend..."
 cached_dashboard_stats = None
 _data_load_lock = threading.Lock()
+_data_load_start_lock = threading.Lock()
+_data_load_started = False
+
+
+def _start_data_load_after_auth() -> None:
+    """Démarre le chargement métier une seule fois, après une authentification valide."""
+    global _data_load_started
+    with _data_load_start_lock:
+        if _data_load_started or is_db_ready:
+            return
+        _data_load_started = True
+        threading.Thread(target=load_all_data_to_memory, daemon=True).start()
 
 # Global caches of all database files
 MEM_ABONNES = []
@@ -2449,6 +2461,7 @@ def auth_login(body: LoginRequest, request: Request, response: Response):
     token = _create_session(row["id"])
     _set_session_cookie(response, token)
     response.headers.setdefault("Cache-Control", "no-store")
+    _start_data_load_after_auth()
     return {"status": "ok", "username": username}
 
 @app.post("/api/auth/logout")
@@ -2467,6 +2480,7 @@ def auth_me(epeor_session: str | None = Cookie(default=None)):
     user = _get_user_by_session(epeor_session)
     if user is None:
         raise HTTPException(status_code=401, detail="Non authentifié")
+    _start_data_load_after_auth()
     return {
         "username": user["username"],
         "display_name": user["display_name"],

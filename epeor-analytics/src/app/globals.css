@@ -1649,6 +1649,69 @@ kbd {
   accent-color: var(--instrument);
 }
 
+/* Comportement fluide sur téléphones étroits, tablettes et grands écrans. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+}
+
+.app-shell,
+.app-main,
+.app-main > *,
+.app-main :is(section, article, aside, main),
+.app-main :is(.flex, .grid) > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-main :is(h1, h2, h3, p, label, td, th, .font-mono) {
+  overflow-wrap: anywhere;
+}
+
+.app-main img,
+.app-main video {
+  max-width: 100%;
+}
+
+.table-scroll,
+.app-main :has(> table) {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 639px) {
+  .app-main {
+    padding-inline: clamp(0.75rem, 4vw, 1rem);
+  }
+
+  .app-main .page-card {
+    padding: clamp(0.75rem, 3.5vw, 1rem);
+    border-radius: 1rem;
+  }
+
+  .app-main :is(.app-page-header, .dashboard-chart-card) {
+    padding: 1rem;
+  }
+
+  .app-main :is(button, a, [role="button"], [role="tab"]) {
+    touch-action: manipulation;
+  }
+}
+
+@media (min-width: 1600px) {
+  .app-main {
+    padding-inline: clamp(2.5rem, 3vw, 4rem);
+  }
+}
+
 [data-theme="dark"] {
   --chart-grid: #36484E;
 }

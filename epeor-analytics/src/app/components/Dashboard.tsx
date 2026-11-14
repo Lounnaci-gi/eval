@@ -903,7 +903,6 @@ export default function Dashboard() {
                 title={t('kpi.resigned')}
                 value={stats?.resigned_subscribers?.toLocaleString() || "..."}
                 icon={<UserX className="text-rose-500" size={24} />}
-                trend="Code 40"
                 color="rose"
                 onClick={() => setCurrentView('resigned')}
               />
@@ -911,7 +910,6 @@ export default function Dashboard() {
                 title={t('kpi.stopped')}
                 value={(stats?.invoice_stopped_subscribers ?? stats?.stopped_subscribers)?.toLocaleString() || "..."}
                 icon={<TimerOff className="text-amber-500" size={24} />}
-                trend="Code 20"
                 color="amber"
                 onClick={() => setCurrentView('stopped')}
               />
@@ -919,7 +917,6 @@ export default function Dashboard() {
                 title={t('kpi.noMeter')}
                 value={(stats?.invoice_no_meter_subscribers ?? stats?.no_meter_subscribers)?.toLocaleString() || "..."}
                 icon={<Ban className="text-cyan-500" size={24} />}
-                trend="Code 30"
                 color="cyan"
                 onClick={() => setCurrentView('no_meter')}
               />

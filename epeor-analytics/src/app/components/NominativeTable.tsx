@@ -553,6 +553,27 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           </div>
         </div>
 
+        <section className="grid grid-cols-2 gap-3 border-b border-[#F2F4F7] bg-white px-4 py-4 sm:grid-cols-4 sm:px-6">
+          <div>
+            <span className="block text-xs font-semibold text-[#667085]">Code abonné</span>
+            <strong className="text-sm text-[#101828]">{selectedSubForInvoices.numab || '—'}</strong>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <span className="block text-xs font-semibold text-[#667085]">Raison sociale</span>
+            <strong className="break-words text-sm text-[#101828]">
+              {selectedSubForInvoices.raisonSociale || selectedSubForInvoices.raison_sociale || selectedSubForInvoices.name || '—'}
+            </strong>
+          </div>
+          <div>
+            <span className="block text-xs font-semibold text-[#667085]">Bloc</span>
+            <strong className="text-sm text-[#101828]">{selectedSubForInvoices.bloc || '—'}</strong>
+          </div>
+          <div>
+            <span className="block text-xs font-semibold text-[#667085]">ND</span>
+            <strong className="text-sm text-[#101828]">{selectedSubForInvoices.ndom || '—'}</strong>
+          </div>
+        </section>
+
         {!loadingInvoices && (
           <section aria-label="Régularité des paiements" className="border-b border-[#F2F4F7] bg-[#FCFCFD] px-4 py-4 sm:px-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

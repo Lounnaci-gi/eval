@@ -5,6 +5,38 @@ import backend.main as main
 
 
 class Type7SubscriberTests(unittest.TestCase):
+    def test_abonne_factures_at_cut_date_returns_receivables_unpaid_until_that_date(self):
+        invoices = [
+            {"NUMAB": "B35677", "TYPE": "E", "PERIODE": "0003", "DATFACT": "20260930", "MONTTC": 2631.14, "DATREG": "20261104"},
+            {"NUMAB": "B35677", "TYPE": "E", "PERIODE": "0003", "DATFACT": "20261231", "MONTTC": 1461.96, "DATREG": "20261104"},
+            {"NUMAB": "B35677", "TYPE": "7", "PERIODE": "0005", "DATFACT": "20261031", "MONTTC": 1200, "DATREG": "20261104"},
+            {"NUMAB": "B35677", "TYPE": "E", "PERIODE": "0003", "DATFACT": "20260831", "MONTTC": 500, "DATREG": "20261030"},
+        ]
+
+        with (
+            patch.object(main, "indexes_ready", True),
+            patch.object(main, "abonnes_by_numab", {"B35677": {"RAISOC": "Abonné test"}}),
+            patch.object(main, "factures_by_numab", {"B35677": invoices}),
+            patch.object(main, "avoirs_by_numab", {"B35677": []}),
+            patch.object(main, "MEM_FACTURES", invoices + [{"NUMAB": "OTHER", "TYPE": "E", "MONTTC": 1}]),
+            patch.object(main, "MEM_AVOIRS", [{"NUMAB": "OTHER", "TYPE": "A", "MONTTC": 1}]),
+            patch.object(main, "_enforce_abonne"),
+            patch.object(main, "_creance_date_arrete", return_value="20261114"),
+        ):
+            result = main.get_abonne_factures(
+                _user={"is_admin": True},
+                numab="B35677",
+                cut_date="20261031",
+                start_date="20261001",
+                end_date="20261031",
+                commercial_detail=True,
+            )
+
+        self.assertEqual([invoice["DATFACT"] for invoice in result], ["20260930", "20261231", "20260831"])
+        self.assertEqual(sum(invoice["creance"] for invoice in result), 4593.10)
+        self.assertEqual(sum(invoice["paid_amount_in_period"] for invoice in result), 500)
+        self.assertEqual(sum(invoice["paid_amount_outside_period"] for invoice in result), 4093.10)
+
     def test_collects_unique_type_7_subscribers_by_commune_and_subscriber_type(self):
         records = [
             {"NUMAB": "01001", "TYPE": "7", "PERIODE": "5", "DATFACT": "20240110", "MONTTC": 1200, "TYPABON": "10"},

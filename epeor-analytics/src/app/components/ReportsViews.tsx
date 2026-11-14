@@ -3518,6 +3518,49 @@ export function Type7SubscriberReport({
   endDate?: string;
 }) {
   const groups = Array.isArray(data?.by_commune_type) ? data.by_commune_type : [];
+  const [selectedSubscriber, setSelectedSubscriber] = useState<any>(null);
+  const [subscriberInvoices, setSubscriberInvoices] = useState<any[]>([]);
+  const [subscriberInvoicesLoading, setSubscriberInvoicesLoading] = useState(false);
+  const [subscriberInvoicesError, setSubscriberInvoicesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const numab = String(selectedSubscriber?.numab || '').trim();
+    const cutDate = String(selectedSubscriber?.datfact || '').trim();
+    if (!numab || !cutDate) return;
+
+    let active = true;
+    const url = apiUrlObject('/abonne_factures');
+    url.searchParams.set('numab', numab);
+    url.searchParams.set('cut_date', cutDate);
+    url.searchParams.set('start_date', startDate.replace(/-/g, ''));
+    url.searchParams.set('end_date', endDate.replace(/-/g, ''));
+    url.searchParams.set('commercial_detail', 'true');
+    if (selectedSubscriber.settledPreviousCut) {
+      url.searchParams.set('settled_previous_cut', 'true');
+    }
+    setSubscriberInvoices([]);
+    setSubscriberInvoicesError(null);
+    setSubscriberInvoicesLoading(true);
+
+    fetch(url.toString(), { credentials: 'include' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
+        const result = await response.json();
+        if (result?.error || !Array.isArray(result)) {
+          throw new Error(String(result?.error || 'Réponse de factures invalide.'));
+        }
+        if (active) setSubscriberInvoices(result);
+      })
+      .catch(() => {
+        if (active) setSubscriberInvoicesError('Impossible de charger les factures de cet abonné.');
+      })
+      .finally(() => {
+        if (active) setSubscriberInvoicesLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [selectedSubscriber?.numab, selectedSubscriber?.datfact, selectedSubscriber?.settledPreviousCut, startDate, endDate]);
+
   const communeGroups = groups.reduce((communes: any[], group: any) => {
     let communeGroup = communes.find((item) => item.commune_id === group.commune_id);
     if (!communeGroup) {
@@ -4097,6 +4140,142 @@ export function Type7SubscriberReport({
     printWindow.document.close();
   };
 
+  const formatInvoicePeriod = (invoice: any) => {
+    const rawDate = String(invoice.DATFACT || '').trim();
+    const match = rawDate.match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
+    if (!match) return rawDate || '—';
+    const [, year, month] = match;
+    if (Number(invoice.PERIODE) === 3) {
+      const quarterByMonth: Record<string, string> = {
+        '03': '1er Trim',
+        '06': '2ème Trim',
+        '09': '3ème Trim',
+        '12': '4ème Trim',
+      };
+      if (quarterByMonth[month]) return `${quarterByMonth[month]} ${year}`;
+    }
+    return `${month}-${year}`;
+  };
+  const formatInvoiceDate = (value: unknown) => {
+    const rawDate = String(value ?? '').trim();
+    const match = rawDate.match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
+    if (!match || rawDate === '00000000' || rawDate === '19000101') return '—';
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  };
+  const formatInvoiceAmount = (value: unknown) =>
+    `${Number(value || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DA`;
+  const isInvoicePaid = (invoice: any) => {
+    const paymentDate = String(invoice.DATREG || '').trim();
+    return paymentDate !== '' && paymentDate !== '00000000' && paymentDate !== '19000101';
+  };
+
+  if (selectedSubscriber) {
+    const sortedSubscriberInvoices = [...subscriberInvoices].sort((a, b) =>
+      String(a.DATFACT || '').localeCompare(String(b.DATFACT || ''))
+    );
+    const receivableTotal = sortedSubscriberInvoices.reduce(
+      (total, invoice) => total + (Number(invoice.creance) || 0),
+      0
+    );
+    const paidInPeriodTotal = sortedSubscriberInvoices.reduce(
+      (total, invoice) => total + (Number(invoice.paid_amount_in_period) || 0),
+      0
+    );
+    const paidOutsidePeriodTotal = sortedSubscriberInvoices.reduce(
+      (total, invoice) => total + (Number(invoice.paid_amount_outside_period) || 0),
+      0
+    );
+
+    return (
+      <section className="space-y-5 rounded-2xl border border-[#E4E7EC] bg-white p-4 shadow-sm sm:p-5">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F2F4F7] pb-4">
+          <div>
+            <h3 className="text-lg font-black text-[#101828]">Créances de l’abonné</h3>
+            <p className="mt-1 text-sm text-[#667085]">
+              Tournée : {selectedSubscriber.tournee || '—'} · Créances impayées au {formatDate(selectedSubscriber.datfact)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedSubscriber(null)}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-bold text-[#344054] hover:bg-[#F9FAFB]"
+          >
+            <ChevronLeft size={16} /> Retour au bilan
+          </button>
+        </header>
+
+        {!subscriberInvoicesLoading && !subscriberInvoicesError && (
+          <div className="grid grid-cols-1 gap-3 border-b border-[#E4E7EC] pb-4 sm:grid-cols-4">
+            <div>
+              <span className="block text-xs font-semibold text-[#667085]">Créances au {formatDate(selectedSubscriber.datfact)}</span>
+              <strong className="text-lg font-black tabular-nums text-[#245A83]">{formatInvoiceAmount(receivableTotal)}</strong>
+            </div>
+            <div>
+              <span className="block text-xs font-semibold text-[#667085]">Règlements dans la période</span>
+              <strong className="text-lg font-black tabular-nums text-[#245A83]">{formatInvoiceAmount(paidInPeriodTotal)}</strong>
+            </div>
+            <div>
+              <span className="block text-xs font-semibold text-[#667085]">Règlements hors période</span>
+              <strong className="text-lg font-black tabular-nums text-emerald-700">{formatInvoiceAmount(paidOutsidePeriodTotal)}</strong>
+            </div>
+            <div>
+              <span className="block text-xs font-semibold text-[#667085]">Taux de règlement</span>
+              <strong className="text-lg font-black tabular-nums text-[#475467]">
+                {formatPaymentRate(paidInPeriodTotal + paidOutsidePeriodTotal, receivableTotal)}
+              </strong>
+            </div>
+          </div>
+        )}
+
+        {subscriberInvoicesLoading ? (
+          <p role="status" className="py-10 text-center text-sm font-semibold text-[#667085]">Chargement des factures…</p>
+        ) : subscriberInvoicesError ? (
+          <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{subscriberInvoicesError}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#E4E7EC] bg-[#F9FAFB] text-xs font-black uppercase text-[#475467]">
+                  <th className="px-4 py-3">N° abonné</th>
+                  <th className="px-4 py-3">Nom / raison sociale</th>
+                  <th className="px-4 py-3">Adresse</th>
+                  <th className="px-4 py-3">Bloc</th>
+                  <th className="px-4 py-3">Ndom</th>
+                  <th className="px-4 py-3 text-right">Créance</th>
+                  <th className="px-4 py-3 text-right">Créance réglée</th>
+                  <th className="px-4 py-3">Date de règlement</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F4F7]">
+                {sortedSubscriberInvoices.map((invoice, index) => {
+                  const paid = isInvoicePaid(invoice);
+                  return (
+                    <tr key={`${invoice.DATFACT}-${invoice.TYPE}-${index}`} className="hover:bg-[#F9FAFB]">
+                      <td className="whitespace-nowrap px-4 py-3 font-mono text-[#475467]">{selectedSubscriber.numab || '—'}</td>
+                      <td className="min-w-48 px-4 py-3 font-semibold text-[#101828]">{selectedSubscriber.raisonSociale || selectedSubscriber.raison_sociale || selectedSubscriber.name || '—'}</td>
+                      <td className="min-w-48 px-4 py-3 text-[#475467]">{selectedSubscriber.address || '—'}</td>
+                      <td className="px-4 py-3 text-[#475467]">{selectedSubscriber.bloc || '—'}</td>
+                      <td className="px-4 py-3 text-[#475467]">{selectedSubscriber.ndom || '—'}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-[#101828]">
+                        <span className="block text-xs font-medium text-[#667085]">{formatInvoicePeriod(invoice)}</span>
+                        {formatInvoiceAmount(invoice.creance)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-emerald-700">{formatInvoiceAmount(invoice.paid_amount)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-[#475467]">{paid ? formatInvoiceDate(invoice.DATREG) : '—'}</td>
+                    </tr>
+                  );
+                })}
+                {sortedSubscriberInvoices.length === 0 && (
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-[#667085]">Aucune facture trouvée pour cet abonné.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-5 rounded-2xl border border-[#E4E7EC] bg-white p-5 shadow-sm">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -4383,11 +4562,21 @@ export function Type7SubscriberReport({
                 {pageInvoices.map((invoice: any, index: number) => (
                   <tr
                     key={invoice.id}
+                    onClick={() => setSelectedSubscriber(invoice)}
+                    onKeyDown={(event) => {
+                      if (event.target instanceof HTMLInputElement) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedSubscriber(invoice);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
                     className={invoice.settledPreviousCut
-                      ? 'bg-violet-50 text-violet-950 hover:bg-violet-100'
-                      : 'hover:bg-[#F9FAFB]'}
+                      ? 'cursor-pointer bg-violet-50 text-violet-950 hover:bg-violet-100 focus-visible:outline-2 focus-visible:outline-[#245A83]'
+                      : 'cursor-pointer hover:bg-[#F9FAFB] focus-visible:outline-2 focus-visible:outline-[#245A83]'}
                   >
-                    <td className="px-3 py-3 text-center">
+                    <td className="px-3 py-3 text-center" onClick={(event) => event.stopPropagation()}>
                       <input
                         type="checkbox"
                         aria-label={`Sélectionner l’abonné ${invoice.numab}`}

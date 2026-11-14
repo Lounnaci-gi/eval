@@ -1500,6 +1500,17 @@ def _collect_settled_previous_cuts(
             or str(cut_record.get('DATSAISIE') or '').strip(),
             "creance": 0.0,
             "paid_amount": round(sum(float(record.get('MONTTC') or 0) for _, record in settled_records), 2),
+            "invoice_details": [
+                {
+                    **record,
+                    "creance": 0.0,
+                    "paid_amount_in_period": float(record.get('MONTTC') or 0),
+                    "paid_amount_outside_period": 0.0,
+                    "paid_amount": float(record.get('MONTTC') or 0),
+                    "is_avoir": False,
+                }
+                for _, record in settled_records
+            ],
             "paid_date": latest_payment_date.isoformat(),
             "settled_previous_cut": True,
         })
@@ -2963,14 +2974,14 @@ def creance_monttc_delta(r, is_avoir: bool) -> float:
     return -monttc if is_avoir else monttc
 
 
-def _collect_current_creances_by_numab(
+def _collect_current_creance_invoice_details_by_numab(
     factures: list[dict],
     avoirs: list[dict],
     numabs: set[str],
     date_arrete: str,
     start_date: str | None,
     end_date: str | None,
-) -> dict[str, float]:
+) -> dict[str, list[dict]]:
     end_day = _parse_payment_date(end_date)
     date_arrete_day = _parse_payment_date(date_arrete)
     payment_month_start = None
@@ -2988,7 +2999,12 @@ def _collect_current_creances_by_numab(
             1,
         )
 
-    creances: dict[str, float] = {}
+    subscribers_with_cut = {
+        str(record.get('NUMAB') or '').strip().upper()
+        for record in factures
+        if str(record.get('NUMAB') or '').strip().upper() in numabs
+        and _is_cut_penalty_created_in_period(record, start_date, end_date)
+    }
     cut_penalty_saisie_by_numab: dict[str, date] = {}
     for record in factures:
         numab = str(record.get('NUMAB') or '').strip().upper()
@@ -3001,6 +3017,8 @@ def _collect_current_creances_by_numab(
         ):
             cut_penalty_saisie_by_numab[numab] = penalty_saisie
 
+    details_by_numab: dict[str, list[dict]] = {}
+    start_day = _parse_payment_date(start_date)
     for records, is_avoir in ((factures, False), (avoirs, True)):
         for record in records:
             numab = str(record.get('NUMAB') or '').strip().upper()
@@ -3032,9 +3050,45 @@ def _collect_current_creances_by_numab(
                     and payment_date <= date_arrete_day
                 ):
                     amount = creance_monttc_delta(record, False)
-            if amount:
-                creances[numab] = creances.get(numab, 0.0) + amount
-    return creances
+
+            paid_amount_in_period = 0.0
+            paid_amount_outside_period = 0.0
+            payment_date = _parse_payment_date(record.get('DATREG'))
+            if not is_avoir and numab in subscribers_with_cut and not _is_cut_penalty_class(record):
+                if payment_date and start_day and end_day and start_day <= payment_date <= end_day:
+                    paid_amount_in_period = float(record.get('MONTTC') or 0)
+                elif payment_date and end_day and payment_date > end_day:
+                    paid_amount_outside_period = float(record.get('MONTTC') or 0)
+
+            if amount or paid_amount_in_period or paid_amount_outside_period:
+                details_by_numab.setdefault(numab, []).append({
+                    **record,
+                    "creance": amount,
+                    "paid_amount_in_period": paid_amount_in_period,
+                    "paid_amount_outside_period": paid_amount_outside_period,
+                    "paid_amount": paid_amount_in_period + paid_amount_outside_period,
+                    "is_avoir": is_avoir,
+                })
+
+    return details_by_numab
+
+
+def _collect_current_creances_by_numab(
+    factures: list[dict],
+    avoirs: list[dict],
+    numabs: set[str],
+    date_arrete: str,
+    start_date: str | None,
+    end_date: str | None,
+) -> dict[str, float]:
+    details = _collect_current_creance_invoice_details_by_numab(
+        factures, avoirs, numabs, date_arrete, start_date, end_date
+    )
+    return {
+        numab: sum(float(invoice["creance"]) for invoice in invoices)
+        for numab, invoices in details.items()
+        if any(float(invoice["creance"]) for invoice in invoices)
+    }
 
 
 def resolve_instit_record(codinstit: str, unite: str = ""):
@@ -5418,7 +5472,15 @@ def get_creance_detaillee(date_arrete: str, secteur: str = None, _user: dict = D
         return {"error": str(e)}
 
 @app.get("/abonne_factures")
-def get_abonne_factures(_user: dict = Depends(get_current_user), numab: str = None):
+def get_abonne_factures(
+    _user: dict = Depends(get_current_user),
+    numab: str = None,
+    cut_date: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    settled_previous_cut: bool = False,
+    commercial_detail: bool = False,
+):
     if not numab:
         return {"error": "numab parameter is required"}
     if not indexes_ready:
@@ -5427,7 +5489,49 @@ def get_abonne_factures(_user: dict = Depends(get_current_user), numab: str = No
         numab_upper = numab.strip().upper()
         abonne_info = abonnes_by_numab.get(numab_upper)
         _enforce_abonne(_user, abonne_info)
-        factures = factures_by_numab.get(numab_upper, [])
+        subscriber_invoices = factures_by_numab.get(numab_upper, [])
+        subscriber_credits = avoirs_by_numab.get(numab_upper, [])
+        if commercial_detail and settled_previous_cut and start_date and end_date and cut_date:
+            cutoff_date = _parse_payment_date(cut_date)
+            if cutoff_date is None:
+                return {"error": "cut_date must be a valid date"}
+            settlements = _collect_settled_previous_cuts(
+                subscriber_invoices,
+                abonnes_by_numab,
+                {numab_upper},
+                set(),
+                start_date,
+                end_date,
+            )
+            settlement = next((
+                item for item in settlements
+                if _parse_payment_date(item.get('cut_date')) == cutoff_date
+            ), None)
+            factures = settlement.get('invoice_details', []) if settlement else []
+        elif commercial_detail:
+            details_by_numab = _collect_current_creance_invoice_details_by_numab(
+                subscriber_invoices,
+                subscriber_credits,
+                {numab_upper},
+                _creance_date_arrete(),
+                start_date,
+                end_date,
+            )
+            factures = details_by_numab.get(numab_upper, [])
+        else:
+            factures = subscriber_invoices
+            if cut_date:
+                cutoff_date = _parse_payment_date(cut_date)
+                if cutoff_date is None:
+                    return {"error": "cut_date must be a valid date"}
+                factures = [
+                    facture for facture in factures
+                    if not _is_cut_penalty_class(facture)
+                    and (
+                        (payment_date := _parse_payment_date(facture.get('DATREG'))) is None
+                        or payment_date > cutoff_date
+                    )
+                ]
 
         results = []
         for f in factures:

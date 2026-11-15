@@ -21,7 +21,7 @@ import dynamic from "next/dynamic";
 import Swal from "sweetalert2";
 import {
   Users, UserX, TimerOff, Ban, CreditCard, TrendingUp,
-  ChevronRight, Percent, User, Lock, Eye, EyeOff, Database, LoaderCircle,
+  ChevronRight, Percent, User, Lock, Eye, EyeOff, LoaderCircle,
   CircleAlert, RefreshCw, FolderCog, Clock3,
 } from "lucide-react";
 import {
@@ -728,9 +728,7 @@ export default function Dashboard() {
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_12%_0%,rgba(30,64,175,0.09),transparent_34rem),radial-gradient(ellipse_at_94%_94%,rgba(217,119,6,0.035),transparent_30rem)]" />
         <header className="relative z-10 flex items-center justify-between border-b border-[#E4E7EC] bg-white/80 px-5 py-4 backdrop-blur sm:px-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-              <Database size={19} strokeWidth={2.2} />
-            </div>
+            <Logo variant="login" className="h-10 w-10 rounded-xl" />
             <div>
               <p className="text-sm font-extrabold tracking-tight text-[#101828]">EPEOR Analytics</p>
               <p className="text-xs font-medium text-[#667085]">{t('loading.systemLabel')}</p>

@@ -99,6 +99,7 @@ export function CreancesAbonnesView({
   const [filterEtatsCpt, setFilterEtatsCpt] = useState<string[]>([]);
   const [filterTourneesTable, setFilterTourneesTable] = useState<string[]>([]);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
+  const [showNoticeLanguageMenu, setShowNoticeLanguageMenu] = useState(false);
   const PAGE_SIZE = 20;
 
   const fmt = (n: number) =>
@@ -834,8 +835,80 @@ export function CreancesAbonnesView({
     printWindow.document.close();
   };
 
-  const printMisesEnDemeure = () => {
+  const printMisesEnDemeure = (language: 'fr' | 'en' | 'ar') => {
     if (selectedCount === 0 || selectedRows.length === 0) return;
+
+    const copy = {
+      fr: {
+        locale: 'fr-FR',
+        currency: 'DA',
+        company: 'Algérienne des Eaux',
+        datePrefix: 'Le',
+        recipient: "À l'attention de :",
+        missingAddress: 'Adresse non renseignée',
+        block: 'Bloc',
+        subscriberCode: 'Code abonné',
+        title: 'Mise en demeure de régler les factures impayées',
+        subject: 'Objet : Régularisation de votre compte abonné n°',
+        salutation: 'Madame, Monsieur,',
+        balance: 'Après vérification de votre compte, nous constatons que des factures demeurent impayées pour un montant total de',
+        invoiceCount: (count: number) => `, correspondant à ${new Intl.NumberFormat('fr-FR').format(count)} facture${count === 1 ? '' : 's'}.`,
+        demand: 'Par la présente, nous vous mettons en demeure de régulariser cette situation en procédant au paiement des sommes dues auprès de votre agence.',
+        paymentProof: 'Si vous avez déjà réglé tout ou partie de cette somme, nous vous invitons à présenter votre justificatif de paiement à nos services afin que votre compte soit mis à jour.',
+        deadline: 'Date limite de règlement :',
+        closing: "Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.",
+        centreManager: 'Le responsable du centre',
+        agencyManager: "Le responsable de l'agence",
+        signature: 'Signature et cachet',
+        printTitle: 'Mises en demeure — abonnés sélectionnés',
+      },
+      en: {
+        locale: 'en-GB',
+        currency: 'DZD',
+        company: 'Algerian Water',
+        datePrefix: 'Date:',
+        recipient: 'To the attention of:',
+        missingAddress: 'Address not provided',
+        block: 'Block',
+        subscriberCode: 'Subscriber code',
+        title: 'Formal Notice to Pay Outstanding Bills',
+        subject: 'Subject: Settlement of subscriber account no.',
+        salutation: 'Dear Sir or Madam,',
+        balance: 'Following a review of your account, we note that invoices remain unpaid in the total amount of',
+        invoiceCount: (count: number) => `, representing ${new Intl.NumberFormat('en-GB').format(count)} unpaid invoice${count === 1 ? '' : 's'}.`,
+        demand: 'By this notice, we formally require you to regularize your account by paying the amount due at your local agency.',
+        paymentProof: 'If you have already paid all or part of this amount, please provide our services with proof of payment so that your account can be updated.',
+        deadline: 'Payment deadline:',
+        closing: 'Yours faithfully,',
+        centreManager: 'Centre manager',
+        agencyManager: 'Agency manager',
+        signature: 'Signature and stamp',
+        printTitle: 'Formal payment notices — selected subscribers',
+      },
+      ar: {
+        locale: 'ar-DZ',
+        currency: 'دج',
+        company: 'الجزائرية للمياه',
+        datePrefix: 'التاريخ:',
+        recipient: 'إلى السيد(ة):',
+        missingAddress: 'العنوان غير متوفر',
+        block: 'العمارة',
+        subscriberCode: 'رقم المشترك',
+        title: 'إعذار بتسديد الفواتير غير المدفوعة',
+        subject: 'الموضوع: تسوية حساب المشترك رقم',
+        salutation: 'السيد(ة) المحترم(ة)،',
+        balance: 'بعد مراجعة حسابكم، تبيّن أن عليكم فواتير غير مسددة بمبلغ إجمالي قدره',
+        invoiceCount: (count: number) => `، وعدد الفواتير غير المسددة: ${new Intl.NumberFormat('ar-DZ').format(count)}.`,
+        demand: 'بموجب هذا الإعذار، نطلب منكم تسوية وضعية حسابكم وتسديد المبلغ المستحق لدى وكالتكم.',
+        paymentProof: 'إذا كنتم قد سددتم كل المبلغ أو جزءًا منه، يُرجى تقديم إثبات الدفع إلى مصالحنا لتحيين حسابكم.',
+        deadline: 'آخر أجل للتسديد:',
+        closing: 'وتفضلوا بقبول فائق عبارات الاحترام والتقدير.',
+        centreManager: 'مسؤول المركز',
+        agencyManager: 'مسؤول الوكالة',
+        signature: 'الإمضاء والختم',
+        printTitle: 'إعذارات بالتسديد — المشتركون المحددون',
+      },
+    }[language];
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -843,68 +916,61 @@ export function CreancesAbonnesView({
       return;
     }
 
-    const dateEdition = new Date().toLocaleDateString('fr-FR');
+    const dateEdition = new Date().toLocaleDateString(copy.locale);
     const montantFmt = (n: number) =>
-      new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      new Intl.NumberFormat(language === 'ar' ? 'ar-DZ' : 'fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         .format(n)
-        .replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+        .replace(/[\u202F\u00A0]/g, ' ') + ` ${copy.currency}`;
 
     const noticesHtml = selectedRows.map((s: any) => `
-      <article class="notice">
+      <article class="notice" lang="${language}" dir="${language === 'ar' ? 'rtl' : 'ltr'}">
         <header class="header">
           <div class="logo-section">
             <img src="${window.location.origin}/ade.png" alt="ADE" />
             <div>
-              <p class="logo-text">Algérienne des Eaux</p>
+              <p class="logo-text">${copy.company}</p>
               <p class="company-name">${escapeHtml(uniteLabel || secteurLabel || '')}</p>
             </div>
           </div>
-          <div class="date">Le ${escapeHtml(dateEdition)}</div>
+          <div class="date">${copy.datePrefix} ${escapeHtml(dateEdition)}</div>
         </header>
 
         <section class="recipient">
-          <p><strong>À l'attention de :</strong> ${escapeHtml(s.name || 'Abonné')}</p>
-          <p>${escapeHtml(s.adresse || 'Adresse non renseignée')}</p>
-          <p>${s.bloc ? `Bloc ${escapeHtml(s.bloc)} · ` : ''}${s.quartier_name ? escapeHtml(s.quartier_name) : ''}</p>
-          <p><strong>Code abonné :</strong> ${escapeHtml(s.numab)}</p>
+          <p><strong>${copy.recipient}</strong> ${escapeHtml(s.name || '—')}</p>
+          <p>${escapeHtml(s.adresse || copy.missingAddress)}</p>
+          <p>${s.bloc ? `${copy.block} ${escapeHtml(s.bloc)} · ` : ''}${s.quartier_name ? escapeHtml(s.quartier_name) : ''}</p>
+          <p><strong>${copy.subscriberCode} :</strong> ${escapeHtml(s.numab)}</p>
         </section>
 
-        <h1>Mise en demeure de régler les factures impayées</h1>
-        <p class="subject">Objet : Régularisation de votre compte abonné n° ${escapeHtml(s.numab)}</p>
+        <h1>${copy.title}</h1>
+        <p class="subject">${copy.subject} ${escapeHtml(s.numab)}</p>
 
         <div class="body">
-          <p>Madame, Monsieur,</p>
+          <p>${copy.salutation}</p>
           <p>
-            Après vérification de votre compte, nous constatons que des factures demeurent impayées
-            pour un montant total de <strong>${escapeHtml(montantFmt(Number(s.montant_creance) || 0))}</strong>,
-            correspondant à <strong>${Number(s.nombre_creance) || 0}</strong> facture${Number(s.nombre_creance) === 1 ? '' : 's'}.
+            ${copy.balance} <strong>${escapeHtml(montantFmt(Number(s.montant_creance) || 0))}</strong>,
+            ${copy.invoiceCount(Number(s.nombre_creance) || 0)}
           </p>
-          <p>
-            Par la présente, nous vous mettons en demeure de régulariser cette situation en procédant
-            au paiement des sommes dues auprès de votre agence.
-          </p>
-          <p>
-            Si vous avez déjà réglé tout ou partie de cette somme, nous vous invitons à présenter
-            votre justificatif de paiement à nos services afin que votre compte soit mis à jour.
-          </p>
-          <p class="deadline">Date limite de règlement : __________________________________</p>
-          <p>Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.</p>
+          <p>${copy.demand}</p>
+          <p>${copy.paymentProof}</p>
+          <p class="deadline">${copy.deadline} __________________________________</p>
+          <p>${copy.closing}</p>
         </div>
 
         <footer class="signature">
-          <p>${secteurLabel ? `Le responsable du centre ${escapeHtml(secteurLabel)}` : "Le responsable de l'agence"}</p>
+          <p>${secteurLabel ? `${copy.centreManager} ${escapeHtml(secteurLabel)}` : copy.agencyManager}</p>
           <div class="signature-line"></div>
-          <p>Signature et cachet</p>
+          <p>${copy.signature}</p>
         </footer>
       </article>
     `).join('');
 
     const htmlContent = `
       <!DOCTYPE html>
-      <html lang="fr">
+      <html lang="${language}">
         <head>
           <meta charset="utf-8" />
-          <title>Mises en demeure — abonnés sélectionnés</title>
+          <title>${copy.printTitle}</title>
           <style>
             * { box-sizing: border-box; }
             body {
@@ -943,6 +1009,8 @@ export function CreancesAbonnesView({
             .signature { width: 45%; margin: 36px 0 0 auto; text-align: center; }
             .signature-line { height: 72px; }
             .signature p { margin: 4px 0; }
+            .notice[dir="rtl"] { text-align: right; }
+            .notice[dir="rtl"] .header { direction: rtl; }
             @page { size: A4 portrait; margin: 15mm; }
             @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
           </style>
@@ -1972,13 +2040,45 @@ export function CreancesAbonnesView({
               >
                 <Printer size={13} /> {selectedCount > 0 ? 'Imprimer la sélection' : 'Imprimer tout'}
               </button>
-              <button
-                onClick={printMisesEnDemeure}
-                disabled={selectedCount === 0 || selectedRows.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-black hover:bg-amber-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Printer size={13} /> Imprimer les mises en demeure
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowNoticeLanguageMenu(open => !open)}
+                  disabled={selectedCount === 0 || selectedRows.length === 0}
+                  aria-haspopup="menu"
+                  aria-expanded={showNoticeLanguageMenu}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-black hover:bg-amber-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Printer size={13} /> Imprimer les mises en demeure
+                  <ChevronDown size={13} className={`transition-transform ${showNoticeLanguageMenu ? 'rotate-180' : ''}`} />
+                </button>
+                {showNoticeLanguageMenu && (
+                  <div
+                    role="menu"
+                    aria-label="Choisir la langue de la mise en demeure"
+                    className="absolute right-0 top-full z-30 mt-2 min-w-44 overflow-hidden rounded-xl border border-[#E4E7EC] bg-white p-1.5 shadow-lg"
+                  >
+                    {([
+                      { language: 'fr', label: 'Français' },
+                      { language: 'en', label: 'English' },
+                      { language: 'ar', label: 'العربية' },
+                    ] as const).map(({ language, label }) => (
+                      <button
+                        key={language}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setShowNoticeLanguageMenu(false);
+                          printMisesEnDemeure(language);
+                        }}
+                        className="block w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-[#344054] hover:bg-[#F9FAFB]"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handlePrintQuarterlyCreanciers}
                 disabled={sorted.length === 0}

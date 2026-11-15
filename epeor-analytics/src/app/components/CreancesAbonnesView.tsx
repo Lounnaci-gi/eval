@@ -834,6 +834,137 @@ export function CreancesAbonnesView({
     printWindow.document.close();
   };
 
+  const printMisesEnDemeure = () => {
+    if (selectedCount === 0 || selectedRows.length === 0) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Veuillez autoriser les fenêtres pop-up pour pouvoir imprimer.');
+      return;
+    }
+
+    const dateEdition = new Date().toLocaleDateString('fr-FR');
+    const montantFmt = (n: number) =>
+      new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        .format(n)
+        .replace(/[\u202F\u00A0]/g, ' ') + ' DA';
+
+    const noticesHtml = selectedRows.map((s: any) => `
+      <article class="notice">
+        <header class="header">
+          <div class="logo-section">
+            <img src="${window.location.origin}/ade.png" alt="ADE" />
+            <div>
+              <p class="logo-text">Algérienne des Eaux</p>
+              <p class="company-name">${escapeHtml(uniteLabel || secteurLabel || '')}</p>
+            </div>
+          </div>
+          <div class="date">Le ${escapeHtml(dateEdition)}</div>
+        </header>
+
+        <section class="recipient">
+          <p><strong>À l'attention de :</strong> ${escapeHtml(s.name || 'Abonné')}</p>
+          <p>${escapeHtml(s.adresse || 'Adresse non renseignée')}</p>
+          <p>${s.bloc ? `Bloc ${escapeHtml(s.bloc)} · ` : ''}${s.quartier_name ? escapeHtml(s.quartier_name) : ''}</p>
+          <p><strong>Code abonné :</strong> ${escapeHtml(s.numab)}</p>
+        </section>
+
+        <h1>Mise en demeure de régler les factures impayées</h1>
+        <p class="subject">Objet : Régularisation de votre compte abonné n° ${escapeHtml(s.numab)}</p>
+
+        <div class="body">
+          <p>Madame, Monsieur,</p>
+          <p>
+            Après vérification de votre compte, nous constatons que des factures demeurent impayées
+            pour un montant total de <strong>${escapeHtml(montantFmt(Number(s.montant_creance) || 0))}</strong>,
+            correspondant à <strong>${Number(s.nombre_creance) || 0}</strong> facture${Number(s.nombre_creance) === 1 ? '' : 's'}.
+          </p>
+          <p>
+            Par la présente, nous vous mettons en demeure de régulariser cette situation en procédant
+            au paiement des sommes dues auprès de votre agence.
+          </p>
+          <p>
+            Si vous avez déjà réglé tout ou partie de cette somme, nous vous invitons à présenter
+            votre justificatif de paiement à nos services afin que votre compte soit mis à jour.
+          </p>
+          <p class="deadline">Date limite de règlement : __________________________________</p>
+          <p>Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.</p>
+        </div>
+
+        <footer class="signature">
+          <p>${secteurLabel ? `Le responsable du centre ${escapeHtml(secteurLabel)}` : "Le responsable de l'agence"}</p>
+          <div class="signature-line"></div>
+          <p>Signature et cachet</p>
+        </footer>
+      </article>
+    `).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8" />
+          <title>Mises en demeure — abonnés sélectionnés</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              color: #101828;
+              font-family: Arial, Helvetica, sans-serif;
+              font-size: 14px;
+              line-height: 1.7;
+            }
+            .notice {
+              position: relative;
+              min-height: 265mm;
+              padding: 8mm 4mm;
+              page-break-after: always;
+              break-after: page;
+            }
+            .notice:last-child { page-break-after: auto; break-after: auto; }
+            .header {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding-bottom: 14px;
+              border-bottom: 2px solid #245A83;
+            }
+            .logo-section { display: flex; align-items: center; gap: 12px; }
+            .logo-section img { width: auto; height: 48px; }
+            .logo-text { margin: 0; color: #245A83; font-size: 16px; font-weight: 700; }
+            .company-name { margin: 2px 0 0; color: #667085; font-size: 11px; }
+            .date { align-self: flex-end; color: #475467; }
+            .recipient { margin: 32px 0 28px auto; width: 58%; }
+            .recipient p { margin: 2px 0; }
+            h1 { margin: 28px 0 8px; text-align: center; font-size: 20px; }
+            .subject { margin-bottom: 28px; font-weight: 700; }
+            .body p { margin: 0 0 16px; text-align: justify; }
+            .deadline { margin-top: 24px !important; font-weight: 700; }
+            .signature { width: 45%; margin: 36px 0 0 auto; text-align: center; }
+            .signature-line { height: 72px; }
+            .signature p { margin: 4px 0; }
+            @page { size: A4 portrait; margin: 15mm; }
+            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>
+          ${noticesHtml}
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const handlePrintQuarterlyCreanciers = () => {
     if (sorted.length === 0 && selectedRows.length === 0) return;
 
@@ -1840,6 +1971,13 @@ export function CreancesAbonnesView({
                 className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#E4E7EC] text-[#344054] rounded-xl text-xs font-black hover:bg-[#F9FAFB] hover:border-[#D0D5DD] active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Printer size={13} /> {selectedCount > 0 ? 'Imprimer la sélection' : 'Imprimer tout'}
+              </button>
+              <button
+                onClick={printMisesEnDemeure}
+                disabled={selectedCount === 0 || selectedRows.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-black hover:bg-amber-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Printer size={13} /> Imprimer les mises en demeure
               </button>
               <button
                 onClick={handlePrintQuarterlyCreanciers}

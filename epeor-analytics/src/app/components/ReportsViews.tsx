@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import {
   Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  type TooltipValueType,
 } from "recharts";
 import { apiUrlObject } from "../lib/api";
 import { formatPeriodLabel, appendSecteurParam, showAlert } from "./utils";
@@ -4771,12 +4772,12 @@ export function Type7SubscriberReport({
                     width={38}
                   />
                   <Tooltip
-                    labelFormatter={(_label: unknown, payload: any[]) => payload?.[0]?.payload?.label || String(_label)}
-                    formatter={(value: number | string, name: string) => [
+                    labelFormatter={(_label: unknown, payload: readonly any[]) => payload?.[0]?.payload?.label || String(_label)}
+                    formatter={(value: TooltipValueType | undefined, name: string | number | undefined) => [
                       name === 'Montant'
                         ? `${formatAmount(Number(value))} DA`
                         : `${Number(value).toLocaleString('fr-FR')} abonné(s)`,
-                      name,
+                      name ?? '',
                     ]}
                     contentStyle={{ borderRadius: 8, borderColor: '#D0D5DD', fontSize: 12 }}
                   />

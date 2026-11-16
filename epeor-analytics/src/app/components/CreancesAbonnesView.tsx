@@ -11,6 +11,19 @@ import { escapeHtml } from "../../lib/escape";
 
 const NUMERIC_SORT_KEYS = new Set(["montant_creance", "nombre_creance"]);
 
+type NoticeHistoryEntry = {
+  id: number;
+  date_edition: string;
+};
+
+const isNoticeHistoryEntry = (entry: unknown): entry is NoticeHistoryEntry =>
+  typeof entry === 'object' &&
+  entry !== null &&
+  'id' in entry &&
+  typeof entry.id === 'number' &&
+  'date_edition' in entry &&
+  typeof entry.date_edition === 'string';
+
 export function CreancesAbonnesView({
   onBack,
   selectedSecteur = '',
@@ -100,6 +113,10 @@ export function CreancesAbonnesView({
   const [filterTourneesTable, setFilterTourneesTable] = useState<string[]>([]);
   const [selectedNumabs, setSelectedNumabs] = useState<string[]>([]);
   const [showNoticeLanguageMenu, setShowNoticeLanguageMenu] = useState(false);
+  const [noticeHistorySubscriber, setNoticeHistorySubscriber] = useState<any | null>(null);
+  const [noticeHistoryEntries, setNoticeHistoryEntries] = useState<NoticeHistoryEntry[]>([]);
+  const [noticeHistoryLoading, setNoticeHistoryLoading] = useState(false);
+  const [noticeHistorySaving, setNoticeHistorySaving] = useState(false);
   const PAGE_SIZE = 20;
 
   const fmt = (n: number) =>
@@ -228,6 +245,85 @@ export function CreancesAbonnesView({
       setResults(prev => prev ? prev.map(x => x.numab === s.numab ? { ...x, is_contentieux: !newVal } : x) : null);
       void showAlert(e.message || "Erreur lors de la mise à jour du statut juridique.", { icon: "error" });
     }
+  };
+
+  const noticeHistoryUrl = (numab: string) =>
+    apiUrlObject(`/api/abonne/${encodeURIComponent(numab)}/mises_en_demeure`).toString();
+
+  const fetchNoticeHistory = async (numab: string): Promise<NoticeHistoryEntry[]> => {
+    const response = await fetch(noticeHistoryUrl(numab));
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || "Impossible de charger l'historique des mises en demeure.");
+    }
+    if (!Array.isArray(data.history) || !data.history.every(isNoticeHistoryEntry)) {
+      throw new Error("La réponse du serveur pour l'historique des mises en demeure est invalide.");
+    }
+    return data.history;
+  };
+
+  const openNoticeHistory = async (subscriber: any) => {
+    setNoticeHistorySubscriber(subscriber);
+    setNoticeHistoryEntries([]);
+    setNoticeHistoryLoading(true);
+    try {
+      setNoticeHistoryEntries(await fetchNoticeHistory(subscriber.numab));
+    } catch (error) {
+      setNoticeHistorySubscriber(null);
+      void showAlert(
+        error instanceof Error ? error.message : "Impossible de charger l'historique des mises en demeure.",
+        { icon: "error" }
+      );
+    } finally {
+      setNoticeHistoryLoading(false);
+    }
+  };
+
+  const recordNoticeAsSent = async () => {
+    const subscriber = noticeHistorySubscriber;
+    if (!subscriber || noticeHistorySaving) return;
+
+    const confirmation = await showConfirm("", {
+      title: "Confirmer l'envoi",
+      text: `Confirmez-vous que la mise en demeure de ${subscriber.name || subscriber.numab} a été envoyée aujourd'hui ?`,
+      icon: "question",
+      confirmButtonText: "Oui, enregistrer l'envoi",
+      cancelButtonText: "Annuler",
+    });
+    if (!confirmation.isConfirmed) return;
+
+    setNoticeHistorySaving(true);
+    try {
+      const response = await fetch(noticeHistoryUrl(subscriber.numab), { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || "Impossible d'enregistrer l'envoi de la mise en demeure.");
+      }
+      if (!isNoticeHistoryEntry(data.entry)) {
+        throw new Error("La réponse du serveur après l'enregistrement est invalide.");
+      }
+      setNoticeHistoryEntries(previous =>
+        [...previous, data.entry].sort((a, b) =>
+          b.date_edition.localeCompare(a.date_edition) || b.id - a.id
+        )
+      );
+      void showAlert(
+        `Envoi enregistré pour le ${formatNoticeHistoryDate(data.entry.date_edition)}.`,
+        { icon: "success" }
+      );
+    } catch (error) {
+      void showAlert(
+        error instanceof Error ? error.message : "Impossible d'enregistrer l'envoi de la mise en demeure.",
+        { icon: "error" }
+      );
+    } finally {
+      setNoticeHistorySaving(false);
+    }
+  };
+
+  const formatNoticeHistoryDate = (date: string) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : date;
   };
 
   // ─── Apply filters ───────────────────────────────────────────────
@@ -918,7 +1014,7 @@ export function CreancesAbonnesView({
 
     const dateEdition = new Date().toLocaleDateString(copy.locale);
     const montantFmt = (n: number) =>
-      new Intl.NumberFormat(language === 'ar' ? 'ar-DZ' : 'fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      new Intl.NumberFormat(copy.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         .format(n)
         .replace(/[\u202F\u00A0]/g, ' ') + ` ${copy.currency}`;
 
@@ -948,7 +1044,7 @@ export function CreancesAbonnesView({
         <div class="body">
           <p>${copy.salutation}</p>
           <p>
-            ${copy.balance} <strong>${escapeHtml(montantFmt(Number(s.montant_creance) || 0))}</strong>,
+            ${copy.balance} <strong>${escapeHtml(montantFmt(Number(s.montant_creance) || 0))}</strong>
             ${copy.invoiceCount(Number(s.nombre_creance) || 0)}
           </p>
           <p>${copy.demand}</p>
@@ -2373,19 +2469,29 @@ export function CreancesAbonnesView({
                         </td>
                         <td className="px-4 py-4 text-right font-black text-sm text-rose-600 font-mono whitespace-nowrap">{fmt(s.montant_creance)}</td>
                         <td className="px-4 py-4 text-center">
-                          <button
-                            type="button"
-                            onClick={() => toggleContentieux(s)}
-                            className={`inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-500 ${
-                              s.is_contentieux
-                                ? s.transmis_cours
-                                  ? 'bg-rose-50 text-rose-700 border-rose-200 cursor-not-allowed opacity-80'
-                                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                            }`}
-                          >
-                            {s.is_contentieux ? 'Transmis' : 'Non transmis'}
-                          </button>
+                          <div className="flex flex-col items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleContentieux(s)}
+                              className={`inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-brand-500 ${
+                                s.is_contentieux
+                                  ? s.transmis_cours
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200 cursor-not-allowed opacity-80'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                  : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {s.is_contentieux ? 'Transmis' : 'Non transmis'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void openNoticeHistory(s)}
+                              aria-label={`Historique des mises en demeure pour ${s.numab}`}
+                              className="text-[10px] font-bold text-brand-700 hover:text-brand-900 underline underline-offset-2"
+                            >
+                              Historique
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2443,6 +2549,86 @@ export function CreancesAbonnesView({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {noticeHistorySubscriber && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4"
+          onClick={() => setNoticeHistorySubscriber(null)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="notice-history-title"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-[#E4E7EC] bg-white shadow-2xl"
+            onClick={event => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between border-b border-[#F2F4F7] px-6 py-5">
+              <div>
+                <h3 id="notice-history-title" className="text-base font-black text-[#101828]">
+                  Historique des mises en demeure
+                </h3>
+                <p className="mt-1 text-xs font-medium text-[#667085]">
+                  {noticeHistorySubscriber.name} · {noticeHistorySubscriber.numab}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNoticeHistorySubscriber(null)}
+                disabled={noticeHistorySaving}
+                aria-label="Fermer l'historique"
+                className="rounded-lg px-2 py-1 text-lg font-bold text-[#667085] hover:bg-[#F9FAFB] disabled:opacity-50"
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="max-h-[50vh] min-h-28 overflow-y-auto px-6 py-5">
+              {noticeHistoryLoading ? (
+                <p className="text-sm font-medium text-[#667085]">Chargement de l'historique…</p>
+              ) : noticeHistoryEntries.length > 0 ? (
+                <ol className="space-y-2">
+                  {noticeHistoryEntries.map(entry => (
+                    <li
+                      key={entry.id}
+                      className="flex items-center justify-between rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] px-4 py-3"
+                    >
+                      <span className="text-sm font-bold text-[#101828]">
+                        {formatNoticeHistoryDate(entry.date_edition)}
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                        Envoyée
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm font-medium text-[#667085]">
+                  Aucun envoi enregistré pour cet abonné.
+                </p>
+              )}
+            </div>
+
+            <footer className="flex flex-col-reverse gap-2 border-t border-[#F2F4F7] bg-[#F9FAFB]/70 px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setNoticeHistorySubscriber(null)}
+                disabled={noticeHistorySaving}
+                className="rounded-xl border border-[#D0D5DD] bg-white px-4 py-2 text-xs font-bold text-[#475467] hover:bg-[#F9FAFB] disabled:opacity-50"
+              >
+                Fermer
+              </button>
+              <button
+                type="button"
+                onClick={() => void recordNoticeAsSent()}
+                disabled={noticeHistoryLoading || noticeHistorySaving}
+                className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-black text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {noticeHistorySaving ? "Enregistrement…" : "Marquer comme envoyée aujourd'hui"}
+              </button>
+            </footer>
+          </section>
         </div>
       )}
 

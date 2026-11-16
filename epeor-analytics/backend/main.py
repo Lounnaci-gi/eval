@@ -226,6 +226,13 @@ def _init_auth_db() -> None:
                 is_contentieux INTEGER NOT NULL DEFAULT 0,
                 date_transmission TEXT
             );
+            CREATE TABLE IF NOT EXISTS sent_notice_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                numab TEXT NOT NULL,
+                date_edition TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_sent_notice_history_numab_date
+                ON sent_notice_history(numab, date_edition DESC, id DESC);
             CREATE TABLE IF NOT EXISTS dossiers_juridiques (
                 numab TEXT PRIMARY KEY,
                 statut_abonne TEXT NOT NULL DEFAULT 'Actif',
@@ -6071,6 +6078,46 @@ def update_legal_status(numab: str, payload: LegalStatusUpdate, _user: dict = De
     except Exception as e:
         print(f"Error updating legal status: {e}")
         raise HTTPException(status_code=500, detail="Database error")
+
+
+@app.get("/api/abonne/{numab}/mises_en_demeure")
+def get_mises_en_demeure_history(numab: str, _user: dict = Depends(get_current_user)):
+    numab_key = numab.strip().upper()
+    abonne = abonnes_by_numab.get(numab_key)
+    _enforce_abonne(_user, abonne)
+    if abonne is None:
+        raise HTTPException(status_code=404, detail="Abonné introuvable.")
+    with _get_auth_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, date_edition FROM sent_notice_history "
+            "WHERE numab = ? ORDER BY date_edition DESC, id DESC",
+            (numab_key,),
+        ).fetchall()
+    return {"numab": numab_key, "history": [dict(row) for row in rows]}
+
+
+@app.post("/api/abonne/{numab}/mises_en_demeure")
+def record_sent_mise_en_demeure(numab: str, _user: dict = Depends(get_current_user)):
+    numab_key = numab.strip().upper()
+    abonne = abonnes_by_numab.get(numab_key)
+    _enforce_abonne(_user, abonne)
+    if abonne is None:
+        raise HTTPException(status_code=404, detail="Abonné introuvable.")
+    date_edition = datetime.now().date().isoformat()
+    try:
+        with _get_auth_conn() as conn:
+            cursor = conn.execute(
+                "INSERT INTO sent_notice_history (numab, date_edition) VALUES (?, ?)",
+                (numab_key, date_edition),
+            )
+            conn.commit()
+        return {
+            "success": True,
+            "entry": {"id": cursor.lastrowid, "date_edition": date_edition},
+        }
+    except sqlite3.Error as e:
+        print(f"Error recording sent mise en demeure for {numab_key}: {e}")
+        raise HTTPException(status_code=500, detail="Erreur lors de l'enregistrement de la mise en demeure.") from e
 
 # --- Module Service Juridique (Dossiers & PDF) ---
 

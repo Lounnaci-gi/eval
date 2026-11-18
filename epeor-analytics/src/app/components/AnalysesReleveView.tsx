@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, ClipboardCheck, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, RefreshCw } from "lucide-react";
 import { apiUrl } from "../lib/api";
 
 type TourneeStatus = 1 | 2 | 3 | 4;
@@ -54,7 +54,9 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDatfact, setSelectedDatfact] = useState("");
   const [filterYear, setFilterYear] = useState("");
-  const [filterPeriod, setFilterPeriod] = useState("all");
+  const [filterPeriod, setFilterPeriod] = useState("");
+  const [sortKey, setSortKey] = useState<keyof TourneeRow | "code" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -74,6 +76,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
         }
         setData(result);
         setFilterYear((year) => year || result.active_datfact.slice(0, 4) || "all");
+        setFilterPeriod((period) => period || result.active_datfact.slice(4, 6) || "all");
       })
       .catch((cause: unknown) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -87,7 +90,30 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
 
   const visibleTours = (data?.tournees ?? []).filter(
     (tour) => statusFilter === "all" || String(tour.code) === statusFilter,
-  );
+  ).toSorted((left, right) => {
+    if (!sortKey) return 0;
+
+    const leftValue = sortKey === "code" ? String(left.code) : String(left[sortKey] ?? "");
+    const rightValue = sortKey === "code" ? String(right.code) : String(right[sortKey] ?? "");
+
+    if (!leftValue && rightValue) return 1;
+    if (leftValue && !rightValue) return -1;
+
+    const comparison = leftValue.localeCompare(rightValue, "fr", {
+      numeric: true,
+      sensitivity: "base",
+    });
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
+  const handleSort = (key: keyof TourneeRow | "code") => {
+    if (sortKey === key) {
+      setSortDirection((direction) => direction === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  };
   const availableYears = [...new Set((data?.available_datfacts ?? []).map((period) => period.slice(0, 4)))];
 
   const handleApplyPeriod = (year = filterYear, periodFilter = filterPeriod) => {
@@ -261,10 +287,44 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
             <table className="w-full min-w-[1050px] border-collapse text-start text-sm">
               <thead className="bg-[#F3F6F7] text-xs uppercase text-[#56636D] dark:bg-slate-800 dark:text-slate-300">
                 <tr>
-                  <th scope="col" className="px-3 py-3 text-start">État</th>
-                  {columns.map((column) => (
-                    <th key={column.key} scope="col" className="px-3 py-3 text-start">{column.label}</th>
-                  ))}
+                  {(() => {
+                    const key = "code" as const;
+                    const active = sortKey === key;
+                    const Icon = active
+                      ? sortDirection === "asc" ? ArrowUp : ArrowDown
+                      : ArrowUpDown;
+                    return (
+                      <th
+                        scope="col"
+                        className="cursor-pointer select-none px-3 py-3 text-start"
+                        onClick={() => handleSort(key)}
+                        aria-sort={active ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+                      >
+                        <button type="button" className="inline-flex items-center gap-1 font-bold">
+                          État <Icon size={13} aria-hidden="true" />
+                        </button>
+                      </th>
+                    );
+                  })()}
+                  {columns.map((column) => {
+                    const active = sortKey === column.key;
+                    const Icon = active
+                      ? sortDirection === "asc" ? ArrowUp : ArrowDown
+                      : ArrowUpDown;
+                    return (
+                      <th
+                        key={column.key}
+                        scope="col"
+                        className="cursor-pointer select-none px-3 py-3 text-start"
+                        onClick={() => handleSort(column.key)}
+                        aria-sort={active ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+                      >
+                        <button type="button" className="inline-flex items-center gap-1 font-bold">
+                          {column.label} <Icon size={13} aria-hidden="true" />
+                        </button>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E4E7EC] dark:divide-slate-700">

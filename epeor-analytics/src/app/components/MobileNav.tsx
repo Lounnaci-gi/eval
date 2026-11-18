@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Calendar,
+  ClipboardCheck,
   LogOut,
   Search,
 } from "lucide-react";
@@ -43,6 +44,7 @@ const MORE_ITEMS: NavItem[] = [
   { id: "recovery_queue", labelKey: "nav.recoveryQueue", icon: ListChecks },
   { id: "creances_institutions", labelKey: "nav.institutionDebts", icon: Building2 },
   { id: "service_contentieux",  labelKey: "nav.billingPeriods",    icon: Calendar },
+  { id: "analyses_releve",      labelKey: "nav.releveAnalysis",    icon: ClipboardCheck },
   { id: "settings",             labelKey: "nav.settings",          icon: Settings },
 ];
 

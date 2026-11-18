@@ -49,6 +49,7 @@ import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { ScrollableTabs, ScrollableTab } from "./ScrollableTabs";
 import { ServiceContentieuxView } from "./ServiceContentieuxView";
+import { AnalysesReleveView } from "./AnalysesReleveView";
 
 const viewLoader = (
   <div className="p-12 flex justify-center">
@@ -1172,6 +1173,8 @@ export default function Dashboard() {
             sectorsLoading={sectorsLoading || !stats?.ready}
             allowAll={Boolean(user?.is_admin || !user?.allowed_sectors?.length)}
           />
+        ) : currentView === 'analyses_releve' ? (
+          <AnalysesReleveView onBack={() => setCurrentView('dashboard')} />
         ) : ['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite', 'bilan_activite_commercial'].includes(currentView) ? (
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Unified Financial Suite Header */}

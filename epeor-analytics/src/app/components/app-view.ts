@@ -18,4 +18,5 @@ export type AppView =
   | "recovery_queue"
   | "creances_institutions"
   | "service_contentieux"
+  | "analyses_releve"
   | "settings";

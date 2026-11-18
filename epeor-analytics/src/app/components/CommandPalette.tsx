@@ -6,6 +6,7 @@ import {
   BarChart3,
   Building2,
   CalendarDays,
+  ClipboardCheck,
   CreditCard,
   LayoutDashboard,
   ListChecks,
@@ -74,6 +75,7 @@ export function CommandPalette({
     { id: "recovery", label: t("nav.recoveryQueue"), description: t("command.screens"), icon: ListChecks, view: "recovery_queue", keywords: "priorité recouvrement" },
     { id: "institutions", label: t("nav.institutionDebts"), description: t("command.screens"), icon: Building2, view: "creances_institutions", keywords: "organisme payeur institution" },
     { id: "contentieux", label: t("nav.billingPeriods"), description: t("command.screens"), icon: CalendarDays, view: "service_contentieux", keywords: "facturation période litige" },
+    { id: "releve-analysis", label: t("nav.releveAnalysis"), description: t("command.screens"), icon: ClipboardCheck, view: "analyses_releve", keywords: "tournée relevé saisie contrôle édition" },
     { id: "settings", label: t("nav.settings"), description: t("command.screens"), icon: Settings, view: "settings", keywords: "configuration administration" },
   ];
   const normalizedQuery = query.trim().toLocaleLowerCase();

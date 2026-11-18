@@ -818,6 +818,115 @@ def load_dbf(filename, load_all=False):
         print(f"Error opening {filename}: {e}")
         return None
 
+
+def _tournee_value(value) -> str:
+    value = str(value or "").strip()
+    return "" if value in ("", "00000000") else value
+
+
+def _is_tournee_date(value) -> bool:
+    value = _tournee_value(value)
+    if len(value) != 8 or not value.isdigit():
+        return False
+    try:
+        datetime.strptime(value, "%Y%m%d")
+        return True
+    except ValueError:
+        return False
+
+
+def _classify_tournee_status(record: dict, today: str) -> int | None:
+    datereleve = _tournee_value(record.get("DATERELEVE"))
+    dateprevue = _tournee_value(record.get("DATEPREVUE"))
+    deb_saisie = _tournee_value(record.get("DEB_SAISIE"))
+    editctl = _tournee_value(record.get("EDITCTL"))
+    editfac = _tournee_value(record.get("EDITFAC"))
+
+    if not datereleve and _is_tournee_date(dateprevue) and dateprevue < today:
+        return 1
+    if datereleve and not deb_saisie:
+        return 2
+    if deb_saisie and not editctl:
+        return 3
+    if editctl and not editfac:
+        return 4
+    return None
+
+
+def _analyze_tournee_records(
+    records: list[dict],
+    today: str,
+    allowed_centers: list[str] | None = None,
+    selected_datfact: str | list[str] | None = None,
+) -> dict:
+    available_datfacts = sorted(
+        {
+            _tournee_value(record.get("DATFACT"))
+            for record in records
+            if _is_tournee_date(record.get("DATFACT"))
+        },
+        reverse=True,
+    )
+    requested_datfacts = (
+        {period.strip() for period in selected_datfact.split(",") if period.strip()}
+        if isinstance(selected_datfact, str)
+        else set(selected_datfact or [])
+    )
+    selected_datfacts = sorted(
+        requested_datfacts.intersection(available_datfacts), reverse=True
+    )
+    if not requested_datfacts:
+        selected_datfacts = available_datfacts[:1]
+    active_datfact = selected_datfacts[0] if selected_datfacts else ""
+    active_records = [
+        record
+        for record in records
+        if _tournee_value(record.get("DATFACT")) in selected_datfacts
+    ]
+    allowed = (
+        {str(center).strip().zfill(2) for center in allowed_centers}
+        if allowed_centers is not None
+        else None
+    )
+    if allowed is not None:
+        active_records = [
+            record
+            for record in active_records
+            if _tournee_value(record.get("CENTRE")).zfill(2) in allowed
+        ]
+
+    tours = []
+    counts = {code: 0 for code in range(1, 5)}
+    for record in active_records:
+        code = _classify_tournee_status(record, today)
+        if code is None:
+            continue
+        counts[code] += 1
+        tours.append({
+            "UNITE": _tournee_value(record.get("UNITE")),
+            "CENTRE": _tournee_value(record.get("CENTRE")),
+            "TOURNEE": _tournee_value(record.get("TOURNEE")),
+            "DATFACT": _tournee_value(record.get("DATFACT")),
+            "DATEPREVUE": _tournee_value(record.get("DATEPREVUE")),
+            "DATERELEVE": _tournee_value(record.get("DATERELEVE")),
+            "DEB_SAISIE": _tournee_value(record.get("DEB_SAISIE")),
+            "EDITCTL": _tournee_value(record.get("EDITCTL")),
+            "EDITFAC": _tournee_value(record.get("EDITFAC")),
+            "code": code,
+        })
+
+    tours.sort(key=lambda tour: (tour["UNITE"], tour["CENTRE"], tour["TOURNEE"]))
+    return {
+        "date_systeme": today,
+        "active_datfact": active_datfact,
+        "selected_datfacts": selected_datfacts,
+        "available_datfacts": available_datfacts,
+        "total_tournees": len(records),
+        "tournees_periode_active": len(active_records),
+        "counts": counts,
+        "tournees": tours,
+    }
+
 is_db_ready = False
 indexes_ready = False
 db_loading_status = "Initialisation du serveur backend..."
@@ -5216,6 +5325,49 @@ def get_creance(_user: dict = Depends(get_current_user),
             "by_raw_type": [],
             "is_official": False,
         }
+
+
+@app.get("/api/analyses_releve")
+def get_analyses_releve(
+    _user: dict = Depends(get_current_user),
+    secteur: str = None,
+    datfact: str = None,
+):
+    secteur = _enforce_sector(_user, secteur)
+    dbf_path = resolve_dbf_path("TOURNEE.DBF")
+    if not os.path.isfile(dbf_path):
+        raise HTTPException(status_code=404, detail="Fichier TOURNEE.DBF introuvable.")
+
+    try:
+        table = DBF(dbf_path, load=True, encoding="cp1256", char_decode_errors="ignore")
+        required_fields = {
+            "UNITE", "CENTRE", "TOURNEE", "DATFACT", "DATEPREVUE",
+            "DATERELEVE", "DEB_SAISIE", "EDITCTL", "EDITFAC",
+        }
+        missing_fields = required_fields.difference(table.field_names)
+        if missing_fields:
+            raise HTTPException(
+                status_code=500,
+                detail="Champs absents de TOURNEE.DBF : " + ", ".join(sorted(missing_fields)),
+            )
+        records = [dict(record) for record in table]
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(status_code=500, detail="Impossible de lire TOURNEE.DBF.") from error
+
+    allowed_centers = [secteur] if secteur else _get_user_abonne_sectors(_user)
+    requested_datfacts = [period.strip() for period in datfact.split(",") if period.strip()] if datfact else []
+    available_datfacts = {
+        _tournee_value(record.get("DATFACT"))
+        for record in records
+        if _is_tournee_date(record.get("DATFACT"))
+    }
+    if set(requested_datfacts).difference(available_datfacts):
+        raise HTTPException(status_code=400, detail="Période DATFACT indisponible.")
+    return _analyze_tournee_records(
+        records, date.today().strftime("%Y%m%d"), allowed_centers, requested_datfacts
+    )
 
 
 @app.get("/type_7_subscribers")

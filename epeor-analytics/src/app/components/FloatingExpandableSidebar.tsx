@@ -5,7 +5,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import {
   LayoutDashboard, Users, CreditCard, Building2, Calendar, ListChecks,
   Settings, LogOut, X, Menu,
-  TrendingUp, User, ShieldCheck
+  TrendingUp, User, ShieldCheck, ClipboardCheck
 } from 'lucide-react';
 import type { AppView } from './app-view';
 import ThemeToggle from './ThemeToggle';
@@ -126,6 +126,13 @@ export function FloatingExpandableSidebar({
       label: t('nav.billingPeriods'),
       description: 'Service contentieux',
       views: ['service_contentieux'],
+    },
+    {
+      id: 'releveAnalysis',
+      icon: <ClipboardCheck size={24} />,
+      label: t('nav.releveAnalysis'),
+      description: 'Suivi des étapes de relève',
+      views: ['analyses_releve'],
     },
     {
       id: 'settings',

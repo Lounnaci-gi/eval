@@ -7,7 +7,7 @@ import {
   MapPin, BarChart3, Users, UserX,
 } from "lucide-react";
 import {
-  Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
   type TooltipValueType,
 } from "recharts";
 import { apiUrlObject } from "../lib/api";
@@ -3990,29 +3990,55 @@ export function Type7SubscriberReport({
   const chartSubscribers = [...chartSubscribersByNumab.values()];
   const chartCurrentCutSubscribers = chartSubscribers.filter((subscriber: any) => !subscriber.settledPreviousCut);
   const chartPreviousCutSettlements = chartSubscribers.filter((subscriber: any) => subscriber.settledPreviousCut);
+  const chartReceivableTotal = chartCurrentCutSubscribers.reduce(
+    (total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0
+  );
+  const chartPaidInPeriodTotal = chartCurrentCutSubscribers.reduce(
+    (total: number, subscriber: any) => total + Number(subscriber.paidAmountInPeriod || 0), 0
+  );
+  const chartPaidOutsidePeriodTotal = chartCurrentCutSubscribers.reduce(
+    (total: number, subscriber: any) => total + Number(subscriber.paidAmountOutsidePeriod || 0), 0
+  );
+  const chartRemainingTotal = Math.max(
+    0,
+    chartReceivableTotal - chartPaidInPeriodTotal - chartPaidOutsidePeriodTotal
+  );
   const chartData = [
     {
       category: 'Créances',
-      label: 'Coupures de la période',
-      amount: chartCurrentCutSubscribers.reduce((total: number, subscriber: any) => total + Number(subscriber.creance || 0), 0),
+      label: 'Créances et règlements de la période',
+      amount: chartReceivableTotal,
+      paidInPeriod: chartPaidInPeriodTotal,
+      paidInPeriodRate: formatPaymentRate(chartPaidInPeriodTotal, chartReceivableTotal),
+      paidOutsidePeriod: chartPaidOutsidePeriodTotal,
+      paidOutsidePeriodRate: formatPaymentRate(chartPaidOutsidePeriodTotal, chartReceivableTotal),
+      remainingAmount: 0,
+      previousCutAmount: 0,
       count: chartCurrentCutSubscribers.length,
     },
     {
-      category: 'Réglées période',
-      label: 'Règlements dans la période',
-      amount: chartCurrentCutSubscribers.reduce((total: number, subscriber: any) => total + Number(subscriber.paidAmountInPeriod || 0), 0),
-      count: chartCurrentCutSubscribers.filter((subscriber: any) => Number(subscriber.paidAmountInPeriod || 0) > 0).length,
-    },
-    {
-      category: 'Hors période',
-      label: 'Règlements hors période',
-      amount: chartCurrentCutSubscribers.reduce((total: number, subscriber: any) => total + Number(subscriber.paidAmountOutsidePeriod || 0), 0),
-      count: chartCurrentCutSubscribers.filter((subscriber: any) => Number(subscriber.paidAmountOutsidePeriod || 0) > 0).length,
+      category: 'Reste à régler',
+      label: 'Créance non réglée',
+      amount: 0,
+      paidInPeriod: 0,
+      paidOutsidePeriod: 0,
+      remainingAmount: chartRemainingTotal,
+      remainingRate: formatPaymentRate(chartRemainingTotal, chartReceivableTotal),
+      previousCutAmount: 0,
+      count: chartCurrentCutSubscribers.filter((subscriber: any) =>
+        Number(subscriber.creance || 0)
+          - Number(subscriber.paidAmountInPeriod || 0)
+          - Number(subscriber.paidAmountOutsidePeriod || 0) > 0
+      ).length,
     },
     {
       category: 'Antérieures réglées',
       label: 'Coupures antérieures réglées',
-      amount: chartPreviousCutSettlements.reduce((total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0), 0),
+      amount: 0,
+      paidInPeriod: 0,
+      paidOutsidePeriod: 0,
+      remainingAmount: 0,
+      previousCutAmount: chartPreviousCutSettlements.reduce((total: number, subscriber: any) => total + Number(subscriber.paidAmount || 0), 0),
       count: chartPreviousCutSettlements.length,
     },
   ];
@@ -4774,15 +4800,25 @@ export function Type7SubscriberReport({
                   <Tooltip
                     labelFormatter={(_label: unknown, payload: readonly any[]) => payload?.[0]?.payload?.label || String(_label)}
                     formatter={(value: TooltipValueType | undefined, name: string | number | undefined) => [
-                      name === 'Montant'
-                        ? `${formatAmount(Number(value))} DA`
-                        : `${Number(value).toLocaleString('fr-FR')} abonné(s)`,
+                      name === 'Abonnés'
+                        ? `${Number(value).toLocaleString('fr-FR')} abonné(s)`
+                        : `${formatAmount(Number(value))} DA`,
                       name ?? '',
                     ]}
                     contentStyle={{ borderRadius: 8, borderColor: '#D0D5DD', fontSize: 12 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12, cursor: 'pointer' }} />
-                  <Bar yAxisId="amount" dataKey="amount" name="Montant" fill="#245A83" radius={[4, 4, 0, 0]} maxBarSize={68} />
+                  <Bar yAxisId="amount" dataKey="amount" name="Créances" fill="#245A83" stackId="amount" maxBarSize={68} />
+                  <Bar yAxisId="amount" dataKey="paidInPeriod" name="Réglées période" fill="#3B82F6" stackId="amount" maxBarSize={68}>
+                    <LabelList dataKey="paidInPeriodRate" position="center" fill="#FFFFFF" fontSize={10} fontWeight={700} />
+                  </Bar>
+                  <Bar yAxisId="amount" dataKey="paidOutsidePeriod" name="Hors période" fill="#059669" stackId="amount" maxBarSize={68} radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="paidOutsidePeriodRate" position="center" fill="#FFFFFF" fontSize={10} fontWeight={700} />
+                  </Bar>
+                  <Bar yAxisId="amount" dataKey="remainingAmount" name="Reste à régler" fill="#B42318" stackId="amount" maxBarSize={68} radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="remainingRate" position="center" fill="#FFFFFF" fontSize={10} fontWeight={700} />
+                  </Bar>
+                  <Bar yAxisId="amount" dataKey="previousCutAmount" name="Antérieures réglées" fill="#7C3AED" stackId="amount" maxBarSize={68} radius={[4, 4, 0, 0]} />
                   <Line yAxisId="count" type="monotone" dataKey="count" name="Abonnés" stroke="#D97706" strokeWidth={2.5} dot={{ r: 4, fill: '#D97706' }} activeDot={{ r: 6 }} />
                 </ComposedChart>
               </ResponsiveContainer>

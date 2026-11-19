@@ -3374,8 +3374,6 @@ def _is_subscriber_counted_for_evolution(abonne_rec: dict[str, str] | None, type
         return False
     if type_abon and str(type_abon).strip() and typabon != str(type_abon).strip():
         return False
-    if _typabon_to_category(typabon) is None:
-        return False
     return True
 
 

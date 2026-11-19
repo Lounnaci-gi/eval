@@ -28,8 +28,12 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
   const [selectedFilterType, setSelectedFilterType] = useState<string>("");
 
   // Interactive date calculator states
-  const [selectedYear, setSelectedYear] = useState<number>(2020);
-  const [selectedMonth, setSelectedMonth] = useState<number>(7);
+  const currentDate = new Date();
+  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(String(currentDate.getFullYear()));
+  const [filterPeriod, setFilterPeriod] = useState("all");
+  const [dateSelectionError, setDateSelectionError] = useState<string | null>(null);
   // Compact panels open state (remplace <details>) — visibles par défaut
   const [simOpen, setSimOpen] = useState<boolean>(true);
   const [milestonesOpen, setMilestonesOpen] = useState<boolean>(true);
@@ -107,9 +111,33 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
     return result.sort((a, b) => b.period.localeCompare(a.period));
   }, [data]);
 
+  const availableYears = useMemo(
+    () => [...new Set(data.map(row => String(row.period || "").slice(0, 4)).filter(year => /^\d{4}$/.test(year)))].sort((a, b) => Number(b) - Number(a)),
+    [data],
+  );
+
   // Calculator logic
-  const minYear = 1990;
   const maxYear = new Date().getFullYear();
+
+  const handleCalculatePeriod = (yearValue = filterYear, periodValue = filterPeriod) => {
+    const latestYear = availableYears[0] || String(maxYear);
+    const year = yearValue === "all" ? Number(latestYear) : Number(yearValue);
+    if (!Number.isInteger(year) || year < 1900 || year > maxYear) {
+      setDateSelectionError("Saisissez une année valide.");
+      return;
+    }
+
+    let month = 12;
+    if (/^q[1-4]$/.test(periodValue)) {
+      month = Number(periodValue[1]) * 3;
+    } else if (/^(0[1-9]|1[0-2])$/.test(periodValue)) {
+      month = Number(periodValue);
+    }
+
+    setSelectedYear(year);
+    setSelectedMonth(month);
+    setDateSelectionError(null);
+  };
 
   const calculatorResult = useMemo(() => {
     if (!data || data.length === 0) return null;
@@ -443,39 +471,91 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
           </div>
 
           <div className={`transition-all px-5 ${simOpen ? 'pb-5 pt-4' : 'max-h-0 pb-0 overflow-hidden'}`}>
-            <div className="grid grid-cols-2 gap-4 items-center">
-              <div>
-                <label className="text-[10px] font-semibold text-[#94A3B8]">{t('common.month', 'Mois')}</label>
+            <div className="flex flex-col gap-4 md:flex-row md:items-end">
+              <div className="space-y-2">
+                <label htmlFor="subscriber-simulator-year" className="px-1 text-[10px] font-bold uppercase text-[#98A2B3]">
+                  {t('common.year', 'Année')}
+                </label>
+                <div className="flex items-center gap-2">
                 <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(Math.min(12, Math.max(1, Number(e.target.value || 1))))}
-                  className="mt-1 w-full text-sm font-semibold border border-[#E6EEF9] rounded-lg px-3 py-2 bg-white focus:outline-none"
+                    id="subscriber-simulator-year"
+                    list="subscriber-simulator-years"
+                    value={filterYear}
+                    onChange={event => {
+                      const nextYear = event.target.value;
+                      setFilterYear(nextYear);
+                      handleCalculatePeriod(nextYear, filterPeriod);
+                    }}
+                    onKeyDown={event => {
+                      if (event.key === "Enter") handleCalculatePeriod();
+                    }}
+                    aria-invalid={Boolean(dateSelectionError)}
+                    placeholder="Entrez une année ou choisissez"
+                    className="block w-full rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] px-4 py-2.5 text-xs font-bold text-[#101828] outline-none transition-all hover:border-[#D0D5DD] focus:border-[#245A83] focus:ring-4 focus:ring-[#245A83]/10 md:w-48"
                 />
+                  <datalist id="subscriber-simulator-years">
+                    <option value="all">Toutes</option>
+                    {availableYears.map(year => <option key={year} value={year} />)}
+                  </datalist>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterYear("all");
+                      setFilterPeriod("all");
+                      handleCalculatePeriod("all", "all");
+                    }}
+                    className="hidden rounded-xl border border-[#E4E7EC] bg-white px-3 py-2.5 text-[10px] font-black text-[#245A83] transition hover:bg-[#F9FAFB] md:inline-block"
+                  >
+                    Toutes
+                  </button>
+                </div>
+                {dateSelectionError && <p role="alert" className="px-1 text-[11px] font-semibold text-red-600">{dateSelectionError}</p>}
               </div>
-              <div>
-                <label className="text-[10px] font-semibold text-[#94A3B8]">{t('common.year', 'Année')}</label>
-                <input
-                  type="number"
-                  min={minYear}
-                  max={maxYear}
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(Math.min(maxYear, Math.max(minYear, Number(e.target.value || minYear))))}
-                  className="mt-1 w-full text-sm font-semibold border border-[#E6EEF9] rounded-lg px-3 py-2 bg-white focus:outline-none"
-                />
+
+              <div className="space-y-2">
+                <label htmlFor="subscriber-simulator-period" className="px-1 text-[10px] font-bold uppercase text-[#98A2B3]">
+                  Période
+                </label>
+                <select
+                  id="subscriber-simulator-period"
+                  value={filterPeriod}
+                  onChange={event => {
+                    const nextPeriod = event.target.value;
+                    setFilterPeriod(nextPeriod);
+                    handleCalculatePeriod(filterYear, nextPeriod);
+                  }}
+                  className="block w-full rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] px-4 py-2.5 text-xs font-bold text-[#101828] outline-none transition-all hover:border-[#D0D5DD] focus:border-[#245A83] focus:ring-4 focus:ring-[#245A83]/10 md:w-56"
+                >
+                  <option value="all">Année {filterYear === "all" ? "complète" : filterYear}</option>
+                  <optgroup label="Trimestres">
+                    <option value="q1">1er Trim {filterYear !== "all" ? filterYear : ""}</option>
+                    <option value="q2">2ème Trim {filterYear !== "all" ? filterYear : ""}</option>
+                    <option value="q3">3ème Trim {filterYear !== "all" ? filterYear : ""}</option>
+                    <option value="q4">4ème Trim {filterYear !== "all" ? filterYear : ""}</option>
+                  </optgroup>
+                  <optgroup label="Mois">
+                    {Array.from({ length: 12 }, (_, index) => {
+                      const month = String(index + 1).padStart(2, "0");
+                      return (
+                        <option key={month} value={month}>
+                          {t(`months.${index + 1}`, new Date(2020, index).toLocaleDateString('fr-FR', { month: 'long' }))} {filterYear !== "all" ? filterYear : ""}
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                </select>
               </div>
+
             </div>
 
-            <div className="mt-4 flex gap-4 items-center">
-              <div className="flex-1 p-4 rounded-lg bg-[#F8FAFF] border border-[#EAF3FF]">
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+              <div className="flex-1 rounded-xl border border-[#EAF3FF] bg-[#F8FAFF] p-4">
                 <div className="text-[11px] text-[#64748B] font-semibold">{t('subscribers.estimatedSubscribers', 'Abonnés estimés')}</div>
                 <div className="text-2xl font-extrabold text-[#0F1724] mt-2">{calculatorResult ? (calculatorResult.isBefore ? '0' : calculatorResult.count.toLocaleString()) : '---'}</div>
                 <div className="text-[11px] text-[#94A3B8] mt-1">{t('subscribers.asOf', 'au')} 01/{selectedMonth.toString().padStart(2, '0')}/{selectedYear}</div>
               </div>
 
-              <div className="w-64 p-4 rounded-lg bg-white border border-[#EEF2FF] shadow-xs">
+              <div className="w-full rounded-xl border border-[#EEF2FF] bg-white p-4 shadow-sm sm:w-64">
                 <div className="text-[11px] text-[#64748B] font-semibold">{t('common.details', 'Détails')}</div>
                 <div className="mt-2 text-sm text-[#0F1724]">
                   <div>{t('charts.resigned', 'Résiliés')}: <span className="font-bold text-rose-600">{(calculatorResult?.resigned_count ?? 0).toLocaleString()}</span></div>

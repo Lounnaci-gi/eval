@@ -675,8 +675,7 @@ function UsersManagementPanel({
   const isCreateMode = !editingUser;
   const isFormValid = isUsernameValid
     && formData.display_name.trim().length > 0
-    && (!formData.password || passwordValid)
-    && (isCreateMode ? passwordMatch : true);
+    && (isCreateMode ? passwordValid && passwordMatch : !formData.password || passwordValid);
 
   const generatePassword = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
@@ -871,201 +870,255 @@ function UsersManagementPanel({
             onClick={() => { setShowForm(false); resetForm(); }}
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
-            <div className="w-full max-w-xl max-h-[92vh] overflow-hidden rounded-[1.75rem] bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 flex flex-col">
-              <div className="flex items-start justify-between gap-3 border-b border-[#F2F4F7] bg-white/95 px-5 py-4 sm:px-6 sm:py-5">
-                <div>
-                  <h3 className="text-lg font-black text-[#101828]">
-                    {editingUser ? `${t('settings.editUser')} — ${editingUser.username}` : t('settings.createUser', 'Créer un utilisateur')}
-                  </h3>
-                  <p className="text-xs text-[#667085] mt-0.5 font-medium">
-                    {editingUser ? t('settings.editHint', 'Laissez le mot de passe vide pour ne pas le modifier.') : t('settings.createHint', 'Remplissez tous les champs requis.')}
-                  </p>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="user-form-title"
+              className="flex max-h-[94vh] w-full max-w-[760px] flex-col overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_32px_100px_rgba(16,24,40,0.34)] animate-in fade-in zoom-in-95 duration-200"
+            >
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#173F5F] via-[#245A83] to-[#2E7DA9] px-6 py-7 text-white sm:px-8">
+                <div className="absolute -right-16 -top-24 h-52 w-52 rounded-full border-[38px] border-white/[0.055]" />
+                <div className="relative flex items-start justify-between gap-5">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/15 text-xl font-black shadow-lg backdrop-blur-sm">
+                      {(formData.display_name.trim()[0] || formData.username.trim()[0] || 'U').toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#BDE1F5]">
+                        {editingUser ? 'Modification du compte' : 'Nouvel accès'}
+                      </p>
+                      <h3 id="user-form-title" className="text-[22px] font-black tracking-tight">
+                        {editingUser ? formData.display_name || editingUser.username : 'Créer un utilisateur'}
+                      </h3>
+                      <p className="mt-1 text-sm text-[#D7EBF6]">
+                        {editingUser ? 'Mettez à jour les informations du compte.' : 'Configurez les informations et les droits du nouveau compte.'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForm(false); resetForm(); }}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 transition-colors"
+                    aria-label={t('common.close')}
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setShowForm(false); resetForm(); }}
-                  className="p-2 rounded-xl text-[#667085] hover:bg-[#F2F4F7] transition-colors"
-                >
-                  <X size={20} />
-                </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 sm:p-6 sm:space-y-4">
-                <label className="block">
-                  <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-                    <User size={12} /> {t('settings.username')}
-                  </span>
-                  <input
-                    type="text"
-                    required
-                    value={formData.username}
-                    onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
-                    className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition ${formData.username && !isUsernameValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
-                    placeholder="ex: agent01"
-                    autoComplete="username"
-                    aria-invalid={formData.username !== '' && !isUsernameValid}
-                  />
-                  <p className="mt-2 text-xs text-slate-500">
-                    {t('settings.usernameHint', '3–32 caractères, lettres minuscules, chiffres et underscore.')}
-                  </p>
-                  {formData.username && !isUsernameValid && (
-                    <p className="mt-1 text-[11px] font-semibold text-red-600">{t('settings.usernameInvalid', "Nom d'utilisateur invalide.")}</p>
-                  )}
-                </label>
+              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto bg-[#FBFCFE] px-5 py-6 sm:px-8">
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
+                  <div className="space-y-5">
+                    <section className="rounded-2xl border border-[#E4E7EC] bg-white p-5 shadow-[0_8px_28px_rgba(16,24,40,0.04)] sm:p-6">
+                      <div className="mb-4 flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#EFF8FF] text-[#245A83]">
+                          <User size={15} />
+                        </div>
+                        <h4 className="text-sm font-black text-[#344054]">Informations du compte</h4>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#475467]">
+                            {t('settings.username')} <span className="text-red-600">*</span>
+                          </span>
+                          <input
+                            type="text"
+                            required
+                            value={formData.username}
+                            onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
+                            className={`h-12 w-full rounded-xl border bg-white px-3.5 text-sm font-semibold text-[#101828] shadow-sm focus:outline-none focus:ring-4 focus:ring-[#245A83]/10 focus:border-[#245A83] transition ${formData.username && !isUsernameValid ? 'border-red-300' : 'border-[#D0D5DD]'}`}
+                            placeholder="ex: agent01"
+                            autoComplete="username"
+                            aria-invalid={formData.username !== '' && !isUsernameValid}
+                          />
+                          <p className="mt-1.5 text-[11px] leading-4 text-[#667085]">
+                            {t('settings.usernameHint', '3–32 caractères : lettres minuscules, chiffres et underscore.')}
+                          </p>
+                          {formData.username && !isUsernameValid && (
+                            <p className="mt-1 text-[11px] font-bold text-red-600">{t('settings.usernameInvalid', "Nom d'utilisateur invalide.")}</p>
+                          )}
+                        </label>
 
-                <label className="block">
-                  <span className="text-xs font-black text-[#344054] uppercase tracking-widest mb-1.5 block">{t('settings.displayName')}</span>
-                  <input
-                    type="text"
-                    required
-                    value={formData.display_name}
-                    onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
-                    className="w-full border border-[#D0D5DD] rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition"
-                    placeholder="ex: Agent Secteur 01"
-                  />
-                </label>
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#475467]">
+                            {t('settings.displayName')} <span className="text-red-600">*</span>
+                          </span>
+                          <input
+                            type="text"
+                            required
+                            value={formData.display_name}
+                            onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
+                            className="h-12 w-full rounded-xl border border-[#D0D5DD] bg-white px-3.5 text-sm font-semibold text-[#101828] shadow-sm focus:outline-none focus:ring-4 focus:ring-[#245A83]/10 focus:border-[#245A83] transition"
+                            placeholder="ex: Agent Secteur 01"
+                          />
+                        </label>
+                      </div>
+                    </section>
 
-                <label className="block">
-                  <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-                    <Lock size={12} /> {t('settings.password')} {editingUser ? `(${t('settings.optional', 'optionnel')})` : ''}
-                  </span>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required={!editingUser}
-                      value={formData.password}
-                      onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
-                      className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition ${formData.password && !passwordValid ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
-                      placeholder={editingUser ? t('settings.pwdPlaceholderEdit', 'Laisser vide = inchangé') : t('settings.pwdPlaceholderNew', '8 caractères minimum')}
-                      autoComplete="new-password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(x => !x)}
-                      className="absolute inset-y-0 right-3 flex items-center text-slate-500"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  <div className="mt-2 flex flex-col gap-1 text-[11px]">
-                    <div className="flex items-center justify-between gap-3 text-slate-500">
-                      <span>{isCreateMode ? t('settings.pwdSecurity', 'Sécurité') : t('settings.newPwd', 'Nouveau mot de passe')}</span>
-                      <button
-                        type="button"
-                        onClick={generatePassword}
-                        className="text-[#245A83] font-black text-[11px] hover:text-[#1F4D70] transition"
-                      >
-                        {t('settings.generate', 'Générer')}
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <span className={`rounded-full px-2 py-1 ${formData.password.length >= 8 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdChars', '8 caractères')}</span>
-                      <span className={`rounded-full px-2 py-1 ${/[a-z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdLower', 'minuscule')}</span>
-                      <span className={`rounded-full px-2 py-1 ${/[A-Z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdUpper', 'majuscule')}</span>
-                      <span className={`rounded-full px-2 py-1 ${/\d/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdDigit', 'chiffre')}</span>
-                    </div>
+                    <section className="rounded-2xl border border-[#E4E7EC] bg-white p-5 shadow-[0_8px_28px_rgba(16,24,40,0.04)] sm:p-6">
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ECFDF3] text-[#067647]">
+                            <Lock size={15} />
+                          </div>
+                          <h4 className="text-sm font-black text-[#344054]">Sécurité</h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={generatePassword}
+                          className="rounded-lg border border-[#B2DDFF] bg-[#EFF8FF] px-3 py-2 text-xs font-black text-[#175CD3] hover:bg-[#D1E9FF] transition"
+                        >
+                          {t('settings.generate', 'Générer')}
+                        </button>
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#475467]">
+                            <Lock size={12} className="mr-1 inline" /> {t('settings.password')} {editingUser ? `(${t('settings.optional', 'optionnel')})` : <span className="text-red-600">*</span>}
+                          </span>
+                          <div className="relative">
+                            <input
+                              type={showPassword ? 'text' : 'password'}
+                              required={!editingUser}
+                              value={formData.password}
+                              onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
+                              className={`h-12 w-full rounded-xl border bg-white px-3.5 pr-11 text-sm font-semibold shadow-sm focus:outline-none focus:ring-4 focus:ring-[#245A83]/10 focus:border-[#245A83] transition ${formData.password && !passwordValid ? 'border-red-300' : 'border-[#D0D5DD]'}`}
+                              placeholder={editingUser ? t('settings.pwdPlaceholderEdit', 'Laisser vide = inchangé') : t('settings.pwdPlaceholderNew', '8 caractères minimum')}
+                              autoComplete="new-password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(x => !x)}
+                              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#667085]"
+                              tabIndex={-1}
+                              aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                            >
+                              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                          </div>
+                        </label>
+
+                        {!editingUser && (
+                          <label className="block">
+                            <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#475467]">
+                              <Lock size={12} className="mr-1 inline" /> {t('settings.confirmPwd', 'Confirmer')} <span className="text-red-600">*</span>
+                            </span>
+                            <div className="relative">
+                              <input
+                                type={showPasswordConfirm ? 'text' : 'password'}
+                                required
+                                value={formData.password_confirm}
+                                onChange={e => setFormData(p => ({ ...p, password_confirm: e.target.value }))}
+                                className={`h-12 w-full rounded-xl border bg-white px-3.5 pr-11 text-sm font-semibold shadow-sm focus:outline-none focus:ring-4 focus:ring-[#245A83]/10 focus:border-[#245A83] transition ${formData.password_confirm && !passwordMatch ? 'border-red-300' : 'border-[#D0D5DD]'}`}
+                                placeholder={t('settings.confirmPwdPlaceholder', 'Retapez le mot de passe')}
+                                autoComplete="new-password"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPasswordConfirm(x => !x)}
+                                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#667085]"
+                                tabIndex={-1}
+                                aria-label={showPasswordConfirm ? 'Masquer la confirmation' : 'Afficher la confirmation'}
+                              >
+                                {showPasswordConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                              </button>
+                            </div>
+                            {formData.password_confirm && !passwordMatch && (
+                              <p className="mt-1.5 text-[11px] font-bold text-red-600">{t('settings.pwdMismatch', 'Les mots de passe ne correspondent pas.')}</p>
+                            )}
+                          </label>
+                        )}
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <span className={`rounded-lg px-2 py-2 text-center text-[10px] font-bold ${formData.password.length >= 8 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdChars', '8 caractères')}</span>
+                        <span className={`rounded-lg px-2 py-2 text-center text-[10px] font-bold ${/[a-z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdLower', 'Minuscule')}</span>
+                        <span className={`rounded-lg px-2 py-2 text-center text-[10px] font-bold ${/[A-Z]/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdUpper', 'Majuscule')}</span>
+                        <span className={`rounded-lg px-2 py-2 text-center text-[10px] font-bold ${/\d/.test(formData.password) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t('settings.pwdDigit', 'Chiffre')}</span>
+                      </div>
                       <div className="mt-3 space-y-2">
-                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                        <div className="flex items-center justify-between text-[11px] text-[#667085]">
                           <span>{t('settings.pwdStrength', 'Force du mot de passe')}</span>
                           <span className={`font-black ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
                         </div>
-                        <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
-                          <div className={`${passwordStrength.color} h-full`} style={{ width: `${passwordStrength.percent}%` }} />
+                        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                          <div className={`${passwordStrength.color} h-full transition-all`} style={{ width: `${passwordStrength.percent}%` }} />
                         </div>
                       </div>
-                    </div>
-                  </label>
-
-                {!editingUser && (
-                  <label className="block">
-                    <span className="text-xs font-black text-[#344054] uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-                      <Lock size={12} /> {t('settings.confirmPwd', 'Confirmer le mot de passe')}
-                    </span>
-                    <div className="relative">
-                      <input
-                        type={showPasswordConfirm ? 'text' : 'password'}
-                        required
-                        value={formData.password_confirm}
-                        onChange={e => setFormData(p => ({ ...p, password_confirm: e.target.value }))}
-                        className={`w-full border rounded-2xl px-4 py-3 pr-11 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#245A83]/30 focus:border-[#245A83] transition ${formData.password_confirm && !passwordMatch ? 'border-red-300 focus:border-red-400' : 'border-[#D0D5DD]'}`}
-                        placeholder={t('settings.confirmPwdPlaceholder', 'Retapez le mot de passe')}
-                        autoComplete="new-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPasswordConfirm(x => !x)}
-                        className="absolute inset-y-0 right-3 flex items-center text-slate-500"
-                        tabIndex={-1}
-                      >
-                        {showPasswordConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                    {formData.password_confirm && !passwordMatch && (
-                      <p className="mt-2 text-[11px] text-red-600">{t('settings.pwdMismatch', 'Les mots de passe ne correspondent pas.')}</p>
-                    )}
-                  </label>
-                )}
-
-                {editingUser?.is_admin && (
-                  <div className="flex items-center gap-2 p-3 rounded-2xl bg-amber-50 border border-amber-100 text-amber-800 text-sm font-bold">
-                    <Shield size={16} className="text-amber-500 shrink-0" />
-                    {t('settings.adminNote', "Compte administrateur unique — accès complet à l'application.")}
+                    </section>
                   </div>
-                )}
 
-                {!editingUser?.is_admin && (
-                  <div>
-                    <p className="text-xs font-black text-[#344054] uppercase tracking-widest mb-3">
-                      {t('settings.allowedSectors')} {formData.allowed_sectors.length > 0 ? `(${formData.allowed_sectors.length} ${t('settings.selected', 'sélectionnés')})` : `— ${t('settings.allIfNone', 'tous si aucun coché')}`}
-                    </p>
-                    {sectors.length === 0 ? (
-                      <p className="text-xs text-[#98A2B3] italic">{t('settings.sectorsNotLoaded', 'Données pas encore chargées — secteurs indisponibles.')}</p>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                        {sectors.map(s => {
-                          const checked = formData.allowed_sectors.includes(s.code);
-                          return (
-                            <label
-                              key={s.code}
-                              className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-blue-50 border-[#245A83] text-[#245A83]' : 'border-[#E4E7EC] text-[#344054] hover:bg-[#F9FAFB]'}`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => toggleSector(s.code)}
-                                className="accent-[#245A83] w-4 h-4"
-                              />
-                              <div className="min-w-0">
-                                <p className="text-xs font-black truncate">{s.libelle || s.code}</p>
-                                <p className="text-[10px] text-[#98A2B3]">Code {s.code}</p>
-                              </div>
-                            </label>
-                          );
-                        })}
+                  <aside className="space-y-5">
+                    {editingUser?.is_admin && (
+                      <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
+                        <Shield size={18} className="mt-0.5 shrink-0 text-amber-600" />
+                        <p className="leading-5">{t('settings.adminNote', "Compte administrateur — accès complet à l'application.")}</p>
                       </div>
                     )}
-                  </div>
-                )}
+
+                    {!editingUser?.is_admin && (
+                      <section className="rounded-2xl border border-[#E4E7EC] bg-white p-4">
+                        <div className="mb-3">
+                          <h4 className="text-sm font-black text-[#344054]">{t('settings.allowedSectors')}</h4>
+                          <p className="mt-1 text-xs leading-4 text-[#667085]">
+                            {formData.allowed_sectors.length > 0
+                              ? `${formData.allowed_sectors.length} ${t('settings.selected', 'secteur(s) sélectionné(s)')}`
+                              : t('settings.allIfNone', 'Aucun secteur sélectionné : accès à tous les secteurs')}
+                          </p>
+                        </div>
+                        {sectors.length === 0 ? (
+                          <p className="rounded-xl bg-[#F9FAFB] p-3 text-xs text-[#98A2B3] italic">{t('settings.sectorsNotLoaded', 'Données pas encore chargées — secteurs indisponibles.')}</p>
+                        ) : (
+                          <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                            {sectors.map(s => {
+                              const checked = formData.allowed_sectors.includes(s.code);
+                              return (
+                                <label
+                                  key={s.code}
+                                  className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${checked ? 'border-[#84ADFF] bg-[#EFF8FF] text-[#175CD3]' : 'border-[#E4E7EC] bg-white text-[#344054] hover:border-[#B2DDFF] hover:bg-[#F9FAFB]'}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleSector(s.code)}
+                                    className="h-4 w-4 accent-[#245A83]"
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-black">{s.libelle || s.code}</p>
+                                    <p className="mt-0.5 text-[10px] text-[#98A2B3]">Code {s.code}</p>
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </section>
+                    )}
+                  </aside>
+                </div>
 
                 {formMessage && (
-                  <div className={`p-3 rounded-2xl text-sm font-bold animate-in fade-in duration-200 ${formMessage.type === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                  <div
+                    role="alert"
+                    className={`mt-5 rounded-xl border px-4 py-3 text-sm font-bold animate-in fade-in duration-200 ${formMessage.type === 'ok' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}
+                  >
                     {formMessage.text}
                   </div>
                 )}
 
-                <div className="flex gap-3 border-t border-[#F2F4F7] pt-4">
+                <div className="mt-5 flex flex-col-reverse gap-3 border-t border-[#E4E7EC] pt-5 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={() => { setShowForm(false); resetForm(); }}
-                    className="flex-1 py-3 rounded-2xl border border-[#D0D5DD] text-sm font-black text-[#344054] hover:bg-[#F9FAFB] transition"
+                    className="h-11 rounded-xl border border-[#D0D5DD] px-5 text-sm font-black text-[#344054] hover:bg-[#F9FAFB] transition sm:min-w-32"
                   >
                     {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={formLoading || !isFormValid}
-                    className={`flex-1 py-3 rounded-2xl bg-[#245A83] text-white text-sm font-black hover:bg-[#1F4D70] transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 flex items-center justify-center gap-2 ${formLoading || !isFormValid ? 'opacity-80' : ''}`}
+                    className={`h-11 rounded-xl bg-[#245A83] px-5 text-sm font-black text-white shadow-md shadow-blue-100 hover:bg-[#1F4D70] transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none flex items-center justify-center gap-2 sm:min-w-44 ${formLoading || !isFormValid ? 'opacity-80' : ''}`}
                   >
                     {formLoading ? (
                       <span className="spinner-premium" style={{ width: 16, height: 16, display: 'inline-block' }} />

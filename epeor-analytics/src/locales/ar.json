@@ -216,6 +216,7 @@
     "password": "كلمة المرور",
     "isAdmin": "مسؤول",
     "sectors": "القطاعات المصرح بها",
+    "allowedSectors": "الوصول إلى القطاعات",
     "allSectors": "جميع القطاعات",
     "saveUser": "حفظ",
     "cancelEdit": "إلغاء",

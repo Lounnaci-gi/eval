@@ -216,6 +216,7 @@
     "password": "Mot de passe",
     "isAdmin": "Administrateur",
     "sectors": "Secteurs autorisés",
+    "allowedSectors": "Accès aux secteurs",
     "allSectors": "Tous les secteurs",
     "saveUser": "Enregistrer",
     "cancelEdit": "Annuler",

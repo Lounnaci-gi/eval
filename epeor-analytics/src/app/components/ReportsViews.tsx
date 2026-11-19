@@ -81,7 +81,6 @@ export function CommuneDrillDownView({
             || (targetCommuneId && (value === targetCommuneId || value === targetCommuneId.padStart(2, '0')));
         });
       }));
-    } catch {
       setQuartierSubscribersError('Impossible de charger les abonnés de cette commune.');
     } finally {
       setQuartierSubscribersLoading(false);
@@ -3983,7 +3982,7 @@ export function Type7SubscriberReport({
       .map((invoice: any) => invoice.numab)
   ).size;
   const chartSubscribersByNumab = new Map<string, any>();
-  matchingInvoices.forEach((invoice: any) => {
+  filteredInvoices.forEach((invoice: any) => {
     const numab = String(invoice.numab || '');
     if (!chartSubscribersByNumab.has(numab)) chartSubscribersByNumab.set(numab, invoice);
   });
@@ -4007,34 +4006,18 @@ export function Type7SubscriberReport({
     {
       category: 'Créances',
       label: 'Créances et règlements de la période',
-      amount: chartReceivableTotal,
       paidInPeriod: chartPaidInPeriodTotal,
       paidInPeriodRate: formatPaymentRate(chartPaidInPeriodTotal, chartReceivableTotal),
       paidOutsidePeriod: chartPaidOutsidePeriodTotal,
       paidOutsidePeriodRate: formatPaymentRate(chartPaidOutsidePeriodTotal, chartReceivableTotal),
-      remainingAmount: 0,
+      remainingAmount: chartRemainingTotal,
+      remainingRate: formatPaymentRate(chartRemainingTotal, chartReceivableTotal),
       previousCutAmount: 0,
       count: chartCurrentCutSubscribers.length,
     },
     {
-      category: 'Reste à régler',
-      label: 'Créance non réglée',
-      amount: 0,
-      paidInPeriod: 0,
-      paidOutsidePeriod: 0,
-      remainingAmount: chartRemainingTotal,
-      remainingRate: formatPaymentRate(chartRemainingTotal, chartReceivableTotal),
-      previousCutAmount: 0,
-      count: chartCurrentCutSubscribers.filter((subscriber: any) =>
-        Number(subscriber.creance || 0)
-          - Number(subscriber.paidAmountInPeriod || 0)
-          - Number(subscriber.paidAmountOutsidePeriod || 0) > 0
-      ).length,
-    },
-    {
       category: 'Antérieures réglées',
       label: 'Coupures antérieures réglées',
-      amount: 0,
       paidInPeriod: 0,
       paidOutsidePeriod: 0,
       remainingAmount: 0,
@@ -4798,7 +4781,9 @@ export function Type7SubscriberReport({
                     width={38}
                   />
                   <Tooltip
-                    labelFormatter={(_label: unknown, payload: readonly any[]) => payload?.[0]?.payload?.label || String(_label)}
+                    labelFormatter={(_label: unknown, payload: readonly any[]) =>
+                      `${payload?.[0]?.payload?.label || String(_label)} · Créances filtrées : ${formatAmount(chartReceivableTotal)} DA`
+                    }
                     formatter={(value: TooltipValueType | undefined, name: string | number | undefined) => [
                       name === 'Abonnés'
                         ? `${Number(value).toLocaleString('fr-FR')} abonné(s)`
@@ -4808,7 +4793,6 @@ export function Type7SubscriberReport({
                     contentStyle={{ borderRadius: 8, borderColor: '#D0D5DD', fontSize: 12 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12, cursor: 'pointer' }} />
-                  <Bar yAxisId="amount" dataKey="amount" name="Créances" fill="#245A83" stackId="amount" maxBarSize={68} />
                   <Bar yAxisId="amount" dataKey="paidInPeriod" name="Réglées période" fill="#3B82F6" stackId="amount" maxBarSize={68}>
                     <LabelList dataKey="paidInPeriodRate" position="center" fill="#FFFFFF" fontSize={10} fontWeight={700} />
                   </Bar>

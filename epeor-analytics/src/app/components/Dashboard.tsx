@@ -22,7 +22,7 @@ import Swal from "sweetalert2";
 import {
   Users, UserX, TimerOff, Ban, CreditCard, TrendingUp,
   ChevronRight, Percent, User, Lock, Eye, EyeOff, LoaderCircle,
-  CircleAlert, RefreshCw, FolderCog, Clock3,
+  CircleAlert, RefreshCw, FolderCog, Clock3, LayoutDashboard, Search,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
@@ -878,12 +878,104 @@ export default function Dashboard() {
             </p>
           </aside>
         )}
-        <header className="app-page-header flex justify-between items-start mb-6 sm:mb-8 lg:mb-10 no-print no-print-charts-only">
-          <div className="min-w-0">
-            <p className="app-page-eyebrow">Vue d’ensemble</p>
-            <h1 className="page-title">{t('dashboard.greeting', { name: user?.username || 'Admin' })}</h1>
-            <p className="app-page-subtitle mt-2 text-sm sm:text-base">{t('dashboard.subtitle')}</p>
-          </div>
+        <header className="oval-page-menu no-print no-print-charts-only mb-6 sm:mb-8">
+          <nav className="oval-nav-bar" aria-label={t('nav.mainNav')}>
+            <button
+              type="button"
+              className="oval-nav-brand"
+              onClick={() => setCurrentView('dashboard')}
+              aria-label={t('nav.dashboard')}
+            >
+              <span className="oval-nav-brand-mark"><LayoutDashboard size={17} aria-hidden="true" /></span>
+              <span className="oval-nav-brand-name">EPEOR</span>
+            </button>
+
+            <div className="oval-nav-tabs">
+              <button
+                type="button"
+                className={`oval-nav-tab ${currentView === 'dashboard' ? 'is-active' : ''}`}
+                onClick={() => setCurrentView('dashboard')}
+              >
+                {t('nav.dashboard')}
+              </button>
+              <button
+                type="button"
+                className={`oval-nav-tab ${['details', 'evolution', 'resigned', 'stopped', 'no_meter', 'unconnected', 'terrain', 'institutions'].includes(currentView) ? 'is-active' : ''}`}
+                onClick={() => setCurrentView('details')}
+              >
+                {t('nav.subscribers')}
+              </button>
+              <button
+                type="button"
+                className={`oval-nav-tab ${['creance', 'repartition', 'commune', 'ventilation', 'bilan_activite', 'bilan_activite_commercial'].includes(currentView) ? 'is-active' : ''}`}
+                onClick={() => setCurrentView('creance')}
+              >
+                {t('nav.financials')}
+              </button>
+              <button
+                type="button"
+                className={`oval-nav-tab ${currentView === 'creances_abonnes' ? 'is-active' : ''}`}
+                onClick={() => setCurrentView('creances_abonnes')}
+              >
+                {t('nav.subscriberDebts')}
+              </button>
+              <button
+                type="button"
+                className={`oval-nav-tab ${currentView === 'recovery_queue' ? 'is-active' : ''}`}
+                onClick={() => setCurrentView('recovery_queue')}
+              >
+                {t('nav.recoveryQueue')}
+              </button>
+              <button
+                type="button"
+                className={`oval-nav-tab ${currentView === 'creances_institutions' ? 'is-active' : ''}`}
+                onClick={() => setCurrentView('creances_institutions')}
+              >
+                {t('nav.institutionDebts')}
+              </button>
+              <button
+                type="button"
+                className={`oval-nav-tab ${currentView === 'service_contentieux' ? 'is-active' : ''}`}
+                onClick={() => setCurrentView('service_contentieux')}
+              >
+                {t('nav.billingPeriods')}
+              </button>
+              <button
+                type="button"
+                className={`oval-nav-tab ${currentView === 'analyses_releve' ? 'is-active' : ''}`}
+                onClick={() => setCurrentView('analyses_releve')}
+              >
+                {t('nav.releveAnalysis')}
+              </button>
+              <button
+                type="button"
+                className={`oval-nav-tab ${currentView === 'settings' ? 'is-active' : ''}`}
+                onClick={() => setCurrentView('settings')}
+              >
+                {t('nav.settings')}
+              </button>
+            </div>
+
+            <div className="oval-nav-actions">
+              <button
+                type="button"
+                aria-label={t('command.open')}
+                title={t('command.open')}
+                onClick={() => window.dispatchEvent(new Event('epeor:open-command-palette'))}
+                className="oval-nav-icon"
+              >
+                <Search size={17} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="oval-nav-avatar"
+                onClick={() => setCurrentView('settings')}
+                aria-label={t('nav.settings')}
+              >
+                {String(user?.display_name || user?.username || 'A').trim().charAt(0).toUpperCase()}
+              </button>
+            </div>
+          </nav>
         </header>
 
         {/* Main Content */}

@@ -1379,6 +1379,212 @@ body {
   transition: direction 200ms ease, font-family 200ms ease;
 }
 
+/* Capsule navigation */
+.oval-page-menu {
+  width: 100%;
+}
+
+.oval-nav-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 68px;
+  width: 100%;
+  padding: 6px;
+  border: 1px solid rgba(var(--color-border-strong), 0.82);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 14px 36px rgba(38, 49, 58, 0.10);
+  backdrop-filter: blur(18px);
+}
+
+.oval-nav-brand,
+.oval-nav-tab,
+.oval-nav-icon,
+.oval-nav-avatar {
+  border: 0;
+  cursor: pointer;
+  color: rgb(var(--color-text-secondary));
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+
+.oval-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 54px;
+  padding: 0 14px 0 6px;
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(var(--color-text-primary));
+  font-weight: 850;
+}
+
+.oval-nav-brand-mark {
+  display: flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--instrument);
+  color: #fff;
+}
+
+.oval-nav-brand-name {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+ .oval-nav-tabs {
+  display: flex;
+  justify-content: flex-start;
+  gap: 3px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-inline: 4px;
+  scrollbar-width: thin;
+}
+
+.oval-nav-tab {
+  flex: 0 0 auto;
+  min-height: 42px;
+  max-width: 180px;
+  overflow: hidden;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oval-nav-tab:hover {
+  background: rgba(var(--color-accent), 0.07);
+  color: rgb(var(--color-accent));
+}
+
+.oval-nav-tab.is-active {
+  background: rgb(var(--color-accent));
+  color: #fff;
+  box-shadow: 0 7px 18px rgba(var(--color-accent), 0.22);
+}
+
+.oval-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.oval-nav-icon,
+.oval-nav-avatar {
+  display: flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgb(var(--color-bg-tertiary));
+}
+
+.oval-nav-icon:hover,
+.oval-nav-avatar:hover {
+  background: rgba(var(--color-accent), 0.10);
+  color: rgb(var(--color-accent));
+  transform: translateY(-1px);
+}
+
+.oval-nav-avatar {
+  background: var(--instrument);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+[data-theme="dark"] .oval-nav-bar {
+  border-color: rgba(145, 164, 168, 0.22);
+  background: rgba(36, 51, 58, 0.94);
+}
+
+[data-theme="dark"] .oval-nav-brand,
+[data-theme="dark"] .oval-nav-tab,
+[data-theme="dark"] .oval-nav-icon {
+  color: rgb(var(--color-text-primary));
+}
+
+[data-theme="dark"] .oval-nav-tab.is-active,
+[data-theme="dark"] .oval-nav-avatar {
+  color: #fff;
+}
+
+[data-theme="dark"] .oval-nav-icon {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 1100px) {
+  .oval-nav-tab {
+    max-width: 132px;
+    padding-inline: 10px;
+  }
+
+  .oval-nav-brand-name {
+    display: none;
+  }
+
+  .oval-nav-brand {
+    width: 54px;
+    padding-right: 6px;
+  }
+}
+
+@media (max-width: 639px) {
+  .oval-nav-bar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: 58px;
+  }
+
+  .oval-nav-brand {
+    height: 46px;
+    width: 46px;
+    padding: 2px;
+  }
+
+  .oval-nav-brand-mark {
+    width: 42px;
+    height: 42px;
+  }
+
+  .oval-nav-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .oval-nav-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .oval-nav-tab {
+    min-height: 40px;
+    max-width: none;
+    flex: 0 0 auto;
+  }
+
+  .oval-nav-actions {
+    gap: 2px;
+  }
+
+  .oval-nav-icon {
+    display: none;
+  }
+
+  .oval-nav-avatar {
+    width: 42px;
+    height: 42px;
+  }
+}
+
 /* EPEOR measurement-console surfaces */
 .app-page-header {
   min-height: 10rem;

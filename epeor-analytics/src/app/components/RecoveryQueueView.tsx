@@ -336,11 +336,11 @@ export function RecoveryQueueView({
               </table>
             </div>
             {pageCount > 1 && (
-              <div className="flex items-center justify-between border-t border-[#F2F4F7] px-4 py-3 text-sm">
+              <div className="pagination-footer border-t border-[#F2F4F7] px-4 py-3 text-sm">
                 <span className="text-[#667085]">
                   {t("recoveryQueue.page", { current: currentPage, total: pageCount })}
                 </span>
-                <div className="flex gap-2">
+                <div className="pagination-controls">
                   <button
                     type="button"
                     disabled={currentPage === 1}

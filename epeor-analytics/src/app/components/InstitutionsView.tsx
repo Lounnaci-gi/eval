@@ -2686,7 +2686,7 @@ export function CreancesInstitutionsView({
                               ({g.rows.length} abonné{g.rows.length !== 1 ? 's' : ''})
                             </span>
                           </td>
-                          <td className="px-4 py-3" colSpan={10} />
+                          <td className="px-4 py-3" colSpan={9} />
                           <td className="px-4 py-3 text-center font-black text-brand-900">
                             {gt.factures.toLocaleString('fr-FR')}
                           </td>
@@ -2729,7 +2729,7 @@ export function CreancesInstitutionsView({
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#0F172A] text-white text-xs font-bold">
-                    <td colSpan={11} className="px-4 py-3 uppercase tracking-wide">
+                    <td colSpan={12} className="px-4 py-3 uppercase tracking-wide">
                       Total — {tableTotals.institutions} institutions · {tableTotals.count} abonnés
                     </td>
                     <td className="px-4 py-3 text-center">{tableTotals.factures.toLocaleString('fr-FR')}</td>
@@ -2740,11 +2740,11 @@ export function CreancesInstitutionsView({
               </table>
             </div>
             {totalPages > 1 && (
-              <div className="flex justify-between items-center px-8 py-4 border-t border-[#F2F4F7] bg-[#F9FAFB]">
+              <div className="pagination-footer px-4 py-4 sm:px-8 border-t border-[#F2F4F7] bg-[#F9FAFB]">
                 <p className="text-xs font-bold text-[#667085]">
                   Page {safePage} / {totalPages} · {pagedGroups.length} institutions affichées
                 </p>
-                <div className="flex gap-2">
+                <div className="pagination-controls">
                   <button disabled={safePage <= 1} onClick={() => setPage(p => p - 1)}
                     className="px-3.5 py-2 rounded-xl text-xs font-black border border-[#E4E7EC] bg-white disabled:opacity-40">
                     ← Préc.

@@ -1902,6 +1902,44 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+.app-main .pagination-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.app-main .pagination-footer > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.app-main .pagination-controls {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.app-main .pagination-controls > :is(button, span) {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (min-width: 1024px) {
+  .app-main .pagination-footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .app-main .pagination-controls {
+    justify-content: flex-end;
+  }
+}
+
 @media (max-width: 639px) {
   .app-main {
     padding-inline: clamp(0.75rem, 4vw, 1rem);

@@ -362,11 +362,11 @@ export function CommuneDrillDownView({
                 </tfoot>
               </table>
 
-              <div className="flex items-center justify-between gap-4 px-6 py-4 border-t border-[#F2F4F7] bg-[#F9FAFB]">
+              <div className="pagination-footer px-4 py-4 sm:px-6 border-t border-[#F2F4F7] bg-[#F9FAFB]">
                 <div className="text-[11px] font-semibold text-[#475467]">
                   Affichage {Math.min((quartierPage - 1) * QUARTIER_PAGE_SIZE + 1, quartierSubscribers.length)}-{Math.min(quartierPage * QUARTIER_PAGE_SIZE, quartierSubscribers.length)} sur {quartierSubscribers.length}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="pagination-controls">
                   <button
                     type="button"
                     onClick={() => setQuartierPage(p => Math.max(1, p - 1))}
@@ -675,11 +675,11 @@ export function SubscriberDrillDownView({ targetName, column, startDate, endDate
 
       {/* Pagination */}
       {!loading && !error && totalPages > 1 && (
-        <div className="flex items-center justify-between px-8 py-4 border-t border-[#F2F4F7] bg-[#F9FAFB]/50 flex-shrink-0">
+        <div className="pagination-footer px-4 py-4 sm:px-8 border-t border-[#F2F4F7] bg-[#F9FAFB]/50 flex-shrink-0">
           <span className="text-xs text-[#667085] font-medium">
             Page {page} / {totalPages} · {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="pagination-controls">
             <button
               disabled={page === 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -4704,12 +4704,12 @@ export function Type7SubscriberReport({
           {pageCount > 1 && (
             <nav
               aria-label="Pagination du tableau des règlements"
-              className="flex flex-wrap items-center justify-between gap-3 border-t border-[#F2F4F7] px-2 py-4"
+              className="pagination-footer border-t border-[#F2F4F7] px-2 py-4"
             >
               <span className="text-xs font-medium text-[#667085]">
                 Page {currentPage} / {pageCount} · {filteredInvoices.length.toLocaleString('fr-FR')} résultats
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="pagination-controls">
                 <button
                   type="button"
                   onClick={() => setPage((current) => Math.max(1, current - 1))}

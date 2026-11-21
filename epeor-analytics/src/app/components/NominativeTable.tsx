@@ -693,26 +693,26 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
 
         {/* Invoice Pagination Footer */}
         {filteredInvoices.length > 0 && !loadingInvoices && (
-          <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#F2F4F7] flex items-center justify-between rounded-b-2xl">
-            <p className="text-xs font-bold text-[#667085]">
+          <div className="pagination-footer rounded-b-2xl border-t border-[#F2F4F7] bg-[#F9FAFB] px-4 py-4 sm:px-6">
+            <p className="min-w-0 text-xs font-bold text-[#667085]">
               Affichage {(invoicePage - 1) * INVOICES_PER_PAGE + 1}–{Math.min(invoicePage * INVOICES_PER_PAGE, filteredInvoices.length)} sur{" "}
               <span className="text-[#101828]">{filteredInvoices.length}</span> factures
             </p>
-            <div className="flex items-center gap-2">
+            <div className="pagination-controls">
               <button
                 onClick={() => setInvoicePage(p => Math.max(1, p - 1))}
                 disabled={invoicePage === 1}
-                className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-40 hover:bg-[#F2F4F7] transition-colors"
+                className="shrink-0 whitespace-nowrap rounded-xl border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold transition-colors hover:bg-[#F2F4F7] disabled:opacity-40 sm:px-4"
               >
                 ← Précédent
               </button>
-              <span className="px-4 py-2 text-xs font-bold text-[#475467]">
+              <span className="shrink-0 whitespace-nowrap px-2 py-2 text-center text-xs font-bold text-[#475467] sm:px-4">
                 Page {invoicePage} / {Math.max(1, Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE))}
               </span>
               <button
                 onClick={() => setInvoicePage(p => Math.min(Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE), p + 1))}
                 disabled={invoicePage === Math.max(1, Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE))}
-                className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-40 hover:bg-[#F2F4F7] transition-colors"
+                className="shrink-0 whitespace-nowrap rounded-xl border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold transition-colors hover:bg-[#F2F4F7] disabled:opacity-40 sm:px-4"
               >
                 Suivant →
               </button>
@@ -1052,27 +1052,27 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
 
       {/* Pagination footer */}
       {total > 0 && (
-        <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#F2F4F7] flex items-center justify-between">
-          <p className="text-xs font-bold text-[#667085]">
+        <div className="pagination-footer border-t border-[#F2F4F7] bg-[#F9FAFB] px-4 py-4 sm:px-6">
+          <p className="min-w-0 text-xs font-bold text-[#667085]">
             Affichage {start + 1}–{Math.min(start + ITEMS_PER_PAGE, total)} sur{" "}
             <span className="text-[#101828]">{total}</span> abonnés
             {sortKey && <span className="ml-2 text-[#245A83]">· Trié par {sortKey} ({sortDir === 'asc' ? '↑ ASC' : '↓ DESC'})</span>}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="pagination-controls">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={safePage === 1}
-              className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-40 hover:bg-[#F2F4F7] transition-colors"
+              className="shrink-0 whitespace-nowrap rounded-xl border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold transition-colors hover:bg-[#F2F4F7] disabled:opacity-40 sm:px-4"
             >
               ← Précédent
             </button>
-            <span className="px-4 py-2 text-xs font-bold text-[#475467]">
+            <span className="shrink-0 whitespace-nowrap px-2 py-2 text-center text-xs font-bold text-[#475467] sm:px-4">
               Page {safePage} / {totalPages}
             </span>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={safePage === totalPages}
-              className="px-4 py-2 border border-[#D0D5DD] rounded-xl text-xs font-bold bg-white disabled:opacity-40 hover:bg-[#F2F4F7] transition-colors"
+              className="shrink-0 whitespace-nowrap rounded-xl border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold transition-colors hover:bg-[#F2F4F7] disabled:opacity-40 sm:px-4"
             >
               Suivant →
             </button>

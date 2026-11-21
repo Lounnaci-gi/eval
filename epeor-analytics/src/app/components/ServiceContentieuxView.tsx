@@ -1884,11 +1884,11 @@ export function ServiceContentieuxView({
                 </div>
 
                 {/* ── Pagination ── */}
-                <div className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#F2F4F7]">
+                <div className="pagination-footer px-4 py-4 sm:px-6 border-t border-[#F2F4F7]">
                   <p className="text-xs text-[#667085] font-semibold">
                     {sorted.length} abonné(s) — page {safePage}/{totalPages}
                   </p>
-                  <div className="flex items-center gap-1">
+                  <div className="pagination-controls">
                     <button
                       onClick={() => setPage(1)}
                       disabled={safePage === 1}

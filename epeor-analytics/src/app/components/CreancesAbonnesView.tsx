@@ -2517,14 +2517,14 @@ export function CreancesAbonnesView({
 
           {/* Pagination */}
           {!error && sorted.length > 0 && (
-            <div className="flex items-center justify-between px-8 py-5 border-t border-[#F2F4F7] bg-[#F9FAFB]/50">
+            <div className="pagination-footer px-4 py-4 sm:px-8 sm:py-5 border-t border-[#F2F4F7] bg-[#F9FAFB]/50">
               <span className="text-xs text-[#667085] font-bold">
                 Page {safePage}/{totalPages} · {sorted.length} résultat{sorted.length !== 1 ? 's' : ''}
                 {hasTableColumnFilters && (
                   <span className="text-brand-600 ml-1">(filtres actifs)</span>
                 )}
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="pagination-controls">
                 <button disabled={safePage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}
                   className="px-3.5 py-2 rounded-xl text-xs font-black text-[#475467] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all">
                   ← Préc.

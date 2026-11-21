@@ -1792,7 +1792,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full min-w-[900px] text-left [&_td]:whitespace-nowrap">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
                 <th className="px-8 py-5">Commune</th>

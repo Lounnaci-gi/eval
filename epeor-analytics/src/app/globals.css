@@ -1877,8 +1877,17 @@ body {
   max-width: 100%;
 }
 
-.app-main :is(h1, h2, h3, p, label, td, th, .font-mono) {
+.app-main :is(h1, h2, h3, p, label, .font-mono) {
   overflow-wrap: anywhere;
+}
+
+.app-main :is(th, td) {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.app-main th {
+  white-space: nowrap;
 }
 
 .app-main img,

@@ -339,7 +339,7 @@ export function CreanceDetailView({
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(n)
-      .replace(/[\u202F\u00A0]/g, ' ') + " DA";
+      .replace(/[\u202F\u00A0]/g, ' ') + "\u00A0DA";
 
   const fmtNum = (n: number) =>
     new Intl.NumberFormat("fr-DZ", { maximumFractionDigits: 0 })
@@ -807,7 +807,7 @@ export function CreanceDetailView({
           )}
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
             {(() => {
               const encaissement = data.total_recouvre || 0;
               const creance = data.total_creance || 0;
@@ -838,13 +838,13 @@ export function CreanceDetailView({
                       else if (kpi.label === "CA Total") onNavigateToRepartition('ALL');
                     }
                   }}
-                  className={`@container min-w-0 bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-[2rem] p-3 sm:p-4 lg:p-5 shadow-sm hover:shadow-md transition-all ${isClickable ? "cursor-pointer hover:border-brand-300 hover:bg-brand-50/20" : ""}`}
+                  className={`@container h-full min-w-0 bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-[2rem] p-3 sm:p-4 lg:p-5 shadow-sm hover:shadow-md transition-all ${isClickable ? "cursor-pointer hover:border-brand-300 hover:bg-brand-50/20" : ""}`}
                 >
                   <div className="mb-2 flex min-w-0 items-center gap-2">
                     <div className={`w-2 h-2 shrink-0 rounded-full ${kpi.dot}`}></div>
                     <p className="min-w-0 text-[clamp(0.6875rem,3.8cqi,0.75rem)] font-black leading-tight text-[#667085] uppercase tracking-[0.04em]">{kpi.label}</p>
                   </div>
-                  <p className={`min-w-0 break-words text-[clamp(0.95rem,7cqi,1.2rem)] font-black leading-snug tabular-nums ${kpi.color.split(' ')[1]}`}>{kpi.value}</p>
+                  <p className={`min-w-0 whitespace-nowrap text-[clamp(0.75rem,7cqi,1.2rem)] font-black leading-snug tabular-nums ${kpi.color.split(' ')[1]}`}>{kpi.value}</p>
                 </div>
               );
             })}

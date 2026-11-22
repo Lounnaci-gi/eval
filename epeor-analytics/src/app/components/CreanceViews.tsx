@@ -807,7 +807,7 @@ export function CreanceDetailView({
           )}
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-3 sm:gap-4">
             {(() => {
               const encaissement = data.total_recouvre || 0;
               const creance = data.total_creance || 0;
@@ -838,13 +838,13 @@ export function CreanceDetailView({
                       else if (kpi.label === "CA Total") onNavigateToRepartition('ALL');
                     }
                   }}
-                  className={`bg-white border border-[#E4E7EC] rounded-[2.5rem] p-5 shadow-sm hover:shadow-md transition-all ${isClickable ? "cursor-pointer hover:border-brand-300 hover:bg-brand-50/20" : ""}`}
+                  className={`@container min-w-0 bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-[2rem] p-3 sm:p-4 lg:p-5 shadow-sm hover:shadow-md transition-all ${isClickable ? "cursor-pointer hover:border-brand-300 hover:bg-brand-50/20" : ""}`}
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`w-2 h-2 rounded-full ${kpi.dot}`}></div>
-                    <p className="text-[10px] font-black text-[#667085] uppercase tracking-widest">{kpi.label}</p>
+                  <div className="mb-2 flex min-w-0 items-center gap-2">
+                    <div className={`w-2 h-2 shrink-0 rounded-full ${kpi.dot}`}></div>
+                    <p className="min-w-0 text-[clamp(0.5625rem,5.5cqi,0.625rem)] font-black leading-tight text-[#667085] uppercase tracking-[0.06em]">{kpi.label}</p>
                   </div>
-                  <p className={`text-base font-black tracking-tighter ${kpi.color.split(' ')[1]}`}>{kpi.value}</p>
+                  <p className={`min-w-0 break-words text-[clamp(0.75rem,10cqi,1rem)] font-black leading-snug tabular-nums ${kpi.color.split(' ')[1]}`}>{kpi.value}</p>
                 </div>
               );
             })}

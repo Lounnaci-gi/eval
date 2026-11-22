@@ -146,49 +146,84 @@ body {
 
 @media screen {
   :root {
-    font-size: clamp(0.875rem, calc(0.84615rem + 0.1282vw), 1rem);
+    font-size: clamp(16px, calc(15.5px + 0.25vw), 18px);
   }
 
   [class~="text-[9px]"] {
-    font-size: clamp(7.875px, calc(7.615px + 0.0721vw), 9px);
+    font-size: clamp(11px, calc(10.4px + 0.1538vw), 12px);
   }
 
   [class~="text-[10px]"] {
-    font-size: clamp(8.75px, calc(8.462px + 0.0801vw), 10px);
+    font-size: clamp(12px, calc(11px + 0.2564vw), 14px);
   }
 
   [class~="text-[11px]"],
-  table thead th {
-    font-size: clamp(9.625px, calc(9.308px + 0.0881vw), 11px);
+  .app-main thead th {
+    font-size: clamp(13px, calc(12.4px + 0.1538vw), 14px);
   }
 
   [class~="text-[12px]"] {
-    font-size: clamp(10.5px, calc(10.154px + 0.0962vw), 12px);
+    font-size: clamp(14px, calc(13.4px + 0.1538vw), 15px);
   }
 
   [class~="text-[13px]"],
   [class~="sm:text-[13px]"] {
-    font-size: clamp(11.375px, calc(11px + 0.1042vw), 13px);
+    font-size: clamp(14px, calc(13.2px + 0.2051vw), 16px);
   }
 
   [class~="text-[15px]"] {
-    font-size: clamp(13.125px, calc(12.692px + 0.1202vw), 15px);
+    font-size: clamp(16px, calc(15.2px + 0.2051vw), 18px);
   }
 
   [class~="text-[22px]"] {
-    font-size: clamp(19.25px, calc(18.615px + 0.1763vw), 22px);
+    font-size: clamp(20px, calc(18.4px + 0.4103vw), 24px);
+  }
+
+  [class~="text-xs"] {
+    font-size: clamp(13px, calc(12.2px + 0.2051vw), 15px);
   }
 
   svg text[style*="font-size: 10px"] {
-    font-size: clamp(8.75px, calc(8.462px + 0.0801vw), 10px) !important;
+    font-size: clamp(10px, calc(9.4px + 0.1538vw), 12px) !important;
   }
 
   svg text[style*="font-size: 11px"] {
-    font-size: clamp(9.625px, calc(9.308px + 0.0881vw), 11px) !important;
+    font-size: clamp(11px, calc(10.4px + 0.1538vw), 13px) !important;
   }
 
   svg text[style*="font-size: 12px"] {
-    font-size: clamp(10.5px, calc(10.154px + 0.0962vw), 12px) !important;
+    font-size: clamp(12px, calc(11.4px + 0.1538vw), 14px) !important;
+  }
+
+  :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) {
+    max-width: 100%;
+    min-width: 0;
+    font-size: max(1rem, 16px) !important;
+    line-height: 1.35;
+  }
+
+  table thead th {
+    font-size: clamp(13px, calc(12.4px + 0.1538vw), 14px) !important;
+  }
+
+  .app-main :is(label, p, h1, h2, h3) {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  .app-main table {
+    max-width: 100%;
+  }
+
+  .recharts-cartesian-axis-tick-value,
+  .recharts-legend-item-text {
+    font-size: clamp(11px, calc(10.4px + 0.1538vw), 13px) !important;
+  }
+}
+
+@media screen and (max-width: 1023px) {
+  .oval-page-menu {
+    display: none;
   }
 }
 
@@ -1926,7 +1961,7 @@ body {
 }
 
 .app-main :is(h1, h2, h3, p, label, .font-mono) {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .app-main :is(th, td) {
@@ -2011,6 +2046,12 @@ body {
   .app-main {
     padding-inline: clamp(2.5rem, 3vw, 4rem);
   }
+}
+
+.mobile-more-menu {
+  max-height: calc(100dvh - 7rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 [data-theme="dark"] {

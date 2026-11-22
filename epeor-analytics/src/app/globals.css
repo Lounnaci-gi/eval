@@ -144,6 +144,54 @@ body {
   overflow-x: hidden;
 }
 
+@media screen {
+  :root {
+    font-size: clamp(0.875rem, calc(0.84615rem + 0.1282vw), 1rem);
+  }
+
+  [class~="text-[9px]"] {
+    font-size: clamp(7.875px, calc(7.615px + 0.0721vw), 9px);
+  }
+
+  [class~="text-[10px]"] {
+    font-size: clamp(8.75px, calc(8.462px + 0.0801vw), 10px);
+  }
+
+  [class~="text-[11px]"],
+  table thead th {
+    font-size: clamp(9.625px, calc(9.308px + 0.0881vw), 11px);
+  }
+
+  [class~="text-[12px]"] {
+    font-size: clamp(10.5px, calc(10.154px + 0.0962vw), 12px);
+  }
+
+  [class~="text-[13px]"],
+  [class~="sm:text-[13px]"] {
+    font-size: clamp(11.375px, calc(11px + 0.1042vw), 13px);
+  }
+
+  [class~="text-[15px]"] {
+    font-size: clamp(13.125px, calc(12.692px + 0.1202vw), 15px);
+  }
+
+  [class~="text-[22px]"] {
+    font-size: clamp(19.25px, calc(18.615px + 0.1763vw), 22px);
+  }
+
+  svg text[style*="font-size: 10px"] {
+    font-size: clamp(8.75px, calc(8.462px + 0.0801vw), 10px) !important;
+  }
+
+  svg text[style*="font-size: 11px"] {
+    font-size: clamp(9.625px, calc(9.308px + 0.0881vw), 11px) !important;
+  }
+
+  svg text[style*="font-size: 12px"] {
+    font-size: clamp(10.5px, calc(10.154px + 0.0962vw), 12px) !important;
+  }
+}
+
 .app-shell {
   background-color: rgb(var(--color-bg-primary));
   background-image:

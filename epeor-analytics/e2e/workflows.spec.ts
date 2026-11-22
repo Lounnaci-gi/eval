@@ -241,7 +241,7 @@ test("searches a subscriber and opens their invoice history", async ({ page }) =
   await openSidebar(page);
   await page.getByRole("button", { name: "Gestion Abonnés" }).click();
 
-  const search = page.getByPlaceholder("Nom, adresse, N° chèque/versement, NUMAB, compteur ou état...");
+  const search = page.getByPlaceholder(/Code, raison sociale|compteur/i);
   await search.fill("AB123");
   await expect(page.getByText("AB123", { exact: true }).last()).toBeVisible();
   await page.getByText("AB123", { exact: true }).last().click();
@@ -265,7 +265,7 @@ test("opens and saves a legal dossier", async ({ page }) => {
   await openApp(page);
   await openSidebar(page);
   await page.getByRole("button", { name: "Service contentieux" }).click();
-  await page.getByRole("button", { name: "Dossiers Contentieux" }).click();
+  await page.getByRole("tab", { name: /Dossiers Contentieux/i }).click();
   await page.getByText("AB123", { exact: true }).last().click();
 
   await expect(page.getByRole("heading", { name: "Dossier Contentieux" })).toBeVisible();

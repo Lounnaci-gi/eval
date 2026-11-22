@@ -292,7 +292,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
           </div>
           <div>
             <p className="text-[#475467] text-sm font-bold mb-1">{t('subscribers.totalSubscribersLabel', 'Total Abonnés Actuels')}</p>
-            <p className="text-3xl font-black text-[#101828] tracking-tight">
+            <p className="text-2xl sm:text-3xl font-black text-[#101828] tracking-tight">
               {(data[data.length - 1]?.count ?? 0).toLocaleString()}
             </p>
             <p className="text-xs text-[#667085] mt-1 font-medium">{t('subscribers.atEndOf', 'À fin')} {formatPeriodFrenchSafe(data[data.length - 1]?.period)}</p>
@@ -310,7 +310,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
           </div>
           <div>
             <p className="text-[#475467] text-sm font-bold mb-1">{t('subscribers.growthLabel', 'Croissance (12 mois)')}</p>
-            <p className="text-3xl font-black text-[#101828] tracking-tight">
+            <p className="text-2xl sm:text-3xl font-black text-[#101828] tracking-tight">
               {growthStats ? `+${growthStats.growth12m.toLocaleString()}` : '---'}
             </p>
             <p className="text-xs text-[#667085] mt-1 font-medium">{t('subscribers.newSubscribersSubtitle', 'Nouveaux abonnés sur la dernière année')}</p>
@@ -326,7 +326,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
           </div>
           <div>
             <p className="text-[#475467] text-sm font-bold mb-1">{t('subscribers.monthlyAverageLabel', 'Moyenne Mensuelle')}</p>
-            <p className="text-3xl font-black text-[#101828] tracking-tight">
+            <p className="text-2xl sm:text-3xl font-black text-[#101828] tracking-tight">
               {growthStats ? `+${growthStats.avgMonthlyNew}` : '---'}
             </p>
             <p className="text-xs text-[#667085] mt-1 font-medium">{t('subscribers.avgRegistrationsSubtitle', 'Inscriptions moyennes par mois')}</p>
@@ -343,7 +343,7 @@ export function SubscribersEvolutionView({ stats, selectedSecteur }: any) {
           </div>
           
           <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full xl:w-auto">
-            <div className="flex flex-col xs:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
               <span className="text-[10px] font-black uppercase tracking-wider text-[#98A2B3] shrink-0">{t('common.commune', 'Commune :')}</span>
               <div className="relative w-full sm:w-auto min-w-0">
                 <select

@@ -184,12 +184,14 @@ export function MobileNav({
                 key={item.id}
                 type="button"
                 onClick={() => onNavigate(item.id)}
-                className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 px-1 min-w-0 rounded-xl transition-colors ${
+                className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 px-0.5 min-w-0 rounded-xl transition-colors ${
                   active ? "text-[#245A83]" : "text-[#667085]"
                 }`}
               >
                 <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-                <span className="text-[10px] font-black truncate max-w-full">{t(item.labelKey)}</span>
+                <span className="max-w-full px-0.5 text-center text-[10px] font-black leading-tight [overflow-wrap:anywhere] line-clamp-2 sm:text-[11px]">
+                  {t(item.labelKey)}
+                </span>
               </button>
             );
           })}
@@ -198,12 +200,14 @@ export function MobileNav({
             onClick={() => setMoreOpen((o) => !o)}
               aria-expanded={moreOpen}
               aria-controls="mobile-more-menu"
-            className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 px-1 min-w-0 rounded-xl transition-colors ${
+            className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 px-0.5 min-w-0 rounded-xl transition-colors ${
               moreActive || moreOpen ? "text-[#245A83]" : "text-[#667085]"
             }`}
           >
             <Menu size={20} strokeWidth={moreActive || moreOpen ? 2.5 : 2} />
-            <span className="text-[10px] font-black">{t('nav.more', 'Plus')}</span>
+            <span className="max-w-full px-0.5 text-center text-[10px] font-black leading-tight sm:text-[11px]">
+              {t('nav.more', 'Plus')}
+            </span>
           </button>
         </div>
       </nav>

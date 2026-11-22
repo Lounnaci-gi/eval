@@ -13,7 +13,7 @@ export function LanguageSwitcher() {
   return (
     <button
       onClick={toggleLanguage}
-      className="relative flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[rgb(var(--color-border))] bg-[rgb(var(--color-bg-secondary))] text-[rgb(var(--color-text-primary))] hover:bg-[rgb(var(--color-bg-tertiary))] transition-all duration-200 cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--color-accent))]"
+      className="relative inline-flex min-h-10 items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg border border-[rgb(var(--color-border))] bg-[rgb(var(--color-bg-secondary))] text-[rgb(var(--color-text-primary))] hover:bg-[rgb(var(--color-bg-tertiary))] transition-all duration-200 cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--color-accent))]"
       aria-label={isRTL ? "تغيير اللغة إلى الفرنسية" : "Changer la langue en Arabe"}
       title={isRTL ? "Changer la langue" : "تغيير اللغة"}
     >
@@ -21,12 +21,12 @@ export function LanguageSwitcher() {
         {language === 'fr' ? (
           <>
             <span className="text-base" role="img" aria-label="Drapeau Français">🇫🇷</span>
-            <span>Français</span>
+            <span className="hidden min-[400px]:inline">Français</span>
           </>
         ) : (
           <>
             <span className="text-base" role="img" aria-label="علم الجزائر">🇩🇿</span>
-            <span className="font-semibold">العربية</span>
+            <span className="hidden min-[400px]:inline font-semibold">العربية</span>
           </>
         )}
       </span>

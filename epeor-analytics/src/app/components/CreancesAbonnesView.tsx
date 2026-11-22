@@ -44,7 +44,7 @@ export function CreancesAbonnesView({
   const handleMouseMove = (e: React.MouseEvent) => {
     const x = e.clientX;
     const y = e.clientY;
-    const width = 320;
+    const width = Math.min(320, window.innerWidth - 32);
     const height = 280;
     const padding = 15;
     
@@ -52,11 +52,14 @@ export function CreancesAbonnesView({
     let targetY = y + padding;
     
     if (x + width + padding > window.innerWidth) {
-      targetX = x - width - padding;
+      targetX = Math.max(8, x - width - padding);
     }
     if (y + height + padding > window.innerHeight) {
-      targetY = y - height - padding;
+      targetY = Math.max(8, y - height - padding);
     }
+    // Clamp within viewport
+    targetX = Math.max(8, Math.min(targetX, window.innerWidth - width - 8));
+    targetY = Math.max(8, Math.min(targetY, window.innerHeight - height - 8));
     
     setHoverPosition({ x: targetX, y: targetY });
   };
@@ -1709,15 +1712,15 @@ export function CreancesAbonnesView({
     { value: '<', label: '< Moins de N jours' },
   ];
 
-  const inputCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100/60 transition-all";
-  const selectCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100/60 transition-all appearance-none cursor-pointer";
-  const labelCls = "block text-[10px] font-black uppercase tracking-widest text-[#667085] mb-2";
+  const inputCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-sm sm:text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100/60 transition-all";
+  const selectCls = "w-full px-3.5 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-sm sm:text-xs font-black text-[#475467] outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100/60 transition-all appearance-none cursor-pointer";
+  const labelCls = "block text-[11px] sm:text-[10px] font-black uppercase tracking-widest text-[#667085] mb-2";
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
 
       {/* ── Page Header ─────────────────────────────────────────────── */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 no-print">
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
@@ -1726,7 +1729,7 @@ export function CreancesAbonnesView({
         </button>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
-            <h2 className="text-3xl font-black tracking-tight text-[#101828]">Créances Abonnés</h2>
+            <h2 className="page-title text-[#101828]">Créances Abonnés</h2>
             <p className="text-sm text-[#667085] mt-1 font-medium">
               {secteurLabel
                 ? `Créanciers du centre ${secteurLabel} — filtres nominatifs ci-dessous`
@@ -1774,7 +1777,7 @@ export function CreancesAbonnesView({
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
         <button
           onClick={() => setFilterExpanded(!filterExpanded)}
-          className="w-full px-8 py-5 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex items-center gap-3 hover:bg-gradient-to-r hover:from-brand-100/40 hover:to-white/80 transition-all"
+          className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex items-center gap-3 hover:bg-gradient-to-r hover:from-brand-100/40 hover:to-white/80 transition-all"
         >
           <div className="w-8 h-8 bg-brand-100 rounded-xl flex items-center justify-center">
             <Search size={14} className="text-brand-600" />
@@ -1794,7 +1797,7 @@ export function CreancesAbonnesView({
 
         {filterExpanded && (
           <>
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {dataLoading ? (
             <div className="flex flex-col items-center justify-center gap-4 py-14">
               <div className="relative">
@@ -1833,7 +1836,7 @@ export function CreancesAbonnesView({
                     </div>
                     <span className="rounded-full border border-brand-100 bg-brand-50 px-2.5 py-1 text-[10px] font-bold text-brand-700">Localisation</span>
                   </div>
-                  <div className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-3">
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     <div className="rounded-2xl border border-[#E4E7EC] bg-white/90 p-3">
                       <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.2em] text-[#667085]">Tournée(s)</label>
                       <div className="flex w-full flex-row items-center gap-2">
@@ -1922,7 +1925,7 @@ export function CreancesAbonnesView({
                     </div>
                     <span className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">Finance</span>
                   </div>
-                  <div className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-3">
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     <div className="rounded-2xl border border-[#E4E7EC] bg-white/90 p-3">
                       <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.2em] text-[#667085]">Montant de Créance</label>
                       <div className="flex gap-2">
@@ -2056,7 +2059,7 @@ export function CreancesAbonnesView({
 
         {/* Action buttons */}
         {!dataLoading && !error && (
-          <div className="flex items-center justify-between gap-4 px-8 py-5 border-t border-[#F2F4F7] bg-[#F9FAFB]/60">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-t border-[#F2F4F7] bg-[#F9FAFB]/60">
             <button
               onClick={resetFilters}
               className="px-5 py-2.5 rounded-xl text-xs font-black text-[#667085] bg-white border border-[#E4E7EC] hover:border-[#D0D5DD] active:scale-95 transition-all"
@@ -2069,7 +2072,8 @@ export function CreancesAbonnesView({
               className="inline-flex items-center gap-2 px-7 py-3 bg-brand-600 text-white rounded-xl text-sm font-black hover:bg-brand-700 active:scale-95 transition-all shadow-lg shadow-brand-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Search size={15} />
-              Rechercher les Créanciers
+              <span className="sm:hidden">Rechercher</span>
+              <span className="hidden sm:inline">Rechercher les Créanciers</span>
             </button>
           </div>
         )}
@@ -2087,10 +2091,10 @@ export function CreancesAbonnesView({
           <p className="text-xs text-[#98A2B3] font-medium">Les résultats apparaîtront ici</p>
         </div>
       ) : (
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
           {/* Results toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-8 py-5 border-b border-[#F2F4F7] bg-slate-50/30">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-b border-[#F2F4F7] bg-slate-50/30">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black border ${results.length === 0 ? 'bg-slate-50 text-slate-600 border-slate-200' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
                 {results.length} abonné{results.length !== 1 ? 's' : ''} créancier{results.length !== 1 ? 's' : ''}
               </span>
@@ -2100,15 +2104,15 @@ export function CreancesAbonnesView({
                 </span>
               )}
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="relative">
+            <div className="flex flex-col gap-3">
+              <div className="relative w-full sm:max-w-xs">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
                 <input
                   type="text"
                   placeholder="Affiner par code ou nom..."
                   value={search}
                   onChange={e => { setSearch(e.target.value); setPage(1); }}
-                  className="pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 transition-all w-60"
+                  className="w-full pl-8 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-sm sm:text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 transition-all"
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-[#667085]">
@@ -2120,19 +2124,20 @@ export function CreancesAbonnesView({
                     <button
                       type="button"
                       onClick={() => setSelectedNumabs([])}
-                      className="px-3 py-2 rounded-xl bg-white border border-[#E4E7EC] text-[#344054] hover:bg-[#F9FAFB] text-[10px] font-black"
+                      className="min-h-10 px-3 py-2 rounded-xl bg-white border border-[#E4E7EC] text-[#344054] hover:bg-[#F9FAFB] text-xs font-black"
                     >
                       Effacer la sélection
                     </button>
                   </>
                 ) : (
-                  <span className="text-[10px] text-[#98A2B3]">Sélectionnez les lignes pour imprimer uniquement celles-ci.</span>
+                  <span className="text-xs text-[#98A2B3]">Sélectionnez les lignes pour imprimer uniquement celles-ci.</span>
                 )}
               </div>
+              <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={printCreanciersList}
                 disabled={selectedRows.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#E4E7EC] text-[#344054] rounded-xl text-xs font-black hover:bg-[#F9FAFB] hover:border-[#D0D5DD] active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-white border border-[#E4E7EC] text-[#344054] rounded-xl text-xs font-black hover:bg-[#F9FAFB] hover:border-[#D0D5DD] active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Printer size={13} /> {selectedCount > 0 ? 'Imprimer la sélection' : 'Imprimer tout'}
               </button>
@@ -2143,9 +2148,9 @@ export function CreancesAbonnesView({
                   disabled={selectedCount === 0 || selectedRows.length === 0}
                   aria-haspopup="menu"
                   aria-expanded={showNoticeLanguageMenu}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-black hover:bg-amber-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-black hover:bg-amber-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Printer size={13} /> Imprimer les mises en demeure
+                  <Printer size={13} /> <span className="sm:hidden">Mises en demeure</span><span className="hidden sm:inline">Imprimer les mises en demeure</span>
                   <ChevronDown size={13} className={`transition-transform ${showNoticeLanguageMenu ? 'rotate-180' : ''}`} />
                 </button>
                 {showNoticeLanguageMenu && (
@@ -2178,23 +2183,24 @@ export function CreancesAbonnesView({
               <button
                 onClick={handlePrintQuarterlyCreanciers}
                 disabled={sorted.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-brand-50 text-brand-700 border border-brand-100 rounded-xl text-xs font-black hover:bg-brand-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-brand-50 text-brand-700 border border-brand-100 rounded-xl text-xs font-black hover:bg-brand-100 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Printer size={13} /> Détails des factures impayées
+                <Printer size={13} /> <span className="sm:hidden">Factures impayées</span><span className="hidden sm:inline">Détails des factures impayées</span>
               </button>
               <button
                 onClick={exportCSV}
                 disabled={sorted.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FileSpreadsheet size={13} /> Exporter CSV
               </button>
+              </div>
             </div>
           </div>
 
           {/* Filtres colonnes tableau (sélection multiple) */}
-          <div className="flex flex-wrap items-start gap-4 px-8 py-4 border-b border-[#F2F4F7] bg-brand-50/20">
-            <div className="min-w-[220px] flex-1">
+          <div className="flex flex-wrap items-start gap-3 sm:gap-4 px-4 sm:px-6 lg:px-8 py-4 border-b border-[#F2F4F7] bg-brand-50/20">
+            <div className="min-w-0 w-full sm:min-w-[220px] sm:flex-1">
               <label className={labelCls}>Type Abonné</label>
               <select
                 value=""
@@ -2237,7 +2243,7 @@ export function CreancesAbonnesView({
                 <p className="text-[10px] text-[#98A2B3] mt-1.5">Aucun — tous les types</p>
               )}
             </div>
-            <div className="min-w-[220px] flex-1">
+            <div className="min-w-0 w-full sm:min-w-[220px] sm:flex-1">
               <label className={labelCls}>État Cpt</label>
               <select
                 value=""
@@ -2280,7 +2286,7 @@ export function CreancesAbonnesView({
                 <p className="text-[10px] text-[#98A2B3] mt-1.5">Aucun — tous les états</p>
               )}
             </div>
-            <div className="min-w-[160px] flex-1">
+            <div className="min-w-0 w-full sm:min-w-[160px] sm:flex-1">
               <label className={labelCls}>Tournée</label>
               <select
                 value=""
@@ -2340,7 +2346,7 @@ export function CreancesAbonnesView({
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
+          <div className="table-scroll overflow-x-auto">
             {sorted.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 gap-3">
                 <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
@@ -2354,7 +2360,7 @@ export function CreancesAbonnesView({
                 <p className="text-xs text-[#98A2B3]">Essayez d\'assouplir vos conditions de filtrage.</p>
               </div>
             ) : (
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[72rem] text-left border-collapse">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
                     <th className="px-4 py-5 w-12">
@@ -2634,7 +2640,7 @@ export function CreancesAbonnesView({
 
       {hoveredAbonne && (
         <div
-          className="fixed z-50 pointer-events-none bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 w-80 text-left space-y-3 transition-opacity duration-200"
+          className="fixed z-50 pointer-events-none bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 w-[min(20rem,calc(100vw-2rem))] text-left space-y-3 transition-opacity duration-200"
           style={{
             top: hoverPosition.y,
             left: hoverPosition.x,

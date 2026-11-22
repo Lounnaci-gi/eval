@@ -1599,12 +1599,24 @@ body {
 
 /* EPEOR measurement-console surfaces */
 .app-page-header {
-  min-height: 10rem;
+  min-height: 0;
   align-items: center;
   border-inline-start: 4px solid var(--mineral);
   border-radius: var(--radius-panel);
   background: var(--instrument);
   box-shadow: var(--shadow-feature);
+}
+
+@media (min-width: 640px) {
+  .app-page-header {
+    min-height: 8.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-page-header {
+    min-height: 10rem;
+  }
 }
 
 .app-page-header::after {
@@ -1613,7 +1625,7 @@ body {
 
 .app-page-header .page-title {
   color: #fff !important;
-  font-size: 1.875rem;
+  font-size: clamp(1.25rem, 2.4vw + 0.85rem, 1.875rem);
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -1716,6 +1728,18 @@ body {
   background-color: var(--paper);
   color: rgb(var(--color-text-primary));
   transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+
+@media (max-width: 639px) {
+  .app-main :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  .app-main .filter-trigger {
+    min-height: 2.75rem;
+    font-size: 0.875rem;
+  }
 }
 
 .app-main :is(input, select, textarea):focus-visible {
@@ -1852,6 +1876,22 @@ body {
   background: var(--paper);
   border-color: var(--glass-border);
   box-shadow: var(--shadow-feature);
+  max-width: calc(100vw - 1rem);
+}
+
+.swal2-container {
+  padding: 0.75rem !important;
+}
+
+.swal2-popup {
+  max-width: calc(100vw - 1.5rem);
+}
+
+@media (max-width: 639px) {
+  .dashboard-chart-card .recharts-pie-label-text,
+  .dashboard-chart-card .recharts-pie-label-line {
+    display: none;
+  }
 }
 
 kbd {
@@ -1969,6 +2009,15 @@ body {
   .app-main :is(button, a, [role="button"], [role="tab"]) {
     touch-action: manipulation;
   }
+
+  .mobile-bottom-nav button {
+    min-height: 3.25rem;
+  }
+
+  .obat-card,
+  .page-card {
+    border-radius: 1rem;
+  }
 }
 
 @media (min-width: 1600px) {
@@ -1982,6 +2031,73 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/* ── Responsive filter rows ────────────────────────────────────────────
+   Filter bars inside .app-main always wrap on small screens.
+   Targets semantic classes used consistently across all views.          */
+.app-main .filter-row,
+.app-main .filter-bar,
+.app-main .toolbar-row,
+.app-main .action-toolbar {
+  flex-wrap: wrap;
+}
+
+/* Table th/td: reduce excess padding on small screens */
+@media (max-width: 639px) {
+  .app-main th,
+  .app-main td {
+    padding-inline: 0.75rem;
+    padding-block: 0.6rem;
+  }
+}
+
+/* Hover / absolute-positioned cards: prevent viewport clip */
+.hover-card-popup {
+  max-width: min(20rem, calc(100vw - 2rem));
+}
+
+/* Native dialog responsive sizing */
+dialog {
+  max-width: min(90vw, 36rem);
+  width: 100%;
+  border-radius: 1.25rem;
+  border: 1px solid var(--glass-border);
+}
+
+/* Chart containers: ensure minimum useful height on very small screens */
+@media (max-width: 479px) {
+  .app-main .recharts-wrapper,
+  .app-main .recharts-surface {
+    min-height: 180px;
+  }
+  /* Dashboard KPI cards: compact on very small phones */
+  .dashboard-kpi-grid .obat-card,
+  .dashboard-kpi-grid > div {
+    padding: 0.875rem;
+  }
+}
+
+/* Oval nav actions (search + avatar): never overflow on mid-range screens */
+.oval-nav-actions {
+  flex-shrink: 0;
+}
+
+/* Ensure Settings tabs scroll horizontally if too many items */
+.settings-tabs {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+.settings-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Results toolbar wraps on small screens */
+.app-main .results-toolbar {
+  flex-wrap: wrap;
+}
+
 
 [data-theme="dark"] {
   --chart-grid: #36484E;

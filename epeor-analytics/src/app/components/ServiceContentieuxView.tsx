@@ -789,7 +789,7 @@ export function ServiceContentieuxView({
 
         {/* ── KPI totals ── */}
         {!loading && summaryCards.length > 0 && (
-          <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="mt-5 grid grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {summaryCards.map(({ label, value, tone = "slate", filterValue }) => {
               const toneStyles: Record<string, { container: string; label: string; value: string }> = {
                 slate: {
@@ -865,7 +865,7 @@ export function ServiceContentieuxView({
                       : ""
                   }`}
                 >
-                  <p className={`text-[10px] font-black uppercase tracking-wider ${styles.label}`}>
+                  <p className={`text-[11px] font-bold uppercase tracking-wide leading-tight ${styles.label}`}>
                     {label}
                   </p>
                   <p className={`text-base sm:text-lg font-black tabular-nums mt-0.5 ${styles.value}`}>
@@ -887,34 +887,46 @@ export function ServiceContentieuxView({
         }}
       >
         {/* Tabs */}
-        <div className="flex border-b border-[#F2F4F7] px-4 sm:px-6">
+        <div className="scroll-tabs flex overflow-x-auto border-b border-[#F2F4F7] px-2 sm:px-6" role="tablist">
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "transmis"}
             onClick={() => {
               setActiveTab("transmis");
               setPage(1);
             }}
-            className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "transmis" ? "border-rose-500 text-rose-600" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
+            className={`shrink-0 px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-bold border-b-2 transition-colors inline-flex items-center gap-2 whitespace-nowrap ${activeTab === "transmis" ? "border-rose-500 text-rose-600" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
           >
-            Transmis Service Juridique
+            <span className="sm:hidden">Transmis</span>
+            <span className="hidden sm:inline">Transmis Service Juridique</span>
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "dossiers"}
             onClick={() => {
               setActiveTab("dossiers");
               setDossierSearch("");
             }}
-            className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "dossiers" ? "border-indigo-500 text-indigo-700" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
+            className={`shrink-0 px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-bold border-b-2 transition-colors inline-flex items-center gap-2 whitespace-nowrap ${activeTab === "dossiers" ? "border-indigo-500 text-indigo-700" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
           >
-            <FolderOpen size={15} />
-            Dossiers Contentieux
+            <FolderOpen size={15} className="shrink-0" />
+            <span className="sm:hidden">Dossiers</span>
+            <span className="hidden sm:inline">Dossiers Contentieux</span>
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "bilan"}
             onClick={() => {
               setActiveTab("bilan");
             }}
-            className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "bilan" ? "border-amber-500 text-amber-700" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
+            className={`shrink-0 px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-bold border-b-2 transition-colors inline-flex items-center gap-2 whitespace-nowrap ${activeTab === "bilan" ? "border-amber-500 text-amber-700" : "border-transparent text-[#667085] hover:text-[#344054]"}`}
           >
-            <Printer size={15} />
-            Bilan & Impression
+            <Printer size={15} className="shrink-0" />
+            <span className="sm:hidden">Bilan</span>
+            <span className="hidden sm:inline">Bilan & Impression</span>
           </button>
         </div>
         {/* ══════════════════════════════════════════════════════════
@@ -2526,8 +2538,8 @@ export function BilanImpressionView({
           <h2 className="text-sm font-black uppercase text-gray-900 tracking-wide border-l-4 border-rose-500 pl-2">
             1. Nouveaux dossiers reçus et montants globaux par type d'abonné
           </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border border-gray-200">
+          <div className="table-scroll overflow-x-auto">
+            <table className="w-full min-w-[40rem] text-xs text-left border border-gray-200">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="py-2.5 px-4 font-black text-gray-700 uppercase tracking-wider">

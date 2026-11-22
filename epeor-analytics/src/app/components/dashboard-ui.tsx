@@ -35,15 +35,15 @@ export function StatsCard({ title, value, icon, trend, color, onClick }: any) {
           {icon}
         </div>
         {trend && (
-          <span className="max-w-[60%] truncate rounded-md border border-[#E4E7EC] bg-[#F8FAFB] px-2 py-1 text-[10px] font-semibold text-[#667085]">
+          <span className="max-w-[70%] text-end rounded-md border border-[#E4E7EC] bg-[#F8FAFB] px-2 py-1 text-[11px] font-semibold leading-tight text-[#667085] [overflow-wrap:anywhere]">
             {trend}
           </span>
         )}
       </div>
 
       <div>
-        <p className="mb-1.5 text-xs font-semibold text-[#667085] sm:text-[13px]">{title}</p>
-        <p className="break-words text-[1.35rem] font-bold text-[#26313A] tabular-nums sm:text-[1.6rem]">
+        <p className="mb-1.5 text-[13px] font-semibold text-[#667085] sm:text-sm">{title}</p>
+        <p className="break-words text-[1.25rem] font-bold leading-snug text-[#26313A] tabular-nums sm:text-[1.55rem]">
           {value}
         </p>
       </div>

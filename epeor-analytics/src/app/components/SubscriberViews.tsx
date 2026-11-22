@@ -62,7 +62,7 @@ function DistributionChart({ chart }: { chart: DistributionChartConfig }) {
         <p className="mt-1 text-sm font-medium text-[#667085]">{chart.description}</p>
       </div>
       {data.length > 0 ? (
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <div style={{ minWidth: Math.max(520, data.length * 56) }}>
             <ResponsiveContainer width="100%" height={340} minWidth={0}>
               <BarChart data={data} margin={{ top: 12, right: 20, left: 0, bottom: 72 }}>
@@ -495,44 +495,44 @@ export function GestionAbonnesShell({
             )}
           </div>
         </div>
-        <div className="mt-4 sm:mt-6">
-          <ScrollableTabs className="w-full flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              {tabs.map(tab => (
-                <ScrollableTab
-                  key={tab.id}
-                  active={currentView === tab.id && !searchQuery}
-                  onClick={() => {
-                    setCurrentView(tab.id);
-                    setSearchQuery('');
-                  }}
-                >
-                  {tab.label}
-                </ScrollableTab>
-              ))}
-            </div>
-
-            <div className="relative shrink-0 w-56 sm:w-72 lg:w-96 ml-auto mr-1 py-0.5">
-              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Code, raison sociale, adresse, tournée, série compteur..."
-                aria-label="Recherche par code abonné, raison sociale, adresse, tournée ou numéro de série; critères combinables par virgules"
-                title="Code, nom/raison sociale, adresse, tournée, numéro de série, chèque/versement ou état. Séparez les critères par des virgules; tous doivent correspondre au même abonné."
-                className="w-full text-[11px] font-black pl-8 pr-7 py-1.5 rounded-xl border border-[#E4E7EC]/80 bg-white text-[#101828] placeholder-[#98A2B3] focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => handleSearchChange('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#98A2B3] hover:text-[#101828] text-[10px] font-black"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+        <div className="mt-4 sm:mt-6 flex flex-col gap-3 xl:flex-row xl:items-center">
+          <ScrollableTabs className="w-full min-w-0 flex-1">
+            {tabs.map(tab => (
+              <ScrollableTab
+                key={tab.id}
+                active={currentView === tab.id && !searchQuery}
+                onClick={() => {
+                  setCurrentView(tab.id);
+                  setSearchQuery('');
+                }}
+              >
+                {tab.label}
+              </ScrollableTab>
+            ))}
           </ScrollableTabs>
+
+          <div className="relative w-full shrink-0 xl:w-80 2xl:w-96">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Code, raison sociale, adresse, tournée, série compteur..."
+              aria-label="Recherche par code abonné, raison sociale, adresse, tournée ou numéro de série; critères combinables par virgules"
+              title="Code, nom/raison sociale, adresse, tournée, numéro de série, chèque/versement ou état. Séparez les critères par des virgules; tous doivent correspondre au même abonné."
+              className="w-full min-h-10 text-sm sm:text-xs font-bold pl-9 pr-8 py-2 rounded-xl border border-[#E4E7EC]/80 bg-white text-[#101828] placeholder-[#98A2B3] focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => handleSearchChange('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#98A2B3] hover:text-[#101828] text-xs font-black"
+                aria-label="Effacer la recherche"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -618,7 +618,7 @@ export function GestionAbonnesShell({
                           <Printer size={16} />
                         </button>
                       </div>
-                      <div className="overflow-x-auto">
+                      <div className="table-scroll overflow-x-auto">
                         <table className="w-full text-left">
                           <thead>
                             <tr className="bg-[#F9FAFB] text-[10px] font-bold uppercase tracking-wider text-[#475467]">
@@ -730,7 +730,7 @@ export function GestionAbonnesShell({
                     <h3 className="border-b border-[#F2F4F7] px-5 py-4 text-sm font-black text-[#101828]">
                       {title}
                     </h3>
-                    <div className="overflow-x-auto">
+                    <div className="table-scroll overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
                           <tr className="bg-[#F9FAFB] text-[10px] font-bold uppercase tracking-wider text-[#475467]">
@@ -1676,9 +1676,9 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
 
   if (selectedQuartier) {
     return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
         {!viewingInvoices && (
-          <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             <div>
               <button
                 onClick={() => setSelectedQuartier(null)}
@@ -1686,7 +1686,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
               >
                 <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
               </button>
-              <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+              <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">
                 {selectedType ? `${selectedType.name} — ` : ''}Tous les Abonnés - {selectedQuartier.name}
               </h3>
               <p className="text-sm text-[#667085] mt-1">
@@ -1713,8 +1713,8 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
   if (selectedCommune) {
     const quartiers = selectedCommune.quartiers || [];
     return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={() => setSelectedCommune(null)}
@@ -1723,7 +1723,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
               <ChevronRight className="rotate-180" size={16} />
               {selectedType ? 'Retour aux communes du type' : 'Retour aux communes'}
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">
               {selectedType ? `Quartiers de ${selectedCommune.name} — ${selectedType.name}` : `Quartiers de ${selectedCommune.name}`}
             </h3>
             <p className="text-sm text-[#667085] mt-1">
@@ -1733,16 +1733,16 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             </p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Quartier</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Quartier</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
                 <th className="px-6 py-5 text-right">Abonnés Actifs</th>
                 <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
-                <th className="px-8 py-5 text-right">Part (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Part (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -1755,12 +1755,12 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     onClick={() => handleQuartierClick(q)}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{q.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{q.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-[#245A83]">{q.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{q.resigned?.toLocaleString() || 0}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{q.percentage}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{q.percentage}%</td>
                   </tr>
                 );
               }) : (
@@ -1778,8 +1778,8 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
   if (selectedType) {
     const typeCommunes = selectedType.communes || [];
     return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={() => setSelectedType(null)}
@@ -1787,20 +1787,20 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             >
               <ChevronRight className="rotate-180" size={16} /> Retour aux types
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Communes — {selectedType.name}</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Communes — {selectedType.name}</h3>
             <p className="text-sm text-[#667085] mt-1">Répartition géographique des abonnés de ce type par commune</p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full min-w-[900px] text-left [&_td]:whitespace-nowrap">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Commune</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Commune</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
                 <th className="px-6 py-5 text-right">Abonnés Actifs</th>
                 <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
-                <th className="px-8 py-5 text-right">Part (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Part (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -1813,12 +1813,12 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     onClick={() => setSelectedCommune(c)}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{c.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-[#245A83]">{c.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{c.resigned?.toLocaleString() || 0}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{c.percentage}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{c.percentage}%</td>
                   </tr>
                 );
               }) : (
@@ -1835,10 +1835,10 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
 
   return (
     <div className="space-y-10">
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée des Abonnés par Commune</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée des Abonnés par Commune</h3>
             <p className="text-sm text-[#667085] mt-1 font-medium">Analyse complète des abonnés par zone géographique</p>
           </div>
           <button
@@ -1850,16 +1850,16 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <span>Imprimer</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Commune</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Commune</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
                 <th className="px-6 py-5 text-right">Abonnés Actifs</th>
                 <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
-                <th className="px-8 py-5 text-right">Part (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Part (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -1872,12 +1872,12 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     onClick={() => { setSelectedCommune(c); setSelectedType(null); setSelectedQuartier(null); }}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{c.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-[#245A83]">{c.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{c.resigned?.toLocaleString() || 0}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{c.percentage}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{c.percentage}%</td>
                   </tr>
                 );
               })}
@@ -1897,12 +1897,12 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 const resignedTotal = typeof stats?.resigned_subscribers === 'number' ? stats.resigned_subscribers : totals.resigned;
                 return (
                   <tr className="bg-[#F9FAFB] font-bold">
-                    <td className="px-8 py-5 text-sm text-[#101828]">Totaux</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-sm text-[#101828]">Totaux</td>
                     <td className="px-6 py-5 text-right text-[#245A83]">{totals.total.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-emerald-600">{actifsTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-orange-600">{forfaitTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-rose-600">{resignedTotal.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right text-[#475467]">100%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right text-[#475467]">100%</td>
                   </tr>
                 );
               })()}
@@ -1911,10 +1911,10 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
         </div>
       </div>
 
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée des Abonnés par Type d'Abonné</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée des Abonnés par Type d'Abonné</h3>
             <p className="text-sm text-[#667085] mt-1 font-medium">Analyse des abonnés classés par catégorie (Ménage, Administration, etc.)</p>
           </div>
           <button
@@ -1926,16 +1926,16 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <span>Imprimer</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Catégorie / Type</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Catégorie / Type</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
                 <th className="px-6 py-5 text-right">Abonnés Actifs</th>
                 <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
-                <th className="px-8 py-5 text-right">Part (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Part (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -1948,12 +1948,12 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                     onClick={() => { setSelectedType(t); setSelectedCommune(null); setSelectedQuartier(null); }}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{t.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-[#245A83]">{t.value.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-emerald-600">{actifs.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-orange-600">{forfait.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right font-medium text-rose-600">{t.resigned?.toLocaleString() || 0}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{t.percentage}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{t.percentage}%</td>
                   </tr>
                 );
               })}
@@ -1973,12 +1973,12 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
                 const resignedTotal = typeof stats?.resigned_subscribers === 'number' ? stats.resigned_subscribers : totals.resigned;
                 return (
                   <tr className="bg-[#F9FAFB] font-bold">
-                    <td className="px-8 py-5 text-sm text-[#101828]">Totaux</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-sm text-[#101828]">Totaux</td>
                     <td className="px-6 py-5 text-right text-[#245A83]">{totals.total.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-emerald-600">{actifsTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-orange-600">{forfaitTotal.toLocaleString()}</td>
                     <td className="px-6 py-5 text-right text-rose-600">{resignedTotal.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right text-[#475467]">100%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right text-[#475467]">100%</td>
                   </tr>
                 );
               })()}
@@ -2756,7 +2756,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
   if (selectedType) {
     return (
       <div className="obat-card overflow-hidden">
-        <div className="p-6 sm:p-8 border-b border-[#F2F4F7]">
+        <div className="p-6 sm:p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7]">
           <button
             type="button"
             onClick={() => setSelectedType(null)}
@@ -2764,7 +2764,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
           >
             <ChevronRight className="rotate-180" size={16} /> Retour à la répartition par type
           </button>
-          <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+          <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">
             Abonnés résiliés — {selectedType.name}
           </h3>
           <p className="text-sm text-[#667085] mt-1">
@@ -2796,8 +2796,8 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
 
   if (selectedQuartier) {
     return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={() => setSelectedQuartier(null)}
@@ -2805,7 +2805,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             >
               <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Abonnés Résiliés - {selectedQuartier.name}</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Abonnés Résiliés - {selectedQuartier.name}</h3>
             <p className="text-sm text-[#667085] mt-1">Liste nominative des compteurs résiliés (Code 40)</p>
           </div>
           <button
@@ -2825,8 +2825,8 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
   if (selectedCommune) {
     const quartiers = [...(selectedCommune.quartiers || [])].sort((a, b) => (b.resigned || 0) - (a.resigned || 0));
     return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={() => setSelectedCommune(null)}
@@ -2834,18 +2834,18 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             >
               <ChevronRight className="rotate-180" size={16} /> Retour aux communes
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Quartiers de {selectedCommune.name} (Résiliés)</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Quartiers de {selectedCommune.name} (Résiliés)</h3>
             <p className="text-sm text-[#667085] mt-1">Détail des compteurs résiliés (Code 40) pour chaque quartier</p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Quartier</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Quartier</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
-                <th className="px-8 py-5 text-right">Taux de Résiliation (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Taux de Résiliation (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -2857,10 +2857,10 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
                     onClick={() => handleQuartierClick(q)}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{q.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{q.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-rose-600">{q.resigned?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{q.value.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
                   </tr>
                 );
               }) : (
@@ -2878,8 +2878,8 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
 
   return (
     <div className="space-y-10">
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={onBack}
@@ -2887,7 +2887,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             >
               <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés Résiliés par Commune</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés Résiliés par Commune</h3>
             <p className="text-sm text-[#667085] mt-1">Analyse détaillée des compteurs résiliés (Code 40) par zone géographique</p>
           </div>
           <button
@@ -2899,14 +2899,14 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             <span>Imprimer</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Commune</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Commune</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
-                <th className="px-8 py-5 text-right">Taux de Résiliation (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Taux de Résiliation (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -2918,10 +2918,10 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
                     onClick={() => setSelectedCommune(c)}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{c.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-rose-600">{c.resigned?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{c.value.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
                   </tr>
                 );
               })}
@@ -2930,10 +2930,10 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
         </div>
       </div>
 
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés Résiliés par Type d'Abonné</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés Résiliés par Type d'Abonné</h3>
             <p className="text-sm text-[#667085] mt-1 font-medium">Analyse des résiliations classées par catégorie (Ménage, Administration, etc.)</p>
           </div>
           <button
@@ -2945,14 +2945,14 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             <span>Imprimer</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Catégorie / Type</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Catégorie / Type</th>
                 <th className="px-6 py-5 text-right">Abonnés Résiliés</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
-                <th className="px-8 py-5 text-right">Taux de Résiliation (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Taux de Résiliation (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -2972,10 +2972,10 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
                     aria-label={`Afficher les abonnés résiliés de type ${t.name}`}
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{t.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-rose-600">{t.resigned?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{t.value.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
                   </tr>
                 );
               })}
@@ -3759,7 +3759,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   if (selectedType) {
     return (
       <div className="obat-card overflow-hidden">
-        <div className="p-6 sm:p-8 border-b border-[#F2F4F7]">
+        <div className="p-6 sm:p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7]">
           <button
             type="button"
             onClick={() => setSelectedType(null)}
@@ -3767,7 +3767,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           >
             <ChevronRight className="rotate-180" size={16} /> Retour à la répartition par type
           </button>
-          <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+          <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">
             Abonnés à l’arrêt — {selectedType.name}
           </h3>
           <p className="text-sm text-[#667085] mt-1">
@@ -3800,8 +3800,8 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
 
   if (selectedQuartier) {
     return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={() => setSelectedQuartier(null)}
@@ -3809,7 +3809,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             >
               <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Abonnés À l'arrêt - {selectedQuartier.name}</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Abonnés À l'arrêt - {selectedQuartier.name}</h3>
             <p className="text-sm text-[#667085] mt-1">Liste nominative des compteurs à l'arrêt (Code 20)</p>
           </div>
           {!loadingSubscribers && quartierSubscribers && quartierSubscribers.length > 0 && (
@@ -3838,8 +3838,8 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   if (selectedCommune) {
     const quartiers = [...(selectedCommune.quartiers || [])].sort((a, b) => (b.stopped || 0) - (a.stopped || 0));
     return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={() => setSelectedCommune(null)}
@@ -3847,18 +3847,18 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             >
               <ChevronRight className="rotate-180" size={16} /> Retour aux communes
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Quartiers de {selectedCommune.name} (À l'arrêt)</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Quartiers de {selectedCommune.name} (À l'arrêt)</h3>
             <p className="text-sm text-[#667085] mt-1">Détail des compteurs à l'arrêt (Code 20) pour chaque quartier</p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Quartier</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Quartier</th>
                 <th className="px-6 py-5 text-right">Abonnés À l'arrêt</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
-                <th className="px-8 py-5 text-right">Taux d'Arrêt (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Taux d'Arrêt (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -3870,10 +3870,10 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
                     onClick={() => handleQuartierClick(q)}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{q.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{q.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-amber-600">{q.stopped?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{q.value.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
                   </tr>
                 );
               }) : (
@@ -3890,8 +3890,8 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
 
   return (
     <div className="space-y-10">
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={onBack}
@@ -3899,7 +3899,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             >
               <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés À l'Arrêt par Commune</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés À l'Arrêt par Commune</h3>
             <p className="text-sm text-[#667085] mt-1">Analyse détaillée des compteurs à l'arrêt (Code 20) par zone géographique</p>
           </div>
           <button
@@ -3911,14 +3911,14 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <span>Imprimer</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Commune</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Commune</th>
                 <th className="px-6 py-5 text-right">Abonnés À l'arrêt</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
-                <th className="px-8 py-5 text-right">Taux d'Arrêt (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Taux d'Arrêt (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -3930,10 +3930,10 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
                     onClick={() => setSelectedCommune(c)}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{c.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-amber-600">{c.stopped?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{c.value.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
                   </tr>
                 );
               })}
@@ -3942,10 +3942,10 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         </div>
       </div>
 
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés À l'Arrêt par Type d'Abonné</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition des Abonnés À l'Arrêt par Type d'Abonné</h3>
             <p className="text-sm text-[#667085] mt-1 font-medium">Analyse des compteurs à l'arrêt classés par catégorie</p>
           </div>
           <button
@@ -3957,14 +3957,14 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <span>Imprimer</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Catégorie / Type</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Catégorie / Type</th>
                 <th className="px-6 py-5 text-right">Abonnés À l'arrêt</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
-                <th className="px-8 py-5 text-right">Taux d'Arrêt (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Taux d'Arrêt (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -3984,10 +3984,10 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
                     aria-label={`Afficher les abonnés à l'arrêt de type ${t.name}`}
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{t.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-amber-600">{t.stopped?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{t.value.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
                   </tr>
                 );
               })}
@@ -4760,7 +4760,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   if (selectedType) {
     return (
       <div className="obat-card overflow-hidden">
-        <div className="p-6 sm:p-8 border-b border-[#F2F4F7]">
+        <div className="p-6 sm:p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7]">
           <button
             type="button"
             onClick={() => setSelectedType(null)}
@@ -4768,7 +4768,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           >
             <ChevronRight className="rotate-180" size={16} /> Retour à la répartition par type
           </button>
-          <h3 className="text-2xl font-black tracking-tight text-[#101828]">
+          <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">
             Abonnés sans compteur — {selectedType.name}
           </h3>
           <p className="text-sm text-[#667085] mt-1">
@@ -4801,8 +4801,8 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
 
   if (selectedQuartier) {
     return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={() => setSelectedQuartier(null)}
@@ -4810,7 +4810,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             >
               <ChevronRight className="rotate-180" size={16} /> Retour aux quartiers
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Abonnés Sans Compteur - {selectedQuartier.name}</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Abonnés Sans Compteur - {selectedQuartier.name}</h3>
             <p className="text-sm text-[#667085] mt-1">Liste nominative des abonnés sans compteur (Code 30)</p>
           </div>
           {!loadingSubscribers && quartierSubscribers && quartierSubscribers.length > 0 && (
@@ -4839,8 +4839,8 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
   if (selectedCommune) {
     const quartiers = [...(selectedCommune.quartiers || [])].sort((a, b) => (b.no_meter || 0) - (a.no_meter || 0));
     return (
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={() => setSelectedCommune(null)}
@@ -4848,18 +4848,18 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             >
               <ChevronRight className="rotate-180" size={16} /> Retour aux communes
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Quartiers de {selectedCommune.name} (Sans Compteur)</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Quartiers de {selectedCommune.name} (Sans Compteur)</h3>
             <p className="text-sm text-[#667085] mt-1">Détail des abonnés sans compteur (Code 30) pour chaque quartier</p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Quartier</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Quartier</th>
                 <th className="px-6 py-5 text-right">Abonnés Sans Compteur</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
-                <th className="px-8 py-5 text-right">Taux (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Taux (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -4871,10 +4871,10 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
                     onClick={() => handleQuartierClick(q)}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{q.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{q.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-cyan-600">{q.no_meter?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{q.value.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
                   </tr>
                 );
               }) : (
@@ -4891,8 +4891,8 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
 
   return (
     <div className="space-y-10">
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <button
               onClick={onBack}
@@ -4900,7 +4900,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             >
               <ChevronRight className="rotate-180" size={16} /> Retour au tableau de bord
             </button>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée des Abonnés sans Compteur par Commune</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée des Abonnés sans Compteur par Commune</h3>
             <p className="text-sm text-[#667085] mt-1">Analyse détaillée des abonnés sans compteur (Code 30) par zone géographique</p>
           </div>
           <button
@@ -4912,14 +4912,14 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <span>Imprimer</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Commune</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Commune</th>
                 <th className="px-6 py-5 text-right">Abonnés Sans Compteur</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
-                <th className="px-8 py-5 text-right">Taux (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Taux (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -4931,10 +4931,10 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
                     onClick={() => setSelectedCommune(c)}
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{c.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{c.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-cyan-600">{c.no_meter?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{c.value.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
                   </tr>
                 );
               })}
@@ -4943,10 +4943,10 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
         </div>
       </div>
 
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
-            <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée des Abonnés sans Compteur par Type d'Abonné</h3>
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition Détaillée des Abonnés sans Compteur par Type d'Abonné</h3>
             <p className="text-sm text-[#667085] mt-1">Analyse des abonnés sans compteur classés par catégorie</p>
           </div>
           <button
@@ -4958,14 +4958,14 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <span>Imprimer</span>
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Catégorie / Type</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5">Catégorie / Type</th>
                 <th className="px-6 py-5 text-right">Abonnés Sans Compteur</th>
                 <th className="px-6 py-5 text-right">Total Abonnés</th>
-                <th className="px-8 py-5 text-right">Taux (%)</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right">Taux (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F2F4F7]">
@@ -4985,10 +4985,10 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
                     className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
                     aria-label={`Afficher les abonnés sans compteur de type ${t.name}`}
                   >
-                    <td className="px-8 py-5 font-black text-sm text-[#101828]">{t.name}</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 font-black text-sm text-[#101828]">{t.name}</td>
                     <td className="px-6 py-5 text-right font-bold text-cyan-600">{t.no_meter?.toLocaleString() || 0}</td>
                     <td className="px-6 py-5 text-right font-medium text-[#475467]">{t.value.toLocaleString()}</td>
-                    <td className="px-8 py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
+                    <td className="px-4 sm:px-6 lg:px-8 py-3 sm:py-5 text-right font-bold text-[#475467]">{taux.toFixed(2)}%</td>
                   </tr>
                 );
               })}

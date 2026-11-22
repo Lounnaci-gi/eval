@@ -114,7 +114,7 @@ export function CommandPalette({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-[#26313A]/45 px-4 pt-[12vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-[100] flex items-start justify-center bg-[#26313A]/45 px-3 pt-4 sm:px-4 sm:pt-[12vh] backdrop-blur-[2px]"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) setOpen(false);
       }}
@@ -194,8 +194,8 @@ export function CommandPalette({
             <p className="px-3 py-8 text-center text-sm text-[#66757C] dark:text-slate-400">{t("command.empty")}</p>
           )}
         </div>
-        <div className="flex items-center justify-between border-t border-[#E4E7EC] px-4 py-2.5 text-[11px] text-[#66757C] dark:border-slate-700 dark:text-slate-400">
-          <span>{t("command.hint")}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E4E7EC] px-4 py-2.5 text-[11px] text-[#66757C] dark:border-slate-700 dark:text-slate-400">
+          <span className="min-w-0">{t("command.hint")}</span>
           <span className="flex items-center gap-1"><kbd>Ctrl</kbd><kbd>K</kbd></span>
         </div>
       </section>

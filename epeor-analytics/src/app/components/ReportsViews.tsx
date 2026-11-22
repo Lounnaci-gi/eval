@@ -287,7 +287,7 @@ export function CommuneDrillDownView({
 
     return (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
-        <div className="flex items-start justify-between gap-4 p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between p-4 sm:p-6 lg:p-8 pb-4 sm:pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
           <div>
             <button
               onClick={() => setSelectedCommune(null)}
@@ -399,8 +399,8 @@ export function CommuneDrillDownView({
 
   return (
     <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
-      <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between p-4 sm:p-6 lg:p-8 pb-4 sm:pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
+        <div className="min-w-0">
           <button
             onClick={onClose}
             className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
@@ -424,7 +424,7 @@ export function CommuneDrillDownView({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 px-8 py-4 border-b border-[#F2F4F7] flex-shrink-0">
+      <div className="flex flex-wrap items-center gap-3 px-4 sm:px-8 py-4 border-b border-[#F2F4F7] flex-shrink-0">
         <div className="relative flex-1">
           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3] pointer-events-none">
             <Search size={14} />
@@ -571,8 +571,8 @@ export function SubscriberDrillDownView({ targetName, column, startDate, endDate
   return (
     <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex items-start justify-between p-8 pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between p-4 sm:p-6 lg:p-8 pb-4 sm:pb-6 border-b border-[#F2F4F7] bg-gradient-to-r from-brand-50/60 to-white flex-shrink-0">
+        <div className="min-w-0">
           <button
             onClick={onClose}
             className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-all active:scale-95 cursor-pointer"
@@ -597,8 +597,8 @@ export function SubscriberDrillDownView({ targetName, column, startDate, endDate
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-8 py-4 border-b border-[#F2F4F7] flex-shrink-0">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center px-4 sm:px-6 lg:px-8 py-4 border-b border-[#F2F4F7] flex-shrink-0">
+        <div className="relative min-w-0 flex-1">
           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3] pointer-events-none">
             <Search size={14} />
           </div>
@@ -607,13 +607,13 @@ export function SubscriberDrillDownView({ targetName, column, startDate, endDate
             placeholder="Rechercher par code abonné, nom ou commune..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-medium text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100/50 transition-all"
+            className="w-full pl-9 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-sm sm:text-xs font-medium text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100/50 transition-all"
           />
         </div>
         <button
           onClick={exportCSV}
           disabled={loading || filtered.length === 0}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all shadow-sm shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all shadow-sm shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <FileSpreadsheet size={13} />
           Exporter CSV
@@ -1240,13 +1240,13 @@ export function CreanceVentilationView({
               type="date"
               value={dateArrete}
               onChange={(e) => setDateArrete(e.target.value)}
-              className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500"
+              className="block w-full min-w-0 sm:w-auto bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-sm sm:text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
           <button
             type="button"
             onClick={() => fetchVentilation()}
-            className="px-6 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 transition-all h-[42px]"
+            className="inline-flex min-h-11 items-center px-6 py-2.5 bg-brand-600 text-white rounded-xl text-sm sm:text-xs font-black hover:bg-brand-700 transition-all"
           >
             Calculer la ventilation
           </button>
@@ -1274,9 +1274,9 @@ export function CreanceVentilationView({
         </div>
       )}
 
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4 sm:gap-6">
         <div>
-          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Détail Ventilation des Créances Arrêtées</h3>
+          <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Détail Ventilation des Créances Arrêtées</h3>
           <p className="text-sm text-[#667085] mt-1 font-medium">
             {lastVentDate
               ? `Arrêtées au ${formatVentDate(lastVentDate)}`
@@ -1290,14 +1290,14 @@ export function CreanceVentilationView({
               type="date"
               value={dateArrete}
               onChange={(e) => setDateArrete(e.target.value)}
-              className="block bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500"
+              className="block w-full min-w-0 sm:w-auto bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-sm sm:text-xs font-bold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
           <button
             type="button"
             onClick={() => fetchVentilation()}
             disabled={loading}
-            className="px-5 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black hover:bg-brand-700 disabled:opacity-50 transition-all h-[42px] flex items-center gap-2"
+            className="inline-flex min-h-11 items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl text-sm sm:text-xs font-black hover:bg-brand-700 disabled:opacity-50 transition-all"
           >
             <Search size={14} />
             {loading ? 'Calcul…' : 'Recalculer'}
@@ -1324,9 +1324,9 @@ export function CreanceVentilationView({
       )}
 
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="p-8 border-b border-[#F2F4F7] flex justify-between items-center bg-slate-50/50">
-          <div>
-            <h4 className="text-xl font-black tracking-tight text-[#101828]">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center bg-slate-50/50">
+          <div className="min-w-0">
+            <h4 className="text-lg sm:text-xl font-black tracking-tight text-[#101828] break-words">
               Détail Ventilation des Créances Arrêtées au : {lastVentDate ? formatVentDate(lastVentDate) : '—'}
             </h4>
             <p className="text-sm text-[#667085] mt-1">
@@ -1334,20 +1334,20 @@ export function CreanceVentilationView({
             </p>
           </div>
           {!loading && ventilationData.length > 0 && (
-            <div className="flex gap-2">
-              <button onClick={exportToExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all shadow-sm">
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <button onClick={exportToExcel} className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all shadow-sm">
                 <FileSpreadsheet size={14} /> Excel
               </button>
-              <button onClick={exportToPDF} className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 transition-all shadow-sm">
+              <button onClick={exportToPDF} className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 transition-all shadow-sm">
                 <FileText size={14} /> PDF
               </button>
-              <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-xl text-xs font-black hover:bg-slate-900 transition-all shadow-sm">
+              <button onClick={handlePrint} className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-xl text-xs font-black hover:bg-slate-900 transition-all shadow-sm">
                 <Printer size={14} /> Imprimer
               </button>
             </div>
           )}
         </div>
-        <div className="overflow-x-auto">
+        <div className="table-scroll overflow-x-auto">
           <table className="w-full text-left border-separate border-spacing-0">
             <thead className="sticky top-0 z-10">
               <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-[0.15em] font-black border-b border-[#E4E7EC]">
@@ -1889,9 +1889,9 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Filters and Context */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition par Type d'Abonné</h3>
+          <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition par Type d'Abonné</h3>
           <p className="text-sm text-[#667085] mt-1 font-medium">
             {secteurLabel
               ? `Centre ${secteurLabel} — cliquez sur un montant pour le détail abonnés`
@@ -1928,7 +1928,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
               <button
                 key={tab.id}
                 onClick={() => setTypeSectionFilter(tab.id as any)}
-                className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
+                className={`min-h-10 px-3 sm:px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
                   typeSectionFilter === tab.id
                     ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
                     : 'text-[#667085] border-transparent hover:text-[#101828]'
@@ -1942,7 +1942,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
               role="tab"
               aria-selected={activeView === 'chart'}
               onClick={() => setActiveView('chart')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
+              className={`min-h-10 px-3 sm:px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 border ${
                 activeView === 'chart'
                   ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
                   : 'text-[#667085] border-transparent hover:text-[#101828]'
@@ -1966,11 +1966,11 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
       {/* Table Container */}
       {activeView === 'table' ? (
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="table-scroll overflow-x-auto">
+          <table className="w-full min-w-[80rem] text-left border-collapse">
             <thead>
               <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
-                <th className="px-8 py-5">Section</th>
+                <th className="px-4 sm:px-8 py-4 sm:py-5">Section</th>
                 <th className="px-6 py-5">Type</th>
                 <th className="px-8 py-5">Type d'Abonné</th>
                 <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
@@ -2130,7 +2130,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
       </div>
       ) : (
         <section className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-          <div className="p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div className="p-4 sm:p-6 lg:p-8 border-b border-[#F2F4F7] flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
               <h4 className="text-xl font-black tracking-tight text-[#101828]">Répartition des créances par Type d'Abonné</h4>
               <p className="text-sm text-[#667085] mt-1 font-medium">
@@ -2426,9 +2426,9 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Header and Controls */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h3 className="text-2xl font-black tracking-tight text-[#101828]">Répartition par Commune</h3>
+          <h3 className="text-lg sm:text-2xl font-black tracking-tight text-[#101828]">Répartition par Commune</h3>
           <p className="text-sm text-[#667085] mt-1 font-medium">
             {secteurLabel
               ? `Données du centre ${secteurLabel} (même périmètre que la synthèse)`
@@ -2463,11 +2463,11 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
       {/* Table Container */}
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
         <div className={`transition-all duration-300 ease-in-out ${isTableCollapsed ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-[5000px] opacity-100'}`}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="table-scroll overflow-x-auto">
+            <table className="w-full min-w-[80rem] text-left border-collapse">
               <thead>
                 <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
-                  <th className="px-8 py-5 text-center">Commune</th>
+                  <th className="px-4 sm:px-8 py-4 sm:py-5 text-center">Commune</th>
                   <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
                   <th className="px-6 py-5 text-right text-orange-500">Forfait</th>
                   <th className="px-6 py-5 text-right text-violet-600">Sans Compteur</th>
@@ -3173,10 +3173,10 @@ export function BilanActiviteView({
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-max min-w-full text-left border-collapse text-[11px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap [&_td>div]:flex-nowrap [&_td]:tabular-nums [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-2">
+            <div className="table-scroll overflow-x-auto">
+              <table className="w-max min-w-full text-left border-collapse text-xs sm:text-[11px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap [&_td>div]:flex-nowrap [&_td]:tabular-nums [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-2">
                 <thead>
-                  <tr className="bg-[#F9FAFB] text-[#475467] text-[9px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
+                  <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-black border-b border-[#F2F4F7]">
                     <th className="px-3 py-2 text-center">Commune</th>
                     <th className="px-6 py-5">Type d'abonné</th>
                     <th className="px-6 py-5 text-right">Nombre d'abonnés</th>
@@ -4242,7 +4242,7 @@ export function Type7SubscriberReport({
         ) : subscriberInvoicesError ? (
           <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{subscriberInvoicesError}</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="table-scroll overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E4E7EC] bg-[#F9FAFB] text-xs font-black uppercase text-[#475467]">
@@ -4315,7 +4315,7 @@ export function Type7SubscriberReport({
 
       {groups.length > 0 || previousCutSettlements.length > 0 ? (
         <>
-          <div className="overflow-x-auto">
+          <div className="table-scroll overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E4E7EC] bg-[#F9FAFB] text-xs font-black uppercase tracking-wide text-[#475467]">
@@ -4539,7 +4539,7 @@ export function Type7SubscriberReport({
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="table-scroll overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E4E7EC] bg-[#F9FAFB] text-xs font-black uppercase tracking-wide text-[#475467]">

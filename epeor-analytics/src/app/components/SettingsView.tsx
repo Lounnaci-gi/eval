@@ -207,13 +207,13 @@ export function SettingsView({
 
       {/* Tab navigation — visible only in non-setup mode for admins */}
       {!setupMode && user?.is_admin && (
-        <div className="settings-tabs flex gap-1 rounded-xl p-1 no-print" role="tablist">
+        <div className="settings-tabs flex flex-wrap gap-1 rounded-xl p-1 no-print" role="tablist">
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'system'}
             onClick={() => setActiveTab('system')}
-            className={`settings-tab flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'system' ? 'is-active' : ''}`}
+            className={`settings-tab min-w-[8.5rem] flex-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 sm:px-4 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'system' ? 'is-active' : ''}`}
           >
             <Database size={16} /> {t('settings.tabSystem', 'Système')}
           </button>
@@ -222,7 +222,7 @@ export function SettingsView({
             role="tab"
             aria-selected={activeTab === 'users'}
             onClick={() => setActiveTab('users')}
-            className={`settings-tab flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'users' ? 'is-active' : ''}`}
+            className={`settings-tab min-w-[8.5rem] flex-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 sm:px-4 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'users' ? 'is-active' : ''}`}
           >
             <Shield size={16} /> {t('settings.tabUsers', 'Utilisateurs')}
           </button>
@@ -231,7 +231,7 @@ export function SettingsView({
             role="tab"
             aria-selected={activeTab === 'profile'}
             onClick={() => setActiveTab('profile')}
-            className={`settings-tab flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'profile' ? 'is-active' : ''}`}
+            className={`settings-tab min-w-[8.5rem] flex-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 sm:px-4 py-2.5 text-sm font-semibold transition-colors ${activeTab === 'profile' ? 'is-active' : ''}`}
           >
             <User size={16} /> {t('settings.tabProfile', 'Mon profil')}
           </button>
@@ -287,7 +287,7 @@ export function SettingsView({
         <>
 
       {/* Dossier données EPEOR */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 no-print">
         <div className="flex items-start gap-4 mb-6">
           <div className="w-12 h-12 bg-slate-100 text-[#245A83] rounded-2xl flex items-center justify-center shrink-0">
             <Database size={22} />
@@ -414,9 +414,9 @@ export function SettingsView({
             );
 
             return (
-              <div key={u.code} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div key={u.code || u.denom} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Unit Card */}
-                <div className="lg:col-span-1 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col justify-between">
+                <div className="lg:col-span-1 bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-4 mb-6">
                       <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-black text-lg">
@@ -470,50 +470,51 @@ export function SettingsView({
                 </div>
 
                 {/* Sectors/Centers Card */}
-                <div className="lg:col-span-2 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 flex flex-col">
+                <div className="lg:col-span-2 bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 flex flex-col min-w-0">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                    <div>
-                      <h3 className="text-lg font-black text-[#101828]">{t('settings.sectorsTitle', 'Centres & Secteurs Associés')}</h3>
+                    <div className="min-w-0">
+                      <h3 className="text-base sm:text-lg font-black text-[#101828]">{t('settings.sectorsTitle', 'Centres & Secteurs Associés')}</h3>
                       <p className="text-xs text-[#667085] font-medium mt-0.5">{t('settings.sectorsSub', 'Secteurs géographiques rattachés à l\'unité de')} {u.denom} ({u.sectors.length} {t('settings.centersLoaded', 'centres chargés')})</p>
                     </div>
                     
                     {/* Search sector */}
-                    <div className="relative">
+                    <div className="relative w-full sm:w-64 shrink-0">
                       <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3]" size={16} />
                       <input
                         type="text"
                         placeholder={t('settings.searchCenter', 'Rechercher un centre...')}
-                        className="bg-white border-[#D0D5DD] border rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#245A83] transition-all placeholder:text-[#98A2B3] w-48 sm:w-64"
+                        className="w-full bg-white border-[#D0D5DD] border rounded-xl pl-10 pr-4 py-2.5 text-sm sm:text-xs focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#245A83] transition-all placeholder:text-[#98A2B3]"
                         value={sectorSearch}
                         onChange={(e) => setSectorSearch(e.target.value)}
                       />
                     </div>
                   </div>
 
-                  <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden flex-1 max-h-[500px] overflow-y-auto">
-                    <table className="w-full border-collapse text-left">
+                  <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden flex-1 max-h-[500px]">
+                    <div className="table-scroll max-h-[500px] overflow-y-auto">
+                    <table className="w-full min-w-[36rem] border-collapse text-left">
                       <thead>
                         <tr className="bg-[#F9FAFB] border-b border-[#E4E7EC] text-[#475467] text-[10px] uppercase font-black">
-                           <th className="px-6 py-4">{t('settings.colCenterCode', 'Code Centre')}</th>
-                          <th className="px-6 py-4">{t('settings.colCenterName', 'Nom du Centre (Secteur)')}</th>
-                          <th className="px-6 py-4">{t('settings.colUnitCode', 'Code Unité')}</th>
-                          <th className="px-6 py-4 text-right">{t('settings.colLink', 'Rattachement')}</th>
+                           <th className="px-4 sm:px-6 py-3 sm:py-4">{t('settings.colCenterCode', 'Code Centre')}</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4">{t('settings.colCenterName', 'Nom du Centre (Secteur)')}</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4">{t('settings.colUnitCode', 'Code Unité')}</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 text-right">{t('settings.colLink', 'Rattachement')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#F2F4F7]">
                         {filteredSectors.length > 0 ? (
                           filteredSectors.map((s: any) => (
                             <tr key={s.code} className="hover:bg-[#F9FAFB] transition-colors group">
-                              <td className="px-6 py-4 font-mono font-black text-sm text-[#245A83]">
+                              <td className="px-4 sm:px-6 py-3 sm:py-4 font-mono font-black text-sm text-[#245A83]">
                                 {s.code}
                               </td>
-                              <td className="px-6 py-4 font-black text-slate-800 text-sm">
+                              <td className="px-4 sm:px-6 py-3 sm:py-4 font-black text-slate-800 text-sm">
                                 {s.libelle}
                               </td>
-                              <td className="px-6 py-4 font-mono text-xs text-[#667085]">
+                              <td className="px-4 sm:px-6 py-3 sm:py-4 font-mono text-xs text-[#667085]">
                                 {s.unite}
                               </td>
-                              <td className="px-6 py-4 text-right">
+                              <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                                 <span className="inline-flex items-center px-2.5 py-1 bg-blue-50/50 text-blue-700 border border-blue-100/50 rounded-lg text-[10px] font-bold">
                                   {t('settings.linkedTo', 'Lié à')} {u.denom}
                                 </span>
@@ -522,13 +523,14 @@ export function SettingsView({
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={4} className="px-6 py-12 text-center text-sm font-bold text-[#98A2B3]">
+                            <td colSpan={4} className="px-4 sm:px-6 py-12 text-center text-sm font-bold text-[#98A2B3]">
                               {t('settings.noSearchResults', 'Aucun centre ne correspond à votre recherche.')}
                             </td>
                           </tr>
                         )}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -536,7 +538,7 @@ export function SettingsView({
           })}
 
           {/* Cache Settings card */}
-          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 no-print">
+          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 no-print">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
                 <h3 className="text-lg font-black text-[#101828]">{t('settings.cacheTitle', 'Gestion du Cache de Données')}</h3>
@@ -781,16 +783,16 @@ function UsersManagementPanel({
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* User List */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h3 className="text-lg font-black text-[#101828]">{t('settings.usersTitle', 'Gestion des utilisateurs')}</h3>
             <p className="text-sm text-[#667085] mt-1">{t('settings.usersSubtitle', 'Créez des utilisateurs avec accès limité à un ou plusieurs secteurs.')}</p>
           </div>
           <button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-2 px-5 py-3 bg-[#245A83] text-white rounded-2xl text-sm font-black hover:bg-[#1F4D70] transition-all shadow-md shadow-blue-100 shrink-0"
+            className="inline-flex min-h-11 items-center justify-center gap-2 px-5 py-3 bg-[#245A83] text-white rounded-2xl text-sm font-black hover:bg-[#1F4D70] transition-all shadow-md shadow-blue-100 shrink-0"
           >
             <Plus size={16} /> {t('settings.newUser', 'Nouvel utilisateur')}
           </button>
@@ -1264,7 +1266,7 @@ function UserProfilePanel({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-300">
       {/* Profil Form Card */}
-      <div className="lg:col-span-2 bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 page-card">
+      <div className="lg:col-span-2 bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 page-card">
         <div className="flex items-start gap-4 mb-6">
           <div className="w-12 h-12 bg-blue-50 text-[#245A83] rounded-2xl flex items-center justify-center font-black text-lg">
             <User size={22} />
@@ -1435,7 +1437,7 @@ function UserProfilePanel({
 
       {/* Rôle et Affectations géographiques (Secteurs) Card */}
       <div className="lg:col-span-1 space-y-6">
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 page-card">
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 page-card">
           <h3 className="text-lg font-black text-[#101828] mb-4">Statut &amp; Rôle</h3>
           <div className="space-y-4">
             <div>
@@ -1455,7 +1457,7 @@ function UserProfilePanel({
           </div>
         </div>
 
-        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 page-card">
+        <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 page-card">
           <h3 className="text-lg font-black text-[#101828] mb-1">Affectations géographiques</h3>
           <p className="text-xs text-[#667085] font-medium mb-4">Secteurs associés à votre compte (visualisation seule).</p>
           

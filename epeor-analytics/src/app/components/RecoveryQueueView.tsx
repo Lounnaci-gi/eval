@@ -218,7 +218,7 @@ export function RecoveryQueueView({
               <ArrowLeft size={18} />
             </button>
             <div>
-              <h1 className="text-xl font-black text-[#101828]">{t("recoveryQueue.title")}</h1>
+              <h1 className="page-title text-[#101828]">{t("recoveryQueue.title")}</h1>
               <p className="mt-1 text-sm text-[#667085]">
                 {t("recoveryQueue.description")}
               </p>
@@ -247,7 +247,7 @@ export function RecoveryQueueView({
             </p>
           </div>
         </div>
-        <label className="relative block max-w-xl">
+        <label className="relative block w-full max-w-xl">
           <Search size={16} className={`absolute ${isArabic ? "right-3" : "left-3"} top-1/2 -translate-y-1/2 text-[#98A2B3]`} />
           <input
             type="search"
@@ -257,7 +257,7 @@ export function RecoveryQueueView({
               setPage(1);
             }}
             placeholder={t("recoveryQueue.searchPlaceholder")}
-            className={`w-full rounded-xl border border-[#E4E7EC] bg-white py-2 ${isArabic ? "pr-9 pl-3" : "pl-9 pr-3"} text-sm text-[#101828] outline-none focus:ring-2 focus:ring-blue-200`}
+            className={`w-full min-h-11 rounded-xl border border-[#E4E7EC] bg-white py-2.5 ${isArabic ? "pr-9 pl-3" : "pl-9 pr-3"} text-sm text-[#101828] outline-none focus:ring-2 focus:ring-blue-200`}
           />
         </label>
       </header>
@@ -277,9 +277,9 @@ export function RecoveryQueueView({
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="table-scroll overflow-x-auto">
               <table className="w-full min-w-[900px] text-start">
-                <thead className="bg-[#F9FAFB] text-[10px] uppercase tracking-wider text-[#667085]">
+                <thead className="bg-[#F9FAFB] text-[11px] uppercase tracking-wider text-[#667085]">
                   <tr>
                     <th className="px-4 py-3">{t("recoveryQueue.priority")}</th>
                     <th className="px-4 py-3">{t("recoveryQueue.subscriber")}</th>
@@ -378,7 +378,7 @@ export function RecoveryQueueView({
             aria-labelledby="recovery-invoices-title"
             className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl"
           >
-            <header className="flex items-start justify-between gap-4 border-b border-[#E4E7EC] p-4 sm:p-6">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-[#E4E7EC] p-4 sm:p-6">
               <div>
                 <h2 id="recovery-invoices-title" className="text-lg font-black text-[#101828]">
                   {t("recoveryQueue.invoiceTitle", { name: selectedSubscriber.name })}
@@ -407,6 +407,7 @@ export function RecoveryQueueView({
               ) : invoices.length === 0 ? (
                 <p className="py-8 text-center text-sm text-[#667085]">{t("recoveryQueue.noInvoices")}</p>
               ) : (
+                <div className="table-scroll overflow-x-auto">
                 <table className="w-full min-w-[600px] text-start text-sm">
                   <thead className="bg-[#F9FAFB] text-xs text-[#667085]">
                     <tr>
@@ -435,6 +436,7 @@ export function RecoveryQueueView({
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </section>

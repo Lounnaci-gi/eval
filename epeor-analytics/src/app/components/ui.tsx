@@ -72,9 +72,9 @@ export function MultiSelectDropdown({
       ref={menuRef}
       style={{ position: 'absolute', top: pos.top - 4, left: pos.left, width: pos.width, zIndex: 9999 }}
     >
-      <div className="filter-menu max-h-44 overflow-y-auto rounded-xl border border-[#E4E7EC] bg-white p-3 shadow-lg">
+      <div className="filter-menu max-h-52 overflow-y-auto rounded-xl border border-[#E4E7EC] bg-white p-3 shadow-lg">
         {options.map(o => (
-          <label key={o} className="flex items-center gap-2 text-xs text-[#101828] py-1" onClick={e => e.stopPropagation()}>
+          <label key={o} className="flex min-h-9 items-center gap-2 py-1.5 text-sm sm:text-xs text-[#101828]" onClick={e => e.stopPropagation()}>
             <input
               type="checkbox"
               checked={selected.includes(o)}
@@ -104,13 +104,13 @@ export function MultiSelectDropdown({
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); setTimeout(updatePos, 0); }
         }}
-        className="filter-trigger w-full flex justify-between items-center py-2 px-4 bg-[#F9FAFB] border border-[#E4E7EC] rounded-lg text-xs font-semibold"
+        className="filter-trigger flex w-full min-h-10 items-center justify-between gap-2 px-3 py-2 sm:px-4 bg-[#F9FAFB] border border-[#E4E7EC] rounded-lg text-xs font-semibold"
       >
-        <span className="text-left">
+        <span className="min-w-0 flex-1 truncate text-left">
           <span className="font-black">{label}</span>
           <span className="ml-2 font-normal text-[#475467]">{labelText}</span>
         </span>
-        <ChevronDown size={14} className="text-[#98A2B3]" />
+        <ChevronDown size={14} className="shrink-0 text-[#98A2B3]" />
       </button>
       {open && pos && createPortal(menu, document.body)}
     </div>
@@ -131,7 +131,7 @@ export function FrenchDateInput({
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const defaultClass = 'block bg-white border border-[#E4E7EC] rounded-lg px-4 py-2.5 text-xs font-semibold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500 w-32';
+  const defaultClass = 'block w-full min-w-0 sm:w-32 bg-white border border-[#E4E7EC] rounded-lg px-3 py-2.5 text-sm sm:text-xs font-semibold text-[#101828] outline-none focus:ring-2 focus:ring-brand-500';
   const formatDisplay = (raw: string) => {
     if (!raw) return '—';
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
@@ -214,10 +214,10 @@ export function FrenchDateInput({
               inputRef.current?.showPicker();
             } catch {}
           }}
-          className="absolute end-3 top-1/2 -translate-y-1/2 text-[#98A2B3] z-30 hover:text-[#475467] transition-colors"
+          className="absolute end-1 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-[#98A2B3] hover:text-[#475467] transition-colors"
           aria-label={label ? `Choisir la date ${label}` : 'Choisir une date'}
         >
-          <Calendar size={14} />
+          <Calendar size={16} />
         </button>
       </div>
     </div>
@@ -267,9 +267,9 @@ export function SecteurDropdown({
         onClick={() => !loading && setOpen(o => !o)}
         className="filter-trigger flex w-full sm:w-auto items-center gap-2 ps-4 pe-3 py-2.5 bg-white border border-[#E4E7EC] rounded-lg text-xs font-semibold text-[#344054] hover:border-brand-500 hover:text-brand-700 transition-colors min-w-0 sm:min-w-[200px] max-w-full justify-between disabled:opacity-60 disabled:cursor-wait"
       >
-        <span className="flex items-center gap-2">
-          <MapPin size={14} className={selectedSecteur ? 'text-[#245A83]' : 'text-[#98A2B3]'} />
-          <span className={selectedSecteur ? 'text-brand-700 font-bold' : ''}>{currentLabel}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <MapPin size={14} className={`shrink-0 ${selectedSecteur ? 'text-[#245A83]' : 'text-[#98A2B3]'}`} />
+          <span className={`min-w-0 truncate ${selectedSecteur ? 'text-brand-700 font-bold' : ''}`}>{currentLabel}</span>
         </span>
         <ChevronDown size={14} className="text-[#98A2B3] shrink-0" />
       </button>

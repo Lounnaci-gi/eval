@@ -76,9 +76,12 @@ export function NominativeTable({ subscribers, loading, accentColor = "blue", co
       {hoveredSub && !isViewingInvoices && (
         <div
           className="fixed z-[9999] pointer-events-none transition-opacity duration-150"
-          style={{ top: mousePos.y + 18, left: Math.min(mousePos.x + 18, window.innerWidth - 340) }}
+          style={{
+            top: Math.max(8, Math.min(mousePos.y + 18, (typeof window !== 'undefined' ? window.innerHeight : 800) - 340)),
+            left: Math.max(8, Math.min(mousePos.x + 18, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 340)),
+          }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-[#E4E7EC] p-5 w-80">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#E4E7EC] p-5 w-[min(20rem,calc(100vw-2rem))]">
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[#F2F4F7]">
               <div className={`p-2.5 rounded-xl border ${style.badge}`}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -522,7 +525,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="rotate-180"><path d="m9 18 6-6-6-6" /></svg> Retour à la liste
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="invoice-filter" className="text-[11px] font-bold text-[#667085] uppercase tracking-wider">Filtrer :</label>
             <div className="relative">
               <select
@@ -924,7 +927,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
   return (
     <>
       <div className="p-4 border-b border-[#F2F4F7] bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="relative max-w-sm">
+        <div className="relative w-full sm:max-w-sm">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
@@ -949,14 +952,15 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           type="button"
           onClick={handlePrintSelected}
           disabled={selectedSubscribers.length === 0}
-          className="no-print inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#245A83] hover:bg-[#1F4D70] active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:bg-[#D0D5DD] disabled:text-[#667085] disabled:shadow-none disabled:cursor-not-allowed"
+          className="no-print inline-flex min-h-10 items-center justify-center gap-2 px-4 py-2 bg-[#245A83] hover:bg-[#1F4D70] active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:bg-[#D0D5DD] disabled:text-[#667085] disabled:shadow-none disabled:cursor-not-allowed"
           title={selectedSubscribers.length > 0 ? "Imprimer uniquement les abonnés sélectionnés" : "Cochez au moins un abonné pour l'imprimer"}
         >
           <Printer size={14} />
           Imprimer la sélection ({selectedSubscribers.length})
         </button>
       </div>
-      <table className="w-full text-left">
+      <div className="table-scroll">
+      <table className="w-full min-w-[72rem] text-left">
         <thead>
           <tr className="bg-[#F9FAFB] text-[#475467] text-[11px] uppercase tracking-wider font-bold">
             <th className="px-4 py-5 text-center">
@@ -1049,6 +1053,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
           )}
         </tbody>
       </table>
+      </div>
 
       {/* Pagination footer */}
       {total > 0 && (

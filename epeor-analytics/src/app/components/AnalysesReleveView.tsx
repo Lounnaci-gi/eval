@@ -150,7 +150,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase text-[#245A83]">Analyse opérationnelle</p>
-            <h1 className="mt-1 text-2xl font-black text-[#101828] dark:text-slate-100">Analyses relève</h1>
+            <h1 className="page-title mt-1 text-[#101828] dark:text-slate-100">Analyses relève</h1>
             {data && (
               <p className="mt-2 text-sm text-[#667085] dark:text-slate-400">Date système : {data.date_systeme}</p>
             )}
@@ -159,9 +159,9 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
       </header>
 
       {data && (
-        <div className="flex flex-col md:flex-row md:items-end gap-4">
-          <div className="space-y-2">
-            <label htmlFor="releve-filter-year" className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Année</label>
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="min-w-0 flex-1 space-y-2 sm:min-w-[10rem] sm:flex-none">
+            <label htmlFor="releve-filter-year" className="text-[11px] font-bold text-[#98A2B3] uppercase px-1">Année</label>
             <div className="flex items-center gap-2">
               <input
                 id="releve-filter-year"
@@ -173,7 +173,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
                   if (event.key === "Enter") handleApplyPeriod(event.currentTarget.value);
                 }}
                 placeholder="Entrez une année ou choisissez"
-                className="block w-full md:w-32 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
+                className="block w-full min-w-0 sm:w-32 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-sm sm:text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
               />
               <datalist id="releve-years-list">
                 <option value="all">Toutes</option>
@@ -186,15 +186,15 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
                   setFilterPeriod("all");
                   handleApplyPeriod("all", "all");
                 }}
-                className="hidden md:inline-block px-3 py-2 rounded-xl text-[10px] font-black bg-white text-[#245A83] border border-[#E4E7EC]"
+                className="hidden sm:inline-flex min-h-10 items-center px-3 py-2 rounded-xl text-xs font-black bg-white text-[#245A83] border border-[#E4E7EC]"
               >
                 Toutes
               </button>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="releve-filter-period" className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Période</label>
+          <div className="min-w-0 flex-1 space-y-2 sm:min-w-[14rem] sm:flex-none">
+            <label htmlFor="releve-filter-period" className="text-[11px] font-bold text-[#98A2B3] uppercase px-1">Période</label>
             <select
               id="releve-filter-period"
               value={filterPeriod}
@@ -203,7 +203,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
                 setFilterPeriod(nextPeriod);
                 handleApplyPeriod(filterYear, nextPeriod);
               }}
-              className="block w-full md:w-56 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
+              className="block w-full min-w-0 sm:w-56 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-sm sm:text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
             >
               <option value="all">Année {filterYear === "all" ? "complète" : filterYear}</option>
               <optgroup label="Trimestres">
@@ -240,7 +240,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
         </div>
       ) : data ? (
         <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {([1, 2, 3, 4] as TourneeStatus[]).map((code) => (
               <button
                 key={code}
@@ -283,7 +283,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
             </label>
           </div>
 
-          <div className="overflow-x-auto border border-[#E4E7EC] bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="table-scroll overflow-x-auto border border-[#E4E7EC] bg-white dark:border-slate-700 dark:bg-slate-900">
             <table className="w-full min-w-[1050px] border-collapse text-start text-sm">
               <thead className="bg-[#F3F6F7] text-xs uppercase text-[#56636D] dark:bg-slate-800 dark:text-slate-300">
                 <tr>

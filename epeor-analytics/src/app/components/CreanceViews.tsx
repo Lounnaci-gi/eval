@@ -637,18 +637,18 @@ export function CreanceDetailView({
         </div>
       )}
       {/* Header */}
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="flex flex-col md:flex-row md:items-end gap-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Année</label>
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-5">
+          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="min-w-0 flex-1 space-y-2 sm:min-w-[10rem] sm:flex-none">
+              <label className="text-[11px] font-bold text-[#98A2B3] uppercase px-1">Année</label>
               <div className="flex items-center gap-2">
                 <input
                   list="years-list"
                   value={filterYear}
                   onChange={(e) => setFilterYear(e.target.value)}
                   placeholder="Entrez une année ou choisissez"
-                  className="block w-full md:w-32 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
+                  className="block w-full min-w-0 sm:w-32 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-sm sm:text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
                 />
                 <datalist id="years-list">
                   <option value="all">Toutes</option>
@@ -657,18 +657,18 @@ export function CreanceDetailView({
                   ))}
                 </datalist>
                 <button type="button" onClick={() => setFilterYear('all')}
-                  className="hidden md:inline-block px-3 py-2 rounded-xl text-[10px] font-black bg-white text-[#245A83] border border-[#E4E7EC]">
+                  className="hidden sm:inline-flex min-h-10 items-center px-3 py-2 rounded-xl text-xs font-black bg-white text-[#245A83] border border-[#E4E7EC]">
                   Toutes
                 </button>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Période</label>
+            <div className="min-w-0 flex-1 space-y-2 sm:min-w-[14rem] sm:flex-none">
+              <label className="text-[11px] font-bold text-[#98A2B3] uppercase px-1">Période</label>
               <select
                 value={filterPeriod}
                 onChange={(e) => setFilterPeriod(e.target.value)}
-                className="block w-full md:w-56 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
+                className="block w-full min-w-0 sm:w-56 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-sm sm:text-xs font-bold text-[#101828] outline-none hover:border-[#D0D5DD] transition-all"
               >
                 <option value="all">Année {filterYear === 'all' ? 'complète' : filterYear}</option>
                 <optgroup label="Trimestres">
@@ -692,7 +692,7 @@ export function CreanceDetailView({
 
             <button
               onClick={handleApplyFilter}
-              className="px-6 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-black shadow-lg shadow-brand-100 hover:bg-brand-700 transition-all flex items-center gap-2 h-[42px]"
+              className="inline-flex min-h-11 items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 text-white rounded-xl text-sm sm:text-xs font-black shadow-lg shadow-brand-100 hover:bg-brand-700 transition-all"
             >
               <Search size={14} />
               Calculer
@@ -700,25 +700,25 @@ export function CreanceDetailView({
 
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-[#98A2B3] uppercase px-1">Période</label>
-            <div className="flex items-end gap-3 p-4 bg-[#F9FAFB] rounded-2xl border border-[#F2F4F7] border-dashed shadow-sm">
+          <div className="min-w-0 space-y-2">
+            <label className="text-[11px] font-bold text-[#98A2B3] uppercase px-1">Période</label>
+            <div className="flex flex-wrap items-end gap-3 p-3 sm:p-4 bg-[#F9FAFB] rounded-2xl border border-[#F2F4F7] border-dashed shadow-sm">
               <FrenchDateInput
                 label="Du"
                 value={dateRange.start}
                 onChange={(val: string) => setDateRange({ ...dateRange, start: val })}
-                className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-32 shadow-sm"
+                className="block w-full min-w-0 sm:w-32 bg-white border border-[#E4E7EC] rounded-xl px-3 py-2.5 text-sm sm:text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none shadow-sm"
               />
               <FrenchDateInput
                 label="Au"
                 value={dateRange.end}
                 onChange={(val: string) => setDateRange({ ...dateRange, end: val })}
-                className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2.5 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-32 shadow-sm"
+                className="block w-full min-w-0 sm:w-32 bg-white border border-[#E4E7EC] rounded-xl px-3 py-2.5 text-sm sm:text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none shadow-sm"
               />
-              <div className="pb-1">
+              <div className="pb-0.5">
                 <button
                   onClick={handleCustomFilter}
-                  className="p-3 bg-white border border-[#E4E7EC] rounded-xl text-brand-600 hover:bg-brand-50 transition-colors shadow-sm hover:shadow-md transition-all"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center p-3 bg-white border border-[#E4E7EC] rounded-xl text-brand-600 hover:bg-brand-50 shadow-sm hover:shadow-md transition-all"
                   aria-label="Appliquer la période sélectionnée"
                 >
                   <Search size={14} />
@@ -790,7 +790,7 @@ export function CreanceDetailView({
       {data && !loading && (
         <>
           {data.from_cache && (
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-3 flex items-center justify-between mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-500 p-1.5 rounded-lg shadow-sm shadow-blue-200">
                   <Database size={14} className="text-white" />
@@ -842,9 +842,9 @@ export function CreanceDetailView({
                 >
                   <div className="mb-2 flex min-w-0 items-center gap-2">
                     <div className={`w-2 h-2 shrink-0 rounded-full ${kpi.dot}`}></div>
-                    <p className="min-w-0 text-[clamp(0.5625rem,5.5cqi,0.625rem)] font-black leading-tight text-[#667085] uppercase tracking-[0.06em]">{kpi.label}</p>
+                    <p className="min-w-0 text-[clamp(0.6875rem,3.8cqi,0.75rem)] font-black leading-tight text-[#667085] uppercase tracking-[0.04em]">{kpi.label}</p>
                   </div>
-                  <p className={`min-w-0 break-words text-[clamp(0.75rem,10cqi,1rem)] font-black leading-snug tabular-nums ${kpi.color.split(' ')[1]}`}>{kpi.value}</p>
+                  <p className={`min-w-0 break-words text-[clamp(0.95rem,7cqi,1.2rem)] font-black leading-snug tabular-nums ${kpi.color.split(' ')[1]}`}>{kpi.value}</p>
                 </div>
               );
             })}
@@ -1030,10 +1030,10 @@ export function CreanceDetailView({
           </div>
 
           {/* Graphique d'Analyse Rétrospective des 12 Derniers Mois */}
-          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8 mt-8 animate-in fade-in duration-500">
+          <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 mt-8 animate-in fade-in duration-500">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6">
-              <div>
-                <h4 className="text-xl font-black tracking-tight text-[#101828]">
+              <div className="min-w-0">
+                <h4 className="text-base sm:text-xl font-black tracking-tight text-[#101828]">
                   {histType === 'monthly_12' ? "Analyse Rétrospective des 12 Derniers Mois" : 
                    histType === 'years' ? `Analyse Rétrospective (${histStartYear} → ${histEndYear})` : 
                    histType === 'days' ? `Analyse Rétrospective du ${histStartDate.split('-').reverse().join('/')} au ${histEndDate.split('-').reverse().join('/')}` :
@@ -1047,7 +1047,7 @@ export function CreanceDetailView({
               </div>
 
               {/* Toggles interactifs de métrique */}
-              <div className="flex bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC] self-start lg:self-auto shadow-sm">
+              <div className="flex flex-wrap bg-[#F2F4F7] p-1.5 rounded-2xl gap-1 border border-[#E4E7EC] self-start lg:self-auto shadow-sm max-w-full">
                 {[
                   { id: 'creance', label: 'Créances' },
                   { id: 'ca', label: "Chiffre d'Affaires" },
@@ -1061,7 +1061,7 @@ export function CreanceDetailView({
                     onClick={() => {
                       setActiveHistoryMetric(tab.id as any);
                     }}
-                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 border ${
+                    className={`min-h-10 px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 border ${
                       activeHistoryMetric === tab.id
                         ? 'bg-white text-brand-600 shadow-sm border-[#E4E7EC]/40'
                         : 'text-[#667085] border-transparent hover:text-[#101828]'
@@ -1074,13 +1074,13 @@ export function CreanceDetailView({
             </div>
 
             {/* Filtres d'Intervalle Historique */}
-            <div className="flex flex-wrap items-end gap-4 p-4 mb-6 bg-[#F9FAFB] rounded-2xl border border-[#F2F4F7] border-dashed">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-[#98A2B3] uppercase px-1">Type d'Évolution</label>
+            <div className="flex flex-wrap items-end gap-3 sm:gap-4 p-3 sm:p-4 mb-6 bg-[#F9FAFB] rounded-2xl border border-[#F2F4F7] border-dashed">
+              <div className="min-w-0 w-full space-y-1 sm:w-auto">
+                <label className="text-[11px] font-black text-[#98A2B3] uppercase px-1">Type d'Évolution</label>
                 <select
                   value={histType}
                   onChange={(e) => setHistType(e.target.value as any)}
-                  className="block bg-white border border-[#E4E7EC] rounded-xl px-4 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-48 shadow-sm cursor-pointer"
+                  className="block w-full min-w-0 bg-white border border-[#E4E7EC] rounded-xl px-4 py-2 text-sm sm:text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none sm:w-48 shadow-sm cursor-pointer"
                 >
                   <option value="monthly_12">12 Derniers Mois</option>
                   <option value="years">Par Intervalle d'Années</option>
@@ -1090,11 +1090,11 @@ export function CreanceDetailView({
               </div>
 
               {histType !== 'monthly_12' && (
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-end gap-2">
                   {/* Début */}
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-[#98A2B3] uppercase px-1">Du</label>
-                    <div className="flex gap-2">
+                  <div className="min-w-0 space-y-1">
+                    <label className="text-[11px] font-black text-[#98A2B3] uppercase px-1">Du</label>
+                    <div className="flex min-w-0 flex-wrap gap-2">
                       {histType === 'days' ? (
                         <input
                           type="date"
@@ -1112,7 +1112,7 @@ export function CreanceDetailView({
                               }
                             }
                           }}
-                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-36 shadow-sm cursor-pointer"
+                          className="block w-full min-w-0 bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none sm:w-36 shadow-sm cursor-pointer"
                         />
                       ) : (
                         <>
@@ -1120,7 +1120,7 @@ export function CreanceDetailView({
                             <select
                               value={histStartMonth}
                               onChange={(e) => setHistStartMonth(e.target.value)}
-                              className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-28 shadow-sm cursor-pointer"
+                              className="block w-full min-w-0 bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none sm:w-28 shadow-sm cursor-pointer"
                             >
                               {[
                                 {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
@@ -1135,7 +1135,7 @@ export function CreanceDetailView({
                           <select
                             value={histStartYear}
                             onChange={(e) => setHistStartYear(e.target.value)}
-                            className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-24 shadow-sm cursor-pointer"
+                            className="block w-full min-w-0 bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none sm:w-24 shadow-sm cursor-pointer"
                           >
                             {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
                               <option key={year} value={year}>{year}</option>
@@ -1149,9 +1149,9 @@ export function CreanceDetailView({
                   <span className="text-xs font-bold text-[#98A2B3] pt-4">→</span>
 
                   {/* Fin */}
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-[#98A2B3] uppercase px-1">Au</label>
-                    <div className="flex gap-2">
+                  <div className="min-w-0 space-y-1">
+                    <label className="text-[11px] font-black text-[#98A2B3] uppercase px-1">Au</label>
+                    <div className="flex min-w-0 flex-wrap gap-2">
                       {histType === 'days' ? (
                         <input
                           type="date"
@@ -1169,7 +1169,7 @@ export function CreanceDetailView({
                               }
                             }
                           }}
-                          className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-36 shadow-sm cursor-pointer"
+                          className="block w-full min-w-0 bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none sm:w-36 shadow-sm cursor-pointer"
                         />
                       ) : (
                         <>
@@ -1177,7 +1177,7 @@ export function CreanceDetailView({
                             <select
                               value={histEndMonth}
                               onChange={(e) => setHistEndMonth(e.target.value)}
-                              className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-28 shadow-sm cursor-pointer"
+                              className="block w-full min-w-0 bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none sm:w-28 shadow-sm cursor-pointer"
                             >
                               {[
                                 {v: '01', l: 'Janvier'}, {v: '02', l: 'Février'}, {v: '03', l: 'Mars'},
@@ -1192,7 +1192,7 @@ export function CreanceDetailView({
                           <select
                             value={histEndYear}
                             onChange={(e) => setHistEndYear(e.target.value)}
-                            className="block bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none w-24 shadow-sm cursor-pointer"
+                            className="block w-full min-w-0 bg-white border border-[#E4E7EC] rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-[#101828] focus:ring-2 focus:ring-brand-500 outline-none sm:w-24 shadow-sm cursor-pointer"
                           >
                             {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(year => (
                               <option key={year} value={year}>{year}</option>
@@ -1208,7 +1208,7 @@ export function CreanceDetailView({
               <button
                 onClick={handleUpdateHistory}
                 disabled={loadingHistory}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50 rounded-xl text-xs font-black transition-all shadow-sm h-[38px] active:scale-95 cursor-pointer"
+                className="inline-flex min-h-10 items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50 rounded-xl text-xs font-black transition-all shadow-sm active:scale-95 cursor-pointer"
               >
                 {loadingHistory ? (
                   <div className="spinner-premium" style={{ width: 12, height: 12 }} />
@@ -1222,7 +1222,7 @@ export function CreanceDetailView({
                 onClick={handlePrintAllCharts}
                 disabled={!data?.history || data.history.length === 0}
                 title="Imprimer les 4 graphiques en une seule page A4 paysage"
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-black transition-all shadow-sm h-[38px] active:scale-95 cursor-pointer border border-slate-700"
+                className="inline-flex min-h-10 items-center justify-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-black transition-all shadow-sm active:scale-95 cursor-pointer border border-slate-700"
               >
                 <Printer size={12} />
                 Imprimer tout

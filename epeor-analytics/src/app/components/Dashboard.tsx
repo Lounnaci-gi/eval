@@ -455,7 +455,7 @@ export default function Dashboard() {
         <div className="login-card relative w-full max-w-md overflow-hidden">
           <div className="login-brand-band h-1 w-full" />
 
-          <div className="px-8 pb-6 pt-8 text-center">
+          <div className="px-5 sm:px-8 pb-6 pt-6 sm:pt-8 text-center">
             <div className="mx-auto mb-5 flex w-fit items-center justify-center rounded-lg border border-[#DDE5E8] bg-white p-2 dark:border-slate-700">
               <Logo variant="login" />
             </div>
@@ -467,7 +467,7 @@ export default function Dashboard() {
           </div>
 
           {/* Body Section */}
-          <div className="p-8 pt-0">
+          <div className="p-5 sm:p-8 pt-0">
 
           {(loginError || loginRemainingAttempts !== null || loginRetryAfter !== null) && (
             <div className="mb-6 rounded-2xl border border-rose-200 dark:border-rose-900/30 bg-rose-50/50 dark:bg-rose-950/20 p-4 space-y-3 backdrop-blur-sm animate-shake">
@@ -1039,13 +1039,13 @@ export default function Dashboard() {
             {stats?.ready && (stats?.total_subscribers ?? 0) > 0 ? (
             <div className="dashboard-chart-grid grid grid-cols-1 lg:grid-cols-7 gap-4 sm:gap-5">
               <div className="obat-card dashboard-chart-card lg:col-span-4 p-4 sm:p-6 lg:p-7 min-w-0">
-                <div className="flex justify-between items-center mb-8">
+                <div className="mb-6 flex flex-wrap items-start justify-between gap-3 sm:mb-8">
                   <div
-                    className="flex items-center gap-2 cursor-help"
+                    className="flex min-w-0 items-center gap-2 cursor-help"
                     onMouseEnter={() => setShowChartGuide(true)}
                     onMouseLeave={() => setShowChartGuide(false)}
                   >
-                    <h3 className="text-xl font-black tracking-tight text-[#101828] hover:text-[#245A83] transition-colors">
+                    <h3 className="text-base font-black tracking-tight text-[#101828] hover:text-[#245A83] transition-colors sm:text-xl">
                       {t('charts.sectorDistribution')}
                     </h3>
                   </div>
@@ -1152,14 +1152,14 @@ export default function Dashboard() {
                 aria-label={t('charts.sectors')}
                 className="obat-card dashboard-chart-card lg:col-span-3 p-4 sm:p-6 lg:p-7 text-obat-gray cursor-pointer hover:-translate-y-0.5 group min-w-0"
               >
-                <h3 className="text-xl font-black tracking-tight mb-8 text-[#101828] group-hover:text-[#245A83] transition-colors">{t('charts.sectors')}</h3>
+                <h3 className="mb-6 text-base font-black tracking-tight text-[#101828] group-hover:text-[#245A83] transition-colors sm:mb-8 sm:text-xl">{t('charts.sectors')}</h3>
                 <ChartContainer className="h-[260px] sm:h-[320px] lg:h-[350px] w-full min-w-0">
                     <PieChart>
                       <Pie
                         data={stats?.subscriber_sectors?.slice(0, 5) || []}
                         cx="50%"
                         cy="50%"
-                        outerRadius={120}
+                        outerRadius="62%"
                         paddingAngle={2}
                         dataKey="value"
                         stroke="rgb(var(--color-bg-secondary))"

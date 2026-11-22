@@ -2238,12 +2238,12 @@ export function CreancesInstitutionsView({
     printWindow.document.close();
   };
 
-  const inputCls = 'pl-8 pr-4 py-2 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 transition-all w-72';
+  const inputCls = 'w-full min-w-0 sm:w-72 pl-8 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E4E7EC] rounded-xl text-sm sm:text-xs font-bold text-[#101828] placeholder:text-[#98A2B3] outline-none focus:border-brand-300 transition-all';
  
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] p-8">
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8">
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-sm font-bold text-[#667085] hover:text-[#101828] mb-4 transition-colors"
@@ -2252,7 +2252,7 @@ export function CreancesInstitutionsView({
         </button>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
-            <h2 className="text-3xl font-black tracking-tight text-[#101828]">Créance institutions</h2>
+            <h2 className="page-title text-[#101828]">Créance institutions</h2>
             <p className="text-sm text-[#667085] mt-1 font-medium">
               {secteurLabel
                 ? `Créances institutionnelles du centre ${secteurLabel}`
@@ -2530,30 +2530,30 @@ export function CreancesInstitutionsView({
         </div>
       </div>
 
-      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[2rem] overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4 px-8 py-5 border-b border-[#F2F4F7] bg-slate-50/30">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
-              <input
-                type="text"
-                placeholder="Code inst., nom, abonné…"
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1); }}
-                className={inputCls}
-              />
-            </div>
+      <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden">
+        <div className="flex flex-col gap-3 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-b border-[#F2F4F7] bg-slate-50/30">
+          <div className="relative w-full sm:max-w-sm">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
+            <input
+              type="text"
+              placeholder="Code inst., nom, abonné…"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              className={inputCls}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={exportCSV}
               disabled={selectedRowsInst.length === 0 && flatRows.length === 0}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 disabled:opacity-50 transition-all"
+              className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 disabled:opacity-50 transition-all"
             >
               <FileSpreadsheet size={13} /> CSV
             </button>
             <button
               onClick={handlePrintCreances}
               disabled={selectedRowsInst.length === 0 && flatRows.length === 0}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 disabled:opacity-50 transition-all"
+              className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-rose-50 text-rose-700 border border-rose-100 rounded-xl text-xs font-black hover:bg-rose-100 disabled:opacity-50 transition-all"
               title="Imprimer avec les filtres appliqués"
             >
               <Printer size={13} /> Imprimer
@@ -2561,21 +2561,21 @@ export function CreancesInstitutionsView({
             <button
               onClick={handlePrintQuarterlyCreances}
               disabled={selectedRowsInst.length === 0 && flatRows.length === 0}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-brand-50 text-brand-700 border border-brand-100 rounded-xl text-xs font-black hover:bg-brand-100 disabled:opacity-50 transition-all"
+              className="inline-flex min-h-10 items-center gap-2 px-3 sm:px-4 py-2 bg-brand-50 text-brand-700 border border-brand-100 rounded-xl text-xs font-black hover:bg-brand-100 disabled:opacity-50 transition-all"
               title="Imprimer le tableau comparatif trimestriel sur 10 ans"
             >
-              <Printer size={13} /> Imprimer par Facture (Trimestres)
+              <Printer size={13} /> <span className="sm:hidden">Trimestres</span><span className="hidden sm:inline">Imprimer par Facture (Trimestres)</span>
             </button>
             <button
               onClick={loadData}
-              className="px-4 py-2 bg-white border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] hover:bg-[#F9FAFB]"
+              className="inline-flex min-h-10 items-center px-3 sm:px-4 py-2 bg-white border border-[#E4E7EC] rounded-xl text-xs font-black text-[#475467] hover:bg-[#F9FAFB]"
             >
               Actualiser
             </button>
           </div>
         </div>
-        <div className="px-8 py-4 border-b border-[#F2F4F7] bg-[#FAFBFC] flex items-center gap-4 overflow-x-auto">
-          <div className="min-w-[220px]">
+        <div className="px-4 sm:px-6 lg:px-8 py-4 border-b border-[#F2F4F7] bg-[#FAFBFC] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-3">
+          <div className="min-w-0">
             <MultiSelectDropdown
               label="Code inst."
               options={filterOptions.codinstit}
@@ -2583,7 +2583,7 @@ export function CreancesInstitutionsView({
               onChange={vals => { setFilterCodInstit(vals); setPage(1); }}
             />
           </div>
-          <div className="min-w-[220px]">
+          <div className="min-w-0">
             <MultiSelectDropdown
               label="Institution"
               options={filterOptions.institutions}
@@ -2591,7 +2591,7 @@ export function CreancesInstitutionsView({
               onChange={vals => { setFilterInstitution(vals); setPage(1); }}
             />
           </div>
-          <div className="min-w-[220px]">
+          <div className="min-w-0">
             <MultiSelectDropdown
               label="Type"
               options={filterOptions.types}
@@ -2599,7 +2599,7 @@ export function CreancesInstitutionsView({
               onChange={vals => { setFilterTypeAbonInst(vals); setPage(1); }}
             />
           </div>
-          <div className="min-w-[220px]">
+          <div className="min-w-0">
             <MultiSelectDropdown
               label="État Cpt"
               options={filterOptions.etats}
@@ -2607,7 +2607,7 @@ export function CreancesInstitutionsView({
               onChange={vals => { setFilterEtatCptInst(vals); setPage(1); }}
             />
           </div>
-          <div className="min-w-[220px]">
+          <div className="min-w-0 sm:col-span-2 xl:col-span-1">
             <MultiSelectDropdown
               label="Tournée"
               options={filterOptions.tournees}
@@ -2636,8 +2636,8 @@ export function CreancesInstitutionsView({
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="table-scroll overflow-x-auto">
+              <table className="w-full min-w-[64rem] text-left text-xs">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#475467] text-[10px] uppercase tracking-wider font-bold border-b border-[#E4E7EC]">
                     <th className="px-4 py-4 w-10">

@@ -1,21 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, Copy, RefreshCw } from "lucide-react";
 import { apiUrl } from "../lib/api";
 
-type TourneeStatus = 1 | 2 | 3 | 4;
+type TourneeStatus = 1 | 2 | 3 | 4 | 5;
 
 type TourneeRow = {
   UNITE: string;
   CENTRE: string;
   TOURNEE: string;
+  RELEVEUR: string;
   DATFACT: string;
   DATEPREVUE: string;
   DATERELEVE: string;
   DEB_SAISIE: string;
   EDITCTL: string;
   EDITFAC: string;
+  jours_retard: number;
   code: TourneeStatus;
 };
 
@@ -27,25 +29,55 @@ type AnalysisData = {
   tournees_periode_active: number;
   counts: Record<string, number>;
   tournees: TourneeRow[];
+  bilan_tournees: string;
 };
+
+type TourneeColumnKey = keyof TourneeRow | "observation";
+type TourneeSortKey = TourneeColumnKey | "code";
 
 const statusLabels: Record<TourneeStatus, string> = {
   1: "Date prévue dépassée",
   2: "Relevé en attente de saisie",
   3: "Relevé en attente de contrôle",
   4: "En attente d’édition",
+  5: "En attente de paiement",
 };
 
-const columns: { key: keyof TourneeRow; label: string }[] = [
+const columns: { key: TourneeColumnKey; label: string }[] = [
   { key: "UNITE", label: "Unité" },
   { key: "CENTRE", label: "Centre" },
   { key: "TOURNEE", label: "Tournée" },
+  { key: "observation", label: "Observation" },
   { key: "DATEPREVUE", label: "Date prévue" },
   { key: "DATERELEVE", label: "Date relevé" },
   { key: "DEB_SAISIE", label: "Début saisie" },
   { key: "EDITCTL", label: "Édition contrôle" },
   { key: "EDITFAC", label: "Édition facture" },
 ];
+
+const formatTourneeDate = (value: string) =>
+  value.length === 8
+    ? `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`
+    : "date inconnue";
+
+const formatTourneeDelay = (days: number) =>
+  `${days} jour${days === 1 ? "" : "s"}`;
+
+const getTourneeObservation = (tour: TourneeRow) => {
+  const delay = formatTourneeDelay(tour.jours_retard);
+  switch (tour.code) {
+    case 1:
+      return `Relevé non effectué depuis la date prévue du ${formatTourneeDate(tour.DATEPREVUE)} (${delay}).`;
+    case 2:
+      return `Saisie en attente depuis le relevé du ${formatTourneeDate(tour.DATERELEVE)} (${delay}).`;
+    case 3:
+      return `Contrôle en attente depuis le début de saisie du ${formatTourneeDate(tour.DEB_SAISIE)} (${delay}).`;
+    case 4:
+      return `Édition en attente depuis le contrôle du ${formatTourneeDate(tour.EDITCTL)} (${delay}).`;
+    case 5:
+      return `Aucun paiement constaté pour le DATFACT ${tour.DATFACT} depuis l’édition du ${formatTourneeDate(tour.EDITFAC)} (${delay}).`;
+  }
+};
 
 export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
   const [data, setData] = useState<AnalysisData | null>(null);
@@ -55,8 +87,10 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
   const [selectedDatfact, setSelectedDatfact] = useState("");
   const [filterYear, setFilterYear] = useState("");
   const [filterPeriod, setFilterPeriod] = useState("");
-  const [sortKey, setSortKey] = useState<keyof TourneeRow | "code" | null>(null);
+  const [sortKey, setSortKey] = useState<TourneeSortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [copyError, setCopyError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -93,8 +127,13 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
   ).toSorted((left, right) => {
     if (!sortKey) return 0;
 
-    const leftValue = sortKey === "code" ? String(left.code) : String(left[sortKey] ?? "");
-    const rightValue = sortKey === "code" ? String(right.code) : String(right[sortKey] ?? "");
+    const getSortValue = (tour: TourneeRow) => {
+      if (sortKey === "code") return String(tour.code);
+      if (sortKey === "observation") return getTourneeObservation(tour);
+      return String(tour[sortKey] ?? "");
+    };
+    const leftValue = getSortValue(left);
+    const rightValue = getSortValue(right);
 
     if (!leftValue && rightValue) return 1;
     if (leftValue && !rightValue) return -1;
@@ -106,7 +145,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
     return sortDirection === "asc" ? comparison : -comparison;
   });
 
-  const handleSort = (key: keyof TourneeRow | "code") => {
+  const handleSort = (key: TourneeSortKey) => {
     if (sortKey === key) {
       setSortDirection((direction) => direction === "asc" ? "desc" : "asc");
     } else {
@@ -115,6 +154,21 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
     }
   };
   const availableYears = [...new Set((data?.available_datfacts ?? []).map((period) => period.slice(0, 4)))];
+
+  const handleCopyBilan = async () => {
+    setCopyError("");
+    setCopied(false);
+    try {
+      await navigator.clipboard.writeText(data?.bilan_tournees ?? "");
+      setCopied(true);
+    } catch (cause) {
+      setCopyError(
+        cause instanceof Error
+          ? `La copie du bilan a échoué : ${cause.message}`
+          : "La copie du bilan a échoué.",
+      );
+    }
+  };
 
   const handleApplyPeriod = (year = filterYear, periodFilter = filterPeriod) => {
     const periodsForYear = (data?.available_datfacts ?? []).filter(
@@ -240,8 +294,26 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
         </div>
       ) : data ? (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {([1, 2, 3, 4] as TourneeStatus[]).map((code) => (
+          <section className="space-y-3 border border-[#E4E7EC] bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-[#101828] dark:text-slate-100">
+                Bilan des tournées par centre
+              </h2>
+              <button
+                type="button"
+                onClick={handleCopyBilan}
+                disabled={!data.bilan_tournees}
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#245A83] px-4 py-2 text-sm font-bold text-white hover:bg-[#1D4B6D] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Copy size={15} aria-hidden="true" /> Copier le bilan
+              </button>
+            </div>
+            {copied && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">Bilan copié.</p>}
+            {copyError && <p role="alert" className="text-sm text-rose-700 dark:text-rose-400">{copyError}</p>}
+          </section>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {([1, 2, 3, 4, 5] as TourneeStatus[]).map((code) => (
               <button
                 key={code}
                 type="button"
@@ -276,7 +348,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
                 className="min-h-10 border border-[#D0D5DD] bg-white px-3 text-sm text-[#101828] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
               >
                 <option value="all">Tous les codes</option>
-                {([1, 2, 3, 4] as TourneeStatus[]).map((code) => (
+                {([1, 2, 3, 4, 5] as TourneeStatus[]).map((code) => (
                   <option key={code} value={code}>Code {code} · {statusLabels[code]}</option>
                 ))}
               </select>
@@ -284,7 +356,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
           </div>
 
           <div className="table-scroll overflow-x-auto border border-[#E4E7EC] bg-white dark:border-slate-700 dark:bg-slate-900">
-            <table className="w-full min-w-[1050px] border-collapse text-start text-sm">
+            <table className="w-full min-w-[1250px] border-collapse text-start text-sm">
               <thead className="bg-[#F3F6F7] text-xs uppercase text-[#56636D] dark:bg-slate-800 dark:text-slate-300">
                 <tr>
                   {(() => {
@@ -301,7 +373,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
                         aria-sort={active ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
                       >
                         <button type="button" className="inline-flex items-center gap-1 font-bold">
-                          État <Icon size={13} aria-hidden="true" />
+                          Alerte <Icon size={13} aria-hidden="true" />
                         </button>
                       </th>
                     );
@@ -331,12 +403,16 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
                 {visibleTours.map((tour) => (
                   <tr key={`${tour.UNITE}-${tour.CENTRE}-${tour.TOURNEE}-${tour.DATFACT}`} className="text-[#344054] dark:text-slate-200">
                     <td className="whitespace-nowrap px-3 py-3">
-                      <span className="font-bold text-[#245A83]">{tour.code}</span>
-                      <span className="ms-2 text-xs">{statusLabels[tour.code]}</span>
+                      <span className="font-bold text-[#245A83]">{tour.code} · {statusLabels[tour.code]}</span>
                     </td>
                     {columns.map((column) => (
-                      <td key={column.key} className="whitespace-nowrap px-3 py-3 font-mono text-xs">
-                        {tour[column.key] || "—"}
+                      <td
+                        key={column.key}
+                        className={`px-3 py-3 text-xs ${column.key === "observation" ? "min-w-80" : "whitespace-nowrap font-mono"}`}
+                      >
+                        {column.key === "observation"
+                          ? getTourneeObservation(tour)
+                          : tour[column.key] || "—"}
                       </td>
                     ))}
                   </tr>

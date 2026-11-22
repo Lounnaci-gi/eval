@@ -835,14 +835,26 @@ def _is_tournee_date(value) -> bool:
         return False
 
 
-def _classify_tournee_status(record: dict, today: str) -> int | None:
-    datereleve = _tournee_value(record.get("DATERELEVE"))
-    dateprevue = _tournee_value(record.get("DATEPREVUE"))
-    deb_saisie = _tournee_value(record.get("DEB_SAISIE"))
-    editctl = _tournee_value(record.get("EDITCTL"))
-    editfac = _tournee_value(record.get("EDITFAC"))
+TOURNEE_MINIMUM_DELAY_DAYS = {1: 5, 2: 2, 3: 1, 4: 3, 5: 1}
+_TOURNEE_CENTRE_NAMES = {
+    "01": "MEDEA AGENCE TAHTOUH",
+    "02": "BERROUAGHIA",
+}
 
-    if not datereleve and _is_tournee_date(dateprevue) and dateprevue < today:
+
+def _tournee_date_as_of(value, today: str) -> str:
+    value = _tournee_value(value)
+    return value if _is_tournee_date(value) and value <= today else ""
+
+
+def _classify_tournee_status(record: dict, today: str) -> int | None:
+    datereleve = _tournee_date_as_of(record.get("DATERELEVE"), today)
+    dateprevue = _tournee_date_as_of(record.get("DATEPREVUE"), today)
+    deb_saisie = _tournee_date_as_of(record.get("DEB_SAISIE"), today)
+    editctl = _tournee_date_as_of(record.get("EDITCTL"), today)
+    editfac = _tournee_date_as_of(record.get("EDITFAC"), today)
+
+    if not datereleve and dateprevue and dateprevue < today:
         return 1
     if datereleve and not deb_saisie:
         return 2
@@ -853,12 +865,73 @@ def _classify_tournee_status(record: dict, today: str) -> int | None:
     return None
 
 
+def _tournee_identity(record: dict) -> tuple[str, str, str]:
+    return (
+        _tournee_value(record.get("UNITE")),
+        _tournee_value(record.get("CENTRE")).zfill(2),
+        _tournee_value(record.get("TOURNEE")),
+    )
+
+
+def _format_tournee_bilan(tournees: list[dict]) -> str:
+    categories = {
+        1: ("1️⃣", "DATE PREVUE DEPASSEE"),
+        2: ("2️⃣", "RELEVE EN ATTENTE DE SAISIE"),
+        3: ("3️⃣", "RELEVE EN ATTENTE DE CONTROLE"),
+        4: ("4️⃣", "EN ATTENTE D'EDITION"),
+        5: ("5️⃣", "EN ATTENTE DE PAIEMENT"),
+    }
+    by_centre: dict[str, dict[int, list[dict]]] = {}
+    for tour in tournees:
+        centre = _tournee_value(tour.get("CENTRE")).zfill(2)
+        by_centre.setdefault(centre, {}).setdefault(tour["code"], []).append(tour)
+
+    def tournee_sort_key(tour: dict) -> tuple[bool, int | str]:
+        value = _tournee_value(tour.get("TOURNEE"))
+        return (not value.isdigit(), int(value) if value.isdigit() else value)
+
+    blocks = []
+    for centre in sorted(by_centre):
+        lines = [
+            f"Centre {centre} : {_TOURNEE_CENTRE_NAMES.get(centre, f'CENTRE {centre}')}"
+        ]
+        for code in sorted(categories):
+            entries = by_centre[centre].get(code, [])
+            if not entries:
+                continue
+            emoji, label = categories[code]
+            lines.append(f"  {emoji} {code}. {label} !")
+            formatted = [
+                f"{tour['TOURNEE']}({tour['RELEVEUR']})/{tour['jours_retard']}J"
+                for tour in sorted(entries, key=tournee_sort_key)
+            ]
+            lines.append(f"     🚶 Tournees : {', '.join(formatted)} ({len(entries)})")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
 def _analyze_tournee_records(
     records: list[dict],
-    today: str,
+    today: str | None = None,
     allowed_centers: list[str] | None = None,
     selected_datfact: str | list[str] | None = None,
+    minimum_delay_days: dict[int, int] | None = None,
+    abonne_records: list[dict] | None = None,
+    facture_records: list[dict] | None = None,
+    invoice_records_by_numab: dict[str, list[dict]] | None = None,
 ) -> dict:
+    today = today or date.today().strftime("%Y%m%d")
+    if not _is_tournee_date(today):
+        raise ValueError("La date du bilan doit être au format AAAAMMJJ.")
+    delay_thresholds = dict(TOURNEE_MINIMUM_DELAY_DAYS)
+    if minimum_delay_days:
+        delay_thresholds.update(minimum_delay_days)
+    if any(
+        code not in range(1, 6) or not isinstance(days, int) or days < 0
+        for code, days in delay_thresholds.items()
+    ):
+        raise ValueError("Les seuils de retard doivent être des nombres positifs par catégorie.")
+
     available_datfacts = sorted(
         {
             _tournee_value(record.get("DATFACT"))
@@ -895,23 +968,92 @@ def _analyze_tournee_records(
             if _tournee_value(record.get("CENTRE")).zfill(2) in allowed
         ]
 
+    active_tour_identities = {_tournee_identity(record) for record in active_records}
+    subscribers_by_tour: dict[tuple[str, str, str], set[str]] = {}
+    tours_by_subscriber: dict[str, set[tuple[str, str, str]]] = {}
+    if abonne_records is not None:
+        for abonne in abonne_records:
+            identity = (
+                _tournee_value(abonne.get("UNITE")),
+                _tournee_value(abonne.get("SECTEUR")).zfill(2),
+                _tournee_value(abonne.get("TOURNEE")),
+            )
+            numab = _tournee_value(abonne.get("NUMAB")).upper()
+            if identity in active_tour_identities and numab:
+                subscribers_by_tour.setdefault(identity, set()).add(numab)
+                tours_by_subscriber.setdefault(numab, set()).add(identity)
+
+    relevant_numabs = {
+        numab
+        for subscribers in subscribers_by_tour.values()
+        for numab in subscribers
+    }
+    paid_tour_periods: set[tuple[tuple[str, str, str], str]] = set()
+
+    def record_paid_invoice(invoice: dict) -> None:
+        numab = _tournee_value(invoice.get("NUMAB")).upper()
+        datfact = _tournee_value(invoice.get("DATFACT"))
+        if (
+            numab not in relevant_numabs
+            or datfact not in selected_datfacts
+            or _tournee_value(invoice.get("PAIEMENT")).upper() != "C"
+        ):
+            return
+        paid_tour_periods.update(
+            (identity, datfact) for identity in tours_by_subscriber.get(numab, ())
+        )
+
+    if relevant_numabs and invoice_records_by_numab is not None:
+        for numab in relevant_numabs:
+            for invoice in invoice_records_by_numab.get(numab, []):
+                record_paid_invoice(invoice)
+    elif relevant_numabs and facture_records is not None:
+        for invoice in facture_records:
+            if _tournee_value(invoice.get("NUMAB")).upper() in relevant_numabs:
+                record_paid_invoice(invoice)
+
     tours = []
-    counts = {code: 0 for code in range(1, 5)}
+    counts = {code: 0 for code in range(1, 6)}
     for record in active_records:
+        dateprevue = _tournee_date_as_of(record.get("DATEPREVUE"), today)
+        if not dateprevue:
+            continue
         code = _classify_tournee_status(record, today)
+        if code is None and _tournee_date_as_of(record.get("EDITFAC"), today):
+            identity = _tournee_identity(record)
+            datfact = _tournee_value(record.get("DATFACT"))
+            if subscribers_by_tour.get(identity) and (
+                identity,
+                datfact,
+            ) not in paid_tour_periods and (
+                facture_records is not None or invoice_records_by_numab is not None
+            ):
+                code = 5
         if code is None:
+            continue
+        start_date = {
+            1: dateprevue,
+            2: _tournee_date_as_of(record.get("DATERELEVE"), today),
+            3: _tournee_date_as_of(record.get("DEB_SAISIE"), today),
+            4: _tournee_date_as_of(record.get("EDITCTL"), today),
+            5: _tournee_date_as_of(record.get("EDITFAC"), today),
+        }[code]
+        jours_retard = (datetime.strptime(today, "%Y%m%d") - datetime.strptime(start_date, "%Y%m%d")).days
+        if jours_retard < delay_thresholds[code]:
             continue
         counts[code] += 1
         tours.append({
             "UNITE": _tournee_value(record.get("UNITE")),
             "CENTRE": _tournee_value(record.get("CENTRE")),
             "TOURNEE": _tournee_value(record.get("TOURNEE")),
+            "RELEVEUR": _tournee_value(record.get("RELEVEUR")),
             "DATFACT": _tournee_value(record.get("DATFACT")),
             "DATEPREVUE": _tournee_value(record.get("DATEPREVUE")),
             "DATERELEVE": _tournee_value(record.get("DATERELEVE")),
             "DEB_SAISIE": _tournee_value(record.get("DEB_SAISIE")),
             "EDITCTL": _tournee_value(record.get("EDITCTL")),
             "EDITFAC": _tournee_value(record.get("EDITFAC")),
+            "jours_retard": jours_retard,
             "code": code,
         })
 
@@ -925,6 +1067,7 @@ def _analyze_tournee_records(
         "tournees_periode_active": len(active_records),
         "counts": counts,
         "tournees": tours,
+        "bilan_tournees": _format_tournee_bilan(tours),
     }
 
 is_db_ready = False
@@ -5330,8 +5473,12 @@ def get_analyses_releve(
     _user: dict = Depends(get_current_user),
     secteur: str = None,
     datfact: str = None,
+    today: str = None,
 ):
     secteur = _enforce_sector(_user, secteur)
+    bilan_date = today or date.today().strftime("%Y%m%d")
+    if not _is_tournee_date(bilan_date):
+        raise HTTPException(status_code=400, detail="La date du bilan doit être au format AAAAMMJJ.")
     dbf_path = resolve_dbf_path("TOURNEE.DBF")
     if not os.path.isfile(dbf_path):
         raise HTTPException(status_code=404, detail="Fichier TOURNEE.DBF introuvable.")
@@ -5340,7 +5487,7 @@ def get_analyses_releve(
         table = DBF(dbf_path, load=True, encoding="cp1256", char_decode_errors="ignore")
         required_fields = {
             "UNITE", "CENTRE", "TOURNEE", "DATFACT", "DATEPREVUE",
-            "DATERELEVE", "DEB_SAISIE", "EDITCTL", "EDITFAC",
+            "DATERELEVE", "DEB_SAISIE", "EDITCTL", "EDITFAC", "RELEVEUR",
         }
         missing_fields = required_fields.difference(table.field_names)
         if missing_fields:
@@ -5363,8 +5510,25 @@ def get_analyses_releve(
     }
     if set(requested_datfacts).difference(available_datfacts):
         raise HTTPException(status_code=400, detail="Période DATFACT indisponible.")
+
+    abonne_records = MEM_ABONNES or load_table_cached("ABONNE.DBF")
+    if not abonne_records:
+        raise HTTPException(status_code=503, detail="Les données des abonnés sont indisponibles pour le bilan.")
+    invoice_records_by_numab = factures_by_numab if indexes_ready and factures_by_numab else None
+    facture_records = None
+    if invoice_records_by_numab is None:
+        facture_records = MEM_FACTURES or load_table_cached("FACTURES.DBF")
+        if not facture_records:
+            raise HTTPException(status_code=503, detail="Les données de paiement sont indisponibles pour le bilan.")
+
     return _analyze_tournee_records(
-        records, date.today().strftime("%Y%m%d"), allowed_centers, requested_datfacts
+        records,
+        bilan_date,
+        allowed_centers,
+        requested_datfacts,
+        abonne_records=abonne_records,
+        facture_records=facture_records,
+        invoice_records_by_numab=invoice_records_by_numab,
     )
 
 

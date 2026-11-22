@@ -144,83 +144,6 @@ body {
   overflow-x: hidden;
 }
 
-@media screen {
-  :root {
-    font-size: clamp(16px, calc(15.5px + 0.25vw), 18px);
-  }
-
-  [class~="text-[9px]"] {
-    font-size: clamp(11px, calc(10.4px + 0.1538vw), 12px);
-  }
-
-  [class~="text-[10px]"] {
-    font-size: clamp(12px, calc(11px + 0.2564vw), 14px);
-  }
-
-  [class~="text-[11px]"],
-  .app-main thead th {
-    font-size: clamp(13px, calc(12.4px + 0.1538vw), 14px);
-  }
-
-  [class~="text-[12px]"] {
-    font-size: clamp(14px, calc(13.4px + 0.1538vw), 15px);
-  }
-
-  [class~="text-[13px]"],
-  [class~="sm:text-[13px]"] {
-    font-size: clamp(14px, calc(13.2px + 0.2051vw), 16px);
-  }
-
-  [class~="text-[15px]"] {
-    font-size: clamp(16px, calc(15.2px + 0.2051vw), 18px);
-  }
-
-  [class~="text-[22px]"] {
-    font-size: clamp(20px, calc(18.4px + 0.4103vw), 24px);
-  }
-
-  [class~="text-xs"] {
-    font-size: clamp(13px, calc(12.2px + 0.2051vw), 15px);
-  }
-
-  svg text[style*="font-size: 10px"] {
-    font-size: clamp(10px, calc(9.4px + 0.1538vw), 12px) !important;
-  }
-
-  svg text[style*="font-size: 11px"] {
-    font-size: clamp(11px, calc(10.4px + 0.1538vw), 13px) !important;
-  }
-
-  svg text[style*="font-size: 12px"] {
-    font-size: clamp(12px, calc(11.4px + 0.1538vw), 14px) !important;
-  }
-
-  :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) {
-    max-width: 100%;
-    min-width: 0;
-    font-size: max(1rem, 16px) !important;
-    line-height: 1.35;
-  }
-
-  table thead th {
-    font-size: clamp(13px, calc(12.4px + 0.1538vw), 14px) !important;
-  }
-
-  .app-main :is(label, p, h1, h2, h3) {
-    overflow-wrap: break-word;
-    word-break: normal;
-  }
-
-  .app-main table {
-    max-width: 100%;
-  }
-
-  .recharts-cartesian-axis-tick-value,
-  .recharts-legend-item-text {
-    font-size: clamp(11px, calc(10.4px + 0.1538vw), 13px) !important;
-  }
-}
-
 @media screen and (max-width: 1023px) {
   .oval-page-menu {
     display: none;
@@ -1665,6 +1588,12 @@ body {
   .oval-nav-avatar {
     width: 42px;
     height: 42px;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .oval-nav-tabs {
+    display: none;
   }
 }
 

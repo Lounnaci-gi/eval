@@ -44,7 +44,6 @@ const statusLabels: Record<TourneeStatus, string> = {
 };
 
 const columns: { key: TourneeColumnKey; label: string }[] = [
-  { key: "UNITE", label: "Unité" },
   { key: "CENTRE", label: "Centre" },
   { key: "TOURNEE", label: "Tournée" },
   { key: "observation", label: "Observation" },
@@ -79,11 +78,18 @@ const getTourneeObservation = (tour: TourneeRow) => {
   }
 };
 
+const getTourneeColumnValue = (tour: TourneeRow, key: TourneeColumnKey) =>
+  key === "observation"
+    ? getTourneeObservation(tour)
+    : String(tour[key] || "—");
+
 export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
   const [data, setData] = useState<AnalysisData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [columnFilters, setColumnFilters] = useState<Partial<Record<TourneeColumnKey, string>>>({});
   const [selectedDatfact, setSelectedDatfact] = useState("");
   const [filterYear, setFilterYear] = useState("");
   const [filterPeriod, setFilterPeriod] = useState("");
@@ -122,9 +128,24 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
     return () => controller.abort();
   }, [selectedDatfact]);
 
-  const visibleTours = (data?.tournees ?? []).filter(
-    (tour) => statusFilter === "all" || String(tour.code) === statusFilter,
-  ).sort((left, right) => {
+  const normalizedGlobalFilter = globalFilter.trim().toLowerCase();
+  const visibleTours = (data?.tournees ?? []).filter((tour) => {
+    if (statusFilter !== "all" && String(tour.code) !== statusFilter) return false;
+
+    const columnValues = columns.map(({ key }) => getTourneeColumnValue(tour, key));
+    const alertValue = `${tour.code} ${statusLabels[tour.code]}`;
+    if (
+      normalizedGlobalFilter &&
+      ![alertValue, ...columnValues].join(" ").toLowerCase().includes(normalizedGlobalFilter)
+    ) {
+      return false;
+    }
+
+    return columns.every(({ key }, index) => {
+      const filter = columnFilters[key]?.trim().toLowerCase();
+      return !filter || columnValues[index].toLowerCase().includes(filter);
+    });
+  }).sort((left, right) => {
     if (!sortKey) return 0;
 
     const getSortValue = (tour: TourneeRow) => {
@@ -153,6 +174,10 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
       setSortDirection("asc");
     }
   };
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    normalizedGlobalFilter.length > 0 ||
+    Object.values(columnFilters).some((filter) => Boolean(filter?.trim()));
   const availableYears = [...new Set((data?.available_datfacts ?? []).map((period) => period.slice(0, 4)))];
 
   const handleCopyBilan = async () => {
@@ -338,21 +363,46 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
             <h2 className="text-lg font-bold text-[#101828] dark:text-slate-100">Tournées concernées</h2>
-            <label className="flex items-center gap-2 text-sm font-medium text-[#475467] dark:text-slate-300">
-              État
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className="min-h-10 border border-[#D0D5DD] bg-white px-3 text-sm text-[#101828] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-              >
-                <option value="all">Tous les codes</option>
-                {([1, 2, 3, 4, 5] as TourneeStatus[]).map((code) => (
-                  <option key={code} value={code}>Code {code} · {statusLabels[code]}</option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1 text-xs font-medium text-[#475467] dark:text-slate-300">
+                Recherche globale
+                <input
+                  type="search"
+                  value={globalFilter}
+                  onChange={(event) => setGlobalFilter(event.target.value)}
+                  placeholder="Rechercher dans le tableau"
+                  className="min-h-10 w-64 max-w-full border border-[#D0D5DD] bg-white px-3 text-sm text-[#101828] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-medium text-[#475467] dark:text-slate-300">
+                État
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                  className="min-h-10 border border-[#D0D5DD] bg-white px-3 text-sm text-[#101828] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="all">Tous les codes</option>
+                  {([1, 2, 3, 4, 5] as TourneeStatus[]).map((code) => (
+                    <option key={code} value={code}>Code {code} · {statusLabels[code]}</option>
+                  ))}
+                </select>
+              </label>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGlobalFilter("");
+                    setColumnFilters({});
+                    setStatusFilter("all");
+                  }}
+                  className="min-h-10 border border-[#D0D5DD] bg-white px-3 text-sm font-semibold text-[#475467] hover:bg-[#F9FAFB] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+                >
+                  Effacer les filtres
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="table-scroll overflow-x-auto border border-[#E4E7EC] bg-white dark:border-slate-700 dark:bg-slate-900">
@@ -398,6 +448,31 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
                     );
                   })}
                 </tr>
+                <tr className="bg-white dark:bg-slate-900">
+                  <th scope="col" className="px-2 py-2">
+                    <span className="sr-only">Filtrage des alertes via le filtre État</span>
+                  </th>
+                  {columns.map((column) => (
+                    <th key={`filter-${column.key}`} scope="col" className="px-2 py-2">
+                      <label className="sr-only" htmlFor={`releve-filter-${column.key}`}>
+                        Filtrer par {column.label}
+                      </label>
+                      <input
+                        id={`releve-filter-${column.key}`}
+                        type="search"
+                        value={columnFilters[column.key] ?? ""}
+                        onChange={(event) =>
+                          setColumnFilters((filters) => ({
+                            ...filters,
+                            [column.key]: event.target.value,
+                          }))
+                        }
+                        placeholder={`Filtrer ${column.label.toLowerCase()}`}
+                        className="min-h-9 w-full min-w-24 border border-[#D0D5DD] bg-white px-2 text-xs font-normal normal-case text-[#101828] placeholder:text-[#98A2B3] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                      />
+                    </th>
+                  ))}
+                </tr>
               </thead>
               <tbody className="divide-y divide-[#E4E7EC] dark:divide-slate-700">
                 {visibleTours.map((tour) => (
@@ -420,7 +495,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
                 {visibleTours.length === 0 && (
                   <tr>
                     <td colSpan={columns.length + 1} className="px-4 py-10 text-center text-sm text-[#667085]">
-                      Aucune tournée pour ce code.
+                      Aucune tournée ne correspond aux filtres.
                     </td>
                   </tr>
                 )}

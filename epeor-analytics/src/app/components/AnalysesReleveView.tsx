@@ -124,7 +124,7 @@ export function AnalysesReleveView({ onBack }: { onBack: () => void }) {
 
   const visibleTours = (data?.tournees ?? []).filter(
     (tour) => statusFilter === "all" || String(tour.code) === statusFilter,
-  ).toSorted((left, right) => {
+  ).sort((left, right) => {
     if (!sortKey) return 0;
 
     const getSortValue = (tour: TourneeRow) => {

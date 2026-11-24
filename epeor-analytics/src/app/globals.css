@@ -1094,6 +1094,25 @@ a[href],
   display: none;
 }
 
+.scroll-tabs-hint {
+  scrollbar-width: thin;
+  scrollbar-color: #aab8bc transparent;
+}
+
+.scroll-tabs-hint::-webkit-scrollbar {
+  display: block;
+  height: 4px;
+}
+
+.scroll-tabs-hint::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-tabs-hint::-webkit-scrollbar-thumb {
+  background: #aab8bc;
+  border-radius: 999px;
+}
+
 .subscriber-network-viewport {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useMemo, useId } from "react";
 import dynamic from "next/dynamic";
 import {
-  ChevronRight, MapPin, Printer, Search,
+  ChevronDown, ChevronRight, MapPin, Printer, Search,
 } from "lucide-react";
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -495,8 +495,27 @@ export function GestionAbonnesShell({
             )}
           </div>
         </div>
-        <div className="mt-4 sm:mt-6 flex flex-col gap-3 xl:flex-row xl:items-center">
-          <ScrollableTabs className="w-full min-w-0 flex-1">
+        <div className="mt-4 sm:mt-6 flex flex-col gap-3">
+          <div className="relative xl:hidden">
+            <select
+              value={searchQuery ? '' : currentView}
+              onChange={(event) => {
+                setCurrentView(event.target.value);
+                setSearchQuery('');
+              }}
+              aria-label="Vue des abonnés"
+              className="min-h-12 w-full appearance-none rounded-xl border border-[#DDE5E8] bg-white px-4 pr-11 text-sm font-bold text-[#193F5D] shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            >
+              <option value="" disabled>Choisir une vue</option>
+              {tabs.map(tab => (
+                <option key={tab.id} value={tab.id}>{tab.label}</option>
+              ))}
+            </select>
+            <ChevronDown aria-hidden="true" size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-brand-700" />
+          </div>
+
+          <div className="hidden min-w-0 2xl:block">
+          <ScrollableTabs className="w-full min-w-0">
             {tabs.map(tab => (
               <ScrollableTab
                 key={tab.id}
@@ -510,8 +529,9 @@ export function GestionAbonnesShell({
               </ScrollableTab>
             ))}
           </ScrollableTabs>
+          </div>
 
-          <div className="relative w-full shrink-0 xl:w-80 2xl:w-96">
+          <div className="relative w-full max-w-xl self-end">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
             <input
               type="text"

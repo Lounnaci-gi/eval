@@ -537,9 +537,9 @@ export function GestionAbonnesShell({
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Code, raison sociale, adresse, tournée, série compteur..."
-              aria-label="Recherche par code abonné, raison sociale, adresse, tournée ou numéro de série; critères combinables par virgules"
-              title="Code, nom/raison sociale, adresse, tournée, numéro de série, chèque/versement ou état. Séparez les critères par des virgules; tous doivent correspondre au même abonné."
+              placeholder="Code, raison sociale, adresse, série compteur..."
+              aria-label="Recherche par code abonné, raison sociale, adresse ou numéro de série; critères combinables par virgules"
+              title="Code, nom/raison sociale, adresse, numéro de série, chèque/versement ou état. Séparez les critères par des virgules; tous doivent correspondre au même abonné."
               className="w-full min-h-10 text-sm sm:text-xs font-bold pl-9 pr-8 py-2 rounded-xl border border-[#E4E7EC]/80 bg-white text-[#101828] placeholder-[#98A2B3] focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all"
             />
             {searchQuery && (

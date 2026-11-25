@@ -579,7 +579,7 @@ export function CreanceDetailView({
         </div>
         <div style="text-align:right;font-family:Manrope,sans-serif;font-size:8.5px;color:#98A2B3;font-weight:600;line-height:1.7;">
           <div>Édité le : ${dateStr}</div>
-          <div>Unité : 26 — MEDEA &nbsp;|&nbsp; EPEOR Analytics</div>
+          <div>Unité : 26 — MEDEA &nbsp;|&nbsp; HydroPilot</div>
         </div>
       </div>`;
 

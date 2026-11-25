@@ -59,7 +59,7 @@ export function MobileTopBar() {
     <header className="mobile-topbar lg:hidden sticky top-0 z-40 flex items-center gap-3 border-b border-[#E4E7EC] bg-white/95 backdrop-blur-md px-4 py-3 safe-top no-print">
         <Logo variant="mobile" alt="Logo de l'Algérienne des Eaux" className="shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black text-[#101828] truncate">EPEOR Analytics</p>
+        <p className="text-sm font-black text-[#101828] truncate">HydroPilot</p>
         <p className="text-[10px] font-bold uppercase tracking-wider text-[#245A83]">{t('nav.dashboard')}</p>
       </div>
         <button

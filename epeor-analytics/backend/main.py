@@ -17,6 +17,7 @@ import math
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 import pickle  # nosec B403 - Utilisé uniquement pour le cache interne contrôlé
+import tempfile
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -691,6 +692,7 @@ _MAX_LOAD_RETRIES = 3
 
 # Bump this when the set of kept columns changes, to force cache rebuild.
 _CACHE_VERSION = "v3"
+_CACHE_CHUNK_SIZE = 10000
 
 # Columns actually used in code for FACTURES and AVOIR (excludes GUICHET,
 # CAISSIER, SAISI_PAR, RELEVEUR, NORME_CONS, TAUX_EVOL, TIMBPOS, MODECALCUL,
@@ -1225,6 +1227,63 @@ def _current_period_bounds() -> tuple[int, int]:
     now = datetime.now()
     return now.year, now.month
 
+
+def _write_pickle_cache(path: str, data: list[dict]) -> None:
+    temporary_path = None
+    stage = "création du fichier temporaire"
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode='wb',
+            dir=os.path.dirname(path),
+            prefix='.cache-',
+            suffix='.tmp',
+            delete=False,
+        ) as cache_file:
+            temporary_path = cache_file.name
+            pickle.dump(
+                (_CACHE_VERSION, "chunked", len(data)),
+                cache_file,
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
+            for start in range(0, len(data), _CACHE_CHUNK_SIZE):
+                stage = f"sérialisation des enregistrements à partir de {start}"
+                pickle.dump(
+                    data[start:start + _CACHE_CHUNK_SIZE],
+                    cache_file,
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                )
+        stage = "remplacement atomique du cache"
+        os.replace(temporary_path, path)
+    except OSError as error:
+        raise OSError(f"{error!r} pendant {stage}") from error
+    finally:
+        if temporary_path and os.path.exists(temporary_path):
+            os.unlink(temporary_path)
+
+
+def _read_pickle_cache(cache_file):
+    raw = pickle.load(cache_file)  # nosec B301 - Cache interne contrôlé
+    if (
+        isinstance(raw, tuple)
+        and len(raw) == 3
+        and raw[0] == _CACHE_VERSION
+        and raw[1] == "chunked"
+    ):
+        record_count = raw[2]
+        if not isinstance(record_count, int) or record_count < 0:
+            raise ValueError("En-tête de cache invalide")
+        data = []
+        while len(data) < record_count:
+            chunk = pickle.load(cache_file)  # nosec B301 - Cache interne contrôlé
+            if not isinstance(chunk, list) or not chunk:
+                raise ValueError("Fragment de cache invalide")
+            data.extend(chunk)
+            if len(data) > record_count:
+                raise ValueError("Nombre d'enregistrements incohérent dans le cache")
+        return (_CACHE_VERSION, data)
+    return raw
+
+
 def load_table_cached(filename, encoding='cp1256'):
     """Checks cache validation and loads DBF or Pickle binary for maximum speed.
 
@@ -1257,7 +1316,7 @@ def load_table_cached(filename, encoding='cp1256'):
                 gc.disable()
                 try:
                     with open(pkl_path, 'rb') as f:
-                        raw = pickle.load(f)  # nosec B301 - Cache interne contrôlé
+                        raw = _read_pickle_cache(f)
                 finally:
                     gc.enable()
                 # raw may be a plain list[dict] (old format) or
@@ -1273,25 +1332,17 @@ def load_table_cached(filename, encoding='cp1256'):
                     # Old format without version tag — rebuild to benefit from
                     # column filtering and versioned header.
                     print(f"[CACHE] Cache ancien format pour {filename}, reconstruction filtrée...")
-                    try:
-                        os.unlink(pkl_path)
-                    except OSError:
-                        pass
                 else:
                     print(f"[CACHE] Cache vide ou invalide pour {filename}, reconstruction...")
             except Exception as e:
                 print(f"Error reading cache for {filename}: {e}. Rebuilding...")
-                try:
-                    os.unlink(pkl_path)
-                except OSError:
-                    pass
 
     # Missing or invalid cache -> Load from DBF
     try:
         _set_loading_status(f"Import ({_dataset_label(filename)}) — préparation du cache…")
         t0 = time.time()
         print(f"[DISK] Parsing {filename} from DBF file (this runs once)...")
-        dbf = DBF(dbf_path, load=True, encoding=encoding, char_decode_errors='ignore')
+        dbf = DBF(dbf_path, load=False, encoding=encoding, char_decode_errors='ignore')
         if keep_cols:
             records = [{k: v for k, v in dict(r).items() if k in keep_cols} for r in dbf]
         else:
@@ -1301,11 +1352,10 @@ def load_table_cached(filename, encoding='cp1256'):
 
         # Save versioned filtered list to pickle
         try:
-            with open(pkl_path, 'wb') as f:
-                pickle.dump((_CACHE_VERSION, records), f, protocol=pickle.HIGHEST_PROTOCOL)  # nosec B301
+            _write_pickle_cache(pkl_path, records)
             print(f"[CACHE] Saved binary cache for {filename}.")
         except Exception as ce:
-            print(f"Error writing cache for {filename}: {ce}")
+            print(f"Error writing cache for {filename}: {ce!r}")
 
         return records
     except Exception as e:

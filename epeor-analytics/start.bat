@@ -4,7 +4,7 @@ set "ROOT=%~dp0"
 set "VENV=%ROOT%..\.venv\Scripts\python.exe"
 
 echo ===================================================
-echo       Lancement de EPEOR Analytics Dashboard
+echo       Lancement de HydroPilot
 echo ===================================================
 
 if not exist "%VENV%" (
@@ -17,14 +17,14 @@ if not exist "%VENV%" (
 
 echo [1/3] Lancement du Backend FastAPI (port 8000)...
 if "%EPEOR_DATA_DIR%"=="" (
-    start "EPEOR Backend" cmd /k "cd /d "%ROOT%backend" && "%VENV%" main.py"
+    start "HydroPilot - Backend" cmd /k "cd /d "%ROOT%backend" && "%VENV%" main.py"
 ) else (
     echo [INFO] Utilisation de la variable d'environnement existante EPEOR_DATA_DIR: %EPEOR_DATA_DIR%
-    start "EPEOR Backend" cmd /k "cd /d "%ROOT%backend" && set "EPEOR_DATA_DIR=%EPEOR_DATA_DIR%" && "%VENV%" main.py"
+    start "HydroPilot - Backend" cmd /k "cd /d "%ROOT%backend" && set "EPEOR_DATA_DIR=%EPEOR_DATA_DIR%" && "%VENV%" main.py"
 )
 
 echo [2/3] Lancement du Frontend Next.js (port 3000)...
-start "EPEOR Frontend" cmd /k "cd /d "%ROOT%" && npm run dev"
+start "HydroPilot - Interface" cmd /k "cd /d "%ROOT%" && npm run dev"
 
 echo.
 where ngrok >nul 2>&1

@@ -1,6 +1,6 @@
-# EPEOR Analytics
+# HydroPilot
 
-Tableau de bord d'analyse pour les données EPEOR. Stack : **Next.js** (frontend, port 3000) + **FastAPI** (backend, port 8000).
+Plateforme de pilotage et d'analyse des services de distribution d'eau. Stack : **Next.js** (frontend, port 3000) + **FastAPI** (backend, port 8000).
 
 ## Prérequis
 

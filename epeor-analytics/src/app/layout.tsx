@@ -20,8 +20,8 @@ const plexMono = IBM_Plex_Mono({
 
 
 export const metadata: Metadata = {
-  title: "EPEOR Insights - Analytics Dashboard",
-  description: "Système solide d'analyse de données EPEOR",
+  title: "HydroPilot | Pilotage des services d'eau",
+  description: "Pilotage et analyse des services de distribution d'eau.",
 };
 
 export const viewport: Viewport = {

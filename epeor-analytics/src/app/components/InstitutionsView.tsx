@@ -600,7 +600,7 @@ export function CreancesInstitutionsView({
       const res = await fetch(url.toString());
       if (res.status === 404) {
         setError(
-          'Route API introuvable (404). Fermez la fenêtre « EPEOR Backend » et relancez start.bat pour charger la dernière version du serveur.'
+          'Route API introuvable (404). Fermez la fenêtre du serveur et relancez start.bat pour charger la dernière version.'
         );
         setRows([]);
         return;
@@ -1265,7 +1265,7 @@ export function CreancesInstitutionsView({
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div style="display: flex; flex-direction: column;">
-                <span class="logo-text">EPEOR Analytics</span>
+                <span class="logo-text">HydroPilot</span>
                 <span class="company-name">Algérienne Des Eaux</span>
               </div>
             </div>
@@ -1790,7 +1790,7 @@ export function CreancesInstitutionsView({
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 25px; width: auto;" />
               <div style="display: flex; flex-direction: column;">
-                <span class="logo-text">EPEOR Analytics</span>
+                <span class="logo-text">HydroPilot</span>
                 <span class="company-name">Algérienne Des Eaux</span>
               </div>
             </div>
@@ -2160,7 +2160,7 @@ export function CreancesInstitutionsView({
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div style="display: flex; flex-direction: column;">
-                <span class="logo-text">EPEOR Analytics</span>
+                <span class="logo-text">HydroPilot</span>
                 <span class="company-name">Algérienne Des Eaux</span>
               </div>
             </div>

@@ -17,7 +17,7 @@
     "reloading": "جاري إعادة التحميل…",
     "reloadData": "إعادة تحميل البيانات",
     "configureFolder": "تكوين مجلد البيانات",
-    "alternativeRestart": "أو أغلق « EPEOR Backend » وأعد تشغيل start.bat — تحقّق من مجلد البيانات (EPEOR_DATA_DIR)"
+    "alternativeRestart": "أو أغلق نافذة الخادم وأعد تشغيل start.bat — تحقّق من مجلد البيانات"
   },
   "command": {
     "title": "بحث سريع",
@@ -82,7 +82,7 @@
     "confirm": "هل أنت متأكد من رغبتك في تسجيل الخروج؟"
   },
   "dashboard": {
-    "title": "لوحة تحليلات إيبور (EPEOR)",
+    "title": "لوحة تحليلات HydroPilot",
     "welcome": "مرحبًا بك في مساحة التحليل الخاصة بك",
     "greeting": "مرحباً {{name}} !",
     "subtitle": "اطّلع على الوضع العام لشبكتك اليوم.",
@@ -145,7 +145,7 @@
     }
   },
   "auth": {
-    "loginTitle": "الدخول إلى EPEOR Analytics",
+    "loginTitle": "تسجيل الدخول إلى HydroPilot",
     "loginSubtitle": "أدخل بيانات اعتمادك للوصول إلى مساحتك.",
     "username": "اسم المستخدم",
     "password": "كلمة المرور",
@@ -198,11 +198,11 @@
   "settings": {
     "title": "الإعدادات",
     "dataPath": "مجلد البيانات (DBF)",
-    "dataPathLabel": "مسار مجلد EPEOR",
+    "dataPathLabel": "مسار مجلد البيانات",
     "dataPathSave": "حفظ المسار",
     "dataPathSaved": "تم حفظ المسار بنجاح.",
     "dataPathError": "خطأ أثناء حفظ المسار.",
-    "dataPathPlaceholder": "مثال: D:\\epeor",
+    "dataPathPlaceholder": "مثال: D:\\Data",
     "cacheSection": "ذاكرة التخزين المؤقت للبيانات",
     "clearCache": "مسح الذاكرة المؤقتة",
     "cacheCleared": "تم مسح الذاكرة المؤقتة بنجاح.",

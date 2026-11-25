@@ -82,7 +82,7 @@
     "confirm": "Êtes-vous sûr de vouloir vous déconnecter ?"
   },
   "dashboard": {
-    "title": "Tableau de bord EPEOR Analytics",
+    "title": "Tableau de bord HydroPilot",
     "welcome": "Bienvenue sur votre espace d'analyse",
     "greeting": "Bonjour, {{name}} !",
     "subtitle": "Retrouvez la situation globale de votre réseau aujourd'hui.",
@@ -145,7 +145,7 @@
     }
   },
   "auth": {
-    "loginTitle": "Connexion à EPEOR Analytics",
+    "loginTitle": "Connexion à HydroPilot",
     "loginSubtitle": "Entrez vos identifiants pour accéder à votre espace.",
     "username": "Nom d'utilisateur",
     "password": "Mot de passe",
@@ -198,11 +198,11 @@
   "settings": {
     "title": "Paramètres",
     "dataPath": "Dossier des données (DBF)",
-    "dataPathLabel": "Chemin du dossier EPEOR",
+    "dataPathLabel": "Chemin du dossier de données",
     "dataPathSave": "Enregistrer le chemin",
     "dataPathSaved": "Chemin enregistré avec succès.",
     "dataPathError": "Erreur lors de l'enregistrement du chemin.",
-    "dataPathPlaceholder": "ex: D:\\epeor",
+    "dataPathPlaceholder": "Exemple : D:\\Donnees",
     "cacheSection": "Cache des données",
     "clearCache": "Vider le cache",
     "cacheCleared": "Cache vidé avec succès.",

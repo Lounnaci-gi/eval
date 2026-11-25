@@ -184,7 +184,7 @@ export function FloatingExpandableSidebar({
             <div className="sidebar-header border-b px-5 py-4">
               <Logo variant="sidebar" alt="Logo de l'Algérienne des Eaux" />
               <div className="mt-2">
-                <p className="truncate text-sm font-bold text-[#26313A] dark:text-slate-100">EPEOR Analytics</p>
+                <p className="truncate text-sm font-bold text-[#26313A] dark:text-slate-100">HydroPilot</p>
                 <p className="text-xs text-[#66757C] dark:text-slate-400">Lecture de données</p>
               </div>
             </div>

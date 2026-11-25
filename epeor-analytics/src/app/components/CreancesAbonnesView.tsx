@@ -869,7 +869,7 @@ export function CreancesAbonnesView({
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE" style="height: 40px; width: auto;" onerror="this.style.display='none'" />
               <div>
-                <div class="logo-text">EPEOR Analytics</div>
+                <div class="logo-text">HydroPilot</div>
                 <div class="company-name">Algérienne Des Eaux</div>
               </div>
             </div>
@@ -1509,7 +1509,7 @@ export function CreancesAbonnesView({
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 25px; width: auto;" />
               <div style="display: flex; flex-direction: column;">
-                <span class="logo-text">EPEOR Analytics</span>
+                <span class="logo-text">HydroPilot</span>
                 <span class="company-name">Algérienne Des Eaux</span>
               </div>
             </div>

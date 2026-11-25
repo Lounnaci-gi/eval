@@ -97,7 +97,7 @@ export function SettingsView({
       setDataDirMessage({ type: 'err', text: 'Indiquez le chemin du dossier contenant les fichiers DBF.' });
       return;
     }
-    const result = await showConfirm(`Utiliser ce dossier pour les données EPEOR ?\n\n${trimmed}\n\nLes données seront rechargées (quelques minutes).`, { title: "Confirmer le changement de dossier", icon: "question" });
+    const result = await showConfirm(`Utiliser ce dossier pour les données ?\n\n${trimmed}\n\nLes données seront rechargées (quelques minutes).`, { title: "Confirmer le changement de dossier", icon: "question" });
     if (!result.isConfirmed) {
       return;
     }
@@ -190,7 +190,7 @@ export function SettingsView({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
               <h2 className="page-title text-[#101828]">{t('settings.title')}</h2>
-              <p className="text-sm text-[#667085] mt-1 font-medium">{t('settings.subtitle', "Consultez la structure organisationnelle d'EPEOR, l'unité de gestion et ses centres associés.")}</p>
+              <p className="text-sm text-[#667085] mt-1 font-medium">{t('settings.subtitle', "Consultez la structure organisationnelle, l'unité de gestion et ses centres associés.")}</p>
             </div>
           </div>
         </div>
@@ -286,7 +286,7 @@ export function SettingsView({
       {(setupMode || (activeTab === 'system' && user?.is_admin)) && (
         <>
 
-      {/* Dossier données EPEOR */}
+      {/* Dossier de données */}
       <div className="bg-white border border-[#E4E7EC] shadow-sm rounded-[1.25rem] sm:rounded-[2rem] p-4 sm:p-6 lg:p-8 no-print">
         <div className="flex items-start gap-4 mb-6">
           <div className="w-12 h-12 bg-slate-100 text-[#245A83] rounded-2xl flex items-center justify-center shrink-0">
@@ -295,7 +295,7 @@ export function SettingsView({
           <div>
             <h3 className="text-lg font-black text-[#101828]">{t('settings.dataPath')}</h3>
             <p className="text-sm text-[#667085] mt-1 font-medium">
-              {t('settings.dataPathDesc', "Chemin du répertoire contenant les fichiers EPEOR (ABONNE.DBF, FACTURES.DBF, etc.). Le changement déclenche un rechargement complet.")}
+              {t('settings.dataPathDesc', "Chemin du répertoire contenant les fichiers de données (ABONNE.DBF, FACTURES.DBF, etc.). Le changement déclenche un rechargement complet.")}
             </p>
           </div>
         </div>
@@ -306,7 +306,7 @@ export function SettingsView({
           <div className="space-y-4">
             {dataDirInfo?.locked_by_env && (
               <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold">
-                {t('settings.dataPathLocked', "Chemin verrouillé par la variable d'environnement")} <span className="font-mono">EPEOR_DATA_DIR</span>.
+                {t('settings.dataPathLocked', "Chemin verrouillé par une variable d'environnement configurée")}.
                 {' '}{t('settings.dataPathLockedHint', 'Modifiez-la dans start.bat ou les paramètres Windows, puis redémarrez le backend.')}
               </div>
             )}

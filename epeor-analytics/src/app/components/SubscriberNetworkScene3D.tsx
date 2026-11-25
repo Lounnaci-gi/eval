@@ -1017,7 +1017,7 @@ export function SubscriberNetworkScene3D({ subscribers }: { subscribers: Network
       )}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-3 bg-gradient-to-b from-slate-950/90 to-transparent p-4 sm:p-5">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-sky-300">EPEOR · Deep space data</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-sky-300">HydroPilot · Réseau de distribution</p>
           <h3 className="mt-1 text-lg font-black text-white sm:text-xl">Amas globulaire des abonnés</h3>
           <p className="mt-1 text-xs text-slate-300">{subscribers.length.toLocaleString("fr-FR")} étoiles de données · {LEVEL_LABELS[activeLevel]}</p>
         </div>

@@ -1148,7 +1148,7 @@ export function CreanceVentilationView({
           <div class="header">
             <div class="logo-section">
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -1189,7 +1189,7 @@ export function CreanceVentilationView({
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Ventilation des créances</span>
+            <span>HydroPilot - Ventilation des créances</span>
             <span>Généré automatiquement</span>
           </div>
 
@@ -1438,7 +1438,7 @@ export function CreanceVentilationView({
                     );
                   })}
                   {ventilationFilter === 'ALL' && (
-                    <tr className="bg-slate-950 text-white relative z-20">
+                    <tr className="bg-slate-950 hover:!bg-slate-950 text-white relative z-20">
                       <td colSpan={3} className="px-8 py-7">
                         <div className="flex flex-col">
                           <span className="font-black uppercase tracking-[0.3em] text-[10px] text-slate-400 mb-1">Analyse Consolidée</span>
@@ -1771,7 +1771,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
           <div class="header">
             <div class="logo-section">
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -1820,7 +1820,7 @@ export function CreanceRepartitionView({ data, typeSectionFilter, setTypeSection
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Système d'analyse financière</span>
+            <span>HydroPilot - Système d'analyse financière</span>
             <span>Page 1 sur 1</span>
           </div>
 
@@ -2359,7 +2359,7 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
         <body>
           <div class="header">
             <div>
-              <div class="logo-text">EPEOR ANALYTICS</div>
+              <div class="logo-text">HydroPilot</div>
               <div class="company-name">Alg\u00e9rienne des Eaux</div>
             </div>
             <div class="title-section">
@@ -2392,7 +2392,7 @@ export function CreanceCommuneView({ data, onGoToCalculation, selectedSecteur = 
             <tbody>${tableRowsHtml}</tbody>
           </table>
           <div class="footer-info">
-            <span>EPEOR Analytics \u2014 Analyses Financi\u00e8res / R\u00e9partition par Commune</span>
+            <span>HydroPilot \u2014 Analyses Financi\u00e8res / R\u00e9partition par Commune</span>
             <span>${printDate}</span>
           </div>
           <script>window.onload=function(){setTimeout(function(){window.print();},500);};<\/script>
@@ -2846,7 +2846,7 @@ export function BilanActiviteView({
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 25px; width: auto;" />
               <div style="display: flex; flex-direction: column;">
-                <div class="logo-text">EPEOR ANALYTICS</div>
+                <div class="logo-text">HydroPilot</div>
                 <div class="company-name">Alg\u00e9rienne des Eaux</div>
               </div>
             </div>
@@ -2883,7 +2883,7 @@ export function BilanActiviteView({
             <tbody>${tableRowsHtml}</tbody>
           </table>
           <div class="footer-info">
-            <span>EPEOR Analytics \u2014 Bilan d'activit\u00e9 / Communes associ\u00e9es \u2014 ${filteredCommunes.length} commune${filteredCommunes.length > 1 ? 's' : ''}</span>
+            <span>HydroPilot \u2014 Bilan d'activit\u00e9 / Communes associ\u00e9es \u2014 ${filteredCommunes.length} commune${filteredCommunes.length > 1 ? 's' : ''}</span>
             <span>${printDate}</span>
           </div>
           <script>window.onload=function(){setTimeout(function(){window.print();},500);};<\/script>
@@ -3102,7 +3102,7 @@ export function BilanActiviteView({
           doc.setTextColor(102, 112, 133);
           const pageCount = doc.getNumberOfPages();
           doc.text(`Page ${dataDraw.pageNumber} sur ${pageCount}`, pageWidth - 40, doc.internal.pageSize.height - 15, { align: 'right' });
-          doc.text(`EPEOR Analytics — Bilan d'activité — Généré le ${new Date().toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`, 25, doc.internal.pageSize.height - 15);
+          doc.text(`HydroPilot — Bilan d'activité — Généré le ${new Date().toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`, 25, doc.internal.pageSize.height - 15);
         }
       });
 
@@ -3871,7 +3871,7 @@ export function Type7SubscriberReport({
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="Logo ADE">
               <div>
-                <div class="brand-name">EPEOR Analytics</div>
+                <div class="brand-name">HydroPilot</div>
                 <div class="company-name">Algérienne Des Eaux</div>
               </div>
             </div>
@@ -4130,7 +4130,7 @@ export function Type7SubscriberReport({
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="Logo ADE">
               <div>
-                <div class="brand-name">EPEOR Analytics</div>
+                <div class="brand-name">HydroPilot</div>
                 <div class="company-name">Algérienne Des Eaux</div>
               </div>
             </div>

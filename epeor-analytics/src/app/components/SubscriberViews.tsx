@@ -429,7 +429,7 @@ export function GestionAbonnesShell({
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -447,7 +447,7 @@ export function GestionAbonnesShell({
             <tbody>${tableRows || `<tr><td colspan="3">Aucune donnée disponible.</td></tr>`}</tbody>
             <tfoot><tr><td>Total</td><td class="number">${total.toLocaleString('fr-FR')}</td><td class="number">${total ? '100,00%' : '0,00%'}</td></tr></tfoot>
           </table>
-          <div class="footer-info"><span>EPEOR Analytics - Gestion Abonnés</span><span>Page 1 sur 1</span></div>
+          <div class="footer-info"><span>HydroPilot - Gestion Abonnés</span><span>Page 1 sur 1</span></div>
           <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
         </body>
       </html>`);
@@ -1141,7 +1141,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div style="display: flex; flex-direction: column;">
-                <span class="logo-text">EPEOR Analytics</span>
+                <span class="logo-text">HydroPilot</span>
                 <span class="company-name">Algérienne Des Eaux</span>
               </div>
             </div>
@@ -1408,7 +1408,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -1446,7 +1446,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Gestion Abonnés</span>
+            <span>HydroPilot - Gestion Abonnés</span>
             <span>Page 1 sur 1</span>
           </div>
 
@@ -1638,7 +1638,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -1675,7 +1675,7 @@ function DetailedStatsView({ stats, selectedSecteur = '', secteurLabel }: any) {
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Gestion Abonnés</span>
+            <span>HydroPilot - Gestion Abonnés</span>
             <span>Page 1 sur 1</span>
           </div>
 
@@ -2260,7 +2260,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div style="display: flex; flex-direction: column;">
-                <span class="logo-text">EPEOR Analytics</span>
+                <span class="logo-text">HydroPilot</span>
                 <span class="company-name">Algérienne Des Eaux</span>
               </div>
             </div>
@@ -2498,7 +2498,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -2534,7 +2534,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Gestion Abonnés (Résiliés)</span>
+            <span>HydroPilot - Gestion Abonnés (Résiliés)</span>
             <span>Page 1 sur 1</span>
           </div>
 
@@ -2718,7 +2718,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -2754,7 +2754,7 @@ function ResignedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel 
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Gestion Abonnés (Résiliés)</span>
+            <span>HydroPilot - Gestion Abonnés (Résiliés)</span>
             <span>Page 1 sur 1</span>
           </div>
 
@@ -3245,7 +3245,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div style="display: flex; flex-direction: column;">
-                <span class="logo-text">EPEOR Analytics</span>
+                <span class="logo-text">HydroPilot</span>
                 <span class="company-name">Algérienne Des Eaux</span>
               </div>
             </div>
@@ -3502,7 +3502,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -3538,7 +3538,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Gestion Abonnés (À l'arrêt)</span>
+            <span>HydroPilot - Gestion Abonnés (À l'arrêt)</span>
             <span>Page 1 sur 1</span>
           </div>
 
@@ -3721,7 +3721,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           <div class="header">
             <div class="logo-section">
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -3757,7 +3757,7 @@ function StoppedDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Gestion Abonnés (À l'arrêt)</span>
+            <span>HydroPilot - Gestion Abonnés (À l'arrêt)</span>
             <span>Page 1 sur 1</span>
           </div>
 
@@ -4251,7 +4251,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div style="display: flex; flex-direction: column;">
-                <span class="logo-text">EPEOR Analytics</span>
+                <span class="logo-text">HydroPilot</span>
                 <span class="company-name">Algérienne Des Eaux</span>
               </div>
             </div>
@@ -4490,7 +4490,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -4526,7 +4526,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Gestion Abonnés (Sans compteur)</span>
+            <span>HydroPilot - Gestion Abonnés (Sans compteur)</span>
             <span>Page 1 sur 1</span>
           </div>
 
@@ -4710,7 +4710,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="ADE Logo" style="height: 40px; width: auto;" />
               <div>
-                <h1 class="logo-text">EPEOR ANALYTICS</h1>
+                <h1 class="logo-text">HydroPilot</h1>
                 <div class="company-name">Algérienne des Eaux</div>
               </div>
             </div>
@@ -4746,7 +4746,7 @@ function NoMeterDetailView({ stats, onBack, selectedSecteur = '', secteurLabel }
           </table>
 
           <div class="footer-info">
-            <span>EPEOR Analytics - Gestion Abonnés (Sans compteur)</span>
+            <span>HydroPilot - Gestion Abonnés (Sans compteur)</span>
             <span>Page 1 sur 1</span>
           </div>
 

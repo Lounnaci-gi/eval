@@ -460,7 +460,7 @@ export default function Dashboard() {
               <Logo variant="login" />
             </div>
             
-            <h1 className="text-2xl font-bold tracking-tight text-[#26313A] dark:text-slate-100">EPEOR Analytics</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-[#26313A] dark:text-slate-100">HydroPilot</h1>
             <p className="mt-2 text-sm font-medium text-[#56636D] dark:text-slate-400">
               Accédez au tableau de bord en toute sécurité.
             </p>
@@ -659,7 +659,7 @@ export default function Dashboard() {
           </form>
 
           <p className="mt-8 text-center text-xs text-[#66757C] dark:text-slate-500">
-            EPEOR Analytics &copy; {new Date().getFullYear()}
+            HydroPilot &copy; {new Date().getFullYear()}
           </p>
 
           </div>
@@ -677,7 +677,7 @@ export default function Dashboard() {
               E
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-tight">EPEOR Analytics</h1>
+              <h1 className="text-lg font-black tracking-tight">HydroPilot</h1>
               <p className="text-xs text-[#667085] font-medium">Configuration du dossier de données requise</p>
             </div>
           </div>
@@ -687,7 +687,7 @@ export default function Dashboard() {
             <p className="font-black mb-1">Dossier de données introuvable ou incomplet</p>
             <p className="font-medium text-amber-900/90">
               {sanitizeUserFacingMessage(dataPathInfo?.diagnostic || stats?.message || stats?.error) ||
-                "Indiquez le chemin du dossier contenant les fichiers de données EPEOR, puis appliquez le changement."}
+                "Indiquez le chemin du dossier contenant les fichiers de données, puis appliquez le changement."}
             </p>
             {dataPathInfo?.data_dir && (
               <p className="mt-3 text-xs font-mono text-amber-800/80 bg-white/60 px-3 py-2 rounded-lg border border-amber-100">
@@ -731,7 +731,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <Logo variant="login" className="h-10 w-10 rounded-xl" />
             <div>
-              <p className="text-sm font-extrabold tracking-tight text-[#101828]">EPEOR Analytics</p>
+              <p className="text-sm font-extrabold tracking-tight text-[#101828]">HydroPilot</p>
               <p className="text-xs font-medium text-[#667085]">{t('loading.systemLabel')}</p>
             </div>
           </div>
@@ -817,7 +817,7 @@ export default function Dashboard() {
           </section>
         </main>
         <footer className="relative z-10 px-5 pb-5 text-center text-xs font-medium text-[#667085]">
-          EPEOR Analytics <span aria-hidden="true">·</span> {new Date().getFullYear()}
+          HydroPilot <span aria-hidden="true">·</span> {new Date().getFullYear()}
         </footer>
       </div>
     );

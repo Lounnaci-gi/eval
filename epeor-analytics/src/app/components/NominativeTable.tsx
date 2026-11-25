@@ -873,7 +873,7 @@ function PaginatedNominativeTable({ subscribers, style, setHoveredSub, setMouseP
             <div class="logo-section">
               <img src="${window.location.origin}/ade.png" alt="Logo ADE" />
               <div>
-                <div class="brand-name">EPEOR Analytics</div>
+                <div class="brand-name">HydroPilot</div>
                 <div class="company-name">Algérienne Des Eaux</div>
               </div>
             </div>
